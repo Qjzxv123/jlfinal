@@ -1,5 +1,5 @@
 // netlify/functions/faire-oauth-start.js
-exports.handler = async (event) => {
+export default async (event) => {
   // TODO: Replace with your Faire OAuth client ID and redirect URI
   const clientId = process.env.FAIRE_CLIENT_ID;
   const redirectUri = process.env.FAIRE_REDIRECT_URI;

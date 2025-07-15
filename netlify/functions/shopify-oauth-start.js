@@ -1,21 +1,16 @@
 // netlify/functions/shopify-oauth-start.js
-exports.handler = async (event) => {
-  // TODO: Replace with your Shopify API key and redirect URI
+export default async (request) => {
   const clientId = process.env.SHOPIFY_API_KEY;
   const redirectUri = process.env.SHOPIFY_REDIRECT_URI;
-  const shop = event.queryStringParameters && event.queryStringParameters.shop;
+  // Use URL API to parse query parameters from request.url
+  const urlObj = new URL(request.url);
+  const shop = urlObj.searchParams.get('shop');
+  console.log('request.url:', request.url);
+  console.log('shop:', shop);
   if (!shop) {
-    return {
-      statusCode: 400,
-      body: 'Missing shop parameter',
-    };
+    return new Response('Missing shop parameter', { status: 400 });
   }
   const state = Math.random().toString(36).substring(2);
-  const url = `https://${shop}/admin/oauth/authorize?client_id=${clientId}&scope=read_products,read_orders&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_type=code`;
-  return {
-    statusCode: 302,
-    headers: {
-      Location: url,
-    },
-  };
+  const redirect = `https://${shop}/admin/oauth/authorize?client_id=${clientId}&scope=read_products,read_orders&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_type=code`;
+  return Response.redirect(redirect, 302);
 };

@@ -1,7 +1,7 @@
 // netlify/functions/save-user-to-supabase.js
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
-exports.handler = async (event) => {
+export default async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }

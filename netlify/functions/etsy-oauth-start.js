@@ -1,5 +1,5 @@
 // netlify/functions/etsy-oauth-start.js
-exports.handler = async (event) => {
+export default async (event) => {
   // TODO: Replace with your Etsy OAuth client ID and redirect URI
   const clientId = process.env.ETSY_CLIENT_ID;
   const redirectUri = process.env.ETSY_REDIRECT_URI;
