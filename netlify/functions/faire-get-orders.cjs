@@ -1,7 +1,12 @@
 // netlify/functions/faire-get-orders.cjs
 
 const { getValidToken } = require('./faire-token-utils.cjs');
-const fetch = require('node-fetch');
+let fetchFn;
+if (typeof fetch !== 'undefined') {
+  fetchFn = fetch;
+} else {
+  fetchFn = require('node-fetch');
+}
 
 exports.handler = async (event) => {
   try {
@@ -43,7 +48,7 @@ exports.handler = async (event) => {
     const url = 'https://www.faire.com/external-api/v2/orders?limit=50&excluded_states=DELIVERED,BACKORDERED,CANCELED,NEW,PRE_TRANSIT,IN_TRANSIT';
     let response;
     try {
-      response = await fetch(url, {
+      response = await fetchFn(url, {
         headers: {
           'X-FAIRE-APP-CREDENTIALS': credentials,
           'X-FAIRE-OAUTH-ACCESS-TOKEN': apiToken,
@@ -89,6 +94,7 @@ exports.handler = async (event) => {
       };
       orders.push(orderData);
     }
+    console.log(`Added ${orders.length} orders to Supabase`);
     return {
       statusCode: 200,
       body: JSON.stringify(orders)

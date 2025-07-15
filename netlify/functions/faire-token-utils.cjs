@@ -30,8 +30,8 @@ async function refreshToken(userKey, refreshToken) {
 
 async function getValidToken(userKey) {
   const row = await getTokenRow(userKey);
-  // Check if the token is still valid
-  if (row.expires_at && row.expires_at > Date.now()) {
+  // If expires_at is not set, treat as non-expiring (Faire tokens do not expire by default)
+  if (!row.expires_at || row.expires_at > Date.now()) {
     return row.access_token;
   }
   if (row.refresh_token) {
