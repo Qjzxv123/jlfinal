@@ -8,4 +8,14 @@ function startOAuth(provider) {
 
 document.getElementById('faire-btn').onclick = () => startOAuth('faire');
 document.getElementById('etsy-btn').onclick = () => startOAuth('etsy');
-document.getElementById('shopify-btn').onclick = () => startOAuth('shopify');
+
+// Shopify: Use input value for domain
+document.getElementById('shopify-btn').onclick = () => {
+  const domain = document.getElementById('shopify-domain').value.trim();
+  if (!domain) {
+    alert('Please enter your Shopify domain.');
+    return;
+  }
+  // Redirect to the Netlify function with the shop as a query parameter
+  window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(domain)}`;
+};

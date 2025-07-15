@@ -2,11 +2,24 @@
 export default async (request) => {
   const clientId = process.env.SHOPIFY_API_KEY;
   const redirectUri = process.env.SHOPIFY_REDIRECT_URI;
-  // Use URL API to parse query parameters from request.url
-  const urlObj = new URL(request.url);
-  const shop = urlObj.searchParams.get('shop');
-  console.log('request.url:', request.url);
-  console.log('shop:', shop);
+  console.log('clientId:', clientId);
+  console.log('redirectUri:', redirectUri);
+  let shop;
+  if (request.method === 'POST') {
+    try {
+      const body = await request.json();
+      shop = body.domain;
+      console.log('POST body domain:', shop);
+    } catch (e) {
+      return new Response('Invalid JSON body', { status: 400 });
+    }
+  } else {
+    // Use URL API to parse query parameters from request.url
+    const urlObj = new URL(request.url);
+    shop = urlObj.searchParams.get('shop');
+    console.log('request.url:', request.url);
+    console.log('shop:', shop);
+  }
   if (!shop) {
     return new Response('Missing shop parameter', { status: 400 });
   }
