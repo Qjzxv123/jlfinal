@@ -41,18 +41,13 @@ exports.handler = async (event) => {
   // const supabase = require('./supabase-client.cjs');
   // await supabase.from('shopify_tokens').upsert({ shop, access_token: tokenData.access_token });
 
-  // Success HTML
-  const html = `
-    <h1>Shopify OAuth Success</h1>
-    <p>Shop: ${shop}</p>
-    <p>Access Token: ${tokenData.access_token}</p>
-    <p>Scope: ${tokenData.scope}</p>
-    <p>Associated User: ${tokenData.associated_user ? JSON.stringify(tokenData.associated_user) : 'N/A'}</p>
-    <p>App installed! You can now close this window.</p>
-  `;
+  // Redirect to app UI after authentication
   return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'text/html' },
-    body: html,
+    statusCode: 302,
+    headers: {
+      Location: '/ecommerce-oauth.html',
+      'Cache-Control': 'no-store'
+    },
+    body: ''
   };
 };
