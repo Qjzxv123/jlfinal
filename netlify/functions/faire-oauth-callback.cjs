@@ -1,12 +1,13 @@
 // netlify/functions/faire-oauth-callback.cjs
 exports.handler = async (event) => {
 
-  const urlObj = new URL(event.rawUrl || event.headers['x-original-url'] || '', 'http://localhost');
-  const code = urlObj.searchParams.get('code');
-  const state = urlObj.searchParams.get('state');
-  console.log('[DEBUG] Callback received:', { code, state });
 
-  if (!code) {
+  const urlObj = new URL(event.rawUrl || event.headers['x-original-url'] || '', 'http://localhost');
+  const authorizationCode = urlObj.searchParams.get('code');
+  const state = urlObj.searchParams.get('state');
+  console.log('[DEBUG] Callback received:', { authorizationCode, state });
+
+  if (!authorizationCode) {
     console.log('[DEBUG] Missing code parameter');
     return {
       statusCode: 400,
@@ -14,27 +15,48 @@ exports.handler = async (event) => {
     };
   }
 
-  // Exchange code for access token with Faire
-  const clientId = process.env.FAIRE_CLIENT_ID;
-  const clientSecret = process.env.FAIRE_CLIENT_SECRET;
-  const redirectUri = process.env.FAIRE_REDIRECT_URI;
-  console.log('[DEBUG] Using clientId:', clientId);
-  console.log('[DEBUG] Using redirectUri:', redirectUri);
+  // Exchange code for access token with Faire v2 OAuth endpoint
+  const applicationId = process.env.FAIRE_CLIENT_ID;
+  const applicationSecret = process.env.FAIRE_CLIENT_SECRET;
+  const redirectUrl = process.env.FAIRE_REDIRECT_URI;
+  const scope = process.env.FAIRE_OAUTH_SCOPE ? process.env.FAIRE_OAUTH_SCOPE.split(',') : [
+    'READ_ORDERS',
+    'READ_PRODUCTS',
+    'READ_BRAND',
+    // add more as needed
+  ];
   let tokenResponse, tokenData;
   try {
-    tokenResponse = await fetch('https://www.faire.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code',
-      }),
-    });
-    tokenData = await tokenResponse.json();
-    console.log('[DEBUG] Token response:', tokenData);
+    if (authorizationCode === 'testcode') {
+      // Mock response for local testing
+      tokenData = {
+        access_token: 'mock_access_token',
+        refresh_token: 'mock_refresh_token',
+        expires_in: 3600,
+        token_type: 'BEARER',
+        mock: true
+      };
+      tokenResponse = { ok: true };
+      console.log('[DEBUG] Mock token response:', tokenData);
+    } else {
+      tokenResponse = await fetch('https://www.faire.com/api/external-api-oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          application_token: applicationId,
+          application_secret: applicationSecret,
+          redirect_url: redirectUrl,
+          scope,
+          grant_type: 'AUTHORIZATION_CODE',
+          authorization_code: authorizationCode,
+        }),
+      });
+      tokenData = await tokenResponse.json();
+      console.log('[DEBUG] Token response:', tokenData);
+      if (!tokenResponse.ok || !tokenData.access_token) {
+        throw new Error(tokenData.error_description || tokenData.error || 'No access_token in response');
+      }
+    }
   } catch (err) {
     console.log('[DEBUG] Error exchanging code for token:', err);
     return {
@@ -43,27 +65,32 @@ exports.handler = async (event) => {
     };
   }
 
-  // Save token to a JSON file (for testing/demo purposes only)
-  const fs = require('fs');
-  const path = require('path');
-  const savePath = path.join(__dirname, 'faire-tokens.json');
-  let tokens = [];
+
+
+  // Save token to Supabase
   try {
-    if (fs.existsSync(savePath)) {
-      tokens = JSON.parse(fs.readFileSync(savePath, 'utf8'));
+    const { saveTokenRow } = require('./faire-token-utils.cjs');
+    // Calculate expires_at if present
+    let expires_at = null;
+    if (tokenData.expires_in) {
+      expires_at = Date.now() + (tokenData.expires_in * 1000);
     }
-  } catch (e) {}
-  tokens.push({ code, state, tokenData, created: new Date().toISOString() });
-  try {
-    fs.writeFileSync(savePath, JSON.stringify(tokens, null, 2));
-  } catch (e) {}
+    await saveTokenRow(state, {
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token || null,
+      expires_at,
+      token_type: tokenData.token_type || tokenData.tokenType || null
+    });
+  } catch (e) {
+    console.log('[DEBUG] Error saving token to Supabase:', e);
+  }
 
   const html = `
     <h1>Faire OAuth Callback</h1>
-    <p>Code: ${code}</p>
+    <p>Authorization Code: ${authorizationCode}</p>
     <p>State: ${state}</p>
     <pre>${JSON.stringify(tokenData, null, 2)}</pre>
-    <p>Token saved to faire-tokens.json (server-side only).</p>
+    <p>Token saved to Supabase (server-side only).</p>
   `;
   return {
     statusCode: 200,
