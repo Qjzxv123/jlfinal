@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Customer Orders - J&L</title>
+    <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            color: #333;
+        }
+        
+        /* Sidebar Styles (from AddIngredient) */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 60px;
+            height: 100vh;
+            background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            z-index: 1000;
+            transition: width 0.3s ease;
+            overflow-x: hidden;
+            overflow-y: hidden;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar:hover {
+            width: 250px;
+        }
+        .sidebar-header {
+            padding: 0.75rem;
+            border-bottom: 1px solid #34495e;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 1rem;
+            color: #ecf0f1;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        .sidebar:not(:hover) .sidebar-header h2 {
+            opacity: 0;
+        }
+        .sidebar:hover .sidebar-header h2 {
+            font-size: 1.3rem;
+        }
+        .sidebar-nav {
+            padding: 0.5rem 0;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+            white-space: nowrap;
+        }
+        .nav-item:hover {
+            background: rgba(255,255,255,0.1);
+            border-left-color: #4DBA93;
+            color: white;
+        }
+        .nav-item.active {
+            background: rgba(77,186,147,0.2);
+            border-left-color: #4DBA93;
+            color: white;
+        }
+        .nav-item i {
+            margin-right: 0.5rem;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .nav-item span {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .sidebar:hover .nav-item span {
+            opacity: 1;
+        }
+        .sidebar:hover .nav-item {
+            padding: 0.75rem 1.5rem;
+        }
+        
+        /* Main content adjustments */
+        .main-content {
+            margin-left: 50px;
+            transition: margin-left 0.3s ease;
+            width: calc(100% - 50px);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        
+        .main-content.expanded {
+            margin-left: 50px;
+            width: calc(100% - 50px);
+        }
+        
+        #main-container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+            padding: 2.5rem 2.5rem 2.5rem 2.5rem;
+            margin-top: 3rem;
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        h2, h3 {
+            color: #2d3748;
+            margin-bottom: 1rem;
+        }
+        
+        form {
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        input[type="email"], input[type="password"], input[type="text"] {
+            width: 90%;
+            padding: 0.7rem;
+            margin: 0.5rem 0;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            font-size: 1rem;
+        }
+        
+        button[type="submit"], .btn {
+            background: #228B22;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.7rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0.3rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        button[type="submit"]:hover, .btn:hover {
+            background: #176317;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        #message {
+            margin: 1rem 0 0.5rem 0;
+            min-height: 1.5rem;
+            font-size: 1rem;
+            text-align: center;
+        }
+        
+        #data-viewer {
+            margin-top: 1.5rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            width: 100%;
+            min-height: 60px;
+            color: #22223b;
+            font-size: 1rem;
+            white-space: pre-line;
+            box-sizing: border-box;
+        }
+        
+        table {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            width: 100%;
+            margin-top: 1rem;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 10px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        th {
+            background: #f1f5f9;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+        
+        tr:hover td {
+            background: #e2e8f0;
+        }
+        
+        .error {
+            color: #b91c1c;
+            font-weight: 500;
+        }
+        
+        .success {
+            color: #059669;
+            font-weight: 500;
+        }
+        
+        .order-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .status-unfulfilled {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-cancelled {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .status-fulfilled {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .order-actions {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+        
+        .order-actions button {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            margin: 0;
+            white-space: nowrap;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #2d3748;
+        }
+        
+        .close {
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6c757d;
+        }
+        
+        .close:hover {
+            color: #dc3545;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        
+        .form-group select {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            font-size: 1rem;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        
+        .form-group textarea {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            font-size: 1rem;
+            box-sizing: border-box;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        .form-group select:focus,
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4DBA93;
+            box-shadow: 0 0 0 2px rgba(77, 186, 147, 0.2);
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+        
+        /* Items Management Styles */
+        .current-items-section h4,
+        .add-item-section h4 {
+            margin: 0 0 1rem 0;
+            color: #374151;
+            font-size: 1.1rem;
+        }
+        
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        
+        .items-table th,
+        .items-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .items-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .items-table tr:hover td {
+            background: #f1f5f9;
+        }
+        
+        .remove-item-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        
+        .remove-item-btn:hover {
+            background: #c82333;
+        }
+        
+        .no-items-message {
+            text-align: center;
+            color: #6b7280;
+            font-style: italic;
+            padding: 2rem;
+        }
+        
+        @media (max-width: 800px) {
+            .sidebar {
+                transform: translateX(-250px);
+            }
+            
+            .sidebar:hover {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+            
+            .main-content.expanded {
+                margin-left: 0;
+                width: 100%;
+            }
+            
+            #main-container {
+                padding: 1rem;
+                max-width: 98vw;
+                margin-top: 1rem;
+            }
+            
+            table {
+                font-size: 0.875rem;
+            }
+            
+            th, td {
+                padding: 8px 6px;
+            }
+            
+            .order-actions {
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+            
+            .order-actions button {
+                font-size: 0.75rem;
+                padding: 0.375rem 0.5rem;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <!-- Sidebar (from AddIngredient) -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>J&L Tools</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="InventoryViewer.html" class="nav-item">
+          <i class="cil-storage"></i><span>Inventory Viewer</span>
+        </a>
+        <a href="CustomerOrders.html" class="nav-item active">
+          <i class="cil-user"></i><span>Customer Orders</span>
+        </a>
+        <a href="AddProduct.html" class="nav-item">
+          <i class="cil-plus"></i><span>Add Product</span>
+        </a>
+      </nav>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <div id="main-container">
+            <h2>Customer Order Management</h2>
+            <div id="message"></div>
+            <!-- Order Management Interface (hidden until authenticated) -->
+            <div id="order-interface" style="display:none;">
+                <h3>Your Active Orders</h3>
+                <div id="active-orders-viewer"></div>
+                <h3 style="margin-top:2.5rem;">Order History</h3>
+                <div id="order-history-viewer"></div>
+            </div>
+            <!-- Manage Items Modal -->
+            <div id="add-item-modal" class="modal" style="display:none;">
+                <div class="modal-content" style="max-width: 800px;">
+                    <div class="modal-header">
+                        <h3>Manage Order Items</h3>
+                        <span class="close" onclick="closeAddItemModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="modal-order-id" />
+                        <!-- Current Items Table -->
+                        <div class="current-items-section">
+                            <h4>Current Items</h4>
+                            <div id="current-items-table"></div>
+                        </div>
+                        <!-- Add New Item Form -->
+                        <div class="add-item-section" style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0;">
+                            <h4>Add New Item</h4>
+                            <form id="add-item-form">
+                                <div style="display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
+                                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                                        <label for="item-select">Select Product:</label>
+                                        <select id="item-select" required>
+                                            <option value="">Loading products...</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="flex: 0 0 100px;">
+                                        <label for="item-quantity">Quantity:</label>
+                                        <input type="number" id="item-quantity" min="1" value="1" required />
+                                    </div>
+                                    <div class="form-group" style="flex: 0 0 auto;">
+                                        <button type="submit" class="btn">Add Item</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-buttons">
+                            <button type="button" class="btn" onclick="saveOrderItems()">Save Changes</button>
+                            <button type="button" class="btn btn-secondary" onclick="closeAddItemModal()">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Add Note Modal -->
+            <div id="add-note-modal" class="modal" style="display:none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Add Note to Order</h3>
+                        <span class="close" onclick="closeAddNoteModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="add-note-form">
+                            <input type="hidden" id="note-modal-order-id" />
+                            <div class="form-group">
+                                <label for="order-note">Note:</label>
+                                <textarea id="order-note" rows="4" placeholder="Enter Note to send with the order to the customer" required></textarea>
+                            </div>
+                            <div class="modal-buttons">
+                                <button type="submit" class="btn">Add Note</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeAddNoteModal()">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Replace with your Supabase project URL and anon key
+        const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+
+        // Initialize Supabase client
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const message = document.getElementById('message');
+        const orderInterface = document.getElementById('order-interface');
+        let currentUser = null;
+
+        // Format date for display
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Get status badge HTML
+        function getStatusBadge(status) {
+            const statusClass = `status-${status.toLowerCase().replace(' ', '-')}`;
+            return `<span class="order-status ${statusClass}">${status}</span>`;
+        }
+
+        // Fetch and display active orders
+        async function fetchActiveOrders() {
+            const viewer = document.getElementById('active-orders-viewer');
+            viewer.innerHTML = '<b>Loading your active orders...</b>';
+            try {
+                const { data, error } = await client
+                    .from('Orders')
+                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Status, Link')
+                    .order('Platform', { ascending: true });
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    viewer.innerHTML = '<div>No orders found in system.</div>';
+                    return;
+                }
+                const ordersToShow = data;
+                if (ordersToShow.length === 0) {
+                    viewer.innerHTML = '<div>No orders found for your account.</div>';
+                    return;
+                }
+                let html = `
+                    <table>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Platform</th>
+                            <th>Retailer</th>
+                            <th>Items</th>
+                            <th>Notes</th>
+                            <th>Status</th>
+                        </tr>
+                `;
+                for (const order of ordersToShow) {
+                    let items = [];
+                    try {
+                        if (Array.isArray(order.Items)) {
+                            items = order.Items;
+                        } else if (typeof order.Items === 'string') {
+                            if (order.Items === '[object Object]' || order.Items.includes('[object Object]')) {
+                                items = [];
+                            } else {
+                                items = JSON.parse(order.Items);
+                            }
+                        } else if (order.Items && typeof order.Items === 'object') {
+                            items = [order.Items];
+                        } else {
+                            items = [];
+                        }
+                    } catch (e) {
+                        items = [];
+                    }
+                    const itemsDisplay = items.map(item => 
+                        `${item.Quantity || item.quantity}x ${item.SKU || item.sku || 'N/A'}`
+                    ).join('<br>') || 'No items';
+                    const orderIdDisplay = order.Link ? 
+                        `<a href="${order.Link}" target="_blank" style="color: #3b82f6; text-decoration: none;">🔗${order.OrderID}</a>` : 
+                        order.OrderID || 'N/A';
+                    const notesDisplay = order.Notes ? 
+                        order.Notes.length > 50 ? order.Notes.substring(0, 50) + '...' : order.Notes
+                        : 'No notes';
+                    html += `
+                        <tr>
+                            <td>
+                                ${orderIdDisplay}
+                            </td>
+                            <td style="text-transform: capitalize;">${order.Platform || 'N/A'}</td>
+                            <td>${order.Retailer || 'N/A'}</td>
+                            <td>
+                                ${itemsDisplay}
+                                <br><button class="btn" onclick="openAddItemModal('${order.OrderID}')" style="margin-top: 4px; font-size: 0.7rem; padding: 0.2rem 0.4rem;">
+                                    Manage Items
+                                </button>
+                            </td>
+                            <td>
+                                <div style="max-width: 150px; word-wrap: break-word;">${notesDisplay}</div>
+                                <button class="btn" onclick="openAddNoteModal('${order.OrderID}')" style="margin-top: 4px; font-size: 0.7rem; padding: 0.2rem 0.4rem;">
+                                    Add Note
+                                </button>
+                            </td>
+                            <td>
+                                ${getStatusBadge(order.Status || 'Unfulfilled')}
+                            </td>
+                        </tr>
+                    `;
+                }
+                html += '</table>';
+                viewer.innerHTML = html;
+            } catch (error) {
+                viewer.innerHTML = `<div class='error'>Error loading orders: ${error.message}</div>`;
+            }
+            // Fetch order history after active orders
+            fetchOrderHistory();
+        }
+
+        // Fetch and display order history
+        async function fetchOrderHistory() {
+            const viewer = document.getElementById('order-history-viewer');
+            viewer.innerHTML = '<b>Loading your order history...</b>';
+            try {
+                const { data, error } = await client
+                    .from('Order History')
+                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, ScannedOutAt')
+                    .order('ScannedOutAt', { ascending: false });
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    viewer.innerHTML = '<div>No order history found.</div>';
+                    return;
+                }
+                let html = `
+                    <table>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Platform</th>
+                            <th>Retailer</th>
+                            <th>Items</th>
+                            <th>Notes</th>
+                            <th>Scanned Out At</th>
+                        </tr>
+                `;
+                for (const order of data) {
+                    let items = [];
+                    try {
+                        if (Array.isArray(order.Items)) {
+                            items = order.Items;
+                        } else if (typeof order.Items === 'string') {
+                            if (order.Items === '[object Object]' || order.Items.includes('[object Object]')) {
+                                items = [];
+                            } else {
+                                items = JSON.parse(order.Items);
+                            }
+                        } else if (order.Items && typeof order.Items === 'object') {
+                            items = [order.Items];
+                        } else {
+                            items = [];
+                        }
+                    } catch (e) {
+                        items = [];
+                    }
+                    const itemsDisplay = items.map(item => 
+                        `${item.Quantity || item.quantity}x ${item.SKU || item.sku || 'N/A'}`
+                    ).join('<br>') || 'No items';
+                    const orderIdDisplay = order.Link ? 
+                        `<a href="${order.Link}" target="_blank" style="color: #3b82f6; text-decoration: none;">🔗${order.OrderID}</a>` : 
+                        order.OrderID || 'N/A';
+                    const notesDisplay = order.Notes ? 
+                        order.Notes.length > 50 ? order.Notes.substring(0, 50) + '...' : order.Notes
+                        : 'No notes';
+                    const scannedOutAt = order.ScannedOutAt ? formatDate(order.ScannedOutAt) : 'N/A';
+                    html += `
+                        <tr>
+                            <td>${orderIdDisplay}</td>
+                            <td style="text-transform: capitalize;">${order.Platform || 'N/A'}</td>
+                            <td>${order.Retailer || 'N/A'}</td>
+                            <td>${itemsDisplay}</td>
+                            <td><div style="max-width: 150px; word-wrap: break-word;">${notesDisplay}</div></td>
+                            <td>${scannedOutAt}</td>
+                        </tr>
+                    `;
+                }
+                html += '</table>';
+                viewer.innerHTML = html;
+            } catch (error) {
+                viewer.innerHTML = `<div class='error'>Error loading order history: ${error.message}</div>`;
+            }
+        }
+
+        // View order details
+        function viewOrderDetails(orderId) {
+            client
+                .from('Orders')
+                .select('OrderID, Retailer, Platform, Items, Customer, Notes, Status, Link')
+                .eq('OrderID', orderId)
+                .single()
+                .then(({ data, error }) => {
+                    if (error) {
+                        alert('Error fetching order details: ' + error.message);
+                        return;
+                    }
+                    
+                    let customer = {};
+                    try {
+                        if (typeof data.Customer === 'string') {
+                            // Check if it's the problematic "[object Object]" string
+                            if (data.Customer === '[object Object]' || data.Customer.includes('[object Object]')) {
+                                console.warn('Customer field contains "[object Object]" for order', data.OrderID, '- using empty customer object');
+                                customer = {};
+                            } else {
+                                customer = JSON.parse(data.Customer);
+                            }
+                        } else if (data.Customer && typeof data.Customer === 'object') {
+                            customer = data.Customer;
+                        } else {
+                            customer = {};
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse Customer for order', data.OrderID, '- Error:', e.message, '- Raw value:', data.Customer);
+                        customer = {};
+                    }
+                    
+                    let items = [];
+                    try {
+                        if (Array.isArray(data.Items)) {
+                            items = data.Items;
+                        } else if (typeof data.Items === 'string') {
+                            if (data.Items === '[object Object]' || data.Items.includes('[object Object]')) {
+                                console.warn('Items field contains "[object Object]" for order', data.OrderID, '- using empty items array');
+                                items = [];
+                            } else {
+                                items = JSON.parse(data.Items);
+                            }
+                        } else if (data.Items && typeof data.Items === 'object') {
+                            items = [data.Items];
+                        } else {
+                            items = [];
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse Items for order', data.OrderID, '- Error:', e.message, '- Raw value:', data.Items);
+                        items = [];
+                    }
+                    
+                    const details = `
+Order ID: ${data.OrderID || 'N/A'}${data.Link ? '\nPlatform Link: ' + data.Link : ''}
+Platform: ${data.Platform || 'N/A'}
+Retailer: ${data.Retailer || 'N/A'}
+Status: ${data.Status || 'Unfulfilled'}
+
+Customer Information:
+Name: ${customer.name || 'N/A'}
+Address: ${customer.address1 || 'N/A'}
+${customer.address2 ? customer.address2 + '\n' : ''}City: ${customer.city || 'N/A'}
+State: ${customer.state || 'N/A'}
+Zip: ${customer.zipCode || 'N/A'}
+Country: ${customer.country || 'N/A'}
+
+Items:
+${items.map(item => 
+    `• ${item.Quantity || item.quantity || 1}x ${item.Name || item.name || item.title || 'Unknown Item'} (SKU: ${item.SKU || item.sku || 'N/A'})`
+).join('\n') || 'No items found'}
+
+Notes: ${data.Notes || 'None'}
+                    `;
+                    
+                    alert(details);
+                });
+        }
+
+        // Cancel order
+
+        // Add note to order - Modal functions
+        function openAddNoteModal(orderId) {
+            document.getElementById('note-modal-order-id').value = orderId;
+            document.getElementById('add-note-modal').style.display = 'flex';
+            
+            // Focus on textarea after a short delay
+            setTimeout(() => {
+                document.getElementById('order-note').focus();
+            }, 100);
+        }
+        
+        function closeAddNoteModal() {
+            document.getElementById('add-note-modal').style.display = 'none';
+            document.getElementById('add-note-form').reset();
+        }
+        
+        // Add note to order
+        function addOrderNote(orderId, note) {
+            if (!note || note.trim() === '') return;
+            
+            // First get the current order to append the note
+            client
+                .from('Orders')
+                .select('Notes')
+                .eq('OrderID', orderId)
+                .single()
+                .then(({ data, error }) => {
+                    if (error) {
+                        alert('Error fetching order: ' + error.message);
+                        return;
+                    }
+                    
+                    // Update the order with the new note
+                    client
+                        .from('Orders')
+                        .update({ Notes: note })
+                        .eq('OrderID', orderId)
+                        .then(({ error: updateError }) => {
+                            if (updateError) {
+                                alert('Error adding note: ' + updateError.message);
+                            } else {
+                                fetchActiveOrders(); // Refresh the list
+                            }
+                        });
+                });
+        }
+
+        // Load products from Supabase
+        async function loadProducts() {
+            try {
+                const { data, error } = await client
+                    .from('Products')
+                    .select('ProductSKU, Name')
+                    .order('Name');
+                
+                if (error) throw error;
+                
+                const select = document.getElementById('item-select');
+                select.innerHTML = '<option value="">Select a product...</option>';
+                
+                if (data && data.length > 0) {
+                    data.forEach(product => {
+                        const option = document.createElement('option');
+                        option.value = JSON.stringify({ Name: product.Name, SKU: product.ProductSKU});
+                        option.textContent = `(${product.ProductSKU}) ${product.Name}`;
+                        select.appendChild(option);
+                    });
+                } else {
+                    select.innerHTML = '<option value="">No products found</option>';
+                }
+            } catch (error) {
+                console.error('Error loading products:', error);
+                const select = document.getElementById('item-select');
+                select.innerHTML = '<option value="">Error loading products</option>';
+            }
+        }
+
+        // Add item to order - Updated to show table view
+        let currentOrderItems = [];
+        
+        function openAddItemModal(orderId) {
+            document.getElementById('modal-order-id').value = orderId;
+            document.getElementById('add-item-modal').style.display = 'flex';
+            
+            // Load current order items and products
+            loadCurrentOrderItems(orderId);
+            loadProducts();
+            
+            // Focus on product select after a short delay
+            setTimeout(() => {
+                document.getElementById('item-select').focus();
+            }, 100);
+        }
+        
+        function loadCurrentOrderItems(orderId) {
+            // Get current order items from the server
+            client
+                .from('Orders')
+                .select('Items')
+                .eq('OrderID', orderId)
+                .single()
+                .then(({ data, error }) => {
+                    if (error) {
+                        console.error('Error fetching order items:', error);
+                        currentOrderItems = [];
+                    } else {
+                        try {
+                            if (Array.isArray(data.Items)) {
+                                currentOrderItems = data.Items;
+                            } else if (typeof data.Items === 'string') {
+                                if (data.Items === '[object Object]' || data.Items.includes('[object Object]')) {
+                                    console.warn('Items field contains "[object Object]" - using empty items array');
+                                    currentOrderItems = [];
+                                } else {
+                                    currentOrderItems = JSON.parse(data.Items);
+                                }
+                            } else if (data.Items && typeof data.Items === 'object') {
+                                currentOrderItems = [data.Items];
+                            } else {
+                                currentOrderItems = [];
+                            }
+                        } catch (e) {
+                            console.warn('Failed to parse Items - Error:', e.message, '- Raw value:', data.Items);
+                            currentOrderItems = [];
+                        }
+                    }
+                    renderCurrentItemsTable();
+                });
+        }
+        
+        function renderCurrentItemsTable() {
+            const container = document.getElementById('current-items-table');
+            
+            if (currentOrderItems.length === 0) {
+                container.innerHTML = '<div class="no-items-message">No items in this order yet.</div>';
+                return;
+            }
+            
+            let html = `
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>SKU</th>
+                            <th>Quantity</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            currentOrderItems.forEach((item, index) => {
+                html += `
+                    <tr>
+                        <td>${item.Name || item.name || 'Unknown Product'}</td>
+                        <td>${item.SKU || item.sku || 'N/A'}</td>
+                        <td>${item.Quantity || item.quantity || 1}</td>
+                        <td>
+                            <button class="remove-item-btn" onclick="removeItem(${index})">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+        
+        function removeItem(index) {
+            if (confirm('Are you sure you want to remove this item?')) {
+                currentOrderItems.splice(index, 1);
+                renderCurrentItemsTable();
+            }
+        }
+        
+        function saveOrderItems() {
+            const orderId = document.getElementById('modal-order-id').value;
+            
+            // Save the updated items to the database
+            client
+                .from('Orders')
+                .update({ Items: JSON.stringify(currentOrderItems) })
+                .eq('OrderID', orderId)
+                .then(({ error }) => {
+                    if (error) {
+                        alert('Error saving items: ' + error.message);
+                    } else {
+                        alert('Items updated successfully');
+                        closeAddItemModal();
+                        fetchActiveOrders(); // Refresh the main table
+                    }
+                });
+        }
+        
+        function closeAddItemModal() {
+            document.getElementById('add-item-modal').style.display = 'none';
+            document.getElementById('add-item-form').reset();
+            currentOrderItems = [];
+        }
+        
+        // Handle add item form submission
+        document.getElementById('add-item-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const selectedProduct = document.getElementById('item-select').value;
+            const itemQuantity = parseInt(document.getElementById('item-quantity').value);
+            
+            if (!selectedProduct) {
+                alert('Please select a product');
+                return;
+            }
+            
+            if (isNaN(itemQuantity) || itemQuantity <= 0) {
+                alert('Please enter a valid quantity');
+                return;
+            }
+            
+            let productData;
+            try {
+                productData = JSON.parse(selectedProduct);
+            } catch (e) {
+                alert('Invalid product selection');
+                return;
+            }
+            
+            // Check if item already exists in the order
+            const existingItemIndex = currentOrderItems.findIndex(item => 
+                (item.SKU || item.sku) === productData.SKU
+            );
+            
+            if (existingItemIndex !== -1) {
+                // Update quantity of existing item
+                if (confirm('This item already exists in the order. Do you want to add to the existing quantity?')) {
+                    currentOrderItems[existingItemIndex].Quantity = 
+                        (currentOrderItems[existingItemIndex].Quantity || currentOrderItems[existingItemIndex].quantity || 0) + itemQuantity;
+                }
+            } else {
+                // Add new i`tem
+                const newItem = {
+                    SKU: productData.SKU,
+                    Name: productData.Name,
+                    Quantity: itemQuantity
+                };
+                currentOrderItems.push(newItem);
+            }
+            
+            // Reset form and refresh table
+            document.getElementById('add-item-form').reset();
+            renderCurrentItemsTable();
+        });
+
+        // Handle add note form submission
+        document.getElementById('add-note-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const orderId = document.getElementById('note-modal-order-id').value;
+            const note = document.getElementById('order-note').value.trim();
+            
+            if (!note) {
+                alert('Please enter a note');
+                return;
+            }
+            
+            addOrderNote(orderId, note);
+            closeAddNoteModal();
+        });
+        // Redirect to Login.html if not authenticated, else show order interface
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await client.auth.getSession();
+            if (!session) {
+                // Redirect to Login.html, with redirect back to this page after login
+                window.location.href = 'Login.html?redirect=CustomerOrders.html';
+                return;
+            }
+            currentUser = session.user;
+            document.getElementById('order-interface').style.display = 'block';
+            document.getElementById('message').style.display = 'none';
+            // Load active orders and order history
+            fetchActiveOrders();
+        });
+
+        // Close modal when clicking outside of it
+        document.getElementById('add-item-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAddItemModal();
+            }
+        });
+        
+        document.getElementById('add-note-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAddNoteModal();
+            }
+        });
+    </script>
+</body>
+</html>

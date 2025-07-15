@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add/Update Product</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      color: #333;
+    }
+    /* Sidebar Styles */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      z-index: 1000;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar:hover {
+      width: 250px;
+    }
+    
+    .sidebar-header {
+      padding: 0.75rem;
+      border-bottom: 1px solid #34495e;
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #ecf0f1;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:not(:hover) .sidebar-header h2 {
+      opacity: 0;
+    }
+    
+    .sidebar:hover .sidebar-header h2 {
+      font-size: 1.3rem;
+    }
+    
+    .sidebar-nav {
+      padding: 0.5rem 0;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid transparent;
+      white-space: nowrap;
+    }
+    
+    .nav-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item.active {
+      background: rgba(77,186,147,0.2);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item i {
+      margin-right: 0.5rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    
+    .nav-item span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:hover .nav-item span {
+      opacity: 1;
+    }
+    
+    .sidebar:hover .nav-item {
+      padding: 0.75rem 1.5rem;
+    }
+    
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+      width: calc(100% - 60px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+    }
+    @media (max-width: 600px) {
+      .sidebar {
+        width: 0;
+        overflow: hidden;
+      }
+      
+      .sidebar:hover {
+        width: 250px;
+      }
+      
+      .main-content {
+        margin-left: 0;
+        width: 100%;
+      }
+      
+      .container {
+        margin: 20px 10px;
+        padding: 1rem;
+      }
+    }
+    /* AddProduct specific styles */
+    .container {
+      background: white;
+      padding: 32px 28px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+      max-width: 800px;
+      width: 100%;
+      margin-top: 40px;
+    }
+    h2 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 18px;
+    }
+    form label {
+      display: block;
+      margin-top: 14px;
+      font-weight: 600;
+      color: #34495e;
+    }
+    form input, form select, form textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      border: 1.5px solid #e1e5e9;
+      border-radius: 7px;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background-color: #fff;
+    }
+    
+    form input:hover, form select:hover, form textarea:hover {
+      outline: none;
+      border-color: #4DBA93;
+      box-shadow: 0 0 0 3px rgba(77, 186, 147, 0.1);
+    }
+    
+    form select {
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 8px center;
+      background-repeat: no-repeat;
+      background-size: 16px;
+      padding-right: 40px;
+    }
+    
+    form select:hover {
+      border-color: #4DBA93;
+    }
+    
+    form select option {
+      padding: 8px 12px;
+      background-color: #fff;
+      color: #333;
+    }
+    
+    form select option:hover {
+      background-color: #f0f9ff;
+    }
+    form input[type="checkbox"] {
+      width: auto;
+      margin-right: 8px;
+    }
+    .btn {
+      background: #4DBA93;
+      color: white;
+      border: none;
+      padding: 12px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: 600;
+      width: 100%;
+      margin-top: 18px;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #379c7a;
+    }
+    .status {
+      text-align: center;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+    .status.success { color: #27ae60; }
+    .status.error { color: #e74c3c; }
+    
+    /* Product Dropdown Styles */
+    .product-dropdown-container {
+      position: relative;
+    }
+
+    .product-search {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+      margin: 0;
+    }
+
+    .product-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 9999;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .product-option {
+      padding: 0.75rem;
+      cursor: pointer;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .product-option:hover {
+      background: #f3f4f6;
+    }
+
+    .product-option:last-child {
+      border-bottom: none;
+    }
+
+    .product-option .product-name {
+      font-weight: 500;
+      color: #1f2937;
+    }
+
+    .product-option .product-details {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 0.25rem;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>J&L Tools</h2>
+    </div>
+    <nav class="sidebar-nav">
+        <a href="InventoryViewer.html" class="nav-item">
+          <i class="cil-storage"></i><span>Inventory Viewer</span>
+        </a>
+        <a href="CustomerOrders.html" class="nav-item">
+          <i class="cil-user"></i><span>Customer Orders</span>
+        </a>
+        <a href="AddProduct.html" class="nav-item active">
+          <i class="cil-plus"></i><span>Add Product</span>
+        </a>
+      </nav>
+  </div>
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+    <div class="container">
+      <h2>Add/Update Product</h2>
+      <div style="margin-bottom: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 8px; border: 1px solid #bae6fd;">
+        <label style="font-weight: 600; color: #1e40af; margin-bottom: 0.5rem; display: block;">Load from Existing Product:</label>
+        <div id="loadFromProductDropdown"></div>
+        <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.5rem;">This will populate all fields with data from an existing product for easy duplication or modification.</div>
+      </div>
+      <form id="productForm">
+        <label>Product SKU*<input type="text" id="ProductSKU" required></label>
+        <label>Name<input type="text" id="Name"></label>
+        <label>Product Weight(oz)<input type="text" id="ProductSize" placeholder="e.g., 4, 8, 16, etc."></label>
+        <label>Customer<input type="text" id="Customer"></label>
+        <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
+        <label>Pack Size<input type="number" id="PackSize" min="0" step="1"></label>
+        <label>Quantity<input type="number" id="Quantity" step="1"></label>
+        <label>MSRP<input type="number" id="MSRP" min="0" step="any"></label>
+        
+        <button type="submit" class="btn">Add/Update Product</button>
+      </form>
+      <div class="status" id="statusMsg"></div>
+    </div>
+  </div>
+  <script>
+
+    // --- Supabase config (single instance) ---
+    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // --- Authentication/session check ---
+    (async function() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Not logged in, redirect to login page with redirect param
+        const redirectUrl = encodeURIComponent(window.location.pathname.replace(/^\/+/, ''));
+        window.location.href = `Login.html?redirect=${redirectUrl}`;
+        return;
+      }
+    })();
+
+    const form = document.getElementById('productForm');
+    const statusMsg = document.getElementById('statusMsg');
+
+    
+    let allProducts = [];
+
+    // Fetch all products for dropdown
+    async function fetchAllProducts() {
+      try {
+        const { data: products, error } = await supabase
+          .from('Products')
+          .select('ProductSKU, Name, Retailer')
+          .order('ProductSKU');
+
+        if (error) {
+          console.error('Error fetching products:', error);
+          return;
+        }
+
+        allProducts = products || [];
+        console.log(`Loaded ${allProducts.length} products`);
+        createProductDropdown();
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      }
+    }
+
+    // Create product dropdown with search functionality
+    function createProductDropdown() {
+      const container = document.getElementById('loadFromProductDropdown');
+      if (!container) return;
+
+      const dropdownHTML = `
+        <div class="product-dropdown-container">
+          <input type="text" class="product-search" placeholder="Type to search products..." />
+          <div class="product-dropdown" style="display: none;"></div>
+          <input type="hidden" class="selected-product-sku" value="" />
+        </div>
+      `;
+
+      container.innerHTML = dropdownHTML;
+
+      const searchInput = container.querySelector('.product-search');
+      const dropdown = container.querySelector('.product-dropdown');
+      const hiddenSKU = container.querySelector('.selected-product-sku');
+
+      // Filter and display products based on search
+      function updateDropdown(searchTerm = '') {
+        const filtered = allProducts.filter(product => {
+          const searchText = `${product.ProductSKU} ${product.Name || ''} ${product.Retailer || ''}`.toLowerCase();
+          return searchText.includes(searchTerm.toLowerCase());
+        });
+
+        dropdown.innerHTML = '';
+        
+        filtered.slice(0, 20).forEach(product => {
+          const option = document.createElement('div');
+          option.className = 'product-option';
+          option.innerHTML = `
+            <div class="product-name">${product.ProductSKU} - ${product.Name || 'No Name'}</div>
+            <div class="product-details">
+              Retailer: ${product.Retailer || 'No Retailer'}
+            </div>
+          `;
+          
+          option.addEventListener('click', async () => {
+            searchInput.value = `${product.ProductSKU} - ${product.Name || 'No Name'}`;
+            hiddenSKU.value = product.ProductSKU;
+            dropdown.style.display = 'none';
+            
+            // Automatically load the selected product
+            await loadProductData(product.ProductSKU);
+          });
+          
+          dropdown.appendChild(option);
+        });
+
+        if (filtered.length === 0) {
+          dropdown.innerHTML = '<div class="product-option" style="color: #6b7280; font-style: italic;">No products found</div>';
+        }
+      }
+
+      // Show dropdown when input is focused
+      searchInput.addEventListener('focus', () => {
+        updateDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+      });
+
+      // Update dropdown as user types
+      searchInput.addEventListener('input', (e) => {
+        updateDropdown(e.target.value);
+        dropdown.style.display = 'block';
+        hiddenSKU.value = ''; // Clear selection when typing
+      });
+
+      // Hide dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+    }
+
+    // Load product data by SKU
+    async function loadProductData(sku) {
+      if (!sku) return;
+
+      try {
+        statusMsg.textContent = 'Loading product data...';
+        statusMsg.className = 'status';
+        
+        const { data: product, error } = await supabase
+          .from('Products')
+          .select('*')
+          .eq('ProductSKU', sku)
+          .single();
+
+        if (error) {
+          statusMsg.textContent = 'Product not found: ' + error.message;
+          statusMsg.className = 'status error';
+          return;
+        }
+
+        if (!product) {
+          statusMsg.textContent = 'No product found with SKU: ' + sku;
+          statusMsg.className = 'status error';
+          return;
+        }
+
+        // Populate all form fields
+        document.getElementById('ProductSKU').value = product.ProductSKU; 
+        document.getElementById('Name').value = product.Name || '';
+        document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
+        document.getElementById('Customer').value = product.Retailer || '';
+        document.getElementById('ShelfLife').value = product.ShelfLife || '';
+        document.getElementById('PackSize').value = product['Pack Size'] || '';
+        document.getElementById('Quantity').value = product.Quantity || '';
+        document.getElementById('MSRP').value = product.MSRP || '';
+
+        statusMsg.textContent = 'Product data loaded successfully! You can now modify and save as a new product.';
+        statusMsg.className = 'status success';
+
+      } catch (error) {
+        statusMsg.textContent = 'Error loading product: ' + error.message;
+        statusMsg.className = 'status error';
+      }
+    }
+    
+    // Initialize ingredients and render on load
+    async function initializeApp() {
+      await fetchAllProducts();
+    }
+    
+    // Initialize the page
+    window.addEventListener('DOMContentLoaded', async () => {
+      await fetchAllProducts();
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const productSKU = urlParams.get('productSKU');
+      
+      if (productSKU) {
+        // Set the dropdown value and load the product
+        const container = document.getElementById('loadFromProductDropdown');
+        const searchInput = container.querySelector('.product-search');
+        const hiddenSKU = container.querySelector('.selected-product-sku');
+        
+        const product = allProducts.find(prod => prod.ProductSKU === productSKU);
+        if (product) {
+          searchInput.value = `${product.ProductSKU} - ${product.Name || 'No Name'}`;
+          hiddenSKU.value = product.ProductSKU;
+          await loadProductData(productSKU);
+        }
+      }
+    });
+    
+    initializeApp();
+
+    form.onsubmit = async function(e) {
+      e.preventDefault();
+      statusMsg.textContent = '';
+      statusMsg.className = 'status';
+      const data = {
+        ProductSKU: document.getElementById('ProductSKU').value.trim(),
+        Name: document.getElementById('Name').value.trim(),
+        'Product Weight(oz)': document.getElementById('ProductSize').value.trim() ? parseFloat(document.getElementById('ProductSize').value.trim()) : null,
+        Retailer: document.getElementById('Customer').value.trim(),
+        ShelfLife: form.ShelfLife.value ? parseFloat(form.ShelfLife.value) : null,
+        'Pack Size': form.PackSize.value ? parseInt(form.PackSize.value) : null,
+        Quantity: form.Quantity.value ? parseInt(form.Quantity.value) : null,
+        MSRP: form.MSRP.value ? parseFloat(form.MSRP.value) : null,
+      };
+      Object.keys(data).forEach(k => { if (data[k] === '') data[k] = null; });
+      // Use upsert to handle both insert and update based on ProductSKU
+      const { error } = await supabase.from('Products').upsert([data], { onConflict: 'ProductSKU' });
+      if (error) {
+        statusMsg.textContent = 'Error: ' + error.message;
+        statusMsg.className = 'status error';
+      } else {
+        statusMsg.textContent = 'Product saved successfully!'; // Updated message
+        statusMsg.className = 'status success';
+        form.reset();
+      }
+    };
+  </script>
+</body>
+</html>

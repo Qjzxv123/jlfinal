@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Inventory Viewer Login</title>
+    <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            color: #333;
+        }
+        
+        /* Sidebar Styles (from AddIngredient) */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 60px;
+            height: 100vh;
+            background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            z-index: 1000;
+            transition: width 0.3s ease;
+            overflow-x: hidden;
+            overflow-y: hidden;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar:hover {
+            width: 250px;
+        }
+        .sidebar-header {
+            padding: 0.75rem;
+            border-bottom: 1px solid #34495e;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 1rem;
+            color: #ecf0f1;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        .sidebar:not(:hover) .sidebar-header h2 {
+            opacity: 0;
+        }
+        .sidebar:hover .sidebar-header h2 {
+            font-size: 1.3rem;
+        }
+        .sidebar-nav {
+            padding: 0.5rem 0;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+            white-space: nowrap;
+        }
+        .nav-item:hover {
+            background: rgba(255,255,255,0.1);
+            border-left-color: #4DBA93;
+            color: white;
+        }
+        .nav-item.active {
+            background: rgba(77,186,147,0.2);
+            border-left-color: #4DBA93;
+            color: white;
+        }
+        .nav-item i {
+            margin-right: 0.5rem;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .nav-item span {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .sidebar:hover .nav-item span {
+            opacity: 1;
+        }
+        .sidebar:hover .nav-item {
+            padding: 0.75rem 1.5rem;
+        }
+        /* Main content adjustments */
+        .main-content {
+            margin-left: 50px;
+            transition: margin-left 0.3s ease;
+            width: calc(100% - 50px);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        #main-container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+            padding: 2.5rem 2.5rem 2.5rem 2.5rem;
+            margin-top: 3rem;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h2, h3 {
+            color: #2d3748;
+            margin-bottom: 1rem;
+        }
+        form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        input[type="email"], input[type="password"] {
+            width: 90%;
+            padding: 0.7rem;
+            margin: 0.5rem 0;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            font-size: 1rem;
+        }
+        button[type="submit"] {
+            background: #228B22;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.7rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 0.7rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button[type="submit"]:hover {
+            background: #176317;
+        }
+        #message {
+            margin: 1rem 0 0.5rem 0;
+            min-height: 1.5rem;
+            font-size: 1rem;
+            text-align: center;
+        }
+        #data-viewer {
+            margin-top: 1.5rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            width: 100%;
+            min-height: 60px;
+            max-width: 400px;
+            color: #22223b;
+            font-size: 1rem;
+            white-space: pre-line;
+            box-sizing: border-box;
+        }
+        table {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            width: 100%;
+            margin-top: 1rem;
+        }
+        th, td {
+            padding: 8px 10px;
+            text-align: left;
+        }
+        th {
+            background: #f1f5f9;
+            border-bottom: 2px solid #cbd5e1;
+        }
+        tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+        .error {
+            color: #b91c1c;
+            font-weight: 500;
+        }
+        
+        /* Inventory quantity color coding */
+        .quantity-critical {
+            background-color: #fee2e2 !important;
+            color: #991b1b;
+            font-weight: bold;
+        }
+        
+        .quantity-low {
+            background-color: #fef3c7 !important;
+            color: #92400e;
+            font-weight: bold;
+        }
+        @media (max-width: 800px) {
+            .sidebar {
+                transform: translateX(-250px);
+            }
+            
+            .sidebar:hover {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+            
+            #main-container {
+                padding: 1rem;
+                max-width: 98vw;
+                margin-top: 1rem;
+            }
+            #data-viewer, table {
+                max-width: 98vw;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <!-- Sidebar (from AddIngredient) -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>J&L Tools</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="InventoryViewer.html" class="nav-item active">
+          <i class="cil-storage"></i><span>Inventory Viewer</span>
+        </a>
+        <a href="CustomerOrders.html" class="nav-item">
+          <i class="cil-user"></i><span>Customer Orders</span>
+        </a>
+        <a href="AddProduct.html" class="nav-item">
+          <i class="cil-plus"></i><span>Add Product</span>
+        </a>
+      </nav>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <div id="main-container">
+        <h2>Inventory Viewer</h2>
+        <div id="data-viewer" style="display:none; margin-top:2rem;"></div>
+        <div id="login-redirect" style="margin-top:2rem;">
+            <p>You must be <a href="Login.html?redirect=InventoryViewer.html">logged in</a> to view inventory.</p>
+        </div>
+    </div>
+    <script>
+        // Replace with your Supabase project URL and anon key
+        const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+
+        // Initialize Supabase client correctly
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const dataViewer = document.getElementById('data-viewer');
+
+        // Helper: fetch and display RLS-protected data for the logged-in user
+        async function fetchAndDisplayData(session) {
+            dataViewer.style.display = 'block';
+            dataViewer.innerHTML = '<b>Loading your inventory data...</b>';
+            // Fetch only ProductSKU, Name, and Quantity columns
+            const { data, error } = await client
+                .from('Products')
+                .select('ProductSKU,Name,Quantity', { head: false })
+                .throwOnError();
+            if (error) {
+                dataViewer.innerHTML = `<div class='error'>Error loading data: ${error.message}<br>Check your Supabase RLS policies and make sure your anon key is correct.</div>`;
+                return;
+            }
+            if (!data || data.length === 0) {
+                dataViewer.innerHTML = '<div>No inventory data found for your account.</div>';
+                return;
+            }
+            // Render as table
+            let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+            html += '<tr>' + ['ProductSKU', 'Name', 'Quantity'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
+            // Sort data by ProductSKU (A-Z)
+            data.sort((a, b) => {
+                if (a.ProductSKU < b.ProductSKU) return -1;
+                if (a.ProductSKU > b.ProductSKU) return 1;
+                return 0;
+            });
+            for (const row of data) {
+                const quantity = parseInt(row.Quantity) || 0;
+                let quantityClass = '';
+                
+                if (quantity <= 0) {
+                    quantityClass = 'quantity-critical';
+                } else if (quantity < 20) {
+                    quantityClass = 'quantity-low';
+                }
+                
+                html += '<tr>';
+                html += `<td style='padding:4px;'>${row.ProductSKU ?? ''}</td>`;
+                html += `<td style='padding:4px;'>${row.Name ?? ''}</td>`;
+                html += `<td style='padding:4px;' class='${quantityClass}'>${row.Quantity ?? ''}</td>`;
+                html += '</tr>';
+            }
+            html += '</table>';
+            dataViewer.innerHTML = html;
+        }
+
+        // On load, check for session and redirect to login if not logged in
+        window.addEventListener('DOMContentLoaded', async () => {
+            const session = client.auth.getSession && (await client.auth.getSession()).data.session;
+            if (!session) {
+                // Not logged in, show login link and hide data viewer
+                dataViewer.style.display = 'none';
+                document.getElementById('login-redirect').style.display = 'block';
+            } else {
+                // Logged in, show data
+                document.getElementById('login-redirect').style.display = 'none';
+                fetchAndDisplayData(session);
+            }
+        });
+    </script>
+        </div> <!-- Close main-container -->
+    </div> <!-- Close main-content -->
+</body>
+</html>

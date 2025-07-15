@@ -1,0 +1,192 @@
+<body>
+
+
+    <meta charset="UTF-8">
+    <title>Item Scanout</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f7f7fa;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        #main-container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+            padding: 2.5rem 2.5rem 2.5rem 2.5rem;
+            margin-top: 3rem;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h2, h3 {
+            color: #2d3748;
+            margin-bottom: 1rem;
+        }
+        form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        input[type="email"], input[type="password"] {
+            width: 90%;
+            padding: 0.7rem;
+            margin: 0.5rem 0;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            font-size: 1rem;
+        }
+        button[type="submit"] {
+            background: #228B22;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.7rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 0.7rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button[type="submit"]:hover {
+            background: #176317;
+        }
+        #message {
+            margin: 1rem 0 0.5rem 0;
+            min-height: 1.5rem;
+            font-size: 1rem;
+            text-align: center;
+        }
+        .error {
+            color: #b91c1c;
+            font-weight: 500;
+        }
+        @media (max-width: 600px) {
+            #main-container {
+                padding: 1rem;
+                max-width: 98vw;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+
+    <div id="main-container"></div>
+    <script>
+        // Replace with your Supabase project URL and anon key
+        const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+
+        // Initialize Supabase client correctly
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Helper to add the SKU update form
+        function addSkuDecrementForm() {
+            const mainContainer = document.getElementById('main-container');
+            mainContainer.innerHTML = '';
+            const skuForm = document.createElement('form');
+            skuForm.id = 'sku-form';
+            skuForm.innerHTML = `
+              <input type="text" id="sku-input" placeholder="Enter SKU to scan out" required style="width:70%;padding:0.5rem;margin-right:0.5rem;" />
+              <input type="number" id="quantity-input" placeholder="Enter quantity to scan out" style="width:70%;padding:0.5rem;margin-right:0.5rem;" />
+              Set Quantity?<input type="checkbox" id="Set"/>
+              <button type="submit">Scan Out</button>
+              <div id="sku-message" style="margin-top:0.5rem;"></div>
+            `;
+            mainContainer.appendChild(skuForm);
+            const skuInput = document.getElementById('sku-input');
+            skuInput.focus();
+            skuForm.addEventListener('submit', handleSkuFormSubmit);
+        }
+
+        // Handler for SKU form submission
+        async function handleSkuFormSubmit(ev) {
+            ev.preventDefault();
+            const skuInput = document.getElementById('sku-input');
+            const qtyInput = document.getElementById('quantity-input');
+            const setCheckbox = document.getElementById('Set');
+            const skuMsg = document.getElementById('sku-message');
+            const sku = skuInput.value.trim();
+            const qtyValue = Number(qtyInput.value);
+
+            if (!sku) {
+                skuMsg.textContent = 'Please enter a SKU.';
+                skuMsg.style.color = 'red';
+                skuInput.focus();
+                return;
+            }
+            // Fetch current quantity
+            const { data: prod, error: fetchErr } = await client
+                .from('Products')
+                .select('Quantity')
+                .eq('ProductSKU', sku)
+                .single();
+            if (fetchErr || !prod) {
+                skuMsg.textContent = `SKU ${sku} not found.`;
+                skuMsg.style.color = 'red';
+                skuInput.focus();
+                return;
+            }
+
+            if (setCheckbox.checked) {
+                // Set quantity directly
+                const { error: setErr } = await client
+                    .from('Products')
+                    .update({ Quantity: qtyValue })
+                    .eq('ProductSKU', sku);
+                if (setErr) {
+                    skuMsg.textContent = `Error setting quantity for ${sku}: ${setErr.message}`;
+                    skuMsg.style.color = 'red';
+                } else {
+                    skuMsg.textContent = `Set ${sku} to ${qtyValue}`;
+                    skuMsg.style.color = 'green';
+                    skuInput.value = '';
+                    qtyInput.value = '';
+                }
+            } else {
+                // Decrement quantity
+                const newQty = prod.Quantity - qtyValue;
+        
+                const { error: updateErr } = await client
+                    .from('Products')
+                    .update({ Quantity: newQty })
+                    .eq('ProductSKU', sku);
+                if (updateErr) {
+                    skuMsg.textContent = `Error updating ${sku}: ${updateErr.message}`;
+                    skuMsg.style.color = 'red';
+                } else {
+                    if (qtyValue < 0){
+                        skuMsg.textContent = `Updated ${sku} +${Math.abs(qtyValue)}. New quantity: ${newQty}`;
+                    }else{
+                        skuMsg.textContent = `Updated ${sku} -${qtyValue}. New quantity: ${newQty}`;
+                    }
+                    skuMsg.style.color = 'green';
+                    skuInput.value = '';
+                }
+            }
+            skuInput.focus();
+        }
+
+        // On load, check for session and redirect to login if not logged in
+        window.addEventListener('DOMContentLoaded', async () => {
+            const session = client.auth.getSession && (await client.auth.getSession()).data.session;
+            if (!session) {
+                window.location.href = 'Login.html';
+            } else {
+                addSkuDecrementForm();
+            }
+        });
+    </script>
+
+</body>

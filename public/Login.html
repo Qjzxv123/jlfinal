@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login / Sign Up</title>
+    <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        #main-container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+            padding: 2.5rem 2.5rem 2.5rem 2.5rem;
+            margin-top: 3rem;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h2, h3 {
+            color: #2d3748;
+            margin-bottom: 1rem;
+        }
+        form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        input[type="email"], input[type="password"] {
+            width: 90%;
+            padding: 0.7rem;
+            margin: 0.5rem 0;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            font-size: 1rem;
+        }
+        button[type="submit"] {
+            background: #228B22;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.7rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 0.7rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button[type="submit"]:hover {
+            background: #176317;
+        }
+        #message {
+            margin: 1rem 0 0.5rem 0;
+            min-height: 1.5rem;
+            font-size: 1rem;
+            text-align: center;
+        }
+        .error {
+            color: #b91c1c;
+            font-weight: 500;
+        }
+        @media (max-width: 600px) {
+            #main-container {
+                padding: 1rem;
+                max-width: 98vw;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div id="main-container">
+        <h2>Login to Inventory System</h2>
+        <form id="login-form">
+            <input type="email" id="email" placeholder="Email" required><br>
+            <input type="password" id="password" placeholder="Password" required><br>
+            <button type="submit">Login</button>
+        </form>
+        <div id="message"></div>
+        <h3>Or Sign Up</h3>
+        <form id="signup-form">
+            <input type="email" id="signup-email" placeholder="Email" required><br>
+            <input type="password" id="signup-password" placeholder="Password" required><br>
+            <button type="submit">Sign Up</button>
+        </form>
+    </div>
+    <script>
+        const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const form = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const message = document.getElementById('message');
+        // Get redirect param if present
+        function getRedirectUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('redirect') || 'InventoryViewer.html';
+        }
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { data, error } = await client.auth.signInWithPassword({ email, password });
+            if (error) {
+                message.textContent = 'Login failed: ' + error.message;
+                message.style.color = 'red';
+            } else {
+                message.textContent = 'Login successful! Redirecting...';
+                message.style.color = 'green';
+                setTimeout(() => {
+                    window.location.href = getRedirectUrl();
+                }, 800);
+            }
+        });
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const { data, error } = await client.auth.signUp({ email, password });
+            if (error) {
+                message.textContent = 'Sign up failed: ' + error.message;
+                message.style.color = 'red';
+            } else {
+                message.textContent = 'Sign up successful! Please check your email to confirm your account. Redirecting...';
+                message.style.color = 'green';
+                setTimeout(() => {
+                    window.location.href = getRedirectUrl();
+                }, 1200);
+            }
+        });
+        // If already logged in, redirect immediately
+        window.addEventListener('DOMContentLoaded', async () => {
+            const session = client.auth.getSession && (await client.auth.getSession()).data.session;
+            if (session) {
+                window.location.href = getRedirectUrl();
+            }
+        });
+    </script>
+</body>
+</html>
