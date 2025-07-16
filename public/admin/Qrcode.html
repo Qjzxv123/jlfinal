@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Generator</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      color: #333;
+    }
+    .container {
+      max-width: 700px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+      padding: 2rem 2.5rem 2.5rem 2.5rem;
+    }
+    h1 {
+      color: indigo;
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    label {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      padding: 0.5rem;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      resize: vertical;
+    }
+    button {
+      background: #4DBA93;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+    }
+    button:hover {
+      background: #388e6c;
+    }
+    
+    /* Product Selection Styles */
+    .product-selection-container {
+      margin-bottom: 2rem;
+    }
+    
+    .product-dropdown-container {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    .product-search {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    .product-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 9999;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .product-option {
+      padding: 0.75rem;
+      cursor: pointer;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .product-option:hover {
+      background: #f3f4f6;
+    }
+
+    .product-option:last-child {
+      border-bottom: none;
+    }
+
+    .product-option .product-name {
+      font-weight: 500;
+      color: #1f2937;
+    }
+
+    .product-option .product-details {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 0.25rem;
+    }
+    
+    .selected-products {
+      background: #f8f9fa;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .selected-products h3 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+      color: #2c3e50;
+    }
+    
+    .selected-product-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+    }
+    
+    .selected-product-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .product-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .product-sku {
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    
+    .product-name {
+      font-size: 0.9rem;
+      color: #6b7280;
+      margin-top: 0.25rem;
+    }
+    
+    .quantity-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .quantity-input {
+      width: 80px;
+      padding: 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 1rem;
+    }
+    
+    .remove-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.3s ease;
+    }
+    
+    .remove-btn:hover {
+      background: #c0392b;
+    }
+    
+    .empty-selection {
+      text-align: center;
+      color: #6b7280;
+      font-style: italic;
+      padding: 2rem;
+    }
+    .error {
+      color: #b91c1c;
+      font-weight: 500;
+      margin-bottom: 1rem;
+    }
+    .success {
+      color: #228B22;
+      font-weight: 500;
+      margin-bottom: 1rem;
+    }
+    /* Styles for printable labels */
+    .label-container {
+      display: none; /* Hide by default */
+      width: 100%;
+      padding: 10mm; /* Adjust padding for label size */
+      box-sizing: border-box;
+    }
+    .label {
+      width: 100mm; /* Adjust label width */
+      height: 50mm; /* Adjust label height */
+      border: 1px solid #000; /* Optional: border for visual separation */
+      padding: 5mm; /* Padding inside the label */
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-after: always; /* Ensure each label is on a new page */
+    }
+    .label-top {
+      display: flex;
+      align-items: flex-start;
+    }
+    .qrcode {
+      width: 40mm; /* Adjust QR code size */
+      height: 40mm; /* Adjust QR code size */
+      margin-right: 5mm;
+    }
+    .product-details {
+      flex-grow: 1;
+      border-left: 1px solid #000; /* Line separator */
+      padding-left: 5mm;
+      font-size: 12px;
+    }
+    .product-details div {
+      margin-bottom: 3px;
+    }
+    .sku-bottom {
+      text-align: center;
+      font-size: 50px;
+      font-weight: bold;
+      margin-top: 5mm;
+    }
+    /* Print styles */
+    @media print {
+      body > *:not(.label-container) { /* Hide everything except the label container */
+        display: none !important;
+      }
+      .label-container {
+        display: block; /* Show the label container for printing */
+      }
+      .label {
+        border: none; /* Remove border for printing if not needed */
+      }
+    }
+    /* Sidebar Styles */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      z-index: 1000;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar:hover {
+      width: 250px;
+    }
+    
+    .sidebar-header {
+      padding: 0.75rem;
+      border-bottom: 1px solid #34495e;
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #ecf0f1;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:not(:hover) .sidebar-header h2 {
+      opacity: 0;
+    }
+    
+    .sidebar:hover .sidebar-header h2 {
+      font-size: 1.3rem;
+    }
+    
+    .sidebar-nav {
+      padding: 0.5rem 0;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid transparent;
+      white-space: nowrap;
+    }
+    
+    .nav-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item.active {
+      background: rgba(77,186,147,0.2);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item i {
+      margin-right: 0.5rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    
+    .nav-item span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:hover .nav-item span {
+      opacity: 1;
+    }
+    
+    .sidebar:hover .nav-item {
+      padding: 0.75rem 1.5rem;
+    }
+    @media (max-width: 600px) {
+      .sidebar {
+        width: 0;
+        overflow: hidden;
+      }
+      
+      .sidebar:hover {
+        width: 250px;
+      }
+      
+      .container {
+        margin-left: 0;
+        margin: 20px 10px;
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>J&L Tools</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="BatchMaker.html" class="nav-item">
+        <i class="cil-factory"></i><span>Batch Maker</span>
+      </a>
+      <a href="OrderViewer.html" class="nav-item">
+        <i class="cil-3d"></i><span>Order Viewer</span>
+      </a>
+      <a href="InventoryUpdater.html" class="nav-item">
+        <i class="cil-chart"></i><span>Inventory Updater</span>
+      </a>
+      <a href="ProductIngredientViewer.html" class="nav-item">
+        <i class="cil-columns"></i><span>Product Ingredients</span>
+      </a>
+      <a href="AddProduct.html" class="nav-item">
+        <i class="cil-note-add"></i><span>Add/Update Product</span>
+      </a>
+      <a href="AddIngredient.html" class="nav-item">
+        <i class="cil-plus"></i><span>Add/Update Ingredient</span>
+      </a>
+      <a href="IncomingIngredients.html" class="nav-item">
+        <i class="cil-truck"></i><span>Incoming Ingredients</span>
+      </a>
+      <a href="Qrcode.html" class="nav-item active">
+        <i class="cil-qr-code"></i><span>QR Code Generator</span>
+      </a>
+      <a href="Quoting.html" class="nav-item">
+        <i class="cil-money"></i><span>Product Quoting</span>
+      </a>
+      <a href="Invoice.html" class="nav-item">
+        <i class="cil-dollar"></i><span>Invoice Calculator</span>
+      </a>
+      <a href="DatabaseViewer.html" class="nav-item">
+        <i class="cil-spreadsheet"></i><span>Database Viewer</span>
+        </a>
+    </nav>
+  </div>
+
+  <div class="container">
+    <h1>QR Code Generator</h1>
+    
+    <div class="product-selection-container">
+      <label for="productSearch">Search and Select Products:</label>
+      <div class="product-dropdown-container">
+        <input type="text" id="productSearch" class="product-search" placeholder="Type to search products..." />
+        <div id="productDropdown" class="product-dropdown" style="display: none;"></div>
+      </div>
+      
+      <div class="selected-products">
+        <h3>Selected Products for QR Code Generation:</h3>
+        <div id="selectedProductsList">
+          <div class="empty-selection">No products selected. Search and select products above.</div>
+        </div>
+      </div>
+    </div>
+    
+    <button onclick="generateQRCodes()">Generate & Print QR Codes</button>
+    <div id="output"></div>
+  </div>
+
+  <!-- Hidden container for labels to be printed -->
+  <div id="labelContainer" class="label-container"></div>
+
+  <script>
+    // Supabase config (replace with your own if needed)
+    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODAyNDMyMCwiZXhwIjoyMDYzNjAwMzIwfQ.Zu-YJ0_GiAGzEGVEMJGtQFZ1igkS2d7DCEYM025SAlM';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function checkAdmin() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = '/public/login.html';
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      // Adjust this check to match your Supabase user admin logic
+      if (!user || !user.user_metadata || user.user_metadata.role !== 'service_role') {
+        console.log(user.user_metadata);
+        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins only</div>';
+        throw new Error('Not admin');
+      }
+    }
+    checkAdmin();
+    let allProducts = [];
+    let selectedProducts = new Map(); // SKU -> {product, quantity}
+
+    // Initialize the page
+    async function initializePage() {
+      await loadAllProducts();
+      setupProductDropdown();
+      updateSelectedProductsList();
+    }
+
+    // Load all products from Supabase
+    async function loadAllProducts() {
+      try {
+        const { data: products, error } = await supabase
+          .from('Products')
+          .select('ProductSKU, Name, Retailer, "Pack Size"')
+          .order('ProductSKU');
+
+        if (error) {
+          console.error('Error loading products:', error);
+          return;
+        }
+
+        allProducts = products || [];
+        console.log(`Loaded ${allProducts.length} products`);
+      } catch (err) {
+        console.error('Error loading products:', err);
+      }
+    }
+
+    // Setup product dropdown functionality
+    function setupProductDropdown() {
+      const searchInput = document.getElementById('productSearch');
+      const dropdown = document.getElementById('productDropdown');
+
+      // Filter and display products based on search
+      function updateDropdown(searchTerm = '') {
+        const filtered = allProducts.filter(product => {
+          const searchText = `${product.ProductSKU} ${product.Name || ''}`.toLowerCase();
+          return searchText.includes(searchTerm.toLowerCase());
+        });
+
+        dropdown.innerHTML = '';
+        
+        filtered.slice(0, 20).forEach(product => {
+          const option = document.createElement('div');
+          option.className = 'product-option';
+          option.innerHTML = `
+            <div class="product-name">${product.ProductSKU} - ${product.Name || 'No Name'}</div>
+            <div class="product-details">
+              Retailer: ${product.Retailer || 'N/A'}${product['Pack Size'] ? ` | Pack Size: ${product['Pack Size']}` : ''}
+            </div>
+          `;
+          
+          option.addEventListener('click', () => {
+            addProductToSelection(product);
+            searchInput.value = '';
+            dropdown.style.display = 'none';
+          });
+          
+          dropdown.appendChild(option);
+        });
+
+        if (filtered.length === 0) {
+          dropdown.innerHTML = '<div class="product-option" style="color: #6b7280; font-style: italic;">No products found</div>';
+        }
+      }
+
+      // Show dropdown when input is focused
+      searchInput.addEventListener('focus', () => {
+        updateDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+      });
+
+      // Update dropdown as user types
+      searchInput.addEventListener('input', (e) => {
+        updateDropdown(e.target.value);
+        dropdown.style.display = 'block';
+      });
+
+      // Hide dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!document.querySelector('.product-dropdown-container').contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+    }
+
+    // Add a product to the selection
+    function addProductToSelection(product) {
+      if (selectedProducts.has(product.ProductSKU)) {
+        // If product already exists, increment quantity
+        const existing = selectedProducts.get(product.ProductSKU);
+        existing.quantity += 1;
+      } else {
+        // Add new product with quantity 1
+        selectedProducts.set(product.ProductSKU, {
+          product: product,
+          quantity: 1
+        });
+      }
+      updateSelectedProductsList();
+    }
+
+    // Remove a product from the selection
+    function removeProductFromSelection(sku) {
+      selectedProducts.delete(sku);
+      updateSelectedProductsList();
+    }
+
+    // Update quantity of a selected product
+    function updateProductQuantity(sku, quantity) {
+      if (selectedProducts.has(sku)) {
+        if (quantity > 0) {
+          selectedProducts.get(sku).quantity = quantity;
+        } else {
+          selectedProducts.delete(sku);
+        }
+        updateSelectedProductsList();
+      }
+    }
+
+    // Update the selected products list display
+    function updateSelectedProductsList() {
+      const listContainer = document.getElementById('selectedProductsList');
+      
+      if (selectedProducts.size === 0) {
+        listContainer.innerHTML = '<div class="empty-selection">No products selected. Search and select products above.</div>';
+        return;
+      }
+
+      const listHTML = Array.from(selectedProducts.entries()).map(([sku, {product, quantity}]) => `
+        <div class="selected-product-item">
+          <div class="product-info">
+            <div class="product-sku">${product.ProductSKU}</div>
+            <div class="product-name">${product.Name || 'No Name'}</div>
+          </div>
+          <div class="quantity-controls">
+            <label>Qty:</label>
+            <input type="number" class="quantity-input" min="1" value="${quantity}" 
+                   onchange="updateProductQuantity('${sku}', parseInt(this.value))">
+            <button class="remove-btn" onclick="removeProductFromSelection('${sku}')">Remove</button>
+          </div>
+        </div>
+      `).join('');
+
+      listContainer.innerHTML = listHTML;
+    }
+
+    async function generateQRCodes() {
+      const output = document.getElementById('output');
+      const labelContainer = document.getElementById('labelContainer');
+      output.innerHTML = '';
+      labelContainer.innerHTML = ''; // Clear previous labels
+
+      if (selectedProducts.size === 0) {
+        output.innerHTML = '<div class="error">Please select at least one product to generate QR codes.</div>';
+        return;
+      }
+
+      output.innerHTML = '<div class="info">Generating QR codes...</div>';
+
+      let generatedCount = 0;
+
+      for (const [sku, {product, quantity}] of selectedProducts.entries()) {
+        const productName = product.Name || 'N/A';
+        const Retailer = product.Retailer || 'N/A';
+        const packSize = product['Pack Size'] ? `Pack Size: ${product['Pack Size']}` : '';
+
+        for (let i = 0; i < quantity; i++) {
+          const labelDiv = document.createElement('div');
+          labelDiv.classList.add('label');
+
+          const topDiv = document.createElement('div');
+          topDiv.classList.add('label-top');
+
+          const qrcodeDiv = document.createElement('div');
+          qrcodeDiv.classList.add('qrcode');
+          topDiv.appendChild(qrcodeDiv);
+
+          const detailsDiv = document.createElement('div');
+          detailsDiv.classList.add('product-details');
+          detailsDiv.innerHTML = `
+            <div><strong>Name:</strong> ${productName}</div>
+            <div><strong>Retailer:</strong> ${Retailer}</div>
+            ${packSize ? `<div><strong>${packSize}</strong></div>` : ''}
+          `;
+          topDiv.appendChild(detailsDiv);
+
+          labelDiv.appendChild(topDiv);
+
+          const skuBottomDiv = document.createElement('div');
+          skuBottomDiv.classList.add('sku-bottom');
+          skuBottomDiv.textContent = sku;
+          labelDiv.appendChild(skuBottomDiv);
+
+          labelContainer.appendChild(labelDiv);
+
+          // Generate QR code after appending to DOM
+          new QRCode(qrcodeDiv, {
+            text: sku,
+            width: 150, // Adjust size as needed
+            height: 150,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.H
+          });
+
+          generatedCount++;
+        }
+      }
+
+      if (generatedCount > 0) {
+        output.innerHTML = `<div class="success">Generated ${generatedCount} QR code labels. Opening print dialog...</div>`;
+        // Use a small timeout to ensure QR codes are rendered before printing
+        setTimeout(() => {
+          window.print();
+          // Clear labels after printing (optional, but good practice)
+          labelContainer.innerHTML = '';
+          output.innerHTML += '<div class="info">Print dialog closed. Labels cleared.</div>';
+        }, 500);
+      } else {
+        output.innerHTML = '<div class="info">No QR codes generated.</div>';
+      }
+    }
+
+    // Initialize the page when it loads
+    document.addEventListener('DOMContentLoaded', initializePage);
+  </script>
+</body>
+</html>

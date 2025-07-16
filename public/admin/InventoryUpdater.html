@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Inventory Management System</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      color: #333;
+    }
+    
+    /* Sidebar Styles */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      z-index: 1000;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar:hover {
+      width: 250px;
+    }
+    
+    .sidebar-header {
+      padding: 0.75rem;
+      border-bottom: 1px solid #34495e;
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #ecf0f1;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:not(:hover) .sidebar-header h2 {
+      opacity: 0;
+    }
+    
+    .sidebar:hover .sidebar-header h2 {
+      font-size: 1.3rem;
+    }
+    
+    .sidebar-nav {
+      padding: 0.5rem 0;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid transparent;
+      white-space: nowrap;
+    }
+    
+    .nav-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item.active {
+      background: rgba(77,186,147,0.2);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item i {
+      margin-right: 0.5rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    
+    .nav-item span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:hover .nav-item span {
+      opacity: 1;
+    }
+    
+    .sidebar:hover .nav-item {
+      padding: 0.75rem 1.5rem;
+    }
+    
+    /* Main content adjustments */
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+      width: calc(100% - 60px);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    
+    h1 {
+      color: indigo;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      font-size: 2.5rem;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    #main-container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+      padding: 2rem 2.5rem 2.5rem 2.5rem;
+      margin-top: 3rem;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #fileInput {
+      margin: 1.5rem 0 1rem 0;
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: #f1f5f9;
+      font-size: 1rem;
+      width: 100%;
+      max-width: 320px;
+    }
+    #output {
+      margin-top: 1.5rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 1rem;
+      width: 100%;
+      min-height: 60px;
+      max-width: 400px;
+      color: #22223b;
+      font-size: 1rem;
+      white-space: pre-line;
+      box-sizing: border-box;
+    }
+    .success {
+      color: #228B22;
+      font-weight: 500;
+    }
+    .error {
+      color: #b91c1c;
+      font-weight: 500;
+    }
+    @media (max-width: 600px) {
+      .sidebar {
+        width: 0;
+        overflow: hidden;
+      }
+      
+      .sidebar:hover {
+        width: 250px;
+      }
+      
+      .main-content {
+        margin-left: 0;
+        width: 100%;
+      }
+      
+      #main-container {
+        padding: 1rem;
+        max-width: 98vw;
+        margin-top: 1rem;
+      }
+      #output {
+        max-width: 98vw;
+      }
+    }
+    @media print {
+      body * { visibility: hidden !important; }
+      #print-area, #print-area * { visibility: visible !important; }
+      #print-area { position: absolute; left: 0; top: 0; width: 100vw; background: white; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>J&L Tools</h2>
+    </div>
+    <nav class="sidebar-nav">
+     <a href="BatchMaker.html" class="nav-item">
+        <i class="cil-factory"></i><span>Batch Maker</span>
+      </a>
+      <a href="OrderViewer.html" class="nav-item">
+        <i class="cil-3d"></i><span>Order Viewer</span>
+      </a>
+      <a href="InventoryUpdater.html" class="nav-item active">
+        <i class="cil-chart"></i><span>Inventory Updater</span>
+      </a>
+      <a href="ProductIngredientViewer.html" class="nav-item">
+        <i class="cil-columns"></i><span>Product Ingredients</span>
+      </a>
+      <a href="AddProductAdmin.html" class="nav-item">
+        <i class="cil-note-add"></i><span>Add/Update Product</span>
+      </a>
+      <a href="AddIngredient.html" class="nav-item">
+        <i class="cil-plus"></i><span>Add/Update Ingredient</span>
+      </a>
+      <a href="IncomingIngredients.html" class="nav-item">
+        <i class="cil-truck"></i><span>Incoming Ingredients</span>
+      </a>
+      <a href="Qrcode.html" class="nav-item">
+        <i class="cil-qr-code"></i><span>QR Code Generator</span>
+      </a>
+      <a href="Quoting.html" class="nav-item">
+        <i class="cil-money"></i><span>Product Quoting</span>
+      </a>
+      <a href="Invoice.html" class="nav-item">
+        <i class="cil-dollar"></i><span>Invoice Calculator</span>
+      </a>
+      <a href="DatabaseViewer.html" class="nav-item">
+        <i class="cil-spreadsheet"></i><span>Database Viewer</span>
+        </a>
+    </nav>
+  </div>
+  
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+    <h1>Inventory Quantity Updater</h1>
+    <div id="main-container">
+    <button id="viewLogBtn" style="margin-bottom:1rem;">Download Inventory Log</button>
+    <button id="undoBtn" style="margin-bottom:1rem; margin-left:1rem;">Undo Last Update</button>
+    <input type="file" id="fileInput" accept=".csv">
+    <div id="output"></div>
+  </div>
+  <div id="print-area" style="display:none;"></div>
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+    const supabaseUrl = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODAyNDMyMCwiZXhwIjoyMDYzNjAwMzIwfQ.Zu-YJ0_GiAGzEGVEMJGtQFZ1igkS2d7DCEYM025SAlM';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    async function checkAdmin() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = '/public/login.html';
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      // Adjust this check to match your Supabase user admin logic
+      if (!user || !user.user_metadata || user.user_metadata.role !== 'service_role') {
+        console.log(user.user_metadata);
+        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins only</div>';
+        throw new Error('Not admin');
+      }
+    }
+    checkAdmin();
+    const output = document.getElementById('output');
+    const fileInput = document.getElementById('fileInput');
+
+    // Refactor: extract file processing logic to a function
+    async function processCSVText(text) {
+      output.textContent = '';
+
+      // Count occurrences of "FREE IMP-1-BARE - ORDER $50+"
+      let freeImpBareCount = (text.match(/FREE IMP-1-BARE - ORDER \$50\+/g) || []).length;
+      if (freeImpBareCount > 0) {
+        // Fetch current quantity for "lip-bare"
+        const { data: lipBareData, error: lipBareError } = await supabase
+          .from('Products')
+          .select('Quantity')
+          .eq('ProductSKU', 'LIP-1-BARE')
+          .single();
+        if (!lipBareError && lipBareData && typeof lipBareData.Quantity === 'number') {
+          const newLipBareQty = lipBareData.Quantity - freeImpBareCount;
+          const { error: updateLipBareError } = await supabase
+            .from('Products')
+            .update({ Quantity: newLipBareQty })
+            .eq('ProductSKU', 'lip-bare');
+          if (updateLipBareError) {
+            output.innerHTML += `<div class="error">Error updating lip-bare: ${updateLipBareError.message}</div>`;
+          } else {
+            output.innerHTML += `<div class="success">lip-bare: Removed ${freeImpBareCount} (FREE IMP-1-BARE), Quantity is now ${newLipBareQty}</div>`;
+            // Log the update
+            const logEntry = `${new Date().toISOString().substring(0, 10)},lip-bare,${freeImpBareCount}\n`;
+            try {
+              let existing = localStorage.getItem('inventorylog.csv') || '';
+              existing += logEntry;
+              localStorage.setItem('inventorylog.csv', existing);
+            } catch (e) {
+              output.innerHTML += `<div class="error">Error logging update for lip-bare</div>`;
+            }
+          }
+        } else {
+          output.innerHTML += `<div class="error">lip-bare not found</div>`;
+        }
+      }
+
+
+      // Parse CSV and prepare data structures
+      const parsed = Papa.parse(text.trim(), { header: true, skipEmptyLines: false });
+      if (!parsed.data || !parsed.data.length) {
+        output.innerHTML += '<div class="error">Error: No data found in CSV.</div>';
+        return;
+      }
+      
+      const skuMap = new Map();
+      const orderMap = new Map(); // Track orders and their shipping info
+      const skuToOrderMap = new Map(); // Track which SKU belongs to which order      // First pass: collect all order information and SKU mappings
+      for (let i = 0; i < parsed.data.length; i++) {
+        const row = parsed.data[i];
+        const rawSKU = (row['SKU'] ?? row['Lineitem sku'])?.trim() ?? "ERROR NO SKU";
+        const orderId = row['Order ID'] ?? row['Order Number'] ?? row['Receipt ID'] ?? '';
+        const name = (row['Name'] ?? row['Lineitem name'] ?? '')?.trim() || '';
+        let quantity = parseInt(row['Quantity'] ?? row['Lineitem quantity']?? row['Product Quantity']);
+
+        if (orderId) {
+          const shipTo = {            name: row['ShipTo_Name'] ?? row['Shipping Name'] ?? row['Ship To'] ?? row['Name'] ?? '',
+            address1: row['ShipTo_Address1'] ?? row['Shipping Street'] ?? row['Address 1'] ?? row['Ship Address1'] ?? '',
+            address2: row['ShipTo_Address2'] ?? row['Shipping Street 2'] ?? row['Address 2'] ?? row['Ship Address2'] ?? '',
+            city: row['ShipTo_City'] ?? row['Shipping City'] ?? row['City'] ?? row['Ship City'] ?? '',
+            state: row['ShipTo_State'] ?? row['Shipping State'] ?? row['State'] ?? row['Ship State'] ?? '',
+            zipCode: row['ShipTo_ZipCode'] ?? row['Shipping Zip'] ?? row['Zip'] ?? row['Ship Zip'] ?? '',
+            country: row['ShipTo_Country'] ?? row['Shipping Country'] ?? row['Country'] ?? row['Ship Country'] ?? '',
+            email: row['Buyer Email'] ?? row['Email'] ?? '',
+            phone: row['Phone'] ?? ''
+          };
+          orderMap.set(orderId, shipTo);        }
+        
+        if (!rawSKU || rawSKU === null) {
+          output.innerHTML += `<div class="error">Warning: Row ${i + 1} has no SKU</div>`;
+          continue;
+        }
+        
+        if (isNaN(quantity)) {
+          output.innerHTML += `<div class="error">Warning: Row ${i + 1} with SKU "${rawSKU}" has invalid quantity</div>`;
+          continue;
+        }
+        
+        // Split by " + " for bundle SKUs
+        const skuParts = rawSKU.split(/\s*\+\s*/);
+        
+        for (let part of skuParts) {
+          let sku = part.trim();
+          
+          // Add to SKU map directly without any transformation
+          if (skuMap.has(sku)) {
+            skuMap.set(sku, skuMap.get(sku) + quantity);
+          } else {
+            skuMap.set(sku, quantity);
+          }
+          
+          // Map the SKU to an array of order IDs
+          if (orderId) {
+            if (!skuToOrderMap.has(sku)) {
+              skuToOrderMap.set(sku, []);
+            }
+            skuToOrderMap.get(sku).push(orderId);
+          }
+        }
+      }
+
+      // Create transformed lines for processing
+      const transformedLines = Array.from(skuMap.entries()).map(([sku, qty]) => `${sku},${qty}`);
+      const newLines = ['SKU,Quantity', ...transformedLines];
+      let successCount = 0;
+      let errorCount = 0;
+      // Remove picklist logic
+      for (let i = 1; i < newLines.length; i++) {
+        const row = newLines[i].split(',').map(cell => cell.trim());
+        const productSKU = row[0];
+        const quantityToRemove = parseInt(row[1]);
+        if (!productSKU || isNaN(quantityToRemove)) continue;
+        // Fetch current quantity from Supabase
+        const { data, error } = await supabase
+          .from('Products')
+          .select('Quantity,Name,"Pack Size",Retailer')
+          .eq('ProductSKU', productSKU)
+          .single();
+        if (error || !data || typeof data.Quantity !== 'number') {
+          output.innerHTML += `<div class="error">${productSKU} not found</div>`;
+          errorCount++;
+          continue;
+        }
+        const newQuantity = data.Quantity - quantityToRemove;
+        const { error: updateError } = await supabase
+          .from('Products')
+          .update({ Quantity: newQuantity })
+          .eq('ProductSKU', productSKU);
+        if (updateError) {
+          output.innerHTML += `<div class="error">Error updating ${productSKU}: ${updateError.message}</div>`;
+          errorCount++;
+        } else {
+          output.innerHTML += `<div class="success">${productSKU}: Removed ${quantityToRemove}, Quantity is now ${newQuantity}</div>`;
+          successCount++;
+          // Append log to inventorylog.csv
+          const logEntry = `${new Date().toISOString().substring(0, 10)},${productSKU},${quantityToRemove}\n`;
+          try {
+            let existing = localStorage.getItem('inventorylog.csv') || '';
+            existing += logEntry;
+            localStorage.setItem('inventorylog.csv', existing);
+          } catch (e) {
+            output.innerHTML += `<div class="error">Error logging update for ${productSKU}</div>`;
+          }
+        }
+      }
+      output.innerHTML += `<div class="success">Processed ${successCount} rows successfully, ${errorCount} errors.</div>`;
+    }
+
+    fileInput.addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        await processCSVText(e.target.result);
+      };
+      reader.readAsText(file);
+    });
+
+    // Expose processCSVText globally for non-module script
+    window.processCSVText = processCSVText;
+    // log downloader
+    const viewLogBtn = document.getElementById('viewLogBtn');
+    viewLogBtn.textContent = 'Download Inventory Log';
+    viewLogBtn.addEventListener('click', () => {
+      const log = localStorage.getItem('inventorylog.csv');
+      if (!log) {
+        output.innerHTML = '<div class="error">No inventory log found.</div>';
+        return;
+      }
+      const blob = new Blob([log], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'inventorylog.csv';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    });
+  </script>
+  <script>
+    // On page load, check for CSV in sessionStorage and process it if found
+    window.addEventListener('DOMContentLoaded', async () => {
+      const csvFromStorage = sessionStorage.getItem('inventoryCSV');
+      if (csvFromStorage) {
+        await processCSVText(csvFromStorage);
+        sessionStorage.removeItem('inventoryCSV');
+      }
+    });
+    // Undo button logic
+    const undoBtn = document.getElementById('undoBtn');
+    undoBtn.addEventListener('click', async () => {
+      const log = localStorage.getItem('inventorylog.csv');
+      if (!log) {
+        output.innerHTML = '<div class="error">No inventory log found to undo.</div>';
+        return;
+      }
+      const lines = log.trim().split('\n');
+      // Find the last batch marker
+      let lastBatchIdx = -1;
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].startsWith('---BATCH---')) {
+          lastBatchIdx = i;
+          break;
+        }
+      }
+      if (lastBatchIdx === -1 || lastBatchIdx === lines.length - 1) {
+        output.innerHTML = '<div class="error">No batch to undo.</div>';
+        return;
+      }
+      // Collect all entries after the last batch marker
+      const toUndo = lines.slice(lastBatchIdx + 1);
+      let undoCount = 0;
+      let errorCount = 0;
+      for (const entry of toUndo) {
+        if (!entry.trim()) continue;
+        const [date, sku, qty] = entry.split(',');
+        if (!sku || !qty || sku.startsWith('---BATCH---')) continue;
+        // Fetch current quantity
+        const { data, error } = await supabase
+          .from('Products')
+          .select('Quantity')
+          .eq('ProductSKU', sku)
+          .single();
+        if (error || !data || typeof data.Quantity !== 'number') {
+          output.innerHTML += `<div class="error">${sku} not found for undo</div>`;
+          errorCount++;
+          continue;
+        }
+        const newQuantity = data.Quantity + parseInt(qty);
+        const { error: updateError } = await supabase
+          .from('Products')
+          .update({ Quantity: newQuantity })
+          .eq('ProductSKU', sku);
+        if (updateError) {
+          output.innerHTML += `<div class="error">Error undoing update for ${sku}: ${updateError.message}</div>`;
+          errorCount++;
+        } else {
+          undoCount++;
+        }
+      }
+      // Remove undone entries and the batch marker from the log
+      const newLog = lines.slice(0, lastBatchIdx).join('\n');
+      localStorage.setItem('inventorylog.csv', newLog + (newLog ? '\n' : ''));
+      output.innerHTML = `<div class="success">Undo complete: ${undoCount} updates reverted, ${errorCount} errors.</div>`;
+    });
+  </script>
+  </div> <!-- Close main-content -->
+</body>
+</html>

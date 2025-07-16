@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Incoming Ingredients</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      color: #333;
+    }
+
+    /* Sidebar Styles */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      z-index: 1000;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar:hover {
+      width: 250px;
+    }
+    
+    .sidebar-header {
+      padding: 0.75rem;
+      border-bottom: 1px solid #34495e;
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #ecf0f1;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:not(:hover) .sidebar-header h2 {
+      opacity: 0;
+    }
+    
+    .sidebar:hover .sidebar-header h2 {
+      font-size: 1.3rem;
+    }
+    
+    .sidebar-nav {
+      padding: 0.5rem 0;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid transparent;
+      white-space: nowrap;
+    }
+    
+    .nav-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item.active {
+      background: rgba(77,186,147,0.2);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item i {
+      margin-right: 0.5rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    
+    .nav-item span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:hover .nav-item span {
+      opacity: 1;
+    }
+    
+    .sidebar:hover .nav-item {
+      padding: 0.75rem 1.5rem;
+    }
+
+    /* Main Content */
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+      width: calc(100% - 60px);
+      padding: 2rem;
+      min-height: 100vh;
+    }
+
+    @media (max-width: 600px) {
+      .sidebar {
+        width: 0;
+        overflow: hidden;
+      }
+      
+      .sidebar:hover {
+        width: 250px;
+      }
+      
+      .main-content {
+        margin-left: 0;
+        width: 100%;
+        padding: 1rem;
+      }
+    }
+
+    /* Page Specific Styles */
+    .page-header {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .page-header h1 {
+      margin: 0;
+      color: #2c3e50;
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    .page-header p {
+      margin: 0.5rem 0 0 0;
+      color: #6b7280;
+      font-size: 1.1rem;
+    }
+
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.2s ease;
+      box-sizing: border-box;
+    }
+
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: #4dba93;
+      box-shadow: 0 0 0 3px rgba(77, 186, 147, 0.1);
+    }
+
+    .btn {
+      background: #4dba93;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      margin: 0.25rem;
+    }
+
+    .btn:hover {
+      background: #379c7a;
+      transform: translateY(-1px);
+    }
+
+    .btn-danger {
+      background: #ef4444;
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
+    .btn-secondary {
+      background: #6b7280;
+    }
+
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+
+    /* Table Styles */
+    .ingredients-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      background: white;
+      border-radius: 8px;
+      overflow: visible;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .ingredients-table th {
+      background: linear-gradient(135deg, #4dba93 0%, #379c7a 100%);
+      color: white;
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .ingredients-table td {
+      padding: 2rem 0.75rem;
+      border-bottom: 1px solid #e5e7eb;
+      position: relative;
+    }
+
+    .ingredients-table tr:hover {
+      background: #f9fafb;
+    }
+
+    .ingredients-table input, .ingredients-table select {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .ingredients-table input:focus, .ingredients-table select:focus {
+      outline: none;
+      border-color: #4dba93;
+    }
+
+    /* Status Messages */
+    .status {
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+      font-weight: 600;
+    }
+
+    .status.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .status.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    .status.info {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #93c5fd;
+    }
+
+    /* Ingredient Dropdown */
+    .ingredient-dropdown-container {
+      position: relative;
+    }
+
+    .ingredient-search {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    .ingredient-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 9999;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .ingredient-option {
+      padding: 0.75rem;
+      cursor: pointer;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .ingredient-option:hover {
+      background: #f3f4f6;
+    }
+
+    .ingredient-option:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>J&L Tools</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="BatchMaker.html" class="nav-item">
+        <i class="cil-factory"></i><span>Batch Maker</span>
+      </a>
+      <a href="OrderViewer.html" class="nav-item">
+        <i class="cil-3d"></i><span>Order Viewer</span>
+      </a>
+      <a href="InventoryUpdater.html" class="nav-item">
+        <i class="cil-chart"></i><span>Inventory Updater</span>
+      </a>
+      <a href="ProductIngredientViewer.html" class="nav-item">
+        <i class="cil-columns"></i><span>Product Ingredients</span>
+      </a>
+      <a href="AddProductAdmin.html" class="nav-item">
+        <i class="cil-note-add"></i><span>Add/Update Product</span>
+      </a>
+      <a href="AddIngredient.html" class="nav-item">
+        <i class="cil-plus"></i><span>Add/Update Ingredient</span>
+      </a>
+      <a href="IncomingIngredients.html" class="nav-item active">
+        <i class="cil-truck"></i><span>Incoming Ingredients</span>
+      </a>
+      <a href="Qrcode.html" class="nav-item">
+        <i class="cil-qr-code"></i><span>QR Code Generator</span>
+      </a>
+      <a href="Quoting.html" class="nav-item">
+        <i class="cil-money"></i><span>Product Quoting</span>
+      </a>
+      <a href="Invoice.html" class="nav-item">
+        <i class="cil-dollar"></i><span>Invoice Calculator</span>
+      </a>
+      <a href="DatabaseViewer.html" class="nav-item">
+        <i class="cil-spreadsheet"></i><span>Database Viewer</span>
+        </a>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <div class="page-header">
+      <h1>📦 Incoming Ingredients</h1>
+      <p>Manage ingredient orders and deliveries with lot tracking and expiry dates</p>
+    </div>
+
+    <!-- Enter Ingredient Order Section -->
+    <div class="container">
+      <h2>📋 Enter Ingredient Order</h2>
+      <p style="color: #6b7280; margin-bottom: 1.5rem;">Create new ingredient orders with expected delivery dates.</p>
+      
+      <div style="margin-bottom: 1.5rem;">
+        <button class="btn" onclick="addOrderRow()">
+          <i class="cil-plus"></i> Add Order Row
+        </button>
+      </div>
+
+      <div id="orderStatusMessage" class="status" style="display: none;"></div>
+      
+      <table class="ingredients-table" id="ordersTable">
+        <thead>
+          <tr>
+            <th style="min-width: 250px;">Ingredient</th>
+            <th style="min-width: 150px;">Quantity Ordered</th>
+            <th style="min-width: 150px;">Expected Arrival Date</th>
+            <th style="min-width: 100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTableBody">
+        </tbody>
+      </table>
+      
+      <div style="text-align: center; margin: 2rem 0;">
+        <button class="btn" onclick="saveAllOrders()" style="background: #059669; font-size: 1.1rem; padding: 1rem 2rem;">
+          <i class="cil-save"></i> Save Orders
+        </button>
+      </div>
+    </div>
+
+
+    <!-- Receive Ingredients Section -->
+    <div class="container">
+      <h2>📦 Receive Ingredients</h2>
+      <p style="color: #6b7280; margin-bottom: 1.5rem;">Process incoming deliveries and update inventory with lot numbers and expiry dates.</p>
+      <div style="margin-bottom: 1.5rem;">
+        <button class="btn" onclick="loadPendingOrders()" style="background: #3b82f6;">
+          <i class="cil-reload"></i> Refresh Pending Orders
+        </button>
+      </div>
+      <div id="receiveStatusMessage" class="status" style="display: none;"></div>
+      <div id="pendingOrdersContainer" style="display: none;">
+        <h3 style="margin-bottom: 1rem;">Expected Deliveries</h3>
+        <table class="ingredients-table" id="pendingOrdersTable">
+          <thead>
+            <tr>
+              <th>Ingredient</th>
+              <th>SKU</th>
+              <th>Expected Quantity</th>
+              <th>Expected Date</th>
+              <th>Lot Number</th>
+              <th>Actual Quantity</th>
+              <th>Expiry Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pendingOrdersTableBody">
+          </tbody>
+        </table>
+        <div style="text-align: center; margin: 2rem 0;">
+          <button class="btn" onclick="processReceivedIngredients()" style="background: #059669; font-size: 1.1rem; padding: 1rem 2rem;">
+            <i class="cil-check"></i> Process Received Ingredients
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Receive Boxes Section -->
+    <div class="container">
+      <h2>📦 Receive Boxes</h2>
+      <p style="color: #6b7280; margin-bottom: 1.5rem;">Log incoming boxes and update box inventory.</p>
+      <div style="margin-bottom: 1.5rem;">
+        <button class="btn" onclick="addBoxRow()">
+          <i class="cil-plus"></i> Add Box Row
+        </button>
+      </div>
+      <div id="boxStatusMessage" class="status" style="display: none;"></div>
+      <table class="ingredients-table" id="boxesTable">
+        <thead>
+          <tr>
+            <th style="min-width: 200px;">Box Type</th>
+            <th style="min-width: 120px;">Quantity</th>
+            <th style="min-width: 180px;">Received Date</th>
+            <th style="min-width: 100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="boxesTableBody">
+        </tbody>
+      </table>
+      <div style="text-align: center; margin: 2rem 0;">
+        <button class="btn" onclick="processReceivedBoxes()" style="background: #059669; font-size: 1.1rem; padding: 1rem 2rem;">
+          <i class="cil-check"></i> Process Received Boxes
+        </button>
+      </div>
+    </div>
+    
+    <br><br>
+    <div class="container">
+      <h2>⚠️ Expiry Check</h2>
+      <div style="margin-bottom: 1.5rem;">
+        <button class="btn" onclick="checkExpiries()" style="background: #f59e0b;">
+          <i class="cil-clock"></i> Refresh Expired Ingredients
+        </button>
+      </div>
+      <div id="expiryResults" style="display: none;">
+        <table class="ingredients-table" id="expiryTable">
+          <thead>
+            <tr>
+              <th>Ingredient</th>
+              <th>SKU</th>
+              <th>Lot Number</th>
+              <th>Lot Quantity</th>
+              <th>Expiry Date</th>
+              <th>Days Until Expiry</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="expiryTableBody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <br><br>
+    <div class="container">
+      <h2>🗑️ Remove Exhausted Lot Numbers</h2>
+      <p style="color: #6b7280; margin-bottom: 1rem;">Enter lot numbers that have been exhausted to remove them from active inventory.</p>
+      
+      <div style="margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 200px;">
+            <label for="exhaustedIngredientDropdown" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Select Ingredient:</label>
+            <div id="exhaustedIngredientDropdown"></div>
+          </div>
+          <div style="flex: 1; min-width: 200px;">
+            <label for="exhaustedLotNumber" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Lot Number to Remove:</label>
+            <input type="text" id="exhaustedLotNumber" placeholder="Enter lot number or click to select" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem;" />
+          </div>
+          <div>
+            <button class="btn" onclick="removeExhaustedLot()" style="background: #dc2626; padding: 0.75rem 1.5rem;">
+              <i class="cil-trash"></i> Remove Lot
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div id="exhaustedLotStatus" class="status" style="display: none; margin-bottom: 1rem;"></div>
+      
+      <div id="activeLotsList" style="display: none;">
+        <h3 style="margin-bottom: 1rem;">Active Lot Numbers for Selected Ingredient:</h3>
+        <div id="activeLotsContainer" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 1rem; min-height: 50px;">
+          <p style="color: #6b7280; font-style: italic;">Select an ingredient to view active lot numbers</p>
+        </div>
+      </div>
+    </div>
+    
+    <br><br>
+    <div class="container">
+      <h2>📋 Recent Additions</h2>
+      <div id="recentAdditions">
+        <p style="color: #6b7280; font-style: italic;">No recent additions. Add some ingredients above to see them here.</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+    
+    const supabaseUrl = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODAyNDMyMCwiZXhwIjoyMDYzNjAwMzIwfQ.Zu-YJ0_GiAGzEGVEMJGtQFZ1igkS2d7DCEYM025SAlM';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    async function checkAdmin() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = '/public/login.html';
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      // Adjust this check to match your Supabase user admin logic
+      if (!user || !user.user_metadata || user.user_metadata.role !== 'service_role') {
+        console.log(user.user_metadata);
+        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins only</div>';
+        throw new Error('Not admin');
+      }
+    }
+    checkAdmin();
+    let allIngredients = [];
+    let orderRows = [];
+    let pendingOrders = [];
+    let recentAdditions = [];
+
+    // Fetch all ingredients for dropdowns
+    async function fetchAllIngredients() {
+      try {
+        const { data: ingredients, error } = await supabase
+          .from('Ingredients')
+          .select('IngredientSKU, Name, Supplier, "Quantity(Lbs/Units)", ActiveLotNumbers')
+          .order('Name');
+
+        if (error) {
+          console.error('Error fetching ingredients:', error);
+          console.error('Error fetching ingredients: ' + error.message, 'error');
+          return [];
+        }
+
+        allIngredients = ingredients || [];
+        return allIngredients;
+      } catch (error) {
+        console.error('Error fetching ingredients:', error);
+        console.error('Error fetching ingredients: ' + error.message, 'error');
+        return [];
+      }
+    }
+
+    // Create ingredient dropdown with search functionality
+    function createIngredientDropdown(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return null;
+
+      const dropdownHTML = `
+        <div class="ingredient-dropdown-container">
+          <input type="text" class="ingredient-search" placeholder="Type to search ingredients..." />
+          <div class="ingredient-dropdown" style="display: none;"></div>
+          <input type="hidden" class="selected-sku" value="" />
+        </div>
+      `;
+
+      container.innerHTML = dropdownHTML;
+
+      const searchInput = container.querySelector('.ingredient-search');
+      const dropdown = container.querySelector('.ingredient-dropdown');
+      const hiddenSKU = container.querySelector('.selected-sku');
+
+      // Filter and display ingredients based on search
+      function updateDropdown(searchTerm = '') {
+        const filtered = allIngredients.filter(ingredient => {
+          const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
+          return searchText.includes(searchTerm.toLowerCase());
+        });
+
+        dropdown.innerHTML = '';
+        
+        filtered.slice(0, 15).forEach(ingredient => {
+          const option = document.createElement('div');
+          option.className = 'ingredient-option';
+          option.innerHTML = `
+            <div style="font-weight: 500; margin-bottom: 0.25rem;">${ingredient.Name}</div>
+            <div style="font-size: 0.8rem; color: #6b7280;">
+              SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'}
+            </div>
+          `;
+          
+          option.addEventListener('click', () => {
+            searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
+            hiddenSKU.value = ingredient.IngredientSKU;
+            dropdown.style.display = 'none';
+          });
+          
+          dropdown.appendChild(option);
+        });
+
+        if (filtered.length === 0) {
+          dropdown.innerHTML = '<div class="ingredient-option" style="color: #6b7280; font-style: italic;">No ingredients found</div>';
+        }
+      }
+
+      // Show dropdown when input is focused
+      searchInput.addEventListener('focus', () => {
+        updateDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+      });
+
+      // Update dropdown as user types
+      searchInput.addEventListener('input', (e) => {
+        updateDropdown(e.target.value);
+        dropdown.style.display = 'block';
+        hiddenSKU.value = ''; // Clear selection when typing
+      });
+
+      // Hide dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+
+      return {
+        getSKU: () => hiddenSKU.value,
+        setSKU: (sku) => {
+          hiddenSKU.value = sku;
+          const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
+          if (ingredient) {
+            searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
+          }
+        },
+        clear: () => {
+          searchInput.value = '';
+          hiddenSKU.value = '';
+        }
+      };
+    }
+ 
+    // ========== ORDER MANAGEMENT FUNCTIONS ==========
+    
+    // Add a new order row to the orders table
+    function addOrderRow() {
+      const tableBody = document.getElementById('ordersTableBody');
+      const rowId = 'order-row-' + Date.now();
+      
+      const row = document.createElement('tr');
+      row.id = rowId;
+      row.innerHTML = `
+        <td>
+          <div id="order-dropdown-${rowId}"></div>
+        </td>
+        <td>
+          <input type="number" class="order-quantity" placeholder="0" min="0" step="0.01" style="width: 100%;" />
+        </td>
+        <td>
+          <input type="date" class="expected-date" style="width: 100%;" />
+        </td>
+        <td>
+          <button class="btn btn-danger" onclick="removeOrderRow('${rowId}')" style="padding: 0.5rem;">
+            <i class="cil-trash"></i>
+          </button>
+        </td>
+      `;
+      
+      tableBody.appendChild(row);
+      
+      // Create dropdown for this row
+      createIngredientDropdown(`order-dropdown-${rowId}`);
+      
+      orderRows.push(rowId);
+    }
+
+    // Remove an order row
+    function removeOrderRow(rowId) {
+      const row = document.getElementById(rowId);
+      if (row) {
+        row.remove();
+        orderRows = orderRows.filter(id => id !== rowId);
+      }
+    }
+
+    // Clear all order rows
+    function clearAllOrderRows() {
+      const tableBody = document.getElementById('ordersTableBody');
+      tableBody.innerHTML = '';
+      orderRows = [];
+    }
+
+    // Show order status message
+    function showOrderStatus(message, type = 'info') {
+      const statusElement = document.getElementById('orderStatusMessage');
+      statusElement.textContent = message;
+      statusElement.className = `status ${type}`;
+      statusElement.style.display = 'block';
+      
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        statusElement.style.display = 'none';
+      }, 5000);
+    }
+
+    // Save all orders to the IngredientOrders table
+    async function saveAllOrders() {
+      const tableBody = document.getElementById('ordersTableBody');
+      const rows = tableBody.querySelectorAll('tr');
+      
+      if (rows.length === 0) {
+        showOrderStatus('No orders to save', 'info');
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const results = [];
+
+      showOrderStatus('Processing orders...', 'info');
+
+      for (const row of rows) {
+        const dropdown = row.querySelector('.selected-sku');
+        const orderQuantity = row.querySelector('.order-quantity');
+        const expectedDate = row.querySelector('.expected-date');
+
+        const sku = dropdown ? dropdown.value : '';
+        const quantity = parseFloat(orderQuantity.value) || 0;
+        const expectedBy = expectedDate.value;
+
+        if (!sku) {
+          results.push(`❌ Row ${successCount + errorCount + 1}: No ingredient selected`);
+          errorCount++;
+          continue;
+        }
+
+        if (quantity <= 0) {
+          results.push(`❌ Row ${successCount + errorCount + 1}: Invalid quantity`);
+          errorCount++;
+          continue;
+        }
+
+        if (!expectedBy) {
+          results.push(`❌ Row ${successCount + errorCount + 1}: Expected arrival date required`);
+          errorCount++;
+          continue;
+        }
+
+        try {
+          // Get ingredient name for display
+          const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
+          const ingredientName = ingredient ? ingredient.Name : sku;
+
+          // Insert the order into IngredientOrders table
+          const { data, error } = await supabase
+            .from('IngredientOrders')
+            .insert({
+              'IngredientSKU': sku,
+              'Quantity(Lbs/Units)': quantity,
+              'ExpectedBy': expectedBy
+            })
+            .select();
+
+          if (error) {
+            results.push(`❌ ${sku}: Failed to save order - ${error.message}`);
+            errorCount++;
+          } else {
+            results.push(`✅ ${ingredientName} (${sku}): Order for ${quantity} lbs expected by ${expectedBy}`);
+            successCount++;
+          }
+
+        } catch (error) {
+          results.push(`❌ ${sku}: Error - ${error.message}`);
+          errorCount++;
+        }
+      }
+
+      // Show results
+      const resultMessage = `Processing complete: ${successCount} successful, ${errorCount} errors\n\n${results.join('\n')}`;
+      showOrderStatus(resultMessage, errorCount === 0 ? 'success' : 'error');
+
+      // Clear successful rows
+      if (successCount > 0) {
+        clearAllOrderRows();
+        loadPendingOrders(); // Refresh pending orders
+      }
+    }
+
+    // ========== RECEIVE INGREDIENTS FUNCTIONS ==========
+
+    // Load pending orders from the database
+    async function loadPendingOrders() {
+      try {
+        showReceiveStatus('Loading pending orders...', 'info');
+        
+        const { data: orders, error } = await supabase
+          .from('IngredientOrders')
+          .select('*')
+          .order('ExpectedBy');
+
+        if (error) {
+          showReceiveStatus('Error loading pending orders: ' + error.message, 'error');
+          return;
+        }
+
+        pendingOrders = orders || [];
+        displayPendingOrders();
+        
+      } catch (error) {
+        showReceiveStatus('Error loading pending orders: ' + error.message, 'error');
+      }
+    }
+
+    // Display pending orders in the receive section
+    function displayPendingOrders() {
+      const container = document.getElementById('pendingOrdersContainer');
+      const tableBody = document.getElementById('pendingOrdersTableBody');
+      
+      if (pendingOrders.length === 0) {
+        container.style.display = 'none';
+        showReceiveStatus('No pending orders found', 'info');
+        return;
+      }
+
+      const tableRows = pendingOrders.map((order, index) => {
+        const ingredient = allIngredients.find(ing => ing.IngredientSKU === order.IngredientSKU);
+        const ingredientName = ingredient ? ingredient.Name : 'Unknown';
+        const expectedDate = new Date(order.ExpectedBy).toLocaleDateString();
+        
+        return `
+          <tr data-order-id="${order.id}">
+            <td style="font-weight: 500;">${ingredientName}</td>
+            <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">${order.IngredientSKU}</td>
+            <td style="font-weight: 500;">${order['Quantity(Lbs/Units)']} lbs</td>
+            <td>${expectedDate}</td>
+            <td>
+              <input type="text" class="lot-number" placeholder="Enter lot number" style="width: 100%;" />
+            </td>
+            <td>
+              <input type="number" class="actual-quantity" placeholder="${order['Quantity(Lbs/Units)']}" min="0" step="0.01" style="width: 100%;" value="${order['Quantity(Lbs/Units)']}" />
+            </td>
+            <td>
+              <input type="date" class="expiry-date" style="width: 100%;" />
+            </td>
+            <td>
+              <button class="btn btn-danger" onclick="removePendingOrder(${order.id})" style="padding: 0.5rem;">
+                <i class="cil-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      tableBody.innerHTML = tableRows;
+      container.style.display = 'block';
+      showReceiveStatus(`Loaded ${pendingOrders.length} pending order(s)`, 'success');
+    }
+
+    // Show receive status message
+    function showReceiveStatus(message, type = 'info') {
+      const statusElement = document.getElementById('receiveStatusMessage');
+      statusElement.textContent = message;
+      statusElement.className = `status ${type}`;
+      statusElement.style.display = 'block';
+      
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        statusElement.style.display = 'none';
+      }, 5000);
+    }
+
+    // Remove a pending order
+    async function removePendingOrder(orderId) {
+      try {
+        const { error } = await supabase
+          .from('IngredientOrders')
+          .delete()
+          .eq('id', orderId);
+
+        if (error) {
+          showReceiveStatus('Error removing order: ' + error.message, 'error');
+          return;
+        }
+
+        // Remove from local array and refresh display
+        pendingOrders = pendingOrders.filter(order => order.id !== orderId);
+        displayPendingOrders();
+        showReceiveStatus('Order removed successfully', 'success');
+
+      } catch (error) {
+        showReceiveStatus('Error removing order: ' + error.message, 'error');
+      }
+    }
+
+    // Process received ingredients
+    async function processReceivedIngredients() {
+      const tableBody = document.getElementById('pendingOrdersTableBody');
+      const rows = tableBody.querySelectorAll('tr');
+      
+      if (rows.length === 0) {
+        showReceiveStatus('No orders to process', 'info');
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const results = [];
+
+      showReceiveStatus('Processing received ingredients...', 'info');
+
+      for (const row of rows) {
+        const orderId = parseInt(row.getAttribute('data-order-id'));
+        const lotNumber = row.querySelector('.lot-number');
+        const actualQuantity = row.querySelector('.actual-quantity');
+        const expiryDate = row.querySelector('.expiry-date');
+
+        const lot = lotNumber.value.trim();
+        const quantity = parseFloat(actualQuantity.value) || 0;
+        const expiry = expiryDate.value;
+
+        // Skip rows without lot number (not being processed)
+        if (!lot) {
+          continue;
+        }
+
+        if (quantity <= 0) {
+          results.push(`❌ Order ${orderId}: Invalid quantity`);
+          errorCount++;
+          continue;
+        }
+
+        if (!expiry) {
+          results.push(`❌ Order ${orderId}: Expiry date required`);
+          errorCount++;
+          continue;
+        }
+
+        try {
+          // Find the order
+          const order = pendingOrders.find(o => o.id === orderId);
+          if (!order) {
+            results.push(`❌ Order ${orderId}: Order not found`);
+            errorCount++;
+            continue;
+          }
+
+          // Get current ingredient data
+          const { data: currentData, error: fetchError } = await supabase
+            .from('Ingredients')
+            .select('IngredientSKU, Name, "Quantity(Lbs/Units)", ActiveLotNumbers')
+            .eq('IngredientSKU', order.IngredientSKU)
+            .single();
+
+          if (fetchError) {
+            results.push(`❌ ${order.IngredientSKU}: Failed to fetch current data - ${fetchError.message}`);
+            errorCount++;
+            continue;
+          }
+
+          const currentQuantity = currentData['Quantity(Lbs/Units)'] || 0;
+          const newQuantity = currentQuantity + quantity;
+
+          // Parse existing lot numbers or initialize empty array
+          let activeLotNumbers = [];
+          if (currentData.ActiveLotNumbers && Array.isArray(currentData.ActiveLotNumbers)) {
+            activeLotNumbers = [...currentData.ActiveLotNumbers];
+          }
+
+          // Add new lot number with quantity and expiry date
+          const newLotEntry = `${lot}, ${quantity}, ${expiry}`;
+          activeLotNumbers.push(newLotEntry);
+
+          // Update the ingredient
+          const { error: updateError } = await supabase
+            .from('Ingredients')
+            .update({ 
+              'Quantity(Lbs/Units)': newQuantity,
+              'ActiveLotNumbers': activeLotNumbers
+            })
+            .eq('IngredientSKU', order.IngredientSKU);
+
+          if (updateError) {
+            results.push(`❌ ${order.IngredientSKU}: Failed to update inventory - ${updateError.message}`);
+            errorCount++;
+            continue;
+          }
+
+          // Remove the order from IngredientOrders table
+          const { error: deleteError } = await supabase
+            .from('IngredientOrders')
+            .delete()
+            .eq('id', orderId);
+
+          if (deleteError) {
+            results.push(`⚠️ ${order.IngredientSKU}: Inventory updated but failed to remove order - ${deleteError.message}`);
+          }
+
+          results.push(`✅ ${currentData.Name} (${order.IngredientSKU}): +${quantity} lbs (${currentQuantity} → ${newQuantity}), Lot: ${lot}`);
+          successCount++;
+
+          // Add to recent additions
+          recentAdditions.unshift({
+            name: currentData.Name,
+            sku: order.IngredientSKU,
+            quantity: quantity,
+            lotNumber: lot,
+            lotQuantity: quantity,
+            expiryDate: expiry,
+            timestamp: new Date()
+          });
+
+        } catch (error) {
+          results.push(`❌ Order ${orderId}: Error - ${error.message}`);
+          errorCount++;
+        }
+      }
+
+      // Show results
+      const resultMessage = `Processing complete: ${successCount} successful, ${errorCount} errors\n\n${results.join('\n')}`;
+      showReceiveStatus(resultMessage, errorCount === 0 ? 'success' : 'error');
+
+      // Refresh displays
+      if (successCount > 0) {
+        loadPendingOrders();
+        updateRecentAdditions();
+      }
+    }
+
+    // Update recent additions display
+    function updateRecentAdditions() {
+      const recentContainer = document.getElementById('recentAdditions');
+      
+      if (recentAdditions.length === 0) {
+        recentContainer.innerHTML = '<p style="color: #6b7280; font-style: italic;">No recent additions. Process some ingredient deliveries to see them here.</p>';
+        return;
+      }
+
+      const recentHTML = recentAdditions.slice(0, 10).map(addition => `
+        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem;">
+          <div style="display: flex; justify-content: between; align-items: start; flex-wrap: wrap; gap: 1rem;">
+            <div style="flex: 1; min-width: 200px;">
+              <div style="font-weight: 600; color: #1e40af;">${addition.name}</div>
+              <div style="font-size: 0.9rem; color: #6b7280;">SKU: ${addition.sku}</div>
+            </div>
+            <div style="flex: 1; min-width: 150px;">
+              <div style="font-weight: 600; color: #059669;">+${addition.quantity} lbs</div>
+              <div style="font-size: 0.9rem; color: #6b7280;">Lot: ${addition.lotNumber} (${addition.lotQuantity} lbs)</div>
+            </div>
+            <div style="flex: 1; min-width: 150px;">
+              <div style="font-size: 0.9rem; color: #6b7280;">Expires: ${addition.expiryDate}</div>
+              <div style="font-size: 0.8rem; color: #9ca3af;">Received: ${addition.timestamp.toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      recentContainer.innerHTML = recentHTML;
+    }
+
+    // Check ingredient expiries
+    async function checkExpiries() {
+      try {
+        const { data: ingredients, error } = await supabase
+          .from('Ingredients')
+          .select('IngredientSKU, Name, ActiveLotNumbers')
+          .order('Name');
+
+        if (error) {
+          showExpiryStatus('Error fetching ingredients for expiry check: ' + error.message, 'error');
+          return;
+        }
+
+        const expiryData = [];
+        const today = new Date();
+        
+        ingredients.forEach(ingredient => {
+          if (ingredient.ActiveLotNumbers && Array.isArray(ingredient.ActiveLotNumbers)) {
+            ingredient.ActiveLotNumbers.forEach(lotEntry => {
+              // Parse lot entry format: "LotNumber, Quantity, YYYY-MM-DD" or legacy "LotNumber, YYYY-MM-DD"
+              const parts = lotEntry.split(', ');
+              let lotNumber, lotQuantity, expiryDateStr;
+              
+              if (parts.length >= 3) {
+                // New format: "LotNumber, Quantity, YYYY-MM-DD"
+                lotNumber = parts[0];
+                lotQuantity = parseFloat(parts[1]) || 0;
+                expiryDateStr = parts[2];
+              } else if (parts.length >= 2) {
+                // Legacy format: "LotNumber, YYYY-MM-DD"
+                lotNumber = parts[0];
+                lotQuantity = 0; // Default to 0 for legacy entries
+                expiryDateStr = parts[1];
+              } else {
+                return; // Skip invalid entries
+              }
+              
+              const expiryDate = new Date(expiryDateStr);
+                
+              if (!isNaN(expiryDate.getTime())) {
+                const timeDiff = expiryDate.getTime() - today.getTime();
+                const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                
+                let status = 'Good';
+                let statusColor = '#059669';
+                let rowColor = '#f0fdf4';
+                
+                if (daysDiff < 0) {
+                  status = 'EXPIRED';
+                  statusColor = '#dc2626';
+                  rowColor = '#fef2f2';
+                } else if (daysDiff <= 30) {
+                  status = 'Expiring Soon';
+                  statusColor = '#d97706';
+                  rowColor = '#fffbeb';
+                } else if (daysDiff <= 90) {
+                  status = 'Caution';
+                  statusColor = '#f59e0b';
+                  rowColor = '#fefce8';
+                }
+                
+                // Only show items that are expired or expiring within 90 days
+                if (daysDiff <= 90) {
+                  expiryData.push({
+                    name: ingredient.Name,
+                    sku: ingredient.IngredientSKU,
+                    lotNumber: lotNumber,
+                    lotQuantity: lotQuantity,
+                    expiryDate: expiryDateStr,
+                    daysUntilExpiry: daysDiff,
+                    status: status,
+                    statusColor: statusColor,
+                    rowColor: rowColor
+                  });
+                }
+              }
+            });
+          }
+        });
+
+        // Sort by days until expiry (expired first, then closest to expiring)
+        expiryData.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+
+        displayExpiryResults(expiryData);
+        
+      } catch (error) {
+        console.error('Error checking expiries: ' + error.message, 'error');
+      }
+    }
+
+    // Display expiry results
+    function displayExpiryResults(expiryData) {
+      const resultsDiv = document.getElementById('expiryResults');
+      const tableBody = document.getElementById('expiryTableBody');
+      
+      if (expiryData.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align: center; color: #6b7280; font-style: italic; padding: 2rem;">
+              🎉 All ingredients have good expiry dates (more than 90 days remaining)
+            </td>
+          </tr>
+        `;
+        resultsDiv.style.display = 'block';
+        console.log('Expiry check complete: All ingredients are within safe expiry ranges', 'success');
+        return;
+      }
+
+      const tableRows = expiryData.map(item => `
+        <tr style="background: ${item.rowColor};">
+          <td style="font-weight: 500;">${item.name}</td>
+          <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">${item.sku}</td>
+          <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">${item.lotNumber}</td>
+          <td style="font-weight: 500;">${item.lotQuantity} lbs</td>
+          <td>${item.expiryDate}</td>
+          <td style="font-weight: 600; color: ${item.statusColor};">
+            ${item.daysUntilExpiry < 0 ? Math.abs(item.daysUntilExpiry) + ' days ago' : item.daysUntilExpiry + ' days'}
+          </td>
+          <td>
+            <span style="background: ${item.statusColor}; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
+              ${item.status}
+            </span>
+          </td>
+        </tr>
+      `).join('');
+
+      tableBody.innerHTML = tableRows;
+      resultsDiv.style.display = 'block';
+      
+      const expiredCount = expiryData.filter(item => item.daysUntilExpiry < 0).length;
+      const expiringSoonCount = expiryData.filter(item => item.daysUntilExpiry >= 0 && item.daysUntilExpiry <= 30).length;
+      
+      let statusMessage = `Expiry check complete: Found ${expiryData.length} lot(s) requiring attention`;
+      if (expiredCount > 0) {
+        statusMessage += ` (${expiredCount} expired, ${expiringSoonCount} expiring within 30 days)`;
+      } else {
+        statusMessage += ` (${expiringSoonCount} expiring within 30 days)`;
+      }
+      
+      console.log(statusMessage, expiredCount > 0 ? 'error' : 'info');
+    }
+
+    // Create exhausted ingredient dropdown with search functionality
+    function createExhaustedIngredientDropdown() {
+      const container = document.getElementById('exhaustedIngredientDropdown');
+      if (!container) return null;
+
+      const dropdownHTML = `
+        <div class="ingredient-dropdown-container">
+          <input type="text" class="ingredient-search" placeholder="Type to search ingredients..." />
+          <div class="ingredient-dropdown" style="display: none;"></div>
+          <input type="hidden" class="selected-sku" value="" />
+        </div>
+      `;
+
+      container.innerHTML = dropdownHTML;
+
+      const searchInput = container.querySelector('.ingredient-search');
+      const dropdown = container.querySelector('.ingredient-dropdown');
+      const hiddenSKU = container.querySelector('.selected-sku');
+
+      // Filter ingredients that have active lot numbers
+      function getIngredientsWithLots() {
+        return allIngredients.filter(ingredient => 
+          ingredient.ActiveLotNumbers && ingredient.ActiveLotNumbers.length > 0
+        );
+      }
+
+      // Filter and display ingredients based on search
+      function updateDropdown(searchTerm = '') {
+        const ingredientsWithLots = getIngredientsWithLots();
+        const filtered = ingredientsWithLots.filter(ingredient => {
+          const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
+          return searchText.includes(searchTerm.toLowerCase());
+        });
+
+        dropdown.innerHTML = '';
+        
+        filtered.slice(0, 15).forEach(ingredient => {
+          const option = document.createElement('div');
+          option.className = 'ingredient-option';
+          option.innerHTML = `
+            <div style="font-weight: 500; margin-bottom: 0.25rem;">${ingredient.Name}</div>
+            <div style="font-size: 0.8rem; color: #6b7280;">
+              SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'} | ${ingredient.ActiveLotNumbers.length} lot(s)
+            </div>
+          `;
+          
+          option.addEventListener('click', () => {
+            searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
+            hiddenSKU.value = ingredient.IngredientSKU;
+            dropdown.style.display = 'none';
+            showActiveLots(); // Update active lots display
+          });
+          
+          dropdown.appendChild(option);
+        });
+
+        if (filtered.length === 0) {
+          if (ingredientsWithLots.length === 0) {
+            dropdown.innerHTML = '<div class="ingredient-option" style="color: #6b7280; font-style: italic;">No ingredients with active lot numbers found</div>';
+          } else {
+            dropdown.innerHTML = '<div class="ingredient-option" style="color: #6b7280; font-style: italic;">No ingredients found matching search</div>';
+          }
+        }
+      }
+
+      // Show dropdown when input is focused
+      searchInput.addEventListener('focus', () => {
+        updateDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+      });
+
+      // Update dropdown as user types
+      searchInput.addEventListener('input', (e) => {
+        updateDropdown(e.target.value);
+        dropdown.style.display = 'block';
+        hiddenSKU.value = ''; // Clear selection when typing
+        
+        // Hide active lots if no selection
+        if (!e.target.value.trim()) {
+          const activeLotsList = document.getElementById('activeLotsList');
+          activeLotsList.style.display = 'none';
+        }
+      });
+
+      // Hide dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+
+      return {
+        getSKU: () => hiddenSKU.value,
+        setSKU: (sku) => {
+          hiddenSKU.value = sku;
+          const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
+          if (ingredient) {
+            searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
+          }
+        },
+        clear: () => {
+          searchInput.value = '';
+          hiddenSKU.value = '';
+        }
+      };
+    }
+
+    // Show active lot numbers for selected ingredient
+    function showActiveLots() {
+      const dropdown = document.querySelector('#exhaustedIngredientDropdown .selected-sku');
+      const sku = dropdown ? dropdown.value : '';
+      const activeLotsList = document.getElementById('activeLotsList');
+      const activeLotsContainer = document.getElementById('activeLotsContainer');
+
+      if (!sku) {
+        activeLotsList.style.display = 'none';
+        return;
+      }
+
+      const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
+      if (!ingredient || !ingredient.ActiveLotNumbers || ingredient.ActiveLotNumbers.length === 0) {
+        activeLotsContainer.innerHTML = '<p style="color: #6b7280; font-style: italic;">No active lot numbers found for this ingredient</p>';
+        activeLotsList.style.display = 'block';
+        return;
+      }
+
+      const lotNumbers = ingredient.ActiveLotNumbers;
+      const lotsHtml = lotNumbers.map(lot => {
+        // Parse lot entry format: "LotNumber, Quantity, YYYY-MM-DD" or legacy "LotNumber, YYYY-MM-DD"
+        const parts = lot.split(', ');
+        let displayText = lot;
+        
+        if (parts.length >= 3) {
+          // New format: "LotNumber, Quantity, YYYY-MM-DD"
+          const lotNumber = parts[0];
+          const lotQuantity = parseFloat(parts[1]) || 0;
+          const expiryDate = parts[2];
+          displayText = `${lotNumber} (${lotQuantity} lbs) - Exp: ${expiryDate}`;
+        } else if (parts.length >= 2) {
+          // Legacy format: "LotNumber, YYYY-MM-DD"
+          const lotNumber = parts[0];
+          const expiryDate = parts[1];
+          displayText = `${lotNumber} (No qty) - Exp: ${expiryDate}`;
+        }
+        
+        return `
+          <span style="display: inline-block; background: #e5e7eb; color: #374151; padding: 0.5rem 0.75rem; border-radius: 0.375rem; margin: 0.25rem; font-family: 'Courier New', monospace; font-size: 0.9rem; cursor: pointer;" onclick="selectLotForRemoval('${lot}')">
+            ${displayText}
+          </span>
+        `;
+      }).join('');
+
+      activeLotsContainer.innerHTML = `
+        <p style="margin-bottom: 0.5rem; font-weight: 500;">Active Lot Numbers (${lotNumbers.length}) - Click to select:</p>
+        <div>${lotsHtml}</div>
+      `;
+      activeLotsList.style.display = 'block';
+    }
+
+    // Select a lot number for removal
+    function selectLotForRemoval(lotNumber) {
+      const lotInput = document.getElementById('exhaustedLotNumber');
+      if (lotInput) {
+        // Parse lot entry format: "LotNumber, Quantity, YYYY-MM-DD" or legacy "LotNumber, YYYY-MM-DD"
+        const parts = lotNumber.split(', ');
+        
+        if (parts.length >= 3) {
+          // New format: "LotNumber, Quantity, YYYY-MM-DD"
+          const lotNum = parts[0];
+          const lotQuantity = parseFloat(parts[1]) || 0;
+          const expiryDate = parts[2];
+          lotInput.value = `${lotNum} (${lotQuantity} lbs) - Exp: ${expiryDate}`;
+        } else if (parts.length >= 2) {
+          // Legacy format: "LotNumber, YYYY-MM-DD"
+          const lotNum = parts[0];
+          const expiryDate = parts[1];
+          lotInput.value = `${lotNum} (No qty) - Exp: ${expiryDate}`;
+        } else {
+          lotInput.value = lotNumber;
+        }
+        
+        // Store the full lot string for removal
+        lotInput.setAttribute('data-full-lot', lotNumber);
+      }
+    }
+
+    // Remove exhausted lot number
+    async function removeExhaustedLot() {
+      const dropdown = document.querySelector('#exhaustedIngredientDropdown .selected-sku');
+      const lotInput = document.getElementById('exhaustedLotNumber');
+      const sku = dropdown ? dropdown.value : '';
+      const displayLotNumber = lotInput.value.trim();
+      const fullLotNumber = lotInput.getAttribute('data-full-lot') || displayLotNumber;
+
+      if (!sku) {
+        showExhaustedLotStatus('Please select an ingredient', 'error');
+        return;
+      }
+
+      if (!displayLotNumber) {
+        showExhaustedLotStatus('Please enter a lot number to remove', 'error');
+        return;
+      }
+
+      const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
+      if (!ingredient) {
+        showExhaustedLotStatus('Ingredient not found', 'error');
+        return;
+      }
+
+      const activeLots = ingredient.ActiveLotNumbers || [];
+      if (!activeLots.includes(fullLotNumber)) {
+        showExhaustedLotStatus(`Lot number "${displayLotNumber}" is not in the active lots for this ingredient`, 'error');
+        return;
+      }
+
+      try {
+        showExhaustedLotStatus('Removing lot number...', 'info');
+
+        // Remove the lot number from the array
+        const updatedLots = activeLots.filter(lot => lot !== fullLotNumber);
+
+        // Update the database
+        const { error } = await supabase
+          .from('Ingredients')
+          .update({ ActiveLotNumbers: updatedLots })
+          .eq('IngredientSKU', sku);
+
+        if (error) {
+          console.error('Error removing lot number:', error);
+          showExhaustedLotStatus('Error removing lot number: ' + error.message, 'error');
+          return;
+        }
+
+        // Update local data
+        ingredient.ActiveLotNumbers = updatedLots;
+
+        // Clear the input
+        lotInput.value = '';
+        lotInput.removeAttribute('data-full-lot');
+
+        // Refresh the active lots display
+        showActiveLots();
+
+        showExhaustedLotStatus(`Successfully removed lot number "${displayLotNumber}" from ${ingredient.Name}`, 'success');
+
+      } catch (error) {
+        console.error('Error removing lot number:', error);
+        showExhaustedLotStatus('Error removing lot number: ' + error.message, 'error');
+      }
+    }
+
+    // Show status message for exhausted lot operations
+    function showExhaustedLotStatus(message, type) {
+      const statusDiv = document.getElementById('exhaustedLotStatus');
+      if (!statusDiv) return;
+
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+      statusDiv.style.display = 'block';
+
+      // Auto-hide after 5 seconds for success messages
+      if (type === 'success') {
+        setTimeout(() => {
+          statusDiv.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+    // Show expiry status message
+    function showExpiryStatus(message, type = 'info') {
+      // Create or update status element for expiry section
+      let statusElement = document.getElementById('expiryStatusMessage');
+      if (!statusElement) {
+        statusElement = document.createElement('div');
+        statusElement.id = 'expiryStatusMessage';
+        statusElement.className = 'status';
+        statusElement.style.display = 'none';
+        
+        // Insert before the expiry results div
+        const expiryResults = document.getElementById('expiryResults');
+        expiryResults.parentNode.insertBefore(statusElement, expiryResults);
+      }
+      
+      statusElement.textContent = message;
+      statusElement.className = `status ${type}`;
+      statusElement.style.display = 'block';
+      
+      // Auto-hide after 5 seconds for success messages
+      if (type === 'success') {
+        setTimeout(() => {
+          statusElement.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+
+    // ========== BOX RECEIVING FUNCTIONS ========== 
+
+    let boxRows = [];
+    let allBoxes = [];
+
+    // Fetch all box types from Boxes table
+    async function fetchAllBoxes() {
+      try {
+        const { data: boxes, error } = await supabase
+          .from('Boxes')
+          .select('SKU, Quantity, Dimensions')
+          .order('SKU');
+        if (error) {
+          console.error('Error fetching boxes:', error);
+          return [];
+        }
+        allBoxes = boxes || [];
+        return allBoxes;
+      } catch (error) {
+        console.error('Error fetching boxes:', error);
+        return [];
+      }
+    }
+
+    // Create a dropdown for box types
+    function createBoxDropdown(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const select = document.createElement('select');
+      select.className = 'box-type';
+      select.style.width = '100%';
+      select.innerHTML = `<option value="">Select box...</option>` +
+        allBoxes.map(box => `<option value="${box.SKU}">${box.Dimensions ? box.Dimensions : box.SKU}</option>`).join('');
+      container.innerHTML = '';
+      container.appendChild(select);
+    }
+
+    // Add a new box row to the boxes table (with dropdown)
+    function addBoxRow() {
+      const tableBody = document.getElementById('boxesTableBody');
+      const rowId = 'box-row-' + Date.now();
+      const row = document.createElement('tr');
+      row.id = rowId;
+      row.innerHTML = `
+        <td><div id="box-dropdown-${rowId}"></div></td>
+        <td>
+          <input type="number" class="box-quantity" placeholder="0" min="0" step="1" style="width: 100%;" />
+        </td>
+        <td>
+          <input type="date" class="box-date" style="width: 100%;" value="${(new Date()).toISOString().slice(0,10)}" />
+        </td>
+        <td>
+          <button class="btn btn-danger" onclick="removeBoxRow('${rowId}')" style="padding: 0.5rem;">
+            <i class="cil-trash"></i>
+          </button>
+        </td>
+      `;
+      tableBody.appendChild(row);
+      createBoxDropdown(`box-dropdown-${rowId}`);
+      boxRows.push(rowId);
+    }
+
+    // Remove a box row
+    function removeBoxRow(rowId) {
+      const row = document.getElementById(rowId);
+      if (row) {
+        row.remove();
+        boxRows = boxRows.filter(id => id !== rowId);
+      }
+    }
+
+    // Show box status message
+    function showBoxStatus(message, type = 'info') {
+      const statusElement = document.getElementById('boxStatusMessage');
+      statusElement.textContent = message;
+      statusElement.className = `status ${type}`;
+      statusElement.style.display = 'block';
+      setTimeout(() => {
+        statusElement.style.display = 'none';
+      }, 5000);
+    }
+
+    // Process received boxes (stub: just clears rows and shows message)
+    async function processReceivedBoxes() {
+      const tableBody = document.getElementById('boxesTableBody');
+      const rows = tableBody.querySelectorAll('tr');
+      if (rows.length === 0) {
+        showBoxStatus('No boxes to process', 'info');
+        return;
+      }
+      let successCount = 0;
+      let errorCount = 0;
+      let results = [];
+      for (const row of rows) {
+        const sku = row.querySelector('.box-type').value;
+        const quantity = parseInt(row.querySelector('.box-quantity').value) || 0;
+        const date = row.querySelector('.box-date').value;
+        if (!sku) {
+          errorCount++;
+          results.push('❌ No box SKU selected');
+          continue;
+        }
+        if (quantity <= 0) {
+          errorCount++;
+          results.push('❌ Invalid quantity');
+          continue;
+        }
+        if (!date) {
+          errorCount++;
+          results.push('❌ No received date');
+          continue;
+        }
+        // Find the box in allBoxes
+        const box = allBoxes.find(b => b.SKU === sku);
+        if (!box) {
+          errorCount++;
+          results.push(`❌ Box SKU ${sku} not found`);
+          continue;
+        }
+        // Update the Quantity in the Boxes table
+        try {
+          const newQuantity = (box.Quantity || 0) + quantity;
+          const { error } = await supabase
+            .from('Boxes')
+            .update({ Quantity: newQuantity })
+            .eq('SKU', sku);
+          if (error) {
+            errorCount++;
+            results.push(`❌ Failed to update SKU: ${sku}: ${error.message}`);
+            continue;
+          }
+          successCount++;
+          results.push(`✅ SKU: ${sku}: +${quantity} (now ${newQuantity})`);
+        } catch (err) {
+          errorCount++;
+          results.push(`❌ Error updating SKU: ${sku}: ${err.message}`);
+        }
+      }
+      showBoxStatus(`Processed ${successCount} box entries${errorCount > 0 ? (', ' + errorCount + ' errors') : ''}\n${results.join('\n')}`, errorCount === 0 ? 'success' : 'error');
+      // Clear all box rows
+      tableBody.innerHTML = '';
+      boxRows = [];
+      // Refresh allBoxes from DB
+      await fetchAllBoxes();
+    }
+
+    // Make functions globally accessible
+    window.addOrderRow = addOrderRow;
+    window.removeOrderRow = removeOrderRow;
+    window.clearAllOrderRows = clearAllOrderRows;
+    window.saveAllOrders = saveAllOrders;
+    window.loadPendingOrders = loadPendingOrders;
+    window.removePendingOrder = removePendingOrder;
+    window.processReceivedIngredients = processReceivedIngredients;
+    window.checkExpiries = checkExpiries;
+    window.removeExhaustedLot = removeExhaustedLot;
+    window.selectLotForRemoval = selectLotForRemoval;
+    window.addBoxRow = addBoxRow;
+    window.removeBoxRow = removeBoxRow;
+    window.processReceivedBoxes = processReceivedBoxes;
+
+    // Initialize the application
+    async function initializeApp() {
+      showOrderStatus('Loading ingredients...', 'info');
+      await fetchAllIngredients();
+      await fetchAllBoxes();
+      // Create the exhausted ingredient dropdown
+      createExhaustedIngredientDropdown();
+      showOrderStatus('Ready! Create orders or load pending deliveries.', 'success');
+      // Add one order row by default
+      addOrderRow();
+    }
+
+    // Start the app when page loads
+    initializeApp();
+    loadPendingOrders();
+    checkExpiries();
+  </script>
+</body>
+</html>

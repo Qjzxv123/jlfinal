@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Quoting Tool</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      color: #333;
+    }
+
+    /* Sidebar Styles */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      z-index: 1000;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar:hover {
+      width: 250px;
+    }
+    
+    .sidebar-header {
+      padding: 0.75rem;
+      border-bottom: 1px solid #34495e;
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #ecf0f1;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:not(:hover) .sidebar-header h2 {
+      opacity: 0;
+    }
+    
+    .sidebar:hover .sidebar-header h2 {
+      font-size: 1.3rem;
+    }
+    
+    .sidebar-nav {
+      padding: 0.5rem 0;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid transparent;
+      white-space: nowrap;
+    }
+    
+    .nav-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item.active {
+      background: rgba(77,186,147,0.2);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item i {
+      margin-right: 0.5rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    
+    .nav-item span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:hover .nav-item span {
+      opacity: 1;
+    }
+    
+    .sidebar:hover .nav-item {
+      padding: 0.75rem 1.5rem;
+    }
+
+    /* Main Content */
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+      width: calc(100% - 60px);
+      padding: 2rem;
+      min-height: 100vh;
+    }
+
+    /* Page Header */
+    .page-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .page-header h1 {
+      color: #2c3e50;
+      font-size: 2.5rem;
+      margin: 0;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .page-header p {
+      color: #64748b;
+      font-size: 1.1rem;
+      margin: 0.5rem 0 0 0;
+    }
+
+    /* Container */
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+
+    .container h2 {
+      color: #2c3e50;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+    }
+
+    /* Buttons */
+    .btn {
+      background: #4dba93;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      background: #379c7a;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(77,186,147,0.3);
+    }
+
+    .btn i {
+      font-size: 1rem;
+    }
+
+    /* Quote Table */
+    .quote-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      background: white;
+      border-radius: 12px;
+      overflow: visible;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .quote-table th {
+      background: linear-gradient(135deg, #4dba93 0%, #379c7a 100%);
+      color: white;
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .quote-table td {
+      padding: 2rem 0.75rem;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: middle;
+      position: relative;
+    }
+
+    .quote-table tr:hover {
+      background: #f9fafb;
+    }
+
+    .quote-table input, .quote-table select {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      transition: border-color 0.2s ease;
+    }
+
+    .quote-table input:focus, .quote-table select:focus {
+      outline: none;
+      border-color: #4dba93;
+      box-shadow: 0 0 0 3px rgba(77,186,147,0.1);
+    }
+
+    .quote-table input:disabled {
+      background-color: #f9fafb;
+      color: #6b7280;
+      cursor: not-allowed;
+    }
+
+    /* Status Messages */
+    .status {
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+      font-weight: 600;
+    }
+
+    .status.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .status.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    .status.info {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #93c5fd;
+    }
+
+    /* Product Dropdown */
+    /* Product Dropdown */
+    .product-dropdown-container {
+      position: relative;
+    }
+
+    .product-search {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    .product-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 9999;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+
+
+    .product-option {
+      padding: 0.75rem;
+      cursor: pointer;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .product-option:hover {
+      background: #f3f4f6;
+    }
+
+    .product-option:last-child {
+      border-bottom: none;
+    }
+
+    .product-option .product-name {
+      font-weight: 500;
+      color: #1f2937;
+    }
+
+    .product-option .product-details {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 0.25rem;
+    }
+
+    /* Quote Summary */
+    .quote-summary {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 2rem;
+      margin: 2rem 0;
+    }
+
+    .quote-summary h3 {
+      color: #2c3e50;
+      margin: 0 0 1rem 0;
+      font-size: 1.3rem;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .summary-row:last-child {
+      border-bottom: none;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #2c3e50;
+    }
+
+    .summary-label {
+      font-weight: 500;
+    }
+
+    .summary-value {
+      font-weight: 600;
+      color: #4dba93;
+    }
+
+    /* Remove button */
+    .remove-btn {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background-color 0.2s ease;
+    }
+
+    .remove-btn:hover {
+      background: #dc2626;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .main-content {
+        margin-left: 0;
+        width: 100%;
+        padding: 1rem;
+      }
+      
+      .sidebar {
+        width: 0;
+      }
+      
+      .sidebar:hover {
+        width: 250px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>J&L Tools</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="BatchMaker.html" class="nav-item">
+        <i class="cil-factory"></i><span>Batch Maker</span>
+      </a>
+      <a href="OrderViewer.html" class="nav-item">
+        <i class="cil-3d"></i><span>Order Viewer</span>
+      </a>
+      <a href="InventoryUpdater.html" class="nav-item">
+        <i class="cil-chart"></i><span>Inventory Updater</span>
+      </a>
+      <a href="ProductIngredientViewer.html" class="nav-item">
+        <i class="cil-columns"></i><span>Product Ingredients</span>
+      </a>
+      <a href="AddProductAdmin.html" class="nav-item">
+        <i class="cil-note-add"></i><span>Add/Update Product</span>
+      </a>
+      <a href="AddIngredient.html" class="nav-item">
+        <i class="cil-plus"></i><span>Add/Update Ingredient</span>
+      </a>
+      <a href="IncomingIngredients.html" class="nav-item">
+        <i class="cil-truck"></i><span>Incoming Ingredients</span>
+      </a>
+      <a href="Qrcode.html" class="nav-item">
+        <i class="cil-qr-code"></i><span>QR Code Generator</span>
+      </a>
+      <a href="Quoting.html" class="nav-item active">
+        <i class="cil-money"></i><span>Product Quoting</span>
+      </a>
+      <a href="Invoice.html" class="nav-item">
+        <i class="cil-dollar"></i><span>Invoice Calculator</span>
+      </a>
+      <a href="DatabaseViewer.html" class="nav-item">
+        <i class="cil-spreadsheet"></i><span>Database Viewer</span>
+        </a>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <div class="page-header">
+      <h1>💰 Product Quoting Tool</h1>
+      <p>Calculate costs for multiple products with quantities and get total quote amounts</p>
+    </div>
+
+    <div class="container">
+      <h2>Add Products to Quote</h2>
+      <div style="margin-bottom: 1.5rem;">
+        <button class="btn" onclick="addProductRow()">
+          <i class="cil-plus"></i> Add Product Row
+        </button>
+        <button class="btn" onclick="clearQuote()" style="background: #f59e0b; margin-left: 1rem;">
+          <i class="cil-trash"></i> Clear Quote
+        </button>
+      </div>
+
+      <div id="statusMessage" class="status" style="display: none;"></div>
+    </div>
+
+    <table class="quote-table" id="quoteTable">
+      <thead>
+        <tr>
+          <th style="min-width: 300px;">Product</th>
+          <th style="min-width: 120px;">Quantity</th>
+          <th style="min-width: 120px;">Unit Price</th>
+          <th style="min-width: 120px;">Line Total</th>
+          <th style="min-width: 100px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="quoteTableBody">
+      </tbody>
+    </table>
+
+    <!-- Quote Summary -->
+    <div class="quote-summary" id="quoteSummary" style="display: none;">
+      <h3>💰 Quote Summary</h3>
+      <div class="summary-row">
+        <span class="summary-label">Subtotal:</span>
+        <span class="summary-value" id="subtotalAmount">$0.00</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Tax (5%):</span>
+        <span class="summary-value" id="taxAmount">$0.00</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Total Quote Amount:</span>
+        <span class="summary-value" id="totalAmount">$0.00</span>
+      </div>
+    </div>
+    
+
+
+
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+    
+    const supabaseUrl = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODAyNDMyMCwiZXhwIjoyMDYzNjAwMzIwfQ.Zu-YJ0_GiAGzEGVEMJGtQFZ1igkS2d7DCEYM025SAlM';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    async function checkAdmin() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = '/public/login.html';
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      // Adjust this check to match your Supabase user admin logic
+      if (!user || !user.user_metadata || user.user_metadata.role !== 'service_role') {
+        console.log(user.user_metadata);
+        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins only</div>';
+        throw new Error('Not admin');
+      }
+    }
+    checkAdmin();
+    let allProducts = [];
+    let quoteRows = [];
+    let recentQuotes = [];
+    const TAX_RATE = 0.05; // 5% tax rate
+
+    // Fetch all products for dropdowns
+    async function fetchAllProducts() {
+      try {
+        const { data: products, error } = await supabase
+          .from('Products')
+          .select('ProductSKU, Name, MSRP')
+          .order('ProductSKU');
+
+        if (error) {
+          console.error('Error fetching products:', error);
+          showStatus('Error fetching products: ' + error.message, 'error');
+          return;
+        }
+
+        allProducts = products || [];
+        console.log(`Loaded ${allProducts.length} products`);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        showStatus('Error fetching products: ' + error.message, 'error');
+      }
+    }
+
+    // Fetch latest product price from Supabase
+    async function fetchLatestProductPrice(productSKU) {
+      try {
+        const { data: product, error } = await supabase
+          .from('Products')
+          .select('MSRP')
+          .eq('ProductSKU', productSKU)
+          .single();
+
+        if (error) {
+          console.error('Error fetching latest product price:', error);
+          return null;
+        }
+
+        return product ? product.MSRP : null;
+      } catch (error) {
+        console.error('Error fetching latest product price:', error);
+        return null;
+      }
+    }
+
+    // Show status message
+    function showStatus(message, type) {
+      const statusDiv = document.getElementById('statusMessage');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+      statusDiv.style.display = 'block';
+      
+      // Auto-hide success messages after 3 seconds
+      if (type === 'success') {
+        setTimeout(() => {
+          statusDiv.style.display = 'none';
+        }, 3000);
+      }
+    }
+
+    // Create product dropdown with search functionality
+    function createProductDropdown(containerId, selectedSKU = '') {
+      const container = document.getElementById(containerId);
+      if (!container) return null;
+
+      const dropdownHTML = `
+        <div class="product-dropdown-container">
+          <input type="text" class="product-search" placeholder="Type to search products..." />
+          <div class="product-dropdown" style="display: none;"></div>
+          <input type="hidden" class="selected-sku" value="${selectedSKU}" />
+        </div>
+      `;
+
+      container.innerHTML = dropdownHTML;
+
+      const searchInput = container.querySelector('.product-search');
+      const dropdown = container.querySelector('.product-dropdown');
+      const hiddenSKU = container.querySelector('.selected-sku');
+
+      // Set initial display value if SKU is provided
+      if (selectedSKU) {
+        const product = allProducts.find(prod => prod.ProductSKU === selectedSKU);
+        if (product) {
+          searchInput.value = `${product.ProductSKU} - ${product.Name || 'No Name'}`;
+        }
+      }
+
+      // Filter and display products based on search
+      function updateDropdown(searchTerm = '') {
+        const filtered = allProducts.filter(product => {
+          const searchText = `${product.ProductSKU} ${product.Name || ''}`.toLowerCase();
+          return searchText.includes(searchTerm.toLowerCase());
+        });
+
+        dropdown.innerHTML = '';
+        
+        filtered.slice(0, 20).forEach(product => {
+          const option = document.createElement('div');
+          option.className = 'product-option';
+          option.innerHTML = `
+            <div class="product-name">${product.ProductSKU} - ${product.Name || 'No Name'}</div>
+            <div class="product-details">
+              Unit Price: $${(product.MSRP || 0).toFixed(2)}
+            </div>
+          `;
+          
+          option.addEventListener('click', async () => {
+            searchInput.value = `${product.ProductSKU} - ${product.Name || 'No Name'}`;
+            hiddenSKU.value = product.ProductSKU;
+            dropdown.style.display = 'none';
+            
+            // Update the price field for this row with latest price from database
+            const rowIndex = parseInt(containerId.replace('productDropdown_', ''));
+            const priceInput = document.getElementById(`unitPrice_${rowIndex}`);
+            if (priceInput) {
+              // Immediately show cached price and then fetch latest
+              priceInput.value = (product.MSRP || 0).toFixed(2);
+              calculateLineTotal(rowIndex);
+              
+              // Show loading state
+              priceInput.value = 'Loading...';
+              priceInput.disabled = true;
+              
+              // Fetch latest price from database
+              const latestPrice = await fetchLatestProductPrice(product.ProductSKU);
+              
+              // Update with latest price or fallback to cached price
+              const finalPrice = latestPrice !== null ? latestPrice : (product.MSRP || 0);
+              priceInput.value = finalPrice.toFixed(2);
+              priceInput.disabled = false;
+              
+              calculateLineTotal(rowIndex);
+            }
+          });
+          
+          dropdown.appendChild(option);
+        });
+
+        if (filtered.length === 0) {
+          dropdown.innerHTML = '<div class="product-option" style="color: #6b7280; font-style: italic;">No products found</div>';
+        }
+      }
+
+      // Show dropdown when input is focused
+      searchInput.addEventListener('focus', () => {
+        updateDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+      });
+
+      // Update dropdown as user types
+      searchInput.addEventListener('input', (e) => {
+        updateDropdown(e.target.value);
+        dropdown.style.display = 'block';
+        hiddenSKU.value = ''; // Clear selection when typing
+      });
+
+      // Hide dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+
+      return {
+        getSKU: () => hiddenSKU.value,
+        setSKU: async (sku) => {
+          hiddenSKU.value = sku;
+          const product = allProducts.find(prod => prod.ProductSKU === sku);
+          if (product) {
+            searchInput.value = `${product.ProductSKU} - ${product.Name || 'No Name'}`;
+            
+            // Also update the price field if this dropdown is in a table row
+            const rowIndex = parseInt(containerId.replace('productDropdown_', ''));
+            if (!isNaN(rowIndex)) {
+              const priceInput = document.getElementById(`unitPrice_${rowIndex}`);
+              if (priceInput) {
+                // Immediately show cached price and then fetch latest
+                priceInput.value = (product.MSRP || 0).toFixed(2);
+                calculateLineTotal(rowIndex);
+                
+                // Show loading state
+                priceInput.value = 'Loading...';
+                priceInput.disabled = true;
+                
+                // Fetch latest price from database
+                const latestPrice = await fetchLatestProductPrice(product.ProductSKU);
+                
+                // Update with latest price or fallback to cached price
+                const finalPrice = latestPrice !== null ? latestPrice : (product.MSRP || 0);
+                priceInput.value = finalPrice.toFixed(2);
+                priceInput.disabled = false;
+                
+                calculateLineTotal(rowIndex);
+              }
+            }
+          }
+        },
+        clear: () => {
+          searchInput.value = '';
+          hiddenSKU.value = '';
+        }
+      };
+    }
+
+    // Add a new product row to the quote
+    function addProductRow() {
+      const tbody = document.getElementById('quoteTableBody');
+      const rowIndex = quoteRows.length;
+      
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>
+          <div id="productDropdown_${rowIndex}"></div>
+        </td>
+        <td>
+          <input type="number" id="quantity_${rowIndex}" placeholder="Quantity" min="1" step="1" value="1" 
+                 onchange="calculateLineTotal(${rowIndex})" />
+        </td>
+        <td>
+          <input type="number" id="unitPrice_${rowIndex}" placeholder="0.00" min="0" step="0.01" 
+                 onchange="calculateLineTotal(${rowIndex})" />
+        </td>
+        <td>
+          <span id="lineTotal_${rowIndex}" style="font-weight: 600; color: #4dba93;">$0.00</span>
+        </td>
+        <td>
+          <button class="remove-btn" onclick="removeProductRow(${rowIndex})">
+            <i class="cil-trash"></i>
+          </button>
+        </td>
+      `;
+      
+      tbody.appendChild(row);
+      quoteRows.push({ rowIndex, element: row });
+      
+      // Create the product dropdown for this row
+      setTimeout(() => {
+        createProductDropdown(`productDropdown_${rowIndex}`);
+      }, 0);
+      
+      updateQuoteSummary();
+    }
+
+    // Remove a product row
+    window.removeProductRow = function(rowIndex) {
+      const row = quoteRows.find(r => r.rowIndex === rowIndex);
+      if (row) {
+        row.element.remove();
+        quoteRows = quoteRows.filter(r => r.rowIndex !== rowIndex);
+        updateQuoteSummary();
+      }
+    };
+
+    // Calculate line total for a specific row
+    window.calculateLineTotal = function(rowIndex) {
+      const quantityInput = document.getElementById(`quantity_${rowIndex}`);
+      const priceInput = document.getElementById(`unitPrice_${rowIndex}`);
+      const lineTotalSpan = document.getElementById(`lineTotal_${rowIndex}`);
+      
+      if (quantityInput && priceInput && lineTotalSpan) {
+        const quantity = parseFloat(quantityInput.value) || 0;
+        const price = parseFloat(priceInput.value) || 0;
+        const lineTotal = quantity * price;
+        
+        lineTotalSpan.textContent = `$${lineTotal.toFixed(2)}`;
+        updateQuoteSummary();
+      }
+    };
+
+    // Update the quote summary
+    function updateQuoteSummary() {
+      let subtotal = 0;
+      
+      quoteRows.forEach(row => {
+        const lineTotalSpan = document.getElementById(`lineTotal_${row.rowIndex}`);
+        if (lineTotalSpan) {
+          const lineTotal = parseFloat(lineTotalSpan.textContent.replace('$', '')) || 0;
+          subtotal += lineTotal;
+        }
+      });
+      
+      const tax = subtotal * TAX_RATE;
+      const total = subtotal + tax;
+      
+      // Update summary display
+      document.getElementById('subtotalAmount').textContent = `$${subtotal.toFixed(2)}`;
+      document.getElementById('taxAmount').textContent = `$${tax.toFixed(2)}`;
+      document.getElementById('totalAmount').textContent = `$${total.toFixed(2)}`;
+      
+      // Show/hide summary based on whether there are items
+      const summaryDiv = document.getElementById('quoteSummary');
+      if (quoteRows.length > 0 && subtotal > 0) {
+        summaryDiv.style.display = 'block';
+      } else {
+        summaryDiv.style.display = 'none';
+      }
+    }
+
+    // Clear the entire quote
+    window.clearQuote = function() {
+      if (confirm('Are you sure you want to clear the entire quote?')) {
+        const tbody = document.getElementById('quoteTableBody');
+        tbody.innerHTML = '';
+        quoteRows = [];
+        updateQuoteSummary();
+        showStatus('Quote cleared successfully', 'success');
+      }
+    };
+
+
+
+    // Initialize the application
+    window.addProductRow = addProductRow;
+    
+    // Load products on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      await fetchAllProducts();
+      
+      // Add initial row
+      addProductRow();
+    });
+  </script>
+</body>
+</html>
