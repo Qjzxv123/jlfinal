@@ -5,7 +5,17 @@ exports.handler = async (event) => {
   const urlObj = new URL(event.rawUrl || event.headers['x-original-url'] || '', 'http://localhost');
   // Accept both 'code' and 'authorization_code' as valid
   let authorizationCode = urlObj.searchParams.get('code') || urlObj.searchParams.get('authorization_code');
-  const state = urlObj.searchParams.get('state');
+  let state = urlObj.searchParams.get('state');
+  let decodedState = {};
+  if (state) {
+    try {
+      decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+    } catch (e) {
+      console.log('[DEBUG] Failed to decode state:', e);
+    }
+  }
+  const user_id = decodedState.user_id || null;
+  const user_email_from_state = decodedState.user_email || null;
   console.log('[DEBUG] Callback received:', { authorizationCode, state });
 
   if (!authorizationCode) {
@@ -89,20 +99,14 @@ exports.handler = async (event) => {
       if (tokenData.expires_in) {
         expires_at = Date.now() + (tokenData.expires_in * 1000);
       }
-      const cookie = event.headers.cookie || '';
-      const supabaseSession = cookie.split(';').find(c => c.trim().startsWith('sb-access-token='));
-      if (supabaseSession) {
-        const jwt = supabaseSession.split('=')[1];
-        // Decode JWT to extract email
-        const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64').toString('utf8'));
-        user_email = payload.email || null;
-      }
+      // Only use email/id from state for user_key and UserID
       await saveTokenRow(state, {
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token || null,
         expires_at,
         token_type: tokenData.token_type || tokenData.tokenType || null,
-        user_key: user_email // This will be the email if extracted, or null
+        user_key: user_email_from_state || null, // Save email as user_key
+        UserID: user_id || null      // Save id as UserID
       });
   } catch (e) {
     console.log('[DEBUG] Error saving token to Supabase:', e);

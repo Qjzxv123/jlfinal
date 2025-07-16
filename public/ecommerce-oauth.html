@@ -200,15 +200,22 @@ function requireLogin(action) {
   };
 }
 
-function startOAuth(provider) {
-  window.location.href = `/.netlify/functions/${provider}-oauth-start`;
+async function startOAuth(provider) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    alert('You must be logged in.');
+    return;
+  }
+  const stateObj = { user_id: user.id, user_email: user.email, nonce: Math.random().toString(36).substring(2) };
+  const state = btoa(JSON.stringify(stateObj));
+  window.location.href = `/.netlify/functions/${provider}-oauth-start?state=${encodeURIComponent(state)}`;
 }
 
 document.getElementById('faire-btn').onclick = requireLogin(() => startOAuth('faire'));
 document.getElementById('etsy-btn').onclick = requireLogin(() => startOAuth('etsy'));
 
 // Shopify: Use input value for domain
-document.getElementById('shopify-btn').onclick = requireLogin(() => {
+document.getElementById('shopify-btn').onclick = requireLogin(async () => {
   let domain = document.getElementById('shopify-domain').value.trim();
   if (!domain) {
     alert('Please enter your Shopify domain.');
@@ -220,7 +227,15 @@ document.getElementById('shopify-btn').onclick = requireLogin(() => {
     domain = domain.replace(/\.myshopify\.com.*/, '');
     domain = `${domain}.myshopify.com`;
   }
-  window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(domain)}`;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    alert('You must be logged in.');
+    return;
+  }
+  // You can add admin check here if needed
+  const stateObj = { user_id: user.id, user_email: user.email, nonce: Math.random().toString(36).substring(2) };
+  const state = btoa(JSON.stringify(stateObj));
+  window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(domain)}&state=${encodeURIComponent(state)}`;
 });
 </script>
 </body>

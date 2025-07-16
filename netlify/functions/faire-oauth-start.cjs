@@ -2,7 +2,16 @@
 exports.handler = async (event) => {
   const clientId = process.env.FAIRE_CLIENT_ID;
   const redirectUri = process.env.FAIRE_REDIRECT_URI;
-  const state = Math.random().toString(36).substring(2);
+  // Accept 'state' as a query parameter from the frontend, fallback to random string
+  let state = Math.random().toString(36).substring(2);
+  try {
+    const urlObj = new URL(event.rawUrl || event.headers['x-original-url'] || '', 'http://localhost');
+    if (urlObj.searchParams.has('state')) {
+      state = urlObj.searchParams.get('state');
+    }
+  } catch (e) {
+    // Ignore URL parse errors, fallback to random state
+  }
   const scopes = [
     'READ_ORDERS',
     'WRITE_ORDERS',

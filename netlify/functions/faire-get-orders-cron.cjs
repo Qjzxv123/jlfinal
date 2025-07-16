@@ -13,9 +13,12 @@ if (typeof fetch !== 'undefined') {
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 async function fetchOrdersForUser(userKey) {
-  let apiToken;
+  // Fetch the token row to get UserID
+  let apiToken, tokenRow;
   try {
-    apiToken = await getValidToken(userKey);
+    const { getTokenRow } = require('./faire-token-utils.cjs');
+    tokenRow = await getTokenRow(userKey);
+    apiToken = tokenRow.access_token;
   } catch (tokenErr) {
     console.error(`[CRON] Token error for userKey ${userKey}:`, tokenErr.message);
     return;
@@ -63,7 +66,8 @@ async function fetchOrdersForUser(userKey) {
       ShipTo_City: shippingDetails.city || '',
       ShipTo_State: shippingDetails.state || '',
       ShipTo_ZipCode: shippingDetails.postal_code || '',
-      ShipTo_Country: shippingDetails.country || ''
+      ShipTo_Country: shippingDetails.country || '',
+      UserID: tokenRow.UserID || null // Add UserID from token row
     };
     orders.push(orderData);
   }

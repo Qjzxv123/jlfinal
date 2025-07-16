@@ -12,20 +12,18 @@ async function getTokenRow(userKey) {
   return data;
 }
 
+// userKey = email, userId = id
 async function saveTokenRow(userKey, tokenData) {
+  // Accepts tokenData with UserID property (id)
   const { error } = await supabase
     .from('oauth_tokens')
     .upsert({
       user_key: userKey,
+      UserID: tokenData.UserID || null,
       platform: 'faire',
       ...tokenData
     }, { onConflict: ['user_key', 'platform'] });
   if (error) throw error;
-}
-
-async function refreshToken(userKey, refreshToken) {
-  // Only if you have a refresh token (Faire usually does not provide one)
-  throw new Error('Faire does not support refresh tokens. Re-authenticate when expired.');
 }
 
 async function getValidToken(userKey) {
