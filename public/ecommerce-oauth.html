@@ -165,9 +165,11 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script type="module">
-const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODAyNDMyMCwiZXhwIjoyMDYzNjAwMzIwfQ.Zu-YJ0_GiAGzEGVEMJGtQFZ1igkS2d7DCEYM025SAlM';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+
+// Load Supabase credentials from Netlify environment variables injected at runtime
+let SUPABASE_URL = window.SUPABASE_URL;
+let SUPABASE_SERVICE_KEY = window.SUPABASE_SERVICE_KEY;
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: true, persistSession: true }
 });
 
