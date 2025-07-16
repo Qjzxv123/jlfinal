@@ -20,10 +20,20 @@ exports.handler = async (event) => {
   const applicationId = process.env.FAIRE_CLIENT_ID;
   const applicationSecret = process.env.FAIRE_CLIENT_SECRET;
   const redirectUrl = process.env.FAIRE_REDIRECT_URI;
-  // Faire expects scope as a space-separated string, not an array
+  // Faire expects scope as an array of strings in the POST body
   const scope = process.env.FAIRE_OAUTH_SCOPE
-    ? process.env.FAIRE_OAUTH_SCOPE.replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
-    : 'READ_ORDERS WRITE_ORDERS READ_PRODUCTS WRITE_PRODUCTS READ_INVENTORIES WRITE_INVENTORIES READ_BRAND READ_RETAILER READ_SHIPMENTS';
+    ? process.env.FAIRE_OAUTH_SCOPE.split(/[,\s]+/).filter(Boolean)
+    : [
+      'READ_ORDERS',
+      'WRITE_ORDERS',
+      'READ_PRODUCTS',
+      'WRITE_PRODUCTS',
+      'READ_INVENTORIES',
+      'WRITE_INVENTORIES',
+      'READ_BRAND',
+      'READ_RETAILER',
+      'READ_SHIPMENTS'
+    ];
   let tokenResponse, tokenData;
   try {
     if (authorizationCode === 'testcode') {
