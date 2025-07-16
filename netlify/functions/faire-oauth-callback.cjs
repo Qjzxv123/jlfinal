@@ -108,16 +108,14 @@ exports.handler = async (event) => {
     console.log('[DEBUG] Error saving token to Supabase:', e);
   }
 
-  const html = `
-    <h1>Faire OAuth Callback</h1>
-    <p>Authorization Code: ${authorizationCode}</p>
-    <p>State: ${state}</p>
-    <pre>${JSON.stringify(tokenData, null, 2)}</pre>
-    <p>Token saved to Supabase (server-side only).</p>
-  `;
+  // Redirect user back to the main app after successful connection
+  const redirectAfterOAuth = '/public/ecommerce-oauth.html';
   return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'text/html' },
-    body: html,
+    statusCode: 302,
+    headers: {
+      Location: redirectAfterOAuth,
+      'Cache-Control': 'no-store',
+    },
+    body: '',
   };
 };
