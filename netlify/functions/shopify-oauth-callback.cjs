@@ -27,9 +27,24 @@ exports.handler = async (event) => {
         code
       })
     });
-    tokenData = await tokenResponse.json();
+    const rawResponse = await tokenResponse.text();
+    try {
+      tokenData = JSON.parse(rawResponse);
+    } catch (jsonErr) {
+      tokenData = {};
+    }
     if (!tokenResponse.ok || !tokenData.access_token) {
-      throw new Error(tokenData.error_description || 'Failed to get access token');
+      // Log error details for debugging
+      console.error('Shopify OAuth Error:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        response: rawResponse,
+        client_id,
+        client_secret,
+        code,
+        shop
+      });
+      throw new Error(tokenData.error_description || rawResponse || 'Failed to get access token');
     }
   } catch (err) {
     return {

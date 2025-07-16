@@ -1,9 +1,7 @@
 // netlify/functions/shopify-oauth-start.cjs
 exports.handler = async (event) => {
   const clientId = process.env.SHOPIFY_CLIENT_ID;
-  const redirectUri = process.env.SHOPIFY_REDIRECT_URI;
   console.log('[DEBUG] SHOPIFY_CLIENT_ID:', clientId);
-  console.log('[DEBUG] SHOPIFY_REDIRECT_URI:', redirectUri);
   let shop;
   if (event.httpMethod === 'POST') {
     try {
