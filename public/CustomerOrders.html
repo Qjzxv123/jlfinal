@@ -1119,12 +1119,12 @@ Notes: ${data.Notes || 'None'}
             addOrderNote(orderId, note);
             closeAddNoteModal();
         });
-        // Redirect to Login.html if not authenticated, else show order interface
+        // Redirect to public/Login.html if not authenticated, else show order interface
         window.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await client.auth.getSession();
             if (!session) {
-                // Redirect to Login.html, with redirect back to this page after login
-                window.location.href = 'Login.html?redirect=CustomerOrders.html';
+                // Redirect to public/Login.html, with redirect back to this page after login
+                window.location.href = 'public/Login.html?redirect=CustomerOrders.html';
                 return;
             }
             currentUser = session.user;

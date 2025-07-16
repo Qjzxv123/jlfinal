@@ -182,7 +182,7 @@
         window.addEventListener('DOMContentLoaded', async () => {
             const session = client.auth.getSession && (await client.auth.getSession()).data.session;
             if (!session) {
-                window.location.href = 'Login.html';
+                window.location.href = 'public/Login.html';
             } else {
                 addSkuDecrementForm();
             }

@@ -179,7 +179,7 @@ const platformOAuthDiv = document.getElementById('platform-oauth');
 async function checkLoginAndShowUI() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    window.location.href = '/login.html?returnTo=' + encodeURIComponent(window.location.pathname);
+    window.location.href = '/public/Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
     return;
   }
   // Only show platform OAuth buttons if logged in
@@ -193,7 +193,7 @@ function requireLogin(action) {
   return async function(...args) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      window.location.href = '/login.html?returnTo=' + encodeURIComponent(window.location.pathname);
+      window.location.href = '/public/Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
       return;
     }
     action(...args);
