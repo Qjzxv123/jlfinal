@@ -17,13 +17,39 @@ exports.handler = async function(event) {
     return { statusCode: 400, body: 'Invalid JSON' };
   }
 
-  const { order, parcel, rate_id } = body;
+  const { order, parcel, rate_id, shipment_id } = body;
   if (!order || !parcel) {
     return { statusCode: 400, body: 'Missing order or parcel' };
   }
 
+  // If shipment_id is provided, buy label for existing shipment
+  if (shipment_id && rate_id) {
+    let buyResp;
+    try {
+      buyResp = await fetch(`https://api.easypost.com/v2/shipments/${shipment_id}/buy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${EasyPostApiKey}`
+        },
+        body: JSON.stringify({ rate: { id: rate_id } })
+      });
+      if (!buyResp.ok) {
+        const errText = await buyResp.text();
+        return { statusCode: buyResp.status, body: errText };
+      }
+    } catch (err) {
+      return { statusCode: 500, body: 'EasyPost buy error: ' + err.message };
+    }
+    const buyData = await buyResp.json();
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ label_url: buyData.postage_label && buyData.postage_label.label_url ? buyData.postage_label.label_url : null })
+    };
+  }
+
+  // Otherwise, create shipment and return rates + shipment_id
   // Build EasyPost shipment
-  // You may want to adjust address mapping for your platforms
   const toAddress = {
     name: order.customer.name || 'Customer',
     street1: order.customer.address1 || '',
@@ -37,11 +63,11 @@ exports.handler = async function(event) {
   };
   const fromAddress = {
     name: 'J&L Naturals',
-      street1: "125 N Commercial Dr #103",
-      city: 'Mooreseville',
-      state: 'NC',
-      zip: '28115',
-      country: 'US',
+    street1: "125 N Commercial Dr #103",
+    city: 'Mooreseville',
+    state: 'NC',
+    zip: '28115',
+    country: 'US',
   };
   // Use first box for parcel dimensions
   const box = parcel.boxes && parcel.boxes.length > 0 ? parcel.boxes[0] : parcel;
@@ -78,47 +104,20 @@ exports.handler = async function(event) {
   }
   const shipment = await shipmentResp.json();
   if (!shipment.rates || !Array.isArray(shipment.rates) || shipment.rates.length === 0) {
-    return { statusCode: 200, body: JSON.stringify({ rates: [] }) };
+    return { statusCode: 200, body: JSON.stringify({ rates: [], shipment_id: shipment.id }) };
   }
 
-  // Step 2: If no rate_id, return rates for selection
-  if (!rate_id) {
-    // Map rates to Shippo-like format for frontend
-    const rates = shipment.rates.map(rate => ({
-      object_id: rate.id,
-      provider: rate.carrier,
-      servicelevel_name: rate.service,
-      amount: rate.rate,
-      duration_terms: rate.delivery_days ? `${rate.delivery_days} days` : '',
-      estimated_days: rate.delivery_days || null
-    }));
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ rates })
-    };
-  }
-
-  // Step 3: Buy label with selected rate
-  let buyResp;
-  try {
-    buyResp = await fetch(`https://api.easypost.com/v2/shipments/${shipment.id}/buy`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${EasyPostApiKey}`
-      },
-      body: JSON.stringify({ rate: { id: rate_id } })
-    });
-    if (!buyResp.ok) {
-      const errText = await buyResp.text();
-      return { statusCode: buyResp.status, body: errText };
-    }
-  } catch (err) {
-    return { statusCode: 500, body: 'EasyPost buy error: ' + err.message };
-  }
-  const buyData = await buyResp.json();
+  // Step 2: Return rates and shipment_id for selection
+  const rates = shipment.rates.map(rate => ({
+    object_id: rate.id,
+    provider: rate.carrier,
+    servicelevel_name: rate.service,
+    amount: rate.rate,
+    duration_terms: rate.delivery_days ? `${rate.delivery_days} days` : '',
+    estimated_days: rate.delivery_days || null
+  }));
   return {
     statusCode: 200,
-    body: JSON.stringify({ label_url: buyData.postage_label && buyData.postage_label.label_url ? buyData.postage_label.label_url : null })
+    body: JSON.stringify({ rates, shipment_id: shipment.id })
   };
 };
