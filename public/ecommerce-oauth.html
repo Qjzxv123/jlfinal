@@ -155,7 +155,6 @@
       <div id="user-info" style="margin-bottom: 1rem; display:none;"></div>
       <div id="platform-oauth" style="display:none;">
         <button id="faire-btn">Connect Faire</button>
-        <button id="etsy-btn">Connect Etsy</button>
         <div style="margin: 24px 0;">
           <input id="shopify-domain" type="text" placeholder="your-store.myshopify.com" />
           <button id="shopify-btn">Connect Shopify</button>
@@ -197,58 +196,20 @@ function requireLogin(action) {
   };
 }
 
-// PKCE helpers for Etsy OAuth
-function generateCodeVerifier(length = 64) {
-  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-  let result = '';
-  const array = new Uint8Array(length);
-  window.crypto.getRandomValues(array);
-  for (let i = 0; i < array.length; i++) {
-    result += charset[array[i] % charset.length];
-  }
-  return result;
-}
-
-async function generateCodeChallenge(codeVerifier) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(codeVerifier);
-  const digest = await window.crypto.subtle.digest('SHA-256', data);
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-  return base64;
-}
-
+// Only support Faire and Shopify OAuth
 async function startOAuth(provider) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     alert('You must be logged in.');
     return;
   }
-  if (provider === 'etsy') {
-    // PKCE for Etsy
-    const code_verifier = generateCodeVerifier();
-    const code_challenge = await generateCodeChallenge(code_verifier);
-    const stateObj = {
-      user_id: user.id,
-      user_email: user.email,
-      nonce: Math.random().toString(36).substring(2),
-      code_verifier
-    };
-    const state = btoa(JSON.stringify(stateObj));
-    window.location.href = `/.netlify/functions/etsy-oauth-start?state=${encodeURIComponent(state)}&code_challenge=${encodeURIComponent(code_challenge)}&code_challenge_method=S256`;
-    return;
-  }
-  // Default for other providers
+  // Default for supported providers
   const stateObj = { user_id: user.id, user_email: user.email, nonce: Math.random().toString(36).substring(2) };
   const state = btoa(JSON.stringify(stateObj));
   window.location.href = `/.netlify/functions/${provider}-oauth-start?state=${encodeURIComponent(state)}`;
 }
 
 document.getElementById('faire-btn').onclick = requireLogin(() => startOAuth('faire'));
-document.getElementById('etsy-btn').onclick = requireLogin(() => startOAuth('etsy'));
-
 // Shopify: Use input value for domain
 document.getElementById('shopify-btn').onclick = requireLogin(async () => {
   let domain = document.getElementById('shopify-domain').value.trim();
