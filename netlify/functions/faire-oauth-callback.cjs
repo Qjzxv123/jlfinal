@@ -3,12 +3,13 @@ exports.handler = async (event) => {
 
 
   const urlObj = new URL(event.rawUrl || event.headers['x-original-url'] || '', 'http://localhost');
-  const authorizationCode = urlObj.searchParams.get('code');
+  // Accept both 'code' and 'authorization_code' as valid
+  let authorizationCode = urlObj.searchParams.get('code') || urlObj.searchParams.get('authorization_code');
   const state = urlObj.searchParams.get('state');
   console.log('[DEBUG] Callback received:', { authorizationCode, state });
 
   if (!authorizationCode) {
-    console.log('[DEBUG] Missing code parameter');
+    console.log('[DEBUG] Missing code/authorization_code parameter');
     return {
       statusCode: 400,
       body: 'Missing code parameter',
