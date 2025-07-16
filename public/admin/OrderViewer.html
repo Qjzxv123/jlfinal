@@ -1630,10 +1630,14 @@ async function showShippoRateSelectionModal(rates) {
     inner.style.width = '95%';
     inner.style.padding = '30px 20px';
     inner.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)';
+    inner.style.maxHeight = '80vh';
+    inner.style.overflowY = 'auto';
     inner.innerHTML = `<h2 style="margin-bottom:18px; font-size:1.2rem; color:#2c3e50; text-align:center;">Select Shipping Rate</h2>`;
 
     const rateList = document.createElement('div');
     rateList.style.marginBottom = '20px';
+    rateList.style.maxHeight = '55vh';
+    rateList.style.overflowY = 'auto';
     rates.forEach(rate => {
       const rateDiv = document.createElement('div');
       rateDiv.style.display = 'flex';
