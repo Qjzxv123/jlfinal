@@ -83,18 +83,27 @@ exports.handler = async (event) => {
 
   // Save token to Supabase
   try {
-    const { saveTokenRow } = require('./faire-token-utils.cjs');
-    // Calculate expires_at if present
-    let expires_at = null;
-    if (tokenData.expires_in) {
-      expires_at = Date.now() + (tokenData.expires_in * 1000);
-    }
-    await saveTokenRow(state, {
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token || null,
-      expires_at,
-      token_type: tokenData.token_type || tokenData.tokenType || null
-    });
+      const { saveTokenRow } = require('./faire-token-utils.cjs');
+      // Calculate expires_at if present
+      let expires_at = null;
+      if (tokenData.expires_in) {
+        expires_at = Date.now() + (tokenData.expires_in * 1000);
+      }
+      const cookie = event.headers.cookie || '';
+      const supabaseSession = cookie.split(';').find(c => c.trim().startsWith('sb-access-token='));
+      if (supabaseSession) {
+        const jwt = supabaseSession.split('=')[1];
+        // Decode JWT to extract email
+        const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64').toString('utf8'));
+        user_email = payload.email || null;
+      }
+      await saveTokenRow(state, {
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token || null,
+        expires_at,
+        token_type: tokenData.token_type || tokenData.tokenType || null,
+        user_key: user_email // This will be the email if extracted, or null
+      });
   } catch (e) {
     console.log('[DEBUG] Error saving token to Supabase:', e);
   }

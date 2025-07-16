@@ -4,50 +4,170 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Privacy Policy</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
   <style>
-    body { font-family: Arial, sans-serif; margin: 2rem; max-width: 700px; }
-    h1 { color: #2d3748; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      color: #333;
+    }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      z-index: 1000;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    .sidebar:hover { width: 250px; }
+    .sidebar-header {
+      padding: 0.75rem;
+      border-bottom: 1px solid #34495e;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #ecf0f1;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    .sidebar:not(:hover) .sidebar-header h2 { opacity: 0; }
+    .sidebar:hover .sidebar-header h2 { font-size: 1.3rem; }
+    .sidebar-nav { padding: 0.5rem 0; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid transparent;
+      white-space: nowrap;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    .nav-item.active {
+      background: rgba(77,186,147,0.2);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    .nav-item i {
+      margin-right: 0.5rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .nav-item span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .sidebar:hover .nav-item span { opacity: 1; }
+    .sidebar:hover .nav-item { padding: 0.75rem 1.5rem; }
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+      width: calc(100% - 60px);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+      padding: 2.5rem 2.5rem 2.5rem 2.5rem;
+      margin-top: 3rem;
+      width: 100%;
+      max-width: 700px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    h1 {
+      color: #2d3748;
+      margin-bottom: 1.5rem;
+    }
     h2 { color: #4a5568; }
+    ul { margin-left: 1.5rem; }
+    @media (max-width: 800px) {
+      .sidebar { transform: translateX(-250px); }
+      .sidebar:hover { transform: translateX(0); }
+      .main-content { margin-left: 0; width: 100%; }
+      .container { padding: 1rem; max-width: 98vw; margin-top: 1rem; }
+    }
   </style>
 </head>
 <body>
-  <h1>Privacy Policy</h1>
-  <p>Effective date: July 15, 2025</p>
-  <p>This Privacy Policy describes how your information is collected, used, and shared when you use our app and services.</p>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>J&L Tools</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/ecommerce-oauth.html" class="nav-item"><i class="cil-factory"></i><span>Onboard Stores</span></a>
+      <a href="/InventoryViewer.html" class="nav-item"><i class="cil-storage"></i><span>Inventory Viewer</span></a>
+      <a href="/CustomerOrders.html" class="nav-item"><i class="cil-user"></i><span>Customer Orders</span></a>
+      <a href="/AddProduct.html" class="nav-item"><i class="cil-plus"></i><span>Add Product</span></a>
+      <a href="/privacy.html" class="nav-item active"><i class="cil-lock-locked"></i><span>Privacy Policy</span></a>
+    </nav>
+  </div>
+  <div class="main-content" id="mainContent">
+    <div class="container">
+      <h1>Privacy Policy</h1>
+      <p>Effective date: July 15, 2025</p>
+      <p>This Privacy Policy describes how your information is collected, used, and shared when you use our app and services.</p>
 
-  <h2>Information We Collect</h2>
-  <ul>
-    <li>Account and OAuth information from platforms you connect (e.g., Shopify, Faire, Etsy).</li>
-    <li>Order and store data as required to provide our services.</li>
-    <li>Basic contact information if you provide it.</li>
-  </ul>
+      <h2>Information We Collect</h2>
+      <ul>
+        <li>Account and OAuth information from platforms you connect (e.g., Shopify, Faire, Etsy).</li>
+        <li>Order and store data as required to provide our services.</li>
+        <li>Basic contact information if you provide it.</li>
+      </ul>
 
-  <h2>How We Use Your Information</h2>
-  <ul>
-    <li>To provide and improve our services.</li>
-    <li>To securely connect to third-party platforms on your behalf.</li>
-    <li>To communicate with you about your account or our services.</li>
-  </ul>
+      <h2>How We Use Your Information</h2>
+      <ul>
+        <li>To provide and improve our services.</li>
+        <li>To securely connect to third-party platforms on your behalf.</li>
+        <li>To communicate with you about your account or our services.</li>
+      </ul>
 
-  <h2>How We Share Your Information</h2>
-  <ul>
-    <li>We do <strong>not</strong> sell your personal information.</li>
-    <li>We only share data with third-party platforms as required to provide our services (e.g., Shopify, Faire, Etsy APIs).</li>
-    <li>We may share information if required by law or to protect our rights.</li>
-  </ul>
+      <h2>How We Share Your Information</h2>
+      <ul>
+        <li>We do <strong>not</strong> sell your personal information.</li>
+        <li>We only share data with third-party platforms as required to provide our services (e.g., Shopify, Faire, Etsy APIs).</li>
+        <li>We may share information if required by law or to protect our rights.</li>
+      </ul>
 
-  <h2>Data Security</h2>
-  <p>We use industry-standard security measures to protect your data. However, no method of transmission or storage is 100% secure.</p>
+      <h2>Data Security</h2>
+      <p>We use industry-standard security measures to protect your data. However, no method of transmission or storage is 100% secure.</p>
 
-  <h2>Your Rights</h2>
-  <ul>
-    <li>You may request access to or deletion of your data by contacting us.</li>
-    <li>You may disconnect your accounts at any time.</li>
-  </ul>
+      <h2>Your Rights</h2>
+      <ul>
+        <li>You may request access to or deletion of your data by contacting us.</li>
+        <li>You may disconnect your accounts at any time.</li>
+      </ul>
 
-  <h2>Contact Us</h2>
-  <p>If you have questions about this Privacy Policy, please contact us at <a href="mailto:support@jlfinal.netlify.app">support@jlfinal.netlify.app</a>.</p>
+      <h2>Contact Us</h2>
+      <p>If you have questions about this Privacy Policy, please contact us at <a href="mailto:jenn@jnlnaturals.com">jenn@jnlnaturals.com</a>.</p>
 
-  <p>This policy may be updated from time to time. Please check this page for the latest version.</p>
+      <p>This policy may be updated from time to time. Please check this page for the latest version.</p>
+    </div>
+  </div>
 </body>
 </html>
