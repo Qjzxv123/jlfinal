@@ -1,18 +1,20 @@
 // netlify/functions/etsy-oauth-callback.cjs
 exports.handler = async (event) => {
   const urlObj = new URL(event.rawUrl || event.headers['x-original-url'] || '', 'http://localhost');
-  const code = urlObj.searchParams.get('code');
-  let state = urlObj.searchParams.get('state');
-  let decodedState = {};
-  if (state) {
-    try {
-      decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
-    } catch (e) {
-      console.log('[DEBUG][Etsy] Failed to decode state:', e);
-    }
-  }
-  const user_id = decodedState.user_id || null;
-  const user_email = decodedState.user_email || null;
+  const code = urlObj.searchParams.get('code');  
+  let state = urlObj.searchParams.get('state');  
+  let decodedState = {};  
+  if (state) {  
+    try {  
+      decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));  
+    } catch (e) {  
+      console.log('[DEBUG][Etsy] Failed to decode state:', e);  
+    }  
+  }  
+  const user_id = decodedState.user_id || null;  
+  const user_email = decodedState.user_email || null;  
+  // PKCE: Require code_verifier in state for Etsy OAuth
+  let code_verifier = decodedState.code_verifier || '';
 
   if (!code) {
     return {
@@ -20,6 +22,12 @@ exports.handler = async (event) => {
       body: 'Missing code parameter',
     };
   }
+  if (!code_verifier) {  
+    return {  
+      statusCode: 400,  
+      body: 'Missing code_verifier for PKCE',  
+    };  
+  }  
 
   // Exchange code for access token
   let tokenData;
@@ -32,7 +40,8 @@ exports.handler = async (event) => {
         client_id: process.env.ETSY_CLIENT_ID,
         client_secret: process.env.ETSY_CLIENT_SECRET,
         code,
-        redirect_uri: "https://jlfinal.netlify.app/.netlify/functions/etsy-oauth-callback"
+        redirect_uri: "https://jlfinal.netlify.app/.netlify/functions/etsy-oauth-callback",
+        code_verifier
       }).toString()
     });
     tokenData = await tokenResp.json();
