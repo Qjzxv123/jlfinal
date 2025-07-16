@@ -58,23 +58,29 @@ exports.handler = async (event) => {
   // await supabase.from('shopify_tokens').upsert({ shop, access_token: tokenData.access_token });
 
   // Redirect to Shopify embedded app URL after authentication
-  if (host && shop) {
+  if (shop) {
     // Extract store name from shop domain
     const storeName = shop.replace('.myshopify.com', '');
+    // Replace 'grant' with your app's slug if needed
+    const appSlug = 'grant'; // Change to your app's actual slug if different
+    let redirectUrl = `https://admin.shopify.com/store/${storeName}/app/${appSlug}`;
+    if (host) {
+      redirectUrl += `?host=${encodeURIComponent(host)}`;
+    }
     return {
       statusCode: 302,
       headers: {
-        Location: `https://admin.shopify.com/store/${storeName}/app/grant?host=${encodeURIComponent(host)}`,
+        Location: redirectUrl,
         'Cache-Control': 'no-store'
       },
       body: ''
     };
   }
-  // Fallback: redirect to app home
+  // Fallback: redirect to Shopify admin apps page
   return {
     statusCode: 302,
     headers: {
-      Location: '/ecommerce-oauth.html',
+      Location: 'https://admin.shopify.com/store',
       'Cache-Control': 'no-store'
     },
     body: ''
