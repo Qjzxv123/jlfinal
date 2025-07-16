@@ -1601,14 +1601,7 @@ async function showShippoRateSelectionModal(rates) {
     // Sort rates by amount ascending
     rates = rates.slice().sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount));
 
-    // Carrier logos
-    const carrierLogos = {
-      'USPS': 'https://upload.wikimedia.org/wikipedia/commons/4/4e/USPS_logo.svg',
-      'UPS': 'https://upload.wikimedia.org/wikipedia/commons/8/8e/UPS_logo.svg',
-      'FedEx': 'https://upload.wikimedia.org/wikipedia/commons/7/7a/FedEx_Express.svg',
-      'DHL': 'https://upload.wikimedia.org/wikipedia/commons/0/0d/DHL_Logo.svg',
-      'Canada Post': 'https://upload.wikimedia.org/wikipedia/commons/2/2e/Canada_Post_logo.svg'
-    };
+    // Carrier logos removed for cleaner modal
 
     // Create modal
     const modal = document.createElement('div');
@@ -1652,14 +1645,9 @@ async function showShippoRateSelectionModal(rates) {
       rateDiv.onmouseover = () => { rateDiv.style.background = '#f8fcfa'; };
       rateDiv.onmouseout = () => { rateDiv.style.background = 'white'; };
 
-      // Carrier logo
-      const logoUrl = carrierLogos[rate.provider] || '';
-      const logoImg = logoUrl ? `<img src="${logoUrl}" alt="${rate.provider}" style="height:32px;max-width:60px;margin-right:12px;vertical-align:middle;">` : '';
-
-      // Details
+      // Details (no logo)
       rateDiv.innerHTML = `
         <div style="display:flex;align-items:center;gap:12px;">
-          ${logoImg}
           <div>
             <strong style="font-size:1.05rem;">${rate.provider} - ${rate.servicelevel_name}</strong><br>
             <span style="font-size:0.95rem;color:#555;">${rate.duration_terms || ''}</span>
