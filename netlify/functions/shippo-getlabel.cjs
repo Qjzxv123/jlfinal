@@ -50,13 +50,11 @@ exports.handler = async (event) => {
   const shipmentPayload = {
     address_from: {
       name: 'J&L Naturals',
-      street1: 'YOUR_ADDRESS_1',
-      city: 'YOUR_CITY',
-      state: 'YOUR_STATE',
-      zip: 'YOUR_ZIP',
+      street1: "125 N Commercial Dr #103",
+      city: 'Mooreseville',
+      state: 'NC',
+      zip: '28115',
       country: 'US',
-      phone: 'YOUR_PHONE',
-      email: 'YOUR_EMAIL'
     },
     address_to: {
       name: order.customer?.name || '',
