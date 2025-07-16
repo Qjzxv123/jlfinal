@@ -3,8 +3,7 @@ exports.handler = async (event) => {
   const clientId = process.env.SHOPIFY_CLIENT_ID;
   console.log('[DEBUG] SHOPIFY_CLIENT_ID:', clientId);
   let shop;
-  // Define your callback URL here. This must match Shopify app settings exactly.
-  const redirectUri = 'https://j/.netlify/functions/shopify-oauth-callback';
+  const redirectUri = 'https://jlfinal.netlify.app/.netlify/functions/shopify-oauth-callback';
   if (event.httpMethod === 'POST') {
     try {
       const body = JSON.parse(event.body);
