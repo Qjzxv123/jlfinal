@@ -171,8 +171,6 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { autoRefreshToken: true, persistSession: true }
 });
 
-
-
 const userInfoDiv = document.getElementById('user-info');
 const platformOAuthDiv = document.getElementById('platform-oauth');
 
@@ -188,7 +186,6 @@ async function checkLoginAndShowUI() {
 
 checkLoginAndShowUI();
 
-
 function requireLogin(action) {
   return async function(...args) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -200,12 +197,50 @@ function requireLogin(action) {
   };
 }
 
+// PKCE helpers for Etsy OAuth
+function generateCodeVerifier(length = 64) {
+  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  let result = '';
+  const array = new Uint8Array(length);
+  window.crypto.getRandomValues(array);
+  for (let i = 0; i < array.length; i++) {
+    result += charset[array[i] % charset.length];
+  }
+  return result;
+}
+
+async function generateCodeChallenge(codeVerifier) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(codeVerifier);
+  const digest = await window.crypto.subtle.digest('SHA-256', data);
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return base64;
+}
+
 async function startOAuth(provider) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     alert('You must be logged in.');
     return;
   }
+  if (provider === 'etsy') {
+    // PKCE for Etsy
+    const code_verifier = generateCodeVerifier();
+    const code_challenge = await generateCodeChallenge(code_verifier);
+    const stateObj = {
+      user_id: user.id,
+      user_email: user.email,
+      nonce: Math.random().toString(36).substring(2),
+      code_verifier
+    };
+    const state = btoa(JSON.stringify(stateObj));
+    window.location.href = `/.netlify/functions/etsy-oauth-start?state=${encodeURIComponent(state)}&code_challenge=${encodeURIComponent(code_challenge)}&code_challenge_method=S256`;
+    return;
+  }
+  // Default for other providers
   const stateObj = { user_id: user.id, user_email: user.email, nonce: Math.random().toString(36).substring(2) };
   const state = btoa(JSON.stringify(stateObj));
   window.location.href = `/.netlify/functions/${provider}-oauth-start?state=${encodeURIComponent(state)}`;
