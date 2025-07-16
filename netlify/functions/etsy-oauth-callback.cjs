@@ -1,33 +1,40 @@
 // netlify/functions/etsy-oauth-callback.cjs
 exports.handler = async (event) => {
   const urlObj = new URL(event.rawUrl || event.headers['x-original-url'] || '', 'http://localhost');
-  const code = urlObj.searchParams.get('code');  
-  let state = urlObj.searchParams.get('state');  
-  let decodedState = {};  
-  if (state) {  
-    try {  
-      decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));  
-    } catch (e) {  
-      console.log('[DEBUG][Etsy] Failed to decode state:', e);  
-    }  
-  }  
-  const user_id = decodedState.user_id || null;  
-  const user_email = decodedState.user_email || null;  
+  const code = urlObj.searchParams.get('code');
+  let state = urlObj.searchParams.get('state');
+  let decodedState = {};
+  if (state) {
+    try {
+      decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+    } catch (e) {
+      console.log('[DEBUG][Etsy] Failed to decode state:', e);
+    }
+  }
+  const user_id = decodedState.user_id || null;
+  const user_email = decodedState.user_email || null;
   // PKCE: Require code_verifier in state for Etsy OAuth
   let code_verifier = decodedState.code_verifier || '';
+
+  // Debug log incoming URL and state for troubleshooting
+  console.log('[DEBUG][Etsy] Callback URL:', event.rawUrl || event.headers['x-original-url']);
+  console.log('[DEBUG][Etsy] code:', code);
+  console.log('[DEBUG][Etsy] state:', state);
+  console.log('[DEBUG][Etsy] decodedState:', decodedState);
+  console.log('[DEBUG][Etsy] code_verifier:', code_verifier);
 
   if (!code) {
     return {
       statusCode: 400,
-      body: 'Missing code parameter',
+      body: 'Missing code parameter. Debug info: ' + JSON.stringify({ rawUrl: event.rawUrl, state, decodedState }),
     };
   }
-  if (!code_verifier) {  
-    return {  
-      statusCode: 400,  
-      body: 'Missing code_verifier for PKCE',  
-    };  
-  }  
+  if (!code_verifier) {
+    return {
+      statusCode: 400,
+      body: 'Missing code_verifier for PKCE. Debug info: ' + JSON.stringify({ rawUrl: event.rawUrl, state, decodedState }),
+    };
+  }
 
   // Exchange code for access token
   let tokenData;
