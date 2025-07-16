@@ -49,7 +49,7 @@ exports.handler = async function(event) {
     length: box.length || 6,
     width: box.width || 6,
     height: box.height || 2,
-    weight: Math.max(1, Math.round((parcel.weight || 1) * 28.35)), // oz to grams
+    weight: Math.max(1, Math.round((parcel.weight || 1))),
   };
 
   // Step 1: Create shipment

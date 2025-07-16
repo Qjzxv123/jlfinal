@@ -1932,9 +1932,11 @@ async function printShippingLabels() {
             // Convert box weight from lbs to oz and add product weight
             const totalBoxWeightOz = totalBoxWeight * 16; // 1 lb = 16 oz
             const totalWeight = currentOrderProductWeight + totalBoxWeightOz;
-            
-            // Update the weight field
-            document.getElementById('modalWeight').value = totalWeight.toFixed(2);
+            // Update the lbs/oz fields
+            const lbs = Math.floor(totalWeight / 16);
+            const oz = totalWeight - (lbs * 16);
+            document.getElementById('modalWeightLbs').value = lbs;
+            document.getElementById('modalWeightOz').value = oz.toFixed(2);
         }
 
         // Initialize page
