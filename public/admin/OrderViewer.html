@@ -1404,8 +1404,19 @@ function showShippingModal(orders) {
             const initialSelect = boxesContainer.querySelector('.box-select');
             populateBoxSelect(initialSelect);
             
-            // Clear weight field
-            document.getElementById('modalWeight').value = '';
+            // Clear weight fields
+            const lbsInput = document.getElementById('modalWeightLbs');
+            if (lbsInput) {
+                lbsInput.value = '';
+            } else {
+                console.warn('modalWeightLbs input not found');
+            }
+            const ozInput = document.getElementById('modalWeightOz');
+            if (ozInput) {
+                ozInput.value = '';
+            } else {
+                console.warn('modalWeightOz input not found');
+            }
             
             // Display order information
             await displayOrderInfoInModal(order);
@@ -1469,12 +1480,18 @@ function showShippingModal(orders) {
 
 document.getElementById('shippingForm').onsubmit = function(e) {
   e.preventDefault();
-  const weight = document.getElementById('modalWeight').value;
-  
+  // Get lbs and oz values
+  const lbsInput = document.getElementById('modalWeightLbs');
+  const ozInput = document.getElementById('modalWeightOz');
+  let lbs = lbsInput && lbsInput.value ? parseInt(lbsInput.value, 10) : 0;
+  let oz = ozInput && ozInput.value ? parseFloat(ozInput.value) : 0;
+  if (isNaN(lbs)) lbs = 0;
+  if (isNaN(oz)) oz = 0;
+  const totalWeightOz = (lbs * 16) + oz;
+
   // Collect selected boxes
   const selectedBoxes = [];
   const boxSelects = document.querySelectorAll('.box-select');
-  
   boxSelects.forEach(select => {
     if (select.value) {
       const selectedOption = select.selectedOptions[0];
@@ -1486,17 +1503,17 @@ document.getElementById('shippingForm').onsubmit = function(e) {
       });
     }
   });
-  
+
   if (selectedBoxes.length === 0) {
     alert('Please select at least one box.');
     return;
   }
-  
-  if (!weight) {
-    alert('Weight calculation failed. Please try again.');
+
+  if (totalWeightOz <= 0) {
+    alert('Weight calculation failed. Please enter a valid weight.');
     return;
   }
-  
+
   // Build boxes array as before
   const boxes = selectedBoxes.map(box => {
     let length = 1, width = 1, height = 1;
@@ -1536,7 +1553,7 @@ document.getElementById('shippingForm').onsubmit = function(e) {
   shippingModalResults.push({
     order: shippingModalOrders[shippingModalIndex],
     parcel: {
-      weight: Number(weight),
+      weight: totalWeightOz,
       length: parcelLength,
       width: parcelWidth,
       height: parcelHeight,
