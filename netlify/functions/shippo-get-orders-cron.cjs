@@ -49,7 +49,7 @@ console.log('[DEBUG][Shippo] Orders:', orders);
         }
       }
       await supabase.from('Orders').upsert({
-        OrderID: order.order_number,
+        OrderID: order.order_number.replace("#",""),
         Retailer: retailerValue,
         Items: order.line_items || null,
         Customer: order.to_address || null,
