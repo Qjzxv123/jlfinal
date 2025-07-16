@@ -715,7 +715,10 @@
         </div>
       </div>
       <button type="button" id="addBoxBtn" onclick="addBox()" style="background:#3498db;color:white;border:none;padding:8px 15px;border-radius:4px;margin-bottom:10px;width:100%;">+ Add Another Box</button>
-      <label>Total Weight (oz):<input type="number" id="modalWeight" min="0.1" step="any" required style="width:100%;margin-bottom:18px; padding:8px; border:1px solid #ddd; border-radius:4px; background:#f8f9fa;"></label>
+      <div style="display:flex; gap:10px; margin-bottom:18px;">
+        <label style="flex:1;">Total Weight (lbs):<input type="number" id="modalWeightLbs" min="0" step="1" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; background:#f8f9fa;"></label>
+        <label style="flex:1;">Total Weight (oz):<input type="number" id="modalWeightOz" min="0" step="any" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; background:#f8f9fa;"></label>
+      </div>
       <div style="display:flex; gap:10px; justify-content:center;">
         <button type="submit" class="btn" style="flex:1;">OK</button>
         <button type="button" class="btn" style="background:#ccc;color:#333;flex:1;" id="modalSkipBtn">Skip</button>
