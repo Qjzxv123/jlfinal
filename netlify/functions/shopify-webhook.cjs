@@ -8,11 +8,35 @@ exports.handler = async (event) => {
   const shopDomain = event.headers['x-shopify-shop-domain'];
   const body = event.body;
 
+  if (!shopifySecret) {
+    console.error('Missing SHOPIFY_API_SECRET environment variable');
+    return {
+      statusCode: 500,
+      body: 'Server misconfiguration: Missing Shopify secret',
+    };
+  }
+  if (!hmacHeader) {
+    console.error('Missing x-shopify-hmac-sha256 header');
+    return {
+      statusCode: 401,
+      body: 'Unauthorized: Missing HMAC header',
+    };
+  }
+
   // Verify HMAC signature
-  const generatedHmac = crypto
-    .createHmac('sha256', shopifySecret)
-    .update(body, 'utf8')
-    .digest('base64');
+  let generatedHmac;
+  try {
+    generatedHmac = crypto
+      .createHmac('sha256', shopifySecret)
+      .update(body, 'utf8')
+      .digest('base64');
+  } catch (err) {
+    console.error('Error generating HMAC:', err);
+    return {
+      statusCode: 500,
+      body: 'Server error during HMAC verification',
+    };
+  }
 
   if (generatedHmac !== hmacHeader) {
     console.error('Shopify webhook HMAC verification failed', { topic, shopDomain });
