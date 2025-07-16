@@ -333,7 +333,7 @@
       if (!session) {
         // Not logged in, redirect to login page with redirect param
         const redirectUrl = encodeURIComponent(window.location.pathname.replace(/^\/+/, ''));
-        window.location.href = `public/Login.html?redirect=${redirectUrl}`;
+        window.location.href = `Login.html?redirect=${redirectUrl}`;
         return;
       }
     })();
