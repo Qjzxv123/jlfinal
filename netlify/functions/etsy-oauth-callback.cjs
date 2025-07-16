@@ -32,7 +32,7 @@ exports.handler = async (event) => {
         client_id: process.env.ETSY_CLIENT_ID,
         client_secret: process.env.ETSY_CLIENT_SECRET,
         code,
-        redirect_uri: process.env.ETSY_REDIRECT_URI
+        redirect_uri: "https://jlfinal.netlify.app/.netlify/functions/etsy-oauth-callback"
       }).toString()
     });
     tokenData = await tokenResp.json();

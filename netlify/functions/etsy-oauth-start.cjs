@@ -1,7 +1,7 @@
 // netlify/functions/etsy-oauth-start.cjs
 exports.handler = async (event) => {
   const clientId = process.env.ETSY_CLIENT_ID;
-  const redirectUri = process.env.ETSY_REDIRECT_URI;
+  const redirectUri ="https://jlfinal.netlify.app/.netlify/functions/etsy-oauth-callback";
   // Accept 'state' as a query parameter from the frontend, fallback to random string
   let state = Math.random().toString(36).substring(2);
   try {
