@@ -165,11 +165,11 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script type="module">
-
-// Use Netlify injected env vars if available, fallback to hardcoded for local dev
-const SUPABASE_URL = (window.netlifyEnvironment && window.netlifyEnvironment.SUPABASE_URL);
-const SUPABASE_KEY = (window.netlifyEnvironment && window.netlifyEnvironment.SUPABASE_KEY);
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { autoRefreshToken: true, persistSession: true }
+});
 
 
 
