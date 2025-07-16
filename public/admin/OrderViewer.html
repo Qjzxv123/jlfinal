@@ -1598,6 +1598,17 @@ async function processShippingLabelsWithBoxData(orderParcels) {
 // Helper: Show Shippo rate selection modal and return selected rate
 async function showShippoRateSelectionModal(rates) {
   return new Promise((resolve) => {
+    // Sort rates by amount ascending
+    rates = rates.slice().sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount));
+
+    // Carrier logos (add more as needed)
+    const carrierLogos = {
+      'USPS': 'https://upload.wikimedia.org/wikipedia/commons/4/4e/USPS_logo.svg',
+      'UPS': 'https://upload.wikimedia.org/wikipedia/commons/5/5c/UPS_logo.svg',
+      'FedEx': 'https://upload.wikimedia.org/wikipedia/commons/7/7b/FedEx_Express.svg',
+      'DHL': 'https://upload.wikimedia.org/wikipedia/commons/0/0d/DHL_Logo.svg'
+    };
+
     // Create modal
     const modal = document.createElement('div');
     modal.style.position = 'fixed';
@@ -1614,24 +1625,46 @@ async function showShippoRateSelectionModal(rates) {
     const inner = document.createElement('div');
     inner.style.background = 'white';
     inner.style.borderRadius = '12px';
-    inner.style.maxWidth = '500px';
-    inner.style.width = '90%';
-    inner.style.padding = '30px 20px';
+    inner.style.maxWidth = '540px';
+    inner.style.width = '95%';
+    inner.style.padding = '32px 24px';
     inner.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)';
-    inner.innerHTML = `<h2 style="margin-bottom:18px; font-size:1.2rem; color:#2c3e50; text-align:center;">Select Shipping Rate</h2>`;
+    inner.innerHTML = `<h2 style="margin-bottom:18px; font-size:1.3rem; color:#2c3e50; text-align:center;">Select Shipping Rate</h2>`;
 
     const rateList = document.createElement('div');
-    rateList.style.marginBottom = '20px';
+    rateList.style.marginBottom = '24px';
     rates.forEach(rate => {
       const rateDiv = document.createElement('div');
-      rateDiv.style.padding = '10px';
-      rateDiv.style.border = '1px solid #eee';
-      rateDiv.style.borderRadius = '6px';
-      rateDiv.style.marginBottom = '10px';
+      rateDiv.style.display = 'flex';
+      rateDiv.style.alignItems = 'center';
+      rateDiv.style.justifyContent = 'space-between';
+      rateDiv.style.padding = '14px 12px';
+      rateDiv.style.border = '1px solid #e0e0e0';
+      rateDiv.style.borderRadius = '8px';
+      rateDiv.style.marginBottom = '12px';
       rateDiv.style.cursor = 'pointer';
-      rateDiv.innerHTML = `<strong>${rate.provider} - ${rate.servicelevel_name}</strong><br>
-        <span>Amount: $${rate.amount}</span><br>
-        <span>Estimated Days: ${rate.estimated_days || 'N/A'}</span>`;
+      rateDiv.style.transition = 'background 0.2s';
+      rateDiv.onmouseover = () => { rateDiv.style.background = '#f8fcfa'; };
+      rateDiv.onmouseout = () => { rateDiv.style.background = 'white'; };
+
+      // Carrier logo
+      const logoUrl = carrierLogos[rate.provider] || '';
+      const logoImg = logoUrl ? `<img src="${logoUrl}" alt="${rate.provider}" style="height:32px;width:auto;margin-right:16px;vertical-align:middle;">` : '';
+
+      // Details
+      rateDiv.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;">
+          ${logoImg}
+          <div>
+            <strong style="font-size:1.08rem;">${rate.provider} - ${rate.servicelevel_name}</strong><br>
+            <span style="font-size:0.98rem;color:#666;">${rate.duration_terms || ''}</span>
+          </div>
+        </div>
+        <div style="text-align:right;min-width:120px;">
+          <span style="font-size:1.08rem;font-weight:600;color:#4DBA93;">$${rate.amount}</span><br>
+          <span style="font-size:0.95rem;color:#888;">${rate.estimated_days ? `${rate.estimated_days} days` : 'N/A'}</span>
+        </div>
+      `;
       rateDiv.onclick = () => {
         document.body.removeChild(modal);
         resolve(rate);
@@ -1645,9 +1678,11 @@ async function showShippoRateSelectionModal(rates) {
     cancelBtn.style.background = '#ccc';
     cancelBtn.style.color = '#333';
     cancelBtn.style.border = 'none';
-    cancelBtn.style.padding = '8px 15px';
-    cancelBtn.style.borderRadius = '4px';
+    cancelBtn.style.padding = '10px 0';
+    cancelBtn.style.borderRadius = '5px';
     cancelBtn.style.width = '100%';
+    cancelBtn.style.fontSize = '1.05rem';
+    cancelBtn.style.marginTop = '8px';
     cancelBtn.onclick = () => {
       document.body.removeChild(modal);
       resolve(null);
