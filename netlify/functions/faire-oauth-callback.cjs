@@ -20,12 +20,10 @@ exports.handler = async (event) => {
   const applicationId = process.env.FAIRE_CLIENT_ID;
   const applicationSecret = process.env.FAIRE_CLIENT_SECRET;
   const redirectUrl = process.env.FAIRE_REDIRECT_URI;
-  const scope = process.env.FAIRE_OAUTH_SCOPE ? process.env.FAIRE_OAUTH_SCOPE.split(',') : [
-    'READ_ORDERS',
-    'READ_PRODUCTS',
-    'READ_BRAND',
-    // add more as needed
-  ];
+  // Faire expects scope as a space-separated string, not an array
+  const scope = process.env.FAIRE_OAUTH_SCOPE
+    ? process.env.FAIRE_OAUTH_SCOPE.replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
+    : 'READ_ORDERS WRITE_ORDERS READ_PRODUCTS WRITE_PRODUCTS READ_INVENTORIES WRITE_INVENTORIES READ_BRAND READ_RETAILER READ_SHIPMENTS';
   let tokenResponse, tokenData;
   try {
     if (authorizationCode === 'testcode') {
@@ -55,7 +53,12 @@ exports.handler = async (event) => {
       tokenData = await tokenResponse.json();
       console.log('[DEBUG] Token response:', tokenData);
       if (!tokenResponse.ok || !tokenData.access_token) {
-        throw new Error(tokenData.error_description || tokenData.error || 'No access_token in response');
+        // Log the full response for debugging
+        console.error('[ERROR] Full token response:', tokenData);
+        return {
+          statusCode: 500,
+          body: 'Error exchanging code for token: ' + (tokenData.error_description || tokenData.error || 'No access_token in response') + '\nFull response: ' + JSON.stringify(tokenData),
+        };
       }
     }
   } catch (err) {
