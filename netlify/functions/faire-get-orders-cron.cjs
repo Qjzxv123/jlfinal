@@ -67,7 +67,10 @@ async function fetchOrdersForUser(userKey) {
       ShipTo_State: shippingDetails.state || '',
       ShipTo_ZipCode: shippingDetails.postal_code || '',
       ShipTo_Country: shippingDetails.country || '',
-      UserID: tokenRow.UserID || null // Add UserID from token row
+      Platform: 'Faire',
+      Link: `https://www.faire.com/brand-portal/orders/${order.id}/order-fulfilment?sync=true&type=UNFULFILLED`,
+      UserID: tokenRow.UserID || null, // Add UserID from token row
+      Retailer: tokenRow.email
     };
     orders.push(orderData);
   }

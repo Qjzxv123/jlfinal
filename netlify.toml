@@ -5,3 +5,6 @@
 
 [functions."faire-get-orders-cron"]
   schedule = "0 * * * *" # every hour
+
+[functions."shippo-get-orders-cron"]
+  schedule = "0 * * * *" # every hour

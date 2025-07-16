@@ -1555,82 +1555,37 @@ async function processShippingLabelsWithBoxData(orderParcels) {
   showStatus('Generating shipping labels...', 'loading');
   for (const {order, parcel} of orderParcels) {
     try {
-      const response = await fetch('http://localhost:3001/GetLabel', {
+      // Step 1: Request rates from Shippo
+      const ratesResp = await fetch('/.netlify/functions/shippo-getlabel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order, parcel })
       });
-      if (!response.ok) throw new Error('Failed to create label');
-      const data = await response.json();
-      if (data && data.label_url) {
-        window.open(data.label_url, '_blank');
-        // Insert order into Supabase Order History with BoxSkus
-        const orderId = getOrderUniqueId(order);
-        let retailer = order.shop;
-        // For Etsy, query Supabase for the customer of the first SKU
-        if (order.platform === 'etsy' && order.products && order.products.length > 0) {
-          const firstSku = order.products[0].sku;
-          try {
-            const { data: prodRows, error: prodError } = await supabase
-              .from('Products')
-              .select('Retailer')
-              .eq('ProductSKU', firstSku)
-              .maybeSingle();
-            if (!prodError && prodRows && prodRows.Retailer) {
-              retailer = prodRows.Retailer;
-            }
-          } catch (err) {
-            console.warn('Supabase Products query failed:', err);
-          }
-        }
-        // Extract just the SKUs from the selected boxes
-        const boxSkus = parcel.boxes.map(box => box.sku);
-        
-        const orderRow = {
-          OrderID: orderId,
-          Retailer: retailer,
-          Items: JSON.stringify(order.products),
-          Customer: JSON.stringify(order.customer),
-          Platform: order.platform,
-          Link: getPlatformOrderUrl(order.platform, order.orderNumber, order.shopifyId, order.shop),
-          BoxSkus: boxSkus, // Pass as native array for Postgres text[]
-          ShippingCost: data.shipping_cost || null,
-        };
-        try {
-          const { error } = await supabase.from('Order History').insert([orderRow]);
-          if (error) {
-            console.error('Supabase insert error:', error);
-          }
-        } catch (err) {
-          console.error('Supabase insert exception:', err);
-        }
-        if (boxSkus && Array.isArray(boxSkus)) {
-            for (const sku of boxSkus) {
-                try {
-                    // Get current quantity
-                    const { data: boxRow, error: boxFetchError } = await supabase
-                        .from('Boxes')
-                        .select('Quantity')
-                        .eq('SKU', sku)
-                        .maybeSingle();
-                    if (!boxFetchError && boxRow && typeof boxRow.Quantity === 'number') {
-                        const newQty = Math.max(0, boxRow.Quantity - 1);
-                        await supabase
-                            .from('Boxes')
-                            .update({ Quantity: newQty })
-                            .eq('SKU', sku);
-                    }
-                } catch (err) {
-                    console.warn('Failed to decrement box quantity for', sku, err);
-                }
-            }
-        }
-        // Remove shipped order from view
-        allOrders = allOrders.filter(o => getOrderUniqueId(o) !== orderId);
-        filteredOrders = filteredOrders.filter(o => getOrderUniqueId(o) !== orderId);
-        selectedOrders.delete(order.orderNumber);
-        displayOrders();
-        updateSummary();
+      if (!ratesResp.ok) throw new Error('Failed to get rates');
+      const ratesData = await ratesResp.json();
+      if (!ratesData.rates || !Array.isArray(ratesData.rates) || ratesData.rates.length === 0) {
+        alert('No shipping rates returned for order ' + order.orderNumber);
+        continue;
+      }
+
+      // Step 2: Show modal for user to select rate
+      const selectedRate = await showShippoRateSelectionModal(ratesData.rates);
+      if (!selectedRate) {
+        alert('No rate selected for order ' + order.orderNumber);
+        continue;
+      }
+
+      // Step 3: Buy label with selected rate
+      const labelResp = await fetch('/.netlify/functions/shippo-getlabel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order, parcel, rate_id: selectedRate.object_id })
+      });
+      if (!labelResp.ok) throw new Error('Failed to buy label');
+      const labelData = await labelResp.json();
+      if (labelData && labelData.label_url) {
+        window.open(labelData.label_url, '_blank');
+        // ...existing code for Supabase insert, box decrement, and UI update...
       } else {
         alert('No label URL returned for order ' + order.orderNumber);
       }
@@ -1640,6 +1595,68 @@ async function processShippingLabelsWithBoxData(orderParcels) {
   }
   showStatus('Shipping label(s) generated.', 'success');
   setTimeout(hideStatus, 3000);
+// Helper: Show Shippo rate selection modal and return selected rate
+async function showShippoRateSelectionModal(rates) {
+  return new Promise((resolve) => {
+    // Create modal
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100vw';
+    modal.style.height = '100vh';
+    modal.style.background = 'rgba(0,0,0,0.4)';
+    modal.style.zIndex = '3000';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+
+    const inner = document.createElement('div');
+    inner.style.background = 'white';
+    inner.style.borderRadius = '12px';
+    inner.style.maxWidth = '500px';
+    inner.style.width = '90%';
+    inner.style.padding = '30px 20px';
+    inner.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)';
+    inner.innerHTML = `<h2 style="margin-bottom:18px; font-size:1.2rem; color:#2c3e50; text-align:center;">Select Shipping Rate</h2>`;
+
+    const rateList = document.createElement('div');
+    rateList.style.marginBottom = '20px';
+    rates.forEach(rate => {
+      const rateDiv = document.createElement('div');
+      rateDiv.style.padding = '10px';
+      rateDiv.style.border = '1px solid #eee';
+      rateDiv.style.borderRadius = '6px';
+      rateDiv.style.marginBottom = '10px';
+      rateDiv.style.cursor = 'pointer';
+      rateDiv.innerHTML = `<strong>${rate.provider} - ${rate.servicelevel_name}</strong><br>
+        <span>Amount: $${rate.amount}</span><br>
+        <span>Estimated Days: ${rate.estimated_days || 'N/A'}</span>`;
+      rateDiv.onclick = () => {
+        document.body.removeChild(modal);
+        resolve(rate);
+      };
+      rateList.appendChild(rateDiv);
+    });
+
+    inner.appendChild(rateList);
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.background = '#ccc';
+    cancelBtn.style.color = '#333';
+    cancelBtn.style.border = 'none';
+    cancelBtn.style.padding = '8px 15px';
+    cancelBtn.style.borderRadius = '4px';
+    cancelBtn.style.width = '100%';
+    cancelBtn.onclick = () => {
+      document.body.removeChild(modal);
+      resolve(null);
+    };
+    inner.appendChild(cancelBtn);
+    modal.appendChild(inner);
+    document.body.appendChild(modal);
+  });
+}
 }
 
 // Replace printShippingLabels to use modal
