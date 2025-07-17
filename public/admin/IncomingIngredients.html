@@ -355,6 +355,8 @@
             <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
             <a href="DatabaseViewer.html" class="nav-item"><i class="cil-spreadsheet"></i><span>Database Viewer</span></a>
             <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
+            <a href="Calendar.html" class="nav-item active"><i class="cil-calendar"></i><span>Calendar</span></a>
+            <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
     </nav>
   </div>
 
@@ -791,12 +793,42 @@
             })
             .select();
 
-          if (error) {
-            results.push(`❌ ${sku}: Failed to save order - ${error.message}`);
+          if (error || !data || !data[0] || !data[0].id) {
+            results.push(`❌ ${sku}: Failed to save order - ${error ? error.message : 'No ID returned'}`);
             errorCount++;
           } else {
             results.push(`✅ ${ingredientName} (${sku}): Order for ${quantity} lbs expected by ${expectedBy}`);
             successCount++;
+
+            // Upsert IncomingOrderIDs in Calender table for the matching date
+            const orderId = data[0].id;
+            const calDate = expectedBy;
+            // Fetch existing Calender row for the date
+            const { data: calRow, error: calError } = await supabase
+              .from('Calender')
+              .select('id, Date, IncomingOrderIDs')
+              .eq('Date', calDate)
+              .single();
+
+            let newIncomingOrderIDs = [];
+            if (calRow && Array.isArray(calRow.IncomingOrderIDs)) {
+              newIncomingOrderIDs = [...calRow.IncomingOrderIDs];
+            }
+            if (!newIncomingOrderIDs.includes(orderId)) {
+              newIncomingOrderIDs.push(orderId);
+            }
+
+            // Upsert (insert or update) the Calender row
+            if (calRow && calRow.id) {
+              await supabase
+                .from('Calender')
+                .update({ IncomingOrderIDs: newIncomingOrderIDs })
+                .eq('id', calRow.id);
+            } else {
+              await supabase
+                .from('Calender')
+                .upsert({ Date: calDate, IncomingOrderIDs: [orderId] }, { onConflict: ['Date'] });
+            }
           }
 
         } catch (error) {

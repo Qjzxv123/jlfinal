@@ -89,40 +89,47 @@
       align-items: center;
       justify-content: flex-start;
     }
-    #calendar-container {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
-      padding: 2rem;
-      margin-top: 3rem;
-      width: 100%;
-      max-width: 900px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
     h2 {
       color: #2d3748;
       margin-bottom: 1.5rem;
     }
     .calendar {
       width: 100%;
-      border-collapse: collapse;
+      max-width: 1200px;
+      border-collapse: separate;
+      border-spacing: 0;
       margin-top: 1rem;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.12);
     }
     .calendar th, .calendar td {
       border: 1px solid #e2e8f0;
-      padding: 10px;
+      padding: 22px 18px;
       text-align: left;
       vertical-align: top;
-      min-width: 120px;
+      min-width: 140px;
       background: #f8fafc;
+      font-size: 1.1rem;
     }
     .calendar th {
       background: #f1f5f9;
       font-weight: 600;
       color: #374151;
       text-align: center;
+      font-size: 1.15rem;
+    }
+    .calendar tr:first-child th:first-child {
+      border-top-left-radius: 24px;
+    }
+    .calendar tr:first-child th:last-child {
+      border-top-right-radius: 24px;
+    }
+    .calendar tr:last-child td:first-child {
+      border-bottom-left-radius: 24px;
+    }
+    .calendar tr:last-child td:last-child {
+      border-bottom-right-radius: 24px;
     }
     .calendar-day {
       font-weight: bold;
@@ -149,6 +156,46 @@
       background: #fef3c7;
       color: #92400e;
     }
+    /* Improved Calendar Controls */
+    .calendar-controls {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      justify-content: center;
+    }
+    .calendar-controls button {
+      background: #4dba93;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.7rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s;
+      box-shadow: 0 2px 8px rgba(77,186,147,0.08);
+    }
+    .calendar-controls button:hover {
+      background: #379c7a;
+      box-shadow: 0 4px 16px rgba(77,186,147,0.15);
+    }
+    .calendar-controls .month-select, .calendar-controls .year-select {
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      font-size: 1.1rem;
+      background: #f8fafc;
+      color: #374151;
+      font-weight: 500;
+      margin-left: 0.5rem;
+      margin-right: 0.5rem;
+      transition: border-color 0.2s;
+    }
+    .calendar-controls .month-select:focus, .calendar-controls .year-select:focus {
+      border-color: #4dba93;
+      outline: none;
+    }
     @media (max-width: 800px) {
       .sidebar { transform: translateX(-250px); }
       .sidebar:hover { transform: translateX(0); }
@@ -165,49 +212,87 @@
       <h2>J&L Tools</h2>
     </div>
     <nav class="sidebar-nav">
-      <a href="/public/ecommerce-oauth.html" class="nav-item"><i class="cil-basket"></i><span>Onboard Stores</span></a>
-      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-storage"></i><span>Inventory Viewer</span></a>
-      <a href="/public/CustomerOrders.html" class="nav-item"><i class="cil-user"></i><span>Customer Orders</span></a>
-      <a href="/public/AddProduct.html" class="nav-item"><i class="cil-plus"></i><span>Add Product</span></a>
-      <a href="/public/privacy.html" class="nav-item"><i class="cil-lock-locked"></i><span>Privacy Policy</span></a>
-      <a href="/public/admin/OrderViewer.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>
-      <a href="/public/admin/InventoryScanner.html" class="nav-item"><i class="cil-barcode"></i><span>Inventory Scanner</span></a>
-      <a href="/public/admin/Calendar.html" class="nav-item active"><i class="cil-calendar"></i><span>Calendar</span></a>
+      <a href="BatchMaker.html" class="nav-item"><i class="cil-factory"></i><span>Batch Maker</span></a>
+      <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
+      <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
+      <a href="ProductIngredientViewer.html" class="nav-item"><i class="cil-columns"></i><span>Product Ingredients</span></a>
+      <a href="AddProductAdmin.html" class="nav-item"><i class="cil-note-add"></i><span>Add/Update Product</span></a>
+      <a href="AddIngredient.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Ingredient</span></a>
+      <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
+      <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
+      <a href="Quoting.html" class="nav-item"><i class="cil-money"></i><span>Product Quoting</span></a>
+      <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
+      <a href="DatabaseViewer.html" class="nav-item"><i class="cil-spreadsheet"></i><span>Database Viewer</span></a>
+      <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
+      <a href="Calendar.html" class="nav-item active"><i class="cil-calendar"></i><span>Calendar</span></a>
+      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
     </nav>
   </div>
   <div class="main-content" id="mainContent">
-    <div id="calendar-container">
-      <h2>Manufacturing & Orders Calendar</h2>
-      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
-        <button id="prev-month" style="padding:0.5rem 1rem;">&#8592; Prev</button>
-        <span id="calendar-label" style="font-weight:600;font-size:1.1rem;"></span>
-        <button id="next-month" style="padding:0.5rem 1rem;">Next &#8594;</button>
-        <select id="year-select" style="margin-left:1rem;padding:0.3rem 0.7rem;"></select>
-      </div>
-      <div id="calendar-view"></div>
+    <h2 style="margin-top:2rem;">Calendar</h2>
+    <div class="calendar-controls">
+      <button id="prev-month">&#8592; Prev</button>
+      <select id="month-select" class="month-select"></select>
+      <select id="year-select" class="year-select"></select>
+      <button id="next-month">Next &#8594;</button>
     </div>
+    <div id="calendar-view"></div>
   </div>
   <script>
     const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+async function checkAdmin() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = '/public/Login.html';
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      // Adjust this check to match your Supabase user admin logic
+      if (!user || !user.user_metadata || user.user_metadata.role !== 'service_role') {
+        console.log(user.user_metadata);
+        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins only</div>';
+        throw new Error('Not admin');
+      }
+    }
+    checkAdmin();
     let currentYear, currentMonth;
-    const calendarLabel = document.getElementById('calendar-label');
+    const monthSelect = document.getElementById('month-select');
+    const yearSelect = document.getElementById('year-select');
     const prevBtn = document.getElementById('prev-month');
     const nextBtn = document.getElementById('next-month');
-    const yearSelect = document.getElementById('year-select');
 
-    function updateCalendarLabel(year, month) {
+    function populateMonthSelect(selectedMonth) {
+      monthSelect.innerHTML = '';
       const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      calendarLabel.textContent = `${monthNames[month-1]} ${year}`;
-      yearSelect.value = year;
+      for (let m = 1; m <= 12; m++) {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = monthNames[m-1];
+        if (m === selectedMonth) opt.selected = true;
+        monthSelect.appendChild(opt);
+      }
+    }
+    function populateYearSelect(baseYear) {
+      yearSelect.innerHTML = '';
+      for (let y = baseYear; y <= baseYear+5; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        if (y === baseYear) opt.selected = true;
+        yearSelect.appendChild(opt);
+      }
+    }
+    function updateCalendarLabel(year, month) {
+      // Remove reference to calendarLabel since it is not present in the DOM
+      // If you want a label, add it to the controls or above the calendar
     }
 
     async function loadCalendar(year, month) {
       updateCalendarLabel(year, month);
-      const { calRows, tasks, ingOrders } = await fetchCalendarData(year, month);
-      renderCalendar(year, month, calRows, tasks, ingOrders);
+      const { tasks, ingOrders } = await fetchCalendarData(year, month);
+      renderCalendar(year, month, null, tasks, ingOrders);
     }
 
     prevBtn.onclick = () => {
@@ -216,6 +301,8 @@
         currentMonth = 12;
         currentYear--;
       }
+      monthSelect.value = currentMonth;
+      yearSelect.value = currentYear;
       loadCalendar(currentYear, currentMonth);
     };
     nextBtn.onclick = () => {
@@ -224,43 +311,31 @@
         currentMonth = 1;
         currentYear++;
       }
+      monthSelect.value = currentMonth;
+      yearSelect.value = currentYear;
+      loadCalendar(currentYear, currentMonth);
+    };
+    monthSelect.onchange = () => {
+      currentMonth = parseInt(monthSelect.value);
       loadCalendar(currentYear, currentMonth);
     };
     yearSelect.onchange = () => {
       currentYear = parseInt(yearSelect.value);
       loadCalendar(currentYear, currentMonth);
     };
-
-    // Populate year dropdown (range: currentYear-5 to currentYear+5)
-    function populateYearSelect(baseYear) {
-      yearSelect.innerHTML = '';
-      for (let y = baseYear; y <= baseYear+5; y++) {
-        const opt = document.createElement('option');
-        opt.value = y;
-        opt.textContent = y;
-        yearSelect.appendChild(opt);
-      }
-    }
-
     window.addEventListener('DOMContentLoaded', async () => {
       const today = new Date();
       currentYear = today.getFullYear();
       currentMonth = today.getMonth() + 1;
+      populateMonthSelect(currentMonth);
       populateYearSelect(currentYear);
       await loadCalendar(currentYear, currentMonth);
     });
 
     // Helper: get all calendar data for the current month
     async function fetchCalendarData(year, month) {
-      // Get all Calender rows for the month
       const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
       const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
-      const { data: calRows, error: calError } = await client
-        .from('Calender')
-        .select('*')
-        .gte('Date', startDate)
-        .lte('Date', endDate);
-      if (calError) return { error: calError.message };
       // Get all ManufacturingTasks for the month
       const { data: tasks, error: taskError } = await client
         .from('ManufacturingTasks')
@@ -273,11 +348,11 @@
         .select('*')
         .gte('ExpectedBy', startDate)
         .lte('ExpectedBy', endDate);
-      return { calRows, tasks, ingOrders };
+      return { tasks, ingOrders };
     }
 
     // Render calendar view
-    function renderCalendar(year, month, calRows, tasks, ingOrders) {
+    function renderCalendar(year, month, _unused, tasks, ingOrders) {
       const calendarDiv = document.getElementById('calendar-view');
       calendarDiv.innerHTML = '';
       // Get first day of month
@@ -294,7 +369,6 @@
         eventsByDate[date].push({
           type: 'manufacturing',
           label: `Manufacture ${task.Quantity}x ${task.ProductSKU}`,
-          id: task.id
         });
       }
       // Ingredient orders
@@ -304,24 +378,8 @@
         if (!eventsByDate[date]) eventsByDate[date] = [];
         eventsByDate[date].push({
           type: 'ingredient',
-          label: `Ingredient: ${order.Quantity ? order.Quantity : ''} ${order.IngredientSKU || ''} (Order #${order.id})`,
-          id: order.id
+          label: `Ingredient: ${order.Quantity ? order.Quantity : ''} ${order.IngredientSKU || ''}`,
         });
-      }
-      // IncomingOrderIDs from Calender
-      for (const cal of calRows || []) {
-        const date = cal.Date;
-        if (!date) continue;
-        if (!eventsByDate[date]) eventsByDate[date] = [];
-        if (Array.isArray(cal.IncomingOrderIDs)) {
-          for (const orderId of cal.IncomingOrderIDs) {
-            eventsByDate[date].push({
-              type: 'order',
-              label: `Incoming Order #${orderId}`,
-              id: orderId
-            });
-          }
-        }
       }
       // Render as table
       let html = '<table class="calendar"><tr>';
@@ -357,10 +415,11 @@
     // On load, show current month
     window.addEventListener('DOMContentLoaded', async () => {
       const today = new Date();
-      const year = today.getFullYear();
-      const month = today.getMonth() + 1;
-      const { calRows, tasks, ingOrders } = await fetchCalendarData(year, month);
-      renderCalendar(year, month, calRows, tasks, ingOrders);
+      currentYear = today.getFullYear();
+      currentMonth = today.getMonth() + 1;
+      populateMonthSelect(currentMonth);
+      populateYearSelect(currentYear);
+      await loadCalendar(currentYear, currentMonth);
     });
   </script>
 </body>
