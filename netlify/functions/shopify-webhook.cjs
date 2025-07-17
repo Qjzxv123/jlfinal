@@ -106,8 +106,17 @@ exports.handler = async (event) => {
   }
 
   // Respond 200 OK for all valid webhooks
-  return {
-    statusCode: 200,
-    body: 'Webhook received',
-  };
+  try {
+    return {
+      statusCode: 200,
+      body: 'Webhook received',
+    };
+  } catch (err) {
+    // Catch any unexpected errors and return 401 for compliance
+    console.error('Unexpected error in webhook handler:', err);
+    return {
+      statusCode: 401,
+      body: 'Unauthorized: Unexpected error',
+    };
+  }
 };
