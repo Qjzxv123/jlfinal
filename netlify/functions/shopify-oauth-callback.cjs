@@ -77,11 +77,8 @@ exports.handler = async (event) => {
   }
   // Redirect to Shopify embedded app URL after authentication
   if (shop) {
-    // Extract store name from shop domain
-    const storeName = shop.replace('.myshopify.com', '');
-    const appSlug = 'grant'; // Change to your app's actual slug if different
-    // Use the expected Shopify admin URL for embedded app
-    let redirectUrl = `https://admin.shopify.com/store/${storeName}/app/${appSlug}`;
+    // Use the expected Shopify admin URL for embedded app (Shopify expects /apps/{app-slug})
+    let redirectUrl = `https://admin.shopify.com/apps/j-l-connect`;
     return {
       statusCode: 302,
       headers: {
