@@ -189,7 +189,7 @@ function requireLogin(action) {
   return async function(...args) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      window.location.href = '/Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
+      window.location.href = '/public/Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
       return;
     }
     action(...args);
