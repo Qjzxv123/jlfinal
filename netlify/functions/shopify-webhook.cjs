@@ -40,8 +40,8 @@ exports.handler = async (event) => {
 
   // Use timingSafeEqual for HMAC comparison
   try {
-    const hmacBuffer = Buffer.from(hmacHeader, 'utf8');
-    const generatedBuffer = Buffer.from(generatedHmac, 'utf8');
+    const hmacBuffer = Buffer.from(hmacHeader, 'base64');
+    const generatedBuffer = Buffer.from(generatedHmac, 'base64');
     if (
       hmacBuffer.length !== generatedBuffer.length ||
       !crypto.timingSafeEqual(hmacBuffer, generatedBuffer)
