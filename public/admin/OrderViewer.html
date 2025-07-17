@@ -1576,57 +1576,30 @@ async function processShippingLabelsWithBoxData(orderParcels) {
   for (const {order, parcel} of orderParcels) {
     try {
       let ratesResp, ratesData, selectedRate, labelResp, labelData;
-      if (order.platform === 'etsy') {
-        // Use Shippo for Etsy
-        ratesResp = await fetch('/.netlify/functions/shippo-getlabel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order, parcel })
-        });
-        if (!ratesResp.ok) throw new Error('Failed to get rates');
-        ratesData = await ratesResp.json();
-        if (!ratesData.rates || !Array.isArray(ratesData.rates) || ratesData.rates.length === 0) {
-          alert('No shipping rates returned for order ' + order.orderNumber);
-          continue;
-        }
-        selectedRate = await showShippoRateSelectionModal(ratesData.rates);
-        if (!selectedRate) {
-          alert('No rate selected for order ' + order.orderNumber);
-          continue;
-        }
-        labelResp = await fetch('/.netlify/functions/shippo-getlabel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order, parcel, rate_id: selectedRate.object_id })
-        });
-        if (!labelResp.ok) throw new Error('Failed to buy label');
-        labelData = await labelResp.json();
-      } else {
-        // Use EasyPost for non-Etsy platforms
-        ratesResp = await fetch('/.netlify/functions/easypost-getlabel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order, parcel })
-        });
-        if (!ratesResp.ok) throw new Error('Failed to get rates');
-        ratesData = await ratesResp.json();
-        if (!ratesData.rates || !Array.isArray(ratesData.rates) || ratesData.rates.length === 0 || !ratesData.shipment_id) {
-          alert('No shipping rates returned for order ' + order.orderNumber);
-          continue;
-        }
-        selectedRate = await showShippoRateSelectionModal(ratesData.rates);
-        if (!selectedRate) {
-          alert('No rate selected for order ' + order.orderNumber);
-          continue;
-        }
-        labelResp = await fetch('/.netlify/functions/easypost-getlabel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order, parcel, shipment_id: ratesData.shipment_id, rate_id: selectedRate.object_id })
-        });
-        if (!labelResp.ok) throw new Error('Failed to buy label');
-        labelData = await labelResp.json();
+      // Use Shippo for all platforms
+      ratesResp = await fetch('/.netlify/functions/shippo-getlabel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order, parcel })
+      });
+      if (!ratesResp.ok) throw new Error('Failed to get rates');
+      ratesData = await ratesResp.json();
+      if (!ratesData.rates || !Array.isArray(ratesData.rates) || ratesData.rates.length === 0) {
+        alert('No shipping rates returned for order ' + order.orderNumber);
+        continue;
       }
+      selectedRate = await showShippoRateSelectionModal(ratesData.rates);
+      if (!selectedRate) {
+        alert('No rate selected for order ' + order.orderNumber);
+        continue;
+      }
+      labelResp = await fetch('/.netlify/functions/shippo-getlabel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order, parcel, rate_id: selectedRate.object_id })
+      });
+      if (!labelResp.ok) throw new Error('Failed to buy label');
+      labelData = await labelResp.json();
       if (labelData && labelData.label_url) {
         window.open(labelData.label_url, '_blank');
         // ...existing code for Supabase insert, box decrement, and UI update...

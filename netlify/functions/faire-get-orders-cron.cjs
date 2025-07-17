@@ -1,3 +1,12 @@
+// Suppress Node.js deprecation warnings (e.g., punycode)
+process.on('warning', (warning) => {
+  if (warning.name === 'DeprecationWarning' && warning.message.includes('punycode')) {
+    // Ignore punycode deprecation warnings
+    return;
+  }
+  // Optionally log other warnings
+  // console.warn(warning);
+});
 // netlify/functions/faire-get-orders-cron.cjs
 // Scheduled function: Fetches orders for all userKeys every hour
 
