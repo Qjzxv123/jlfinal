@@ -69,7 +69,6 @@ async function fetchOrdersForUser(userKey) {
       }),
       Platform: 'Faire',
       Link: `https://www.faire.com/brand-portal/orders/${order.id}/order-fulfilment?sync=true&type=UNFULFILLED`,
-      Status: 'Unfullfilled',
       Notes: null,
       UserID: tokenRow.UserID ? [tokenRow.UserID] : null
     };

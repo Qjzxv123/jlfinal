@@ -238,30 +238,7 @@
             color: #059669;
             font-weight: 500;
         }
-        
-        .order-status {
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-        
-        .status-unfulfilled {
-            background: #fef3c7;
-            color: #92400e;
-        }
-        
-        .status-cancelled {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-        
-        .status-fulfilled {
-            background: #d1fae5;
-            color: #065f46;
-        }
-        
-        .order-actions {
+            .order-actions {
             display: flex;
             gap: 0.25rem;
             flex-wrap: wrap;
@@ -600,13 +577,6 @@
                 minute: '2-digit'
             });
         }
-
-        // Get status badge HTML
-        function getStatusBadge(status) {
-            const statusClass = `status-${status.toLowerCase().replace(' ', '-')}`;
-            return `<span class="order-status ${statusClass}">${status}</span>`;
-        }
-
         // Fetch and display active orders
         async function fetchActiveOrders() {
             const viewer = document.getElementById('active-orders-viewer');
@@ -614,7 +584,7 @@
             try {
                 const { data, error } = await client
                     .from('Orders')
-                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Status, Link')
+                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link')
                     .order('Platform', { ascending: true });
                 if (error) throw error;
                 if (!data || data.length === 0) {
@@ -634,7 +604,6 @@
                             <th>Retailer</th>
                             <th>Items</th>
                             <th>Notes</th>
-                            <th>Status</th>
                         </tr>
                 `;
                 for (const order of ordersToShow) {
@@ -683,9 +652,6 @@
                                 <button class="btn" onclick="openAddNoteModal('${order.OrderID}')" style="margin-top: 4px; font-size: 0.7rem; padding: 0.2rem 0.4rem;">
                                     Add Note
                                 </button>
-                            </td>
-                            <td>
-                                ${getStatusBadge(order.Status || 'Unfulfilled')}
                             </td>
                         </tr>
                     `;
@@ -775,7 +741,7 @@
         function viewOrderDetails(orderId) {
             client
                 .from('Orders')
-                .select('OrderID, Retailer, Platform, Items, Customer, Notes, Status, Link')
+                .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link')
                 .eq('OrderID', orderId)
                 .single()
                 .then(({ data, error }) => {
@@ -829,7 +795,6 @@
 Order ID: ${data.OrderID || 'N/A'}${data.Link ? '\nPlatform Link: ' + data.Link : ''}
 Platform: ${data.Platform || 'N/A'}
 Retailer: ${data.Retailer || 'N/A'}
-Status: ${data.Status || 'Unfulfilled'}
 
 Customer Information:
 Name: ${customer.name || 'N/A'}
