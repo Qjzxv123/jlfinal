@@ -26,21 +26,7 @@ async function saveTokenRow(userKey, tokenData) {
   if (error) throw error;
 }
 
-async function getValidToken(userKey) {
-  const row = await getTokenRow(userKey);
-  // If expires_at is not set, treat as non-expiring (Faire tokens do not expire by default)
-  if (!row.expires_at || row.expires_at > Date.now()) {
-    return row.access_token;
-  }
-  if (row.refresh_token) {
-    const newToken = await refreshToken(userKey, row.refresh_token);
-    await saveTokenRow(userKey, newToken);
-    return newToken.access_token;
-  }
-  throw new Error('Token expired and no refresh token available');
-}
-
 module.exports = {
-  getValidToken,
+  getTokenRow,
   saveTokenRow
 };

@@ -15,7 +15,7 @@ exports.handler = async (event) => {
     }
   }
   const user_id = decodedState.user_id || null;
-  const user_email_from_state = decodedState.user_email || null;
+  const display_name = decodedState.user_display_name || null;
   console.log('[DEBUG] Callback received:', { authorizationCode, state });
 
   if (!authorizationCode) {
@@ -105,7 +105,7 @@ exports.handler = async (event) => {
         refresh_token: tokenData.refresh_token || null,
         expires_at,
         token_type: tokenData.token_type || tokenData.tokenType || null,
-        user_key: user_email_from_state || null, // Save email as user_key
+        user_key: display_name || null, // Save email as user_key
         UserID: user_id || null      // Save id as UserID
       });
   } catch (e) {

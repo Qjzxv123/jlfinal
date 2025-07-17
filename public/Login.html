@@ -93,8 +93,9 @@
         <div id="message"></div>
         <h3>Or Sign Up</h3>
         <form id="signup-form">
-            <input type="email" id="signup-email" placeholder="Email" required><br>
-            <input type="password" id="signup-password" placeholder="Password" required><br>
+            <input type="email" id="signup-email" placeholder="Email" required style="width:90%;padding:0.7rem;margin:0.5rem 0;border-radius:6px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:1rem;"><br>
+            <input type="password" id="signup-password" placeholder="Password" required style="width:90%;padding:0.7rem;margin:0.5rem 0;border-radius:6px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:1rem;"><br>
+            <input type="text" id="signup-company" placeholder="Company Name" required style="width:90%;padding:0.7rem;margin:0.5rem 0;border-radius:6px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:1rem;"><br>
             <button type="submit">Sign Up</button>
         </form>
     </div>
@@ -130,7 +131,14 @@
             e.preventDefault();
             const email = document.getElementById('signup-email').value;
             const password = document.getElementById('signup-password').value;
-            const { data, error } = await client.auth.signUp({ email, password });
+            const company = document.getElementById('signup-company').value;
+            const { data, error } = await client.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: { display_name: company }
+                }
+            });
             if (error) {
                 message.textContent = 'Sign up failed: ' + error.message;
                 message.style.color = 'red';

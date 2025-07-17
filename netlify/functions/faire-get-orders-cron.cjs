@@ -1,6 +1,5 @@
 // netlify/functions/faire-get-orders-cron.cjs
 // Scheduled function: Fetches orders for all userKeys every hour
-
 const { createClient } = require('@supabase/supabase-js');
 let fetchFn;
 if (typeof fetch !== 'undefined') {
@@ -8,7 +7,6 @@ if (typeof fetch !== 'undefined') {
 } else {
   fetchFn = require('node-fetch');
 }
-
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 async function fetchOrdersForUser(userKey) {
@@ -54,7 +52,7 @@ async function fetchOrdersForUser(userKey) {
     const shippingDetails = order.address || {};
     const orderData = {
       OrderID: order.id || '',
-      Retailer: tokenRow.email,
+      Retailer: userKey,
       Items: JSON.stringify((order.items || []).map(item => ({
         SKU: item.sku || '',
         Name: item.product_name || '',
@@ -77,8 +75,7 @@ async function fetchOrdersForUser(userKey) {
     };
     orders.push(orderData);
   }
-  console.log(`[CRON] UserKey ${userKey}: Added ${orders.length} orders`);
-  // Save orders to Supabase Orders table
+    // Save orders to Supabase Orders table
   if (orders.length > 0) {
     const { error: insertError } = await supabase
       .from('Orders')
@@ -91,10 +88,8 @@ async function fetchOrdersForUser(userKey) {
   }
 }
 
-exports.handler = async function(event, context) {
-  console.log('[CRON] faire-get-orders-cron handler invoked');
+exports.handler = async function(event) {
   // Only allow scheduled invocations
-  // COMMENTED OUT FOR TESTING: allow manual POST requests
   // if (!event.headers['x-netlify-scheduled-event']) {
   //   return { statusCode: 403, body: 'Forbidden' };
   // }
@@ -111,5 +106,8 @@ exports.handler = async function(event, context) {
   for (const userKey of userKeys) {
     await fetchOrdersForUser(userKey);
   }
-  return { statusCode: 200, body: `Processed ${userKeys.length} userKeys` };
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: `Processed ${userKeys.length} userKeys` })
+  };
 };

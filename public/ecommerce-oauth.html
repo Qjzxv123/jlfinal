@@ -203,8 +203,10 @@ async function startOAuth(provider) {
     alert('You must be logged in.');
     return;
   }
-  // Default for supported providers
-  const stateObj = { user_id: user.id, user_email: user.email, nonce: Math.random().toString(36).substring(2) };
+  // Use display_name from user_metadata
+  console.log(user.user_metadata);
+  const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
+  const stateObj = { user_id: user.id, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
   const state = btoa(JSON.stringify(stateObj));
   window.location.href = `/.netlify/functions/${provider}-oauth-start?state=${encodeURIComponent(state)}`;
 }
@@ -228,8 +230,9 @@ document.getElementById('shopify-btn').onclick = requireLogin(async () => {
     alert('You must be logged in.');
     return;
   }
-  // You can add admin check here if needed
-  const stateObj = { user_id: user.id, user_email: user.email, nonce: Math.random().toString(36).substring(2) };
+  // Use display_name from user_metadata
+  const displayName = user.user_metadata.display_name || user.email;
+  const stateObj = { user_id: user.id, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
   const state = btoa(JSON.stringify(stateObj));
   window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(domain)}&state=${encodeURIComponent(state)}`;
 });
