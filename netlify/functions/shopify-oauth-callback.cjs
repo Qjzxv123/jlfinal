@@ -56,17 +56,25 @@ exports.handler = async (event) => {
       });
       throw new Error(tokenData.error_description || rawResponse || 'Failed to get access token');
     }
+    // Save shop and access token to Supabase (same table as Faire)
+    try {
+      const supabase = require('./supabase-client.cjs');
+      // Upsert to oauth_tokens table, platform: 'shopify', user_key: shop
+      await supabase.from('oauth_tokens').upsert({
+        user_key: shop,
+        platform: 'shopify',
+        access_token: tokenData.access_token
+      }, { onConflict: ['user_key', 'platform'] });
+      console.log(`Saved Shopify token for shop: ${shop}`);
+    } catch (err) {
+      console.error('Error saving Shopify token to Supabase:', err);
+    }
   } catch (err) {
     return {
       statusCode: 500,
       body: `Error exchanging code for token: ${err.message}`
     };
   }
-
-  // Save shop and access token to Supabase (optional, implement as needed)
-  // const supabase = require('./supabase-client.cjs');
-  // await supabase.from('shopify_tokens').upsert({ shop, access_token: tokenData.access_token });
-
   // Redirect to Shopify embedded app URL after authentication
   if (shop) {
     // Extract store name from shop domain
