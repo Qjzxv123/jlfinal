@@ -57,10 +57,13 @@ exports.handler = async (event) => {
   // const supabase = require('./supabase-client.cjs');
   // await supabase.from('shopify_tokens').upsert({ shop, access_token: tokenData.access_token });
 
-  // Redirect to standalone app main page after authentication
+  // Redirect to Shopify embedded app URL after authentication
   if (shop) {
-    // Redirect to your app's main entry point (not embedded)
-    let redirectUrl = 'https://jlfinal.netlify.app/public/login';
+    // Extract store name from shop domain
+    const storeName = shop.replace('.myshopify.com', '');
+    const appSlug = 'grant'; // Change to your app's actual slug if different
+    // Use the expected Shopify admin URL for embedded app
+    let redirectUrl = `https://admin.shopify.com/store/${storeName}/app/${appSlug}`;
     return {
       statusCode: 302,
       headers: {
@@ -70,11 +73,11 @@ exports.handler = async (event) => {
       body: ''
     };
   }
-  // Fallback: redirect to app main page
+  // Fallback: redirect to Shopify admin apps page
   return {
     statusCode: 302,
     headers: {
-      Location: 'https://jlfinal.netlify.app/public/login',
+      Location: 'https://admin.shopify.com/store',
       'Cache-Control': 'no-store'
     },
     body: ''
