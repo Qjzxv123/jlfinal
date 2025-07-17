@@ -63,28 +63,42 @@ async function fetchOrdersForUser(userKey) {
   for (const order of (data.orders || [])) {
     const shippingDetails = order.address || {};
     const orderData = {
-      OrderId: order.id || '',
-      Items: (order.items || []).map(item => ({
+      OrderID: order.id || '',
+      Retailer: tokenRow.email,
+      Items: JSON.stringify((order.items || []).map(item => ({
         SKU: item.sku || '',
         Name: item.product_name || '',
         Quantity: item.quantity || 0
-      })),
-      ShipTo_Name: shippingDetails.name || '',
-      ShipTo_Address1: shippingDetails.address1 || '',
-      ShipTo_Address2: shippingDetails.address2 || '',
-      ShipTo_City: shippingDetails.city || '',
-      ShipTo_State: shippingDetails.state || '',
-      ShipTo_ZipCode: shippingDetails.postal_code || '',
-      ShipTo_Country: shippingDetails.country || '',
+      }))),
+      Customer: JSON.stringify({
+        name: shippingDetails.name || '',
+        address1: shippingDetails.address1 || '',
+        address2: shippingDetails.address2 || '',
+        city: shippingDetails.city || '',
+        state: shippingDetails.state || '',
+        zipCode: shippingDetails.postal_code || '',
+        country: shippingDetails.country || ''
+      }),
       Platform: 'Faire',
       Link: `https://www.faire.com/brand-portal/orders/${order.id}/order-fulfilment?sync=true&type=UNFULFILLED`,
-      UserID: tokenRow.UserID || null, // Add UserID from token row
-      Retailer: tokenRow.email
+      Status: 'Unfullfilled',
+      Notes: null,
+      UserID: tokenRow.UserID ? [tokenRow.UserID] : null
     };
     orders.push(orderData);
   }
   console.log(`[CRON] UserKey ${userKey}: Added ${orders.length} orders`);
-  // Optionally: Save orders to Supabase here
+  // Save orders to Supabase Orders table
+  if (orders.length > 0) {
+    const { error: insertError } = await supabase
+      .from('Orders')
+      .upsert(orders, { onConflict: ['OrderID'] });
+    if (insertError) {
+      console.error(`[CRON] Failed to insert orders for userKey ${userKey}:`, insertError);
+    } else {
+      console.log(`[CRON] Inserted/updated ${orders.length} orders for userKey ${userKey}`);
+    }
+  }
 }
 
 exports.handler = async function(event, context) {
