@@ -1,6 +1,6 @@
 // netlify/functions/shopify-oauth-start.cjs
 exports.handler = async (event) => {
-  const clientId = process.env.SHOPIFY_CLIENT_ID;
+  const clientId = process.env.SHOPIFY_API_KEY;
   let shop;
   const redirectUri = 'https://jlfinal.netlify.app/.netlify/functions/shopify-oauth-callback';
   if (event.httpMethod === 'POST') {
