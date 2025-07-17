@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Manufacturing Calendar</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      color: #333;
+    }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      z-index: 1000;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    .sidebar:hover { width: 250px; }
+    .sidebar-header {
+      padding: 0.75rem;
+      border-bottom: 1px solid #34495e;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #ecf0f1;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    .sidebar:not(:hover) .sidebar-header h2 { opacity: 0; }
+    .sidebar:hover .sidebar-header h2 { font-size: 1.3rem; }
+    .sidebar-nav { padding: 0.5rem 0; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid transparent;
+      white-space: nowrap;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    .nav-item.active {
+      background: rgba(77,186,147,0.2);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    .nav-item i {
+      margin-right: 0.5rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+      opacity: 1 !important;
+      transition: opacity 0.3s ease;
+    }
+    .nav-item span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .sidebar:hover .nav-item span { opacity: 1; }
+    .sidebar:hover .nav-item { padding: 0.75rem 1.5rem; }
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+      width: calc(100% - 60px);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    #calendar-container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+      padding: 2rem;
+      margin-top: 3rem;
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h2 {
+      color: #2d3748;
+      margin-bottom: 1.5rem;
+    }
+    .calendar {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .calendar th, .calendar td {
+      border: 1px solid #e2e8f0;
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+      min-width: 120px;
+      background: #f8fafc;
+    }
+    .calendar th {
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #374151;
+      text-align: center;
+    }
+    .calendar-day {
+      font-weight: bold;
+      color: #228B22;
+      margin-bottom: 0.5rem;
+    }
+    .event {
+      margin-bottom: 0.5rem;
+      padding: 0.5rem;
+      border-radius: 6px;
+      background: #e0f7fa;
+      color: #065f46;
+      font-size: 0.95rem;
+    }
+    .event.manufacturing {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .event.order {
+      background: #fee2e2;
+      color: #92400e;
+    }
+    .event.ingredient {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    @media (max-width: 800px) {
+      .sidebar { transform: translateX(-250px); }
+      .sidebar:hover { transform: translateX(0); }
+      .main-content { margin-left: 0; width: 100%; }
+      #calendar-container { padding: 1rem; max-width: 98vw; margin-top: 1rem; }
+      .calendar th, .calendar td { min-width: 80px; font-size: 0.85rem; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>J&L Tools</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/public/ecommerce-oauth.html" class="nav-item"><i class="cil-basket"></i><span>Onboard Stores</span></a>
+      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-storage"></i><span>Inventory Viewer</span></a>
+      <a href="/public/CustomerOrders.html" class="nav-item"><i class="cil-user"></i><span>Customer Orders</span></a>
+      <a href="/public/AddProduct.html" class="nav-item"><i class="cil-plus"></i><span>Add Product</span></a>
+      <a href="/public/privacy.html" class="nav-item"><i class="cil-lock-locked"></i><span>Privacy Policy</span></a>
+      <a href="/public/admin/OrderViewer.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>
+      <a href="/public/admin/InventoryScanner.html" class="nav-item"><i class="cil-barcode"></i><span>Inventory Scanner</span></a>
+      <a href="/public/admin/Calendar.html" class="nav-item active"><i class="cil-calendar"></i><span>Calendar</span></a>
+    </nav>
+  </div>
+  <div class="main-content" id="mainContent">
+    <div id="calendar-container">
+      <h2>Manufacturing & Orders Calendar</h2>
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+        <button id="prev-month" style="padding:0.5rem 1rem;">&#8592; Prev</button>
+        <span id="calendar-label" style="font-weight:600;font-size:1.1rem;"></span>
+        <button id="next-month" style="padding:0.5rem 1rem;">Next &#8594;</button>
+        <select id="year-select" style="margin-left:1rem;padding:0.3rem 0.7rem;"></select>
+      </div>
+      <div id="calendar-view"></div>
+    </div>
+  </div>
+  <script>
+    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentYear, currentMonth;
+    const calendarLabel = document.getElementById('calendar-label');
+    const prevBtn = document.getElementById('prev-month');
+    const nextBtn = document.getElementById('next-month');
+    const yearSelect = document.getElementById('year-select');
+
+    function updateCalendarLabel(year, month) {
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      calendarLabel.textContent = `${monthNames[month-1]} ${year}`;
+      yearSelect.value = year;
+    }
+
+    async function loadCalendar(year, month) {
+      updateCalendarLabel(year, month);
+      const { calRows, tasks, ingOrders } = await fetchCalendarData(year, month);
+      renderCalendar(year, month, calRows, tasks, ingOrders);
+    }
+
+    prevBtn.onclick = () => {
+      currentMonth--;
+      if (currentMonth < 1) {
+        currentMonth = 12;
+        currentYear--;
+      }
+      loadCalendar(currentYear, currentMonth);
+    };
+    nextBtn.onclick = () => {
+      currentMonth++;
+      if (currentMonth > 12) {
+        currentMonth = 1;
+        currentYear++;
+      }
+      loadCalendar(currentYear, currentMonth);
+    };
+    yearSelect.onchange = () => {
+      currentYear = parseInt(yearSelect.value);
+      loadCalendar(currentYear, currentMonth);
+    };
+
+    // Populate year dropdown (range: currentYear-5 to currentYear+5)
+    function populateYearSelect(baseYear) {
+      yearSelect.innerHTML = '';
+      for (let y = baseYear; y <= baseYear+5; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        yearSelect.appendChild(opt);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const today = new Date();
+      currentYear = today.getFullYear();
+      currentMonth = today.getMonth() + 1;
+      populateYearSelect(currentYear);
+      await loadCalendar(currentYear, currentMonth);
+    });
+
+    // Helper: get all calendar data for the current month
+    async function fetchCalendarData(year, month) {
+      // Get all Calender rows for the month
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+      const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+      const { data: calRows, error: calError } = await client
+        .from('Calender')
+        .select('*')
+        .gte('Date', startDate)
+        .lte('Date', endDate);
+      if (calError) return { error: calError.message };
+      // Get all ManufacturingTasks for the month
+      const { data: tasks, error: taskError } = await client
+        .from('ManufacturingTasks')
+        .select('*')
+        .gte('PlannedManufactureDate', startDate)
+        .lte('PlannedManufactureDate', endDate);
+      // Get all IngredientOrders for the month
+      const { data: ingOrders, error: ingError } = await client
+        .from('IngredientOrders')
+        .select('*')
+        .gte('ExpectedBy', startDate)
+        .lte('ExpectedBy', endDate);
+      return { calRows, tasks, ingOrders };
+    }
+
+    // Render calendar view
+    function renderCalendar(year, month, calRows, tasks, ingOrders) {
+      const calendarDiv = document.getElementById('calendar-view');
+      calendarDiv.innerHTML = '';
+      // Get first day of month
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0);
+      const daysInMonth = lastDay.getDate();
+      // Build a map of events by date
+      const eventsByDate = {};
+      // Manufacturing tasks
+      for (const task of tasks || []) {
+        const date = task.PlannedManufactureDate;
+        if (!date) continue;
+        if (!eventsByDate[date]) eventsByDate[date] = [];
+        eventsByDate[date].push({
+          type: 'manufacturing',
+          label: `Manufacture ${task.Quantity}x ${task.ProductSKU}`,
+          id: task.id
+        });
+      }
+      // Ingredient orders
+      for (const order of ingOrders || []) {
+        const date = order.ExpectedBy ? order.ExpectedBy.split('T')[0] : null;
+        if (!date) continue;
+        if (!eventsByDate[date]) eventsByDate[date] = [];
+        eventsByDate[date].push({
+          type: 'ingredient',
+          label: `Ingredient: ${order.Quantity ? order.Quantity : ''} ${order.IngredientSKU || ''} (Order #${order.id})`,
+          id: order.id
+        });
+      }
+      // IncomingOrderIDs from Calender
+      for (const cal of calRows || []) {
+        const date = cal.Date;
+        if (!date) continue;
+        if (!eventsByDate[date]) eventsByDate[date] = [];
+        if (Array.isArray(cal.IncomingOrderIDs)) {
+          for (const orderId of cal.IncomingOrderIDs) {
+            eventsByDate[date].push({
+              type: 'order',
+              label: `Incoming Order #${orderId}`,
+              id: orderId
+            });
+          }
+        }
+      }
+      // Render as table
+      let html = '<table class="calendar"><tr>';
+      for (let i = 0; i < 7; i++) {
+        html += `<th>${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i]}</th>`;
+      }
+      html += '</tr>';
+      let day = 1;
+      let weekDay = firstDay.getDay();
+      while (day <= daysInMonth) {
+        html += '<tr>';
+        for (let i = 0; i < 7; i++) {
+          if ((day === 1 && i < weekDay) || day > daysInMonth) {
+            html += '<td></td>';
+          } else {
+            const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            html += `<td><div class="calendar-day">${day}</div>`;
+            if (eventsByDate[dateStr]) {
+              for (const event of eventsByDate[dateStr]) {
+                html += `<div class="event ${event.type}">${event.label}</div>`;
+              }
+            }
+            html += '</td>';
+            day++;
+          }
+        }
+        html += '</tr>';
+      }
+      html += '</table>';
+      calendarDiv.innerHTML = html;
+    }
+
+    // On load, show current month
+    window.addEventListener('DOMContentLoaded', async () => {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth() + 1;
+      const { calRows, tasks, ingOrders } = await fetchCalendarData(year, month);
+      renderCalendar(year, month, calRows, tasks, ingOrders);
+    });
+  </script>
+</body>
+</html>

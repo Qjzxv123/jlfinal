@@ -96,11 +96,13 @@
       opacity: 0;
       transition: opacity 0.3s ease;
     }
-    
+    .nav-item i {
+      opacity: 1 !important;
+      transition: opacity 0.3s ease;
+    }
     .sidebar:hover .nav-item span {
       opacity: 1;
     }
-    
     .sidebar:hover .nav-item {
       padding: 0.75rem 1.5rem;
     }
@@ -292,8 +294,16 @@
         <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-storage"></i><span>Inventory Viewer</span></a>
         <a href="/public/CustomerOrders.html" class="nav-item"><i class="cil-user"></i><span>Customer Orders</span></a>
         <a href="/public/AddProduct.html" class="nav-item active"><i class="cil-plus"></i><span>Add Product</span></a>
-        <a href="/public/privacy.html" class="nav-item"><i class="cil-lock-locked"></i><span>Privacy Policy</span></a>
         <a href="/public/admin/OrderViewer.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>
+    </nav>
+    <div id="sidebar-signout" style="position: absolute; bottom: 24px; left: 0; width: 100%; text-align: left;">
+      <a href="/public/privacy.html" class="nav-item" style="width:90%;margin:0 auto;justify-content:left;align-items:center;">
+        <i class="cil-lock-locked"></i><span>Privacy Policy</span>
+      </a>
+      <a id="sign-out-btn" class="nav-item" style="width:90%;margin:0 auto;display:none;justify-content:center;align-items:center;cursor:pointer;">
+        <i class="cil-account-logout"></i><span>Sign Out</span>
+      </a>
+    </div>
       </nav>
   </div>
   <!-- Main Content -->
@@ -321,6 +331,22 @@
     </div>
   </div>
   <script>
+    // Sign out button handler
+    document.addEventListener('DOMContentLoaded', function() {
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          document.getElementById('sign-out-btn').style.display = 'inline-block';
+        } else {
+          document.getElementById('sign-out-btn').style.display = 'none';
+        }
+      });
+      document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
+        e.preventDefault();
+        await supabase.auth.signOut();
+        window.location.reload();
+      });
+    });
 
     // --- Supabase config (single instance) ---
     const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
