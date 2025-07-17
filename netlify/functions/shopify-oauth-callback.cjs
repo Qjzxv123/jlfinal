@@ -61,13 +61,10 @@ exports.handler = async (event) => {
   if (shop) {
     // Extract store name from shop domain
     const storeName = shop.replace('.myshopify.com', '');
-    // Replace 'grant' with your app's slug if needed
     const appSlug = 'grant'; // Change to your app's actual slug if different
     // Use the expected Shopify admin URL for embedded app
     let redirectUrl = `https://admin.shopify.com/store/${storeName}/app/${appSlug}`;
-    if (host) {
-      redirectUrl += `?host=${encodeURIComponent(host)}`;
-    }
+    // Only append host if required by Shopify (not for login/public URLs)
     return {
       statusCode: 302,
       headers: {

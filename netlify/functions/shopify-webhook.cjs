@@ -39,16 +39,25 @@ exports.handler = async (event) => {
   }
 
   // Use timingSafeEqual for HMAC comparison
-  const hmacBuffer = Buffer.from(hmacHeader, 'utf8');
-  const generatedBuffer = Buffer.from(generatedHmac, 'utf8');
-  if (
-    hmacBuffer.length !== generatedBuffer.length ||
-    !crypto.timingSafeEqual(hmacBuffer, generatedBuffer)
-  ) {
-    console.error('Shopify webhook HMAC verification failed', { topic, shopDomain });
+  try {
+    const hmacBuffer = Buffer.from(hmacHeader, 'utf8');
+    const generatedBuffer = Buffer.from(generatedHmac, 'utf8');
+    if (
+      hmacBuffer.length !== generatedBuffer.length ||
+      !crypto.timingSafeEqual(hmacBuffer, generatedBuffer)
+    ) {
+      console.error('Shopify webhook HMAC verification failed', { topic, shopDomain });
+      return {
+        statusCode: 401,
+        body: 'Unauthorized: Invalid HMAC signature',
+      };
+    }
+  } catch (err) {
+    // If timingSafeEqual throws, treat as unauthorized
+    console.error('Error comparing HMAC:', err);
     return {
       statusCode: 401,
-      body: 'Unauthorized: Invalid HMAC signature',
+      body: 'Unauthorized: HMAC comparison error',
     };
   }
 
