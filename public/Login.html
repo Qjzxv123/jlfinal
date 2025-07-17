@@ -145,9 +145,6 @@
             } else {
                 message.textContent = 'Sign up successful! Please check your email to confirm your account. Redirecting...';
                 message.style.color = 'green';
-                setTimeout(() => {
-                    window.location.href = getRedirectUrl();
-                }, 1200);
             }
         });
         // If already logged in, redirect immediately
