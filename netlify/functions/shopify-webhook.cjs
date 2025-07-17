@@ -23,7 +23,7 @@ exports.handler = async (event) => {
     };
   }
 
-  // Verify HMAC signature
+  // Verify HMAC signature (use timingSafeEqual for security)
   let generatedHmac;
   try {
     generatedHmac = crypto
@@ -38,7 +38,13 @@ exports.handler = async (event) => {
     };
   }
 
-  if (generatedHmac !== hmacHeader) {
+  // Use timingSafeEqual for HMAC comparison
+  const hmacBuffer = Buffer.from(hmacHeader, 'utf8');
+  const generatedBuffer = Buffer.from(generatedHmac, 'utf8');
+  if (
+    hmacBuffer.length !== generatedBuffer.length ||
+    !crypto.timingSafeEqual(hmacBuffer, generatedBuffer)
+  ) {
     console.error('Shopify webhook HMAC verification failed', { topic, shopDomain });
     return {
       statusCode: 401,
