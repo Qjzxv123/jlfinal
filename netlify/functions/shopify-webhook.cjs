@@ -35,9 +35,10 @@ exports.handler = async (event) => {
       .digest('base64');
   } catch (err) {
     console.error('Error generating HMAC:', err);
+    // Always return 401 for HMAC errors
     return {
-      statusCode: 500,
-      body: 'Server error during HMAC verification',
+      statusCode: 401,
+      body: 'Unauthorized: HMAC generation error',
     };
   }
 
