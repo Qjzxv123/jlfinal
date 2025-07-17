@@ -2,7 +2,6 @@
 // Scheduled function: Fetches orders for all userKeys every hour
 
 const { createClient } = require('@supabase/supabase-js');
-const { getValidToken } = require('./faire-token-utils.cjs');
 let fetchFn;
 if (typeof fetch !== 'undefined') {
   fetchFn = fetch;
@@ -94,6 +93,7 @@ async function fetchOrdersForUser(userKey) {
 
 exports.handler = async function(event, context) {
   // Only allow scheduled invocations
+  // COMMENTED OUT FOR TESTING: allow manual POST requests
   // if (!event.headers['x-netlify-scheduled-event']) {
   //   return { statusCode: 403, body: 'Forbidden' };
   // }
