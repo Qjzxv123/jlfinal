@@ -16,6 +16,16 @@ exports.handler = async (event) => {
   const fetch = global.fetch || require('node-fetch');
   const client_id = process.env.SHOPIFY_API_KEY;
   const client_secret = process.env.SHOPIFY_API_SECRET;
+  if (!client_id || !client_secret) {
+    console.error('Missing SHOPIFY_API_KEY or SHOPIFY_API_SECRET environment variable', {
+      client_id,
+      client_secret
+    });
+    return {
+      statusCode: 500,
+      body: 'Missing SHOPIFY_API_KEY or SHOPIFY_API_SECRET environment variable'
+    };
+  }
   let tokenResponse, tokenData;
   try {
     tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
