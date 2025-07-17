@@ -8,6 +8,9 @@ exports.handler = async (event) => {
   const shopDomain = event.headers['x-shopify-shop-domain'];
   const body = event.body;
 
+  // Supabase client for token management
+  const supabase = require('./supabase-client.cjs');
+
   if (!shopifySecret) {
     console.error('Missing SHOPIFY_API_SECRET environment variable');
     return {
@@ -76,12 +79,29 @@ exports.handler = async (event) => {
   if (topic === 'app/uninstalled') {
     // Clean up shop data, tokens, etc.
     console.log(`App uninstalled for shop: ${shopDomain}`);
-    // ...delete from Supabase or other storage...
+    // Delete shop token from Supabase
+    try {
+      await supabase.from('shopify_tokens').delete().eq('shop', shopDomain);
+      console.log(`Deleted token for shop: ${shopDomain}`);
+    } catch (err) {
+      console.error('Error deleting token from Supabase:', err);
+    }
+  }
+  // Save token on install (if token is present in payload)
+  if (topic === 'app/installed' || (topic === 'shop/update' && payload.access_token)) {
+    // Save shop and access token to Supabase
+    try {
+      await supabase.from('shopify_tokens').upsert({ shop: shopDomain, access_token: payload.access_token });
+      console.log(`Saved token for shop: ${shopDomain}`);
+    } catch (err) {
+      console.error('Error saving token to Supabase:', err);
+    }
   }
   if (topic === 'shop/update') {
     // Handle shop updates if needed
     console.log(`Shop updated: ${shopDomain}`);
-    // ...update shop info in Supabase or other storage...
+    // Optionally update shop info in Supabase
+    // await supabase.from('shopify_tokens').update({ ...fields }).eq('shop', shopDomain);
   }
 
   // Respond 200 OK for all valid webhooks
