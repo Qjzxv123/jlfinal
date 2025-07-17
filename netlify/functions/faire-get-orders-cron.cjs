@@ -92,6 +92,7 @@ async function fetchOrdersForUser(userKey) {
 }
 
 exports.handler = async function(event, context) {
+  console.log('[CRON] faire-get-orders-cron handler invoked');
   // Only allow scheduled invocations
   // COMMENTED OUT FOR TESTING: allow manual POST requests
   // if (!event.headers['x-netlify-scheduled-event']) {
