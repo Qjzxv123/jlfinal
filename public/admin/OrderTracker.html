@@ -482,6 +482,10 @@
           <h3 style="margin-top:0;">Schedule Order</h3>
           <label for="modalScheduleDate" style="font-weight:600;">Planned Manufacture Date</label>
           <input type="date" id="modalScheduleDate" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;" />
+          <label for="modalVesselSelect" style="font-weight:600;">Available Vessel</label>
+          <select id="modalVesselSelect" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;">
+            <option value="">Loading vessels...</option>
+          </select>
           <div style="display:flex; gap:1em; justify-content:flex-end;">
             <button id="modalScheduleCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
             <button id="modalScheduleSaveBtn" style="background:#1976d2; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
@@ -491,14 +495,83 @@
       document.body.appendChild(modal);
     }
 
-    function openScheduleModal(orderId) {
+    async function openScheduleModal(orderId) {
       createScheduleModal();
       const modal = document.getElementById('scheduleModal');
       const dateInput = document.getElementById('modalScheduleDate');
+      const vesselSelect = document.getElementById('modalVesselSelect');
       // Default to today
       const today = new Date();
       dateInput.value = today.toISOString().split('T')[0];
       modal.style.display = 'flex';
+
+
+      // Fetch order details to get ProductSKU and Quantity
+      let order;
+      {
+        const { data, error } = await client
+          .from('ManufacturingTasks')
+          .select('ProductSKU, Quantity')
+          .eq('OrderNumber', orderId)
+          .maybeSingle();
+        if (error || !data) {
+          vesselSelect.innerHTML = '<option value="">Failed to load vessels</option>';
+          order = null;
+        } else {
+          order = data;
+        }
+      }
+
+      // Helper: get all vessel options (sync with BatchMaker.html)
+      const ALL_VESSELS = [
+        'P1-30L',
+        'P2-30L',
+        'P3-30L',
+        'P4-30L',
+        'P5-30L',
+        'P6-100L',
+        'Other'
+      ];
+
+      // Helper: fetch vessels already scheduled for a date
+      async function getUnavailableVesselsForDate(date) {
+        if (!date) return [];
+        try {
+          const { data, error } = await client
+            .from('ManufacturingTasks')
+            .select('Vessel')
+            .eq('PlannedManufactureDate', date);
+          if (error) return [];
+          return (data || []).map(row => row.Vessel).filter(Boolean);
+        } catch (e) {
+          return [];
+        }
+      }
+
+      // Helper: update vessel select options based on date
+      async function updateScheduleVesselOptions() {
+        const date = dateInput.value;
+        vesselSelect.innerHTML = '<option value="">-- Select Vessel --</option>';
+        if (!date) {
+          ALL_VESSELS.forEach(v => {
+            vesselSelect.innerHTML += `<option value="${v}">${v}</option>`;
+          });
+          return;
+        }
+        const unavailable = await getUnavailableVesselsForDate(date);
+        const available = ALL_VESSELS.filter(v => !unavailable.includes(v));
+        available.forEach(v => {
+          vesselSelect.innerHTML += `<option value="${v}">${v}</option>`;
+        });
+      }
+
+      // Initial vessel dropdown population
+      await updateScheduleVesselOptions();
+      // Add event listener for date change to update vessels
+      if (!dateInput._vesselListenerAdded) {
+        dateInput.addEventListener('change', updateScheduleVesselOptions);
+        dateInput._vesselListenerAdded = true;
+      }
 
       // Remove previous listeners
       const newSaveBtn = modal.querySelector('#modalScheduleSaveBtn').cloneNode(true);
@@ -508,14 +581,19 @@
 
       newSaveBtn.onclick = async function() {
         const plannedDate = dateInput.value;
+        const vesselId = vesselSelect.value;
         if (!plannedDate) {
           alert('Please select a date.');
           return;
         }
-        // Update both Progress and PlannedManufactureDate
+        if (!vesselId) {
+          alert('Please select a vessel.');
+          return;
+        }
+        // Update Progress, PlannedManufactureDate, and assign VesselId
         const { error } = await client
           .from('ManufacturingTasks')
-          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate })
+          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, VesselId: vesselId })
           .eq('OrderNumber', orderId);
         if (error) {
           alert('Failed to schedule task: ' + error.message);

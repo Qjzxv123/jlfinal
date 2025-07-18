@@ -493,6 +493,7 @@
         <option value="P4-30L">P4-30L</option>
         <option value="P5-30L">P5-30L</option>
         <option value="P6-100L">P6-100L</option>
+        <option value="other">Other</option>
       </select>
     </div>
 
@@ -531,6 +532,7 @@
             <option value="P4-30L">P4-30L</option>
             <option value="P5-30L">P5-30L</option>
             <option value="P6-100L">P6-100L</option>
+            <option value="other">Other</option>
           </select>
         </div>
         <div class="modal-buttons">
@@ -1366,18 +1368,21 @@
       'P3-30L',
       'P4-30L',
       'P5-30L',
-      'P6-100L'
+      'P6-100L',
+      'Other'
     ];
 
     // Helper: fetch vessels already scheduled for a date
     async function getUnavailableVesselsForDate(date) {
       if (!date) return [];
       try {
+        // Fetch all tasks for the selected date
         const { data, error } = await supabase
           .from('ManufacturingTasks')
-          .select('Vessel')
+          .select('Vessel, PlannedManufactureDate')
           .eq('PlannedManufactureDate', date);
         if (error) return [];
+        // Return all vessels that are already scheduled for this date
         return (data || []).map(row => row.Vessel).filter(Boolean);
       } catch (e) {
         return [];
@@ -1396,7 +1401,9 @@
         });
         return;
       }
+      // Get vessels already scheduled for this date
       const unavailable = await getUnavailableVesselsForDate(date);
+      // Only show vessels that are NOT already scheduled for this date
       const available = ALL_VESSELS.filter(v => !unavailable.includes(v));
       available.forEach(v => {
         select.innerHTML += `<option value="${v}">${v}</option>`;
