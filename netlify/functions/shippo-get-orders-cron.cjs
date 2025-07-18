@@ -3,20 +3,18 @@
 
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 exports.handler = async (event) => {
-  // Only allow Netlify scheduled invocations
-  if (event.headers['x-netlify-scheduled-event'] !== 'true') {
-    return { statusCode: 403, body: 'Forbidden: Not a scheduled event.' };
-  }
+  console.log('[Shippo Cron] Function invoked');
 
   const SHIPPO_API_KEY = process.env.SHIPPO_API_KEY;
   if (!SHIPPO_API_KEY) {
+    console.log('[Shippo Cron] Missing Shippo API token');
     return { statusCode: 500, body: 'Missing Shippo API token.' };
   }
 
   // Fetch Shippo orders (transactions)
   let orders = [];
   try {
-    const resp = await fetch('https://api.goshippo.com/orders?order_status[]=PAID&order_status[]=UNKNOWN', {
+    const resp = await fetch('https://api.goshippo.com/orders?order_status[]=PAID', {
       headers: { Authorization: `ShippoToken ${SHIPPO_API_KEY}` }
     });
     const data = await resp.json();
@@ -26,7 +24,6 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: 'Error fetching Shippo orders: ' + err.message };
   }
 console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
-console.log('[DEBUG][Shippo] Orders:', orders);
   // Save orders to Supabase
   try {
     const { createClient } = require('@supabase/supabase-js');

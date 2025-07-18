@@ -1,10 +1,2 @@
-# Netlify Scheduled Function for Faire Orders
 [functions]
-  node_bundler = "esbuild"
-  directory = "netlify/functions"
-
-[functions."faire-get-orders-cron"]
-  schedule = "0 * * * *" # every hour
-
-[functions."shippo-get-orders-cron"]
-  schedule = "0 * * * *" # every hour
+directory = "netlify/functions"
