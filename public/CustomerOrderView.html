@@ -125,6 +125,49 @@
     .order-table td.status-in-production { background: #fff3cd; color: #b8860b; }
     .order-table td.status-completed { background: #d1fae5; color: #065f46; }
     .order-table td.status-cancelled { background: #fee2e2; color: #b91c1c; }
+
+    /* Request Order Form Styles */
+    .styled-request-form {
+      margin-bottom: 2rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .styled-request-form label {
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+      display: block;
+    }
+    .styled-input {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 1rem;
+      background: #f8fafc;
+      margin-bottom: 0.5rem;
+      width: 200px;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+    .styled-input:focus {
+      border-color: #4dba93;
+      outline: none;
+    }
+    .styled-btn {
+      background: #4dba93;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.7rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .styled-btn:hover {
+      background: #379c7a;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -149,19 +192,19 @@
     </div>
   <div class="main-content">
     <h1>Your Order Progress</h1>
-    <form id="requestOrderForm" style="margin-bottom:2rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+    <form id="requestOrderForm" class="styled-request-form">
       <div>
         <label for="productSKU">Product SKU</label>
-        <select id="productSKU" required>
+        <select id="productSKU" required class="styled-input">
           <option value="">Loading...</option>
         </select>
       </div>
       <div>
         <label for="quantity">Quantity</label>
-        <input type="number" id="quantity" required min="1" placeholder="Quantity">
+        <input type="number" id="quantity" required min="1" placeholder="Quantity" class="styled-input">
       </div>
       <div>
-        <button type="submit">Request Order</button>
+        <button type="submit" class="styled-btn">Request Order</button>
       </div>
     </form>
     <table class="order-table" id="orderTable">
