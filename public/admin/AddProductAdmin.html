@@ -420,7 +420,7 @@
           </div>
         </label>
         <label>Archived <input type="checkbox" id="Archived"></label>
-        <label>Max Batch<input type="number" id="MaxBatch" min="0"></label>
+        <!-- Max Batch field removed -->
         <label>Retailer<input type="text" id="Customer"></label>
         <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
         <label>Pack Size<input type="number" id="PackSize" min="0" step="1"></label>
@@ -444,24 +444,17 @@
     // Supabase config (replace with your own)
     const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODAyNDMyMCwiZXhwIjoyMDYzNjAwMzIwfQ.Zu-YJ0_GiAGzEGVEMJGtQFZ1igkS2d7DCEYM025SAlM';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 
-    // --- Admin Auth Check ---
     async function checkAdmin() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        // Redirect to login with returnTo param for redirect after login
-        const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.href = `/public/login.html?returnTo=${returnTo}`;
+        window.location.href = '/public/Login.html';
         return;
       }
       const { data: { user } } = await supabase.auth.getUser();
+      // Adjust this check to match your Supabase user admin logic
       if (!user || !user.user_metadata || user.user_metadata.role !== 'service_role') {
         console.log(user.user_metadata);
         document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins only</div>';
@@ -611,7 +604,6 @@
         document.getElementById('MicrobialTesting').checked = product['Microbial Testing'] || false;
         loadContainersFromString(product.ContainerSKUs);
         document.getElementById('Archived').checked = product.Archived || false;
-        document.getElementById('MaxBatch').value = product['Max Batch'] || '';
         document.getElementById('Customer').value = product.Retailer || '';
         document.getElementById('ShelfLife').value = product.ShelfLife || '';
         document.getElementById('PackSize').value = product['Pack Size'] || '';
@@ -1129,7 +1121,7 @@
         'Product Type': document.getElementById('ProductType').value.trim(),
         'Microbial Testing': document.getElementById('MicrobialTesting').checked,
         ContainerSKUs: selectedContainerSKUs.length > 0 ? selectedContainerSKUs : null,
-        'Max Batch': form.MaxBatch.value ? parseInt(form.MaxBatch.value) : null,
+        // 'Max Batch' removed
         Retailer: document.getElementById('Customer').value.trim(),
         ShelfLife: form.ShelfLife.value ? parseFloat(form.ShelfLife.value) : null,
         'Pack Size': form.PackSize.value ? parseInt(form.PackSize.value) : null,
