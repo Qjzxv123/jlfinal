@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Order Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    /* Sidebar Styles */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      z-index: 1000;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar:hover {
+      width: 250px;
+    }
+    
+    .sidebar-header {
+      padding: 0.75rem;
+      border-bottom: 1px solid #34495e;
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #ecf0f1;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:not(:hover) .sidebar-header h2 {
+      opacity: 0;
+    }
+    
+    .sidebar:hover .sidebar-header h2 {
+      font-size: 1.3rem;
+    }
+    
+    .sidebar-nav {
+      padding: 0.5rem 0;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid transparent;
+      white-space: nowrap;
+    }
+    
+    .nav-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item.active {
+      background: rgba(77,186,147,0.2);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item i {
+      margin-right: 0.5rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    
+    .nav-item span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:hover .nav-item span {
+      opacity: 1;
+    }
+    
+    .sidebar:hover .nav-item {
+      padding: 0.75rem 1.5rem;
+    }
+    @media (max-width: 600px) {
+      .sidebar {
+        width: 0;
+        overflow: hidden;
+      }
+      
+      .sidebar:hover {
+        width: 250px;
+      }
+      
+      .container {
+        margin-left: 0;
+        margin: 20px 10px;
+        padding: 1rem;
+      }
+    }
+    /* End Sidebar Styles */
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      color: #333;
+    }
+    .main-content {
+      margin: 2rem auto;
+      max-width: 1200px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.12);
+      padding: 2rem;
+    }
+    h1 {
+      color: #2d3748;
+      margin-bottom: 2rem;
+    }
+    .order-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+    .order-table th, .order-table td {
+      border: 1px solid #e2e8f0;
+      padding: 1rem;
+      text-align: left;
+      font-size: 1.05rem;
+    }
+    .order-table th {
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #374151;
+    }
+    .order-table td.status-scheduled { background: #e0f7fa; color: #1976d2; }
+    .order-table td.status-in-production { background: #fff3cd; color: #b8860b; }
+    .order-table td.status-completed { background: #d1fae5; color: #065f46; }
+    .order-table td.status-cancelled { background: #fee2e2; color: #b91c1c; }
+    .order-table td button {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      background: #4dba93;
+      color: white;
+      transition: background 0.2s;
+    }
+    .order-table td button:hover {
+      background: #379c7a;
+    }
+    .add-order-form {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+      align-items: flex-end;
+    }
+    .add-order-form label {
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+      display: block;
+    }
+    .add-order-form input, .add-order-form select {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 1rem;
+      background: #f8fafc;
+      margin-bottom: 0.5rem;
+    }
+    .add-order-form button {
+      background: #4dba93;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.7rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .add-order-form button:hover {
+      background: #379c7a;
+    }
+    .customer-view-link {
+      color: #1976d2;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>J&L Tools</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="BatchMaker.html" class="nav-item"><i class="cil-factory"></i><span>Batch Maker</span></a>
+      <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
+      <a href="OrderTracker.html" class="nav-item active"><i class="cil-list"></i><span>Order Tracker</span></a>
+      <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
+      <a href="ProductIngredientViewer.html" class="nav-item"><i class="cil-columns"></i><span>Product Ingredients</span></a>
+      <a href="AddProductAdmin.html" class="nav-item"><i class="cil-note-add"></i><span>Add/Update Product</span></a>
+      <a href="AddIngredient.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Ingredient</span></a>
+      <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
+      <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
+      <a href="Quoting.html" class="nav-item"><i class="cil-money"></i><span>Product Quoting</span></a>
+      <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
+      <a href="DatabaseViewer.html" class="nav-item"><i class="cil-find-in-page"></i><span>Database Viewer</span></a>
+      <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
+      <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
+      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
+    </nav>
+  </div>
+  <div class="main-content">
+    <h1>Wholesale Order Tracker</h1>
+    <form class="add-order-form" id="addOrderForm">
+      <div>
+        <label for="customer">Customer</label>
+        <select id="customer" required>
+          <option value="">Loading...</option>
+        </select>
+      </div>
+      <div>
+        <label for="orderNumber">Order #</label>
+        <input type="text" id="orderNumber" required placeholder="Order Number">
+      </div>
+      <div>
+        <label for="productSKU">Product SKU</label>
+        <input type="text" id="productSKU" required placeholder="SKU">
+      </div>
+      <div>
+        <label for="quantity">Quantity</label>
+        <input type="number" id="quantity" required min="1" placeholder="Quantity">
+      </div>
+      <div>
+        <label for="progress">Progress</label>
+        <select id="progress" required>
+          <option value="scheduled">Scheduled</option>
+          <option value="in production">In Production</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div>
+        <button type="submit">Add Order</button>
+      </div>
+    </form>
+    <table class="order-table" id="orderTable">
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Customer</th>
+          <th>Product SKU</th>
+          <th>Quantity</th>
+          <th>Progress</th>
+          <th>Update Progress</th>
+        </tr>
+      </thead>
+      <tbody id="orderTableBody">
+        <!-- Orders will be loaded here -->
+      </tbody>
+    </table>
+    <!-- Customer View Link removed -->
+  </div>
+  <script>
+    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+
+    // Check login and redirect to Login.html if not authenticated, with redirect param
+    async function checkLoginAndRedirect() {
+      const { data: { session } } = await client.auth.getSession();
+      if (!session) {
+        // Redirect to Login.html, with redirect back to this page after login
+        const currentPath = window.location.pathname.replace(/^\//, '');
+        window.location.href = `/public/Login.html?redirect=${encodeURIComponent(currentPath)}`;
+        return false;
+      }
+      return true;
+    }
+
+    // Fetch display names and subs from auth.users
+    // Fetch user_keys from oauth_tokens table
+    async function fetchUserKeys() {
+      const { data, error } = await client
+        .from('oauth_tokens')
+        .select('user_key, UserID')
+        .order('user_key', { ascending: true });
+      if (error) {
+        alert('Failed to fetch user_keys: ' + error.message);
+        return [];
+      }
+      // Return array of { user_key, UserID } objects
+      return (data || []).filter(row => row.user_key && row.UserID);
+    }
+
+    async function populateCustomerDropdown() {
+      const select = document.getElementById('customer');
+      select.innerHTML = '<option value="">Select Customer</option>';
+      const userRows = await fetchUserKeys();
+      userRows.forEach(row => {
+        const opt = document.createElement('option');
+        opt.value = row.UserID;
+        opt.textContent = row.user_key;
+        select.appendChild(opt);
+      });
+    }
+
+    async function fetchOrders() {
+      const { data, error } = await client
+        .from('WholesaleOrders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) {
+        alert('Failed to fetch orders: ' + error.message);
+        return [];
+      }
+      return data || [];
+    }
+
+    async function addOrder(order) {
+      const { error } = await client
+        .from('WholesaleOrders')
+        .insert([order]);
+      if (error) {
+        alert('Failed to add order: ' + error.message);
+        return false;
+      }
+      return true;
+    }
+
+    async function updateOrderProgress(orderId, progress) {
+      const { error } = await client
+        .from('WholesaleOrders')
+        .update({ progress })
+        .eq('id', orderId);
+      if (error) {
+        alert('Failed to update order: ' + error.message);
+      }
+    }
+
+    function renderOrders(orders) {
+      const tbody = document.getElementById('orderTableBody');
+      tbody.innerHTML = '';
+      for (const order of orders) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${order.order_number}</td>
+          <td>${order.customer}</td>
+          <td>${order.product_sku}</td>
+          <td>${order.quantity}</td>
+          <td class="status-${order.progress.replace(/ /g, '-')}">${order.progress.charAt(0).toUpperCase() + order.progress.slice(1)}</td>
+          <td>
+            <select class="progress-select" data-order-id="${order.id}">
+              <option value="scheduled" ${order.progress === 'scheduled' ? 'selected' : ''}>Scheduled</option>
+              <option value="in production" ${order.progress === 'in production' ? 'selected' : ''}>In Production</option>
+              <option value="completed" ${order.progress === 'completed' ? 'selected' : ''}>Completed</option>
+              <option value="cancelled" ${order.progress === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+            </select>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+      // Add event listeners for progress dropdowns
+      document.querySelectorAll('.progress-select').forEach(sel => {
+        sel.addEventListener('change', async function() {
+          const orderId = this.getAttribute('data-order-id');
+          const newProgress = this.value;
+          await updateOrderProgress(orderId, newProgress);
+          loadOrders();
+        });
+      });
+    }
+
+    async function loadOrders() {
+      const orders = await fetchOrders();
+      renderOrders(orders);
+    }
+
+    document.getElementById('addOrderForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const userID = document.getElementById('customer').value;
+      const order = {
+        customer: userID,
+        order_number: document.getElementById('orderNumber').value.trim(),
+        product_sku: document.getElementById('productSKU').value.trim(),
+        quantity: parseInt(document.getElementById('quantity').value),
+        progress: document.getElementById('progress').value,
+        UserID: [
+          userID,
+          'a4df0386-d361-4f54-a936-c9a2ea01e914',
+          '0d983c8e-07d8-4d01-8e5d-ec635ce4410a',
+          'bc4441d2-38e8-4e77-afb4-2609ec6f56f6'
+        ]
+      };
+      if (!order.customer || !order.order_number || !order.product_sku || !order.quantity) {
+        alert('Please fill in all fields.');
+        return;
+      }
+      const success = await addOrder(order);
+      if (success) {
+        document.getElementById('addOrderForm').reset();
+        loadOrders();
+      }
+    };
+
+
+
+    // Customer view link generator
+
+
+    // Set customer view link on customer select change
+
+
+    // Initial load: check login first
+    (async () => {
+      const loggedIn = await checkLoginAndRedirect();
+      if (!loggedIn) return;
+      await populateCustomerDropdown();
+      await loadOrders();
+    })();
+  </script>
+</body>
+</html>

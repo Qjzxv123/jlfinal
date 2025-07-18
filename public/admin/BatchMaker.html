@@ -458,6 +458,7 @@
     <nav class="sidebar-nav">
       <a href="BatchMaker.html" class="nav-item active"><i class="cil-factory"></i><span>Batch Maker</span></a>
       <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
+      <a href="OrderTracker.html" class="nav-item"><i class="cil-list"></i><span>Order Tracker</span></a>
       <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
       <a href="ProductIngredientViewer.html" class="nav-item"><i class="cil-columns"></i><span>Product Ingredients</span></a>
       <a href="AddProductAdmin.html" class="nav-item"><i class="cil-note-add"></i><span>Add/Update Product</span></a>
@@ -469,7 +470,8 @@
       <a href="DatabaseViewer.html" class="nav-item"><i class="cil-spreadsheet"></i><span>Database Viewer</span></a>
       <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
       <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
-      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>    </nav>
+      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>    
+    </nav>
   </div>
   
   <!-- Main Content -->
@@ -482,6 +484,19 @@
     </div>
     
     <div class="form-group">
+      <label for="vesselSelect">Select Vessel:</label>
+      <select id="vesselSelect" style="width: 100%; padding: 0.75rem; border-radius: 6px; border: 2px solid #e1e5e9; background: #f1f5f9; font-size: 1rem; box-sizing: border-box;">
+        <option value="">-- Select Vessel --</option>
+        <option value="P1-30L">P1-30L</option>
+        <option value="P2-30L">P2-30L</option>
+        <option value="P3-30L">P3-30L</option>
+        <option value="P4-30L">P4-30L</option>
+        <option value="P5-30L">P5-30L</option>
+        <option value="P6-100L">P6-100L</option>
+      </select>
+    </div>
+
+    <div class="form-group">
       <label for="batchSize">Batch Size:</label>
       <input type="number" id="batchSize" placeholder="Enter batch size" min="1" step="1" />
     </div>
@@ -489,6 +504,41 @@
     <button id="previewBtn" onclick="previewBatch()">Preview Ingredients</button>
     
     <div id="output"></div>
+
+    <!-- Modal for scheduling a batch -->
+    <div id="scheduleBatchModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">Schedule Batch</div>
+        <div class="modal-form-group">
+          <label>Product SKU:</label>
+          <input type="text" id="scheduleProductSKU" readonly />
+        </div>
+        <div class="modal-form-group">
+          <label>Batch Size:</label>
+          <input type="number" id="scheduleBatchSize" readonly />
+        </div>
+        <div class="modal-form-group">
+          <label for="scheduleDate">Planned Manufacture Date:</label>
+          <input type="date" id="scheduleDate" />
+        </div>
+        <div class="modal-form-group">
+          <label for="scheduleVessel">Vessel:</label>
+          <select id="scheduleVessel" style="width: 100%; padding: 0.75rem; border-radius: 6px; border: 2px solid #e1e5e9; background: #f1f5f9; font-size: 1rem; box-sizing: border-box;">
+            <option value="">-- Select Vessel --</option>
+            <option value="P1-30L">P1-30L</option>
+            <option value="P2-30L">P2-30L</option>
+            <option value="P3-30L">P3-30L</option>
+            <option value="P4-30L">P4-30L</option>
+            <option value="P5-30L">P5-30L</option>
+            <option value="P6-100L">P6-100L</option>
+          </select>
+        </div>
+        <div class="modal-buttons">
+          <button class="modal-btn modal-btn-cancel" onclick="closeScheduleBatchModal()">Cancel</button>
+          <button class="modal-btn modal-btn-save" onclick="confirmScheduleBatch()">Confirm</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Modal for adding missing ingredients -->
@@ -576,6 +626,9 @@
     let currentMissingIngredient = null;
     let allProducts = [];
     let productDropdownInstance = null;
+
+    // Get references for vessel select
+    const vesselSelect = document.getElementById('vesselSelect');
 
     // Fetch all ingredients for dropdowns
     async function fetchAllIngredients() {
@@ -1415,12 +1468,112 @@
             </div>
           `;
           
-          // Add Make Batch button below the status
+          // Add Make Batch and Schedule Batch buttons with OR separator
           previewHTML += `
-            <div style="text-align: center; margin: 1rem 0;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 1.5rem; margin: 1rem 0;">
               <button onclick="makeBatch()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; border: none; padding: 1rem 2rem; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(72,187,120,0.3); transition: all 0.3s ease;">Make Batch</button>
+              <span style="font-weight: 600; color: #888;">-----or-----</span>
+              <button onclick="openScheduleBatchModal()" style="background: linear-gradient(135deg, #4dbad5 0%, #1976d2 100%); color: white; border: none; padding: 1rem 2rem; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(77,186,213,0.3); transition: all 0.3s ease;">Schedule Batch</button>
             </div>
           `;
+
+    // Schedule Batch Modal logic
+
+    // Helper: get all vessel options
+    const ALL_VESSELS = [
+      'P1-30L',
+      'P2-30L',
+      'P3-30L',
+      'P4-30L',
+      'P5-30L',
+      'P6-100L'
+    ];
+
+    // Helper: fetch vessels already scheduled for a date
+    async function getUnavailableVesselsForDate(date) {
+      if (!date) return [];
+      try {
+        const { data, error } = await supabase
+          .from('ManufacturingTasks')
+          .select('Vessel')
+          .eq('PlannedManufactureDate', date);
+        if (error) return [];
+        return (data || []).map(row => row.Vessel).filter(Boolean);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // Helper: update vessel select options based on date
+    async function updateScheduleVesselOptions() {
+      const date = document.getElementById('scheduleDate').value;
+      const select = document.getElementById('scheduleVessel');
+      if (!select) return;
+      select.innerHTML = '<option value="">-- Select Vessel --</option>';
+      if (!date) {
+        ALL_VESSELS.forEach(v => {
+          select.innerHTML += `<option value="${v}">${v}</option>`;
+        });
+        return;
+      }
+      const unavailable = await getUnavailableVesselsForDate(date);
+      const available = ALL_VESSELS.filter(v => !unavailable.includes(v));
+      available.forEach(v => {
+        select.innerHTML += `<option value="${v}">${v}</option>`;
+      });
+    }
+
+    window.openScheduleBatchModal = async function() {
+      const sku = productDropdownInstance ? productDropdownInstance.getSKU() : '';
+      const batchSize = parseInt(batchSizeInput.value);
+      document.getElementById('scheduleProductSKU').value = sku;
+      document.getElementById('scheduleBatchSize').value = batchSize;
+      document.getElementById('scheduleDate').value = '';
+      await updateScheduleVesselOptions();
+      document.getElementById('scheduleBatchModal').style.display = 'block';
+      // Add event listener for date change to update vessels
+      const dateInput = document.getElementById('scheduleDate');
+      if (dateInput && !dateInput._vesselListenerAdded) {
+        dateInput.addEventListener('change', updateScheduleVesselOptions);
+        dateInput._vesselListenerAdded = true;
+      }
+    };
+
+    window.closeScheduleBatchModal = function() {
+      document.getElementById('scheduleBatchModal').style.display = 'none';
+    };
+
+    window.confirmScheduleBatch = async function() {
+      const sku = document.getElementById('scheduleProductSKU').value;
+      const batchSize = parseInt(document.getElementById('scheduleBatchSize').value);
+      const vessel = document.getElementById('scheduleVessel').value;
+      const date = document.getElementById('scheduleDate').value;
+      if (!sku || !batchSize || !vessel || !date) {
+        alert('Please ensure all fields are filled out.');
+        return;
+      }
+      try {
+        const { error } = await supabase
+          .from('ManufacturingTasks')
+          .insert([
+            {
+              'ProductSKU': sku,
+              'Quantity': batchSize,
+              'PlannedManufactureDate': date,
+              'Vessel': vessel
+            }
+          ]);
+        if (error) {
+          alert('Failed to schedule batch: ' + error.message);
+        } else {
+          alert('Batch scheduled successfully!');
+          closeScheduleBatchModal();
+          setTimeout(() => { location.reload(); }, 300);
+        }
+      } catch (err) {
+        alert('Error scheduling batch: ' + err.message);
+      }
+    };
         } else {
           previewHTML += `
             <div style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); color: white; padding: 1.5rem; border-radius: 12px; margin: 1.5rem 0; text-align: center; box-shadow: 0 4px 12px rgba(245,101,101,0.3);">
@@ -1696,11 +1849,99 @@
     
     document.getElementById('main-container').appendChild(downloadLogBtn);
 
+    // Helper: get URL params
+    function getUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        ProductSKU: params.get('ProductSKU') || '',
+        Quantity: params.get('Quantity') || '',
+        Vessel: params.get('Vessel') || ''
+      };
+    }
+
     // Initialize data and create dropdowns
     async function initializeApp() {
       await fetchAllIngredients();
       await fetchAllProducts();
       productDropdownInstance = createProductDropdown();
+      // Add event listeners for vessel and product changes
+      vesselSelect.addEventListener('change', autoPopulateMaxBatch);
+      // Listen for product change via dropdown
+      const productDropdownInput = document.querySelector('#productDropdown .ingredient-search');
+      if (productDropdownInput) {
+        productDropdownInput.addEventListener('change', autoPopulateMaxBatch);
+      }
+
+      // Auto-fill from URL params if present
+      const params = getUrlParams();
+      if (params.ProductSKU && productDropdownInstance) {
+        productDropdownInstance.setSKU(params.ProductSKU);
+      }
+      if (params.Quantity) {
+        batchSizeInput.value = params.Quantity;
+      }
+      if (params.Vessel) {
+        // Set vessel select in main form
+        if (vesselSelect) vesselSelect.value = params.Vessel;
+        // Set vessel in schedule modal if open
+        const scheduleVesselSelect = document.getElementById('scheduleVessel');
+        if (scheduleVesselSelect) scheduleVesselSelect.value = params.Vessel;
+      }
+      if (params.PlannedManufactureDate) {
+        // If schedule modal exists, pre-fill date
+        const scheduleDateInput = document.getElementById('scheduleDate');
+        if (scheduleDateInput) {
+          scheduleDateInput.value = params.PlannedManufactureDate;
+        }
+      }
+    }
+    // Helper to get product size (oz) for selected product
+    function getSelectedProductSizeOz() {
+      const sku = productDropdownInstance ? productDropdownInstance.getSKU() : '';
+      if (!sku) return null;
+      const product = allProducts.find(p => p.ProductSKU === sku);
+      if (!product) return null;
+      // Try to get Product Weight(oz) from allProducts (may be missing if not selected in fetchAllProducts)
+      if (product['Product Weight(oz)']) return Number(product['Product Weight(oz)']);
+      // If not present, fallback to fetching from DB (async, not used here)
+      return null;
+    }
+
+    // Auto-populate Max Batch based on vessel and product size
+    async function autoPopulateMaxBatch() {
+      const vessel = vesselSelect.value;
+      const sku = productDropdownInstance ? productDropdownInstance.getSKU() : '';
+      if (!vessel || !sku) return;
+
+      // Try to get product size from allProducts first
+      let product = allProducts.find(p => p.ProductSKU === sku);
+      let productSizeOz = null;
+      if (product && product['Product Weight(oz)']) {
+        productSizeOz = Number(product['Product Weight(oz)']);
+      } else {
+        // Fallback: fetch from DB if not present
+        const { data, error } = await supabase
+          .from('Products')
+          .select('"Product Weight(oz)"')
+          .eq('ProductSKU', sku)
+          .single();
+        if (data && data['Product Weight(oz)']) {
+          productSizeOz = Number(data['Product Weight(oz)']);
+        }
+      }
+      if (!productSizeOz || isNaN(productSizeOz) || productSizeOz <= 0) return;
+
+      // Calculate max batch
+      let maxBatch = 0;
+      if (["P1-30L","P2-30L","P3-30L","P4-30L","P5-30L"].includes(vessel)) {
+        maxBatch = (816 / productSizeOz) * 1.1;
+      } else if (vessel === "P6-100L") {
+        maxBatch = (2576 / productSizeOz) * 1.1;
+      }
+      maxBatch = Math.floor(maxBatch);
+      if (maxBatch > 0) {
+        batchSizeInput.value = maxBatch;
+      }
     }
 
     initializeApp();

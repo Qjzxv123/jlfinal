@@ -215,6 +215,7 @@
     <nav class="sidebar-nav">
       <a href="BatchMaker.html" class="nav-item"><i class="cil-factory"></i><span>Batch Maker</span></a>
       <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
+      <a href="OrderTracker.html" class="nav-item"><i class="cil-list"></i><span>Order Tracker</span></a>
       <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
       <a href="ProductIngredientViewer.html" class="nav-item"><i class="cil-columns"></i><span>Product Ingredients</span></a>
       <a href="AddProductAdmin.html" class="nav-item"><i class="cil-note-add"></i><span>Add/Update Product</span></a>
@@ -367,9 +368,16 @@ async function checkAdmin() {
         const date = task.PlannedManufactureDate;
         if (!date) continue;
         if (!eventsByDate[date]) eventsByDate[date] = [];
+        // Add a link to BatchMaker with query params for auto-population
+        const params = new URLSearchParams({
+          ProductSKU: task.ProductSKU || '',
+          Quantity: task.Quantity || '',
+          Vessel: task.Vessel || ''
+        }).toString();
         eventsByDate[date].push({
           type: 'manufacturing',
           label: `Manufacture ${task.Quantity}x ${task.ProductSKU}`,
+          link: `BatchMaker.html?${params}`
         });
       }
       // Ingredient orders
@@ -400,7 +408,11 @@ async function checkAdmin() {
             html += `<td><div class="calendar-day">${day}</div>`;
             if (eventsByDate[dateStr]) {
               for (const event of eventsByDate[dateStr]) {
-                html += `<div class="event ${event.type}">${event.label}</div>`;
+                if (event.type === 'manufacturing' && event.link) {
+                  html += `<div class="event ${event.type}" style="cursor:pointer;text-decoration:underline;" onclick="window.location.href='${event.link}'">${event.label}</div>`;
+                } else {
+                  html += `<div class="event ${event.type}">${event.label}</div>`;
+                }
               }
             }
             html += '</td>';

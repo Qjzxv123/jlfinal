@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Order Progress Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      color: #333;
+    }
+    .main-content {
+      margin: 2rem auto;
+      max-width: 900px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.12);
+      padding: 2rem;
+    }
+    h1 {
+      color: #2d3748;
+      margin-bottom: 2rem;
+    }
+    .order-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+    .order-table th, .order-table td {
+      border: 1px solid #e2e8f0;
+      padding: 1rem;
+      text-align: left;
+      font-size: 1.05rem;
+    }
+    .order-table th {
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #374151;
+    }
+    .order-table td.status-scheduled { background: #e0f7fa; color: #1976d2; }
+    .order-table td.status-in-production { background: #fff3cd; color: #b8860b; }
+    .order-table td.status-completed { background: #d1fae5; color: #065f46; }
+    .order-table td.status-cancelled { background: #fee2e2; color: #b91c1c; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="main-content">
+    <h1>Your Order Progress</h1>
+    <table class="order-table" id="orderTable">
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Product SKU</th>
+          <th>Quantity</th>
+          <th>Progress</th>
+        </tr>
+      </thead>
+      <tbody id="orderTableBody">
+        <!-- Orders will be loaded here -->
+      </tbody>
+    </table>
+  </div>
+  <script>
+    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function getCurrentUserID() {
+      const { data: { session } } = await client.auth.getSession();
+      if (!session) return null;
+      // Try to get the user's UserID from oauth_tokens (if available)
+      const { data, error } = await client
+        .from('oauth_tokens')
+        .select('UserID')
+        .eq('user_key', session.user.id)
+        .maybeSingle();
+      if (data && data.UserID) return data.UserID;
+      // fallback to sub/id if not found
+      return session.user.id;
+    }
+
+    async function fetchOrdersForUser(userID) {
+      if (!userID) return [];
+      // Find orders where UserID array contains this userID
+      const { data, error } = await client
+        .from('WholesaleOrders')
+        .select('*')
+        .contains('UserID', [userID]);
+      if (error) {
+        alert('Failed to fetch orders: ' + error.message);
+        return [];
+      }
+      return data || [];
+    }
+
+    function renderOrders(orders) {
+      const tbody = document.getElementById('orderTableBody');
+      tbody.innerHTML = '';
+      for (const order of orders) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${order.order_number}</td>
+          <td>${order.product_sku}</td>
+          <td>${order.quantity}</td>
+          <td class="status-${order.progress.replace(/ /g, '-')}">${order.progress.charAt(0).toUpperCase() + order.progress.slice(1)}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function loadOrders() {
+      const userID = await getCurrentUserID();
+      if (!userID) {
+        document.getElementById('orderTableBody').innerHTML = '<tr><td colspan="4">Please log in to view your orders.</td></tr>';
+        return;
+      }
+      const orders = await fetchOrdersForUser(userID);
+      if (orders.length === 0) {
+        document.getElementById('orderTableBody').innerHTML = '<tr><td colspan="4">No orders found for your account.</td></tr>';
+      } else {
+        renderOrders(orders);
+      }
+    }
+
+    loadOrders();
+  </script>
+</body>
+</html>
