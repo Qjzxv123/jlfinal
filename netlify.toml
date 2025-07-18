@@ -1,2 +1,13 @@
+# Set local dev port for Netlify CLI
+[dev]
+  port = 8888
+# Netlify Scheduled Function for Faire Orders
 [functions]
-directory = "netlify/functions"
+  node_bundler = "esbuild"
+  directory = "netlify/functions"
+
+[functions."faire-get-orders-cron"]
+  schedule = "0 * * * *" # every hour
+
+[functions."shippo-get-orders-cron"]
+  schedule = "0 * * * *" # every hour
