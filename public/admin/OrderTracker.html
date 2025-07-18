@@ -256,6 +256,7 @@
       <div>
         <label for="progress">Progress</label>
         <select id="progress" required>
+          <option value="requested">Requested</option>
           <option value="scheduled">Scheduled</option>
           <option value="in production">In Production</option>
           <option value="completed">Completed</option>
@@ -388,34 +389,96 @@
     function renderOrders(orders) {
       const tbody = document.getElementById('orderTableBody');
       tbody.innerHTML = '';
-      for (const order of orders) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${order.order_number}</td>
-          <td>${order.customer}</td>
-          <td>${order.product_sku}</td>
-          <td>${order.quantity}</td>
-          <td class="status-${order.progress.replace(/ /g, '-')}">${order.progress.charAt(0).toUpperCase() + order.progress.slice(1)}</td>
-          <td>
-            <select class="progress-select" data-order-id="${order.id}">
-              <option value="scheduled" ${order.progress === 'scheduled' ? 'selected' : ''}>Scheduled</option>
-              <option value="in production" ${order.progress === 'in production' ? 'selected' : ''}>In Production</option>
-              <option value="completed" ${order.progress === 'completed' ? 'selected' : ''}>Completed</option>
-              <option value="cancelled" ${order.progress === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-            </select>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      }
-      // Add event listeners for progress dropdowns
-      document.querySelectorAll('.progress-select').forEach(sel => {
-        sel.addEventListener('change', async function() {
-          const orderId = this.getAttribute('data-order-id');
-          const newProgress = this.value;
-          await updateOrderProgress(orderId, newProgress);
-          loadOrders();
+      // Fetch UserID to user_key map for display
+      (async () => {
+        // Fetch UserID to user_key map for display
+        const { data: userRows } = await client
+          .from('oauth_tokens')
+          .select('UserID, user_key');
+        const userIDtoKey = {};
+        (userRows || []).forEach(row => {
+          if (row.UserID && row.user_key) userIDtoKey[row.UserID] = row.user_key;
         });
-      });
+        for (const order of orders) {
+          const tr = document.createElement('tr');
+          // Always display user_key in the customer column
+          const customerDisplay = userIDtoKey[order.customer] || order.customer;
+          // Defensive: handle missing/null progress
+          const progress = order.progress || '';
+          const progressClass = progress ? `status-${progress.replace(/ /g, '-')}` : '';
+          const progressDisplay = progress ? progress.charAt(0).toUpperCase() + progress.slice(1) : '';
+          tr.innerHTML = `
+            <td>${order.order_number}</td>
+            <td>${customerDisplay}</td>
+            <td>${order.product_sku}</td>
+            <td>${order.quantity}</td>
+            <td class="${progressClass}">${progressDisplay}</td>
+            <td>
+              <select class="progress-select" data-order-id="${order.id}">
+                <option value="requested" ${progress === 'requested' ? 'selected' : ''}>Requested</option>
+                <option value="scheduled" ${progress === 'scheduled' ? 'selected' : ''}>Scheduled</option>
+                <option value="in production" ${progress === 'in production' ? 'selected' : ''}>In Production</option>
+                <option value="completed" ${progress === 'completed' ? 'selected' : ''}>Completed</option>
+                <option value="cancelled" ${progress === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+              </select>
+            </td>
+            <td>
+              <input type="date" class="schedule-date" data-order-id="${order.id}" style="margin-right:0.5em;">
+              <button type="button" class="schedule-btn" data-order-id="${order.id}">➕ Schedule</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
+        // Add event listeners for progress dropdowns
+        document.querySelectorAll('.progress-select').forEach(sel => {
+          sel.addEventListener('change', async function() {
+            const orderId = this.getAttribute('data-order-id');
+            const newProgress = this.value;
+            await updateOrderProgress(orderId, newProgress);
+            loadOrders();
+          });
+        });
+        // Add event listeners for schedule buttons
+        document.querySelectorAll('.schedule-btn').forEach(btn => {
+          btn.addEventListener('click', async function() {
+            const orderId = this.getAttribute('data-order-id');
+            const dateInput = document.querySelector(`.schedule-date[data-order-id="${orderId}"]`);
+            const scheduledDate = dateInput ? dateInput.value : '';
+            if (!scheduledDate) {
+              alert('Please select a date to schedule this order.');
+              return;
+            }
+            // Find the order object
+            const order = orders.find(o => o.id === orderId);
+            if (!order) {
+              alert('Order not found.');
+              return;
+            }
+            // Insert into ManufacturingTasks table
+            const { error } = await client
+              .from('ManufacturingTasks')
+              .insert([
+                {
+                  id: order.order_number,
+                  ProductSKU: order.product_sku,
+                  Quantity: order.quantity,
+                  PlannedManufactureDate: scheduledDate,
+                }
+              ]);
+            if (error) {
+              alert('Failed to schedule manufacturing task: ' + error.message);
+            } else {
+              // Also update order progress to 'scheduled'
+              await client
+                .from('WholesaleOrders')
+                .update({ progress: 'scheduled' })
+                .eq('id', orderId);
+              alert('Manufacturing task scheduled and order marked as scheduled!');
+              loadOrders();
+            }
+          });
+        });
+      })();
     }
 
     async function loadOrders() {
@@ -426,8 +489,15 @@
     document.getElementById('addOrderForm').onsubmit = async function(e) {
       e.preventDefault();
       const userID = document.getElementById('customer').value;
+      // Find the user_key for this userID
+      let userKey = '';
+      const customerSelect = document.getElementById('customer');
+      if (customerSelect) {
+        const selectedOption = customerSelect.options[customerSelect.selectedIndex];
+        userKey = selectedOption ? selectedOption.textContent : '';
+      }
       const order = {
-        customer: userID,
+        customer: userKey || userID,
         order_number: document.getElementById('orderNumber').value.trim(),
         product_sku: document.getElementById('productSKU').value.trim(),
         quantity: parseInt(document.getElementById('quantity').value),
@@ -449,14 +519,6 @@
         loadOrders();
       }
     };
-
-
-
-    // Customer view link generator
-
-
-    // Set customer view link on customer select change
-
 
     // Initial load: check login first
     (async () => {

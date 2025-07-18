@@ -149,6 +149,21 @@
     </div>
   <div class="main-content">
     <h1>Your Order Progress</h1>
+    <form id="requestOrderForm" style="margin-bottom:2rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+      <div>
+        <label for="productSKU">Product SKU</label>
+        <select id="productSKU" required>
+          <option value="">Loading...</option>
+        </select>
+      </div>
+      <div>
+        <label for="quantity">Quantity</label>
+        <input type="number" id="quantity" required min="1" placeholder="Quantity">
+      </div>
+      <div>
+        <button type="submit">Request Order</button>
+      </div>
+    </form>
     <table class="order-table" id="orderTable">
       <thead>
         <tr>
@@ -182,6 +197,31 @@
       return session.user.id;
     }
 
+    async function fetchProductSKUs() {
+      const { data, error } = await client
+        .from('Products')
+        .select('ProductSKU,Name')
+        .order('Name', { ascending: true });
+      if (error) {
+        alert('Failed to fetch product SKUs: ' + error.message);
+        return [];
+      }
+      return data || [];
+    }
+
+    async function populateProductDropdown() {
+      const select = document.getElementById('productSKU');
+      if (!select) return;
+      select.innerHTML = '<option value="">Select Product</option>';
+      const products = await fetchProductSKUs();
+      products.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.ProductSKU;
+        opt.textContent = p.Name ? `${p.Name} (${p.ProductSKU})` : p.ProductSKU;
+        select.appendChild(opt);
+      });
+    }
+
     async function fetchOrdersForUser(userID) {
       if (!userID) return [];
       // Find orders where UserID array contains this userID
@@ -201,14 +241,29 @@
       tbody.innerHTML = '';
       for (const order of orders) {
         const tr = document.createElement('tr');
+        // Defensive: handle missing/null progress
+        const progress = order.progress || '';
+        const progressClass = progress ? `status-${progress.replace(/ /g, '-')}` : '';
+        const progressDisplay = progress ? progress.charAt(0).toUpperCase() + progress.slice(1) : '';
         tr.innerHTML = `
           <td>${order.order_number}</td>
           <td>${order.product_sku}</td>
           <td>${order.quantity}</td>
-          <td class="status-${order.progress.replace(/ /g, '-')}">${order.progress.charAt(0).toUpperCase() + order.progress.slice(1)}</td>
+          <td class="${progressClass}">${progressDisplay}</td>
         `;
         tbody.appendChild(tr);
       }
+    }
+
+    async function addOrder(order) {
+      const { error } = await client
+        .from('WholesaleOrders')
+        .insert([order]);
+      if (error) {
+        alert('Failed to request order: ' + error.message);
+        return false;
+      }
+      return true;
     }
 
     async function loadOrders() {
@@ -225,6 +280,48 @@
       }
     }
 
+    document.getElementById('requestOrderForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const userID = await getCurrentUserID();
+      if (!userID) {
+        alert('You must be logged in to request an order.');
+        return;
+      }
+      // Fetch user display_name from auth.users
+      let displayName = '';
+      const { data: userData, error: userError } = await client.auth.getUser();
+      if (userData && userData.user && userData.user.user_metadata && userData.user.user_metadata.display_name) {
+        displayName = userData.user.user_metadata.display_name;
+      } else {
+        displayName = userID; // fallback
+      }
+
+      const productSKU = document.getElementById('productSKU').value;
+      const quantity = parseInt(document.getElementById('quantity').value);
+      if (!productSKU || !quantity) {
+        alert('Please select a product and enter quantity.');
+        return;
+      }
+      // Generate a simple order number (timestamp-based)
+      const orderNumber = 'REQ-' + Date.now();
+      const order = {
+        customer: displayName,
+        order_number: orderNumber,
+        product_sku: productSKU,
+        quantity: quantity,
+        progress: 'requested',
+        UserID: [userID]
+      };
+      const success = await addOrder(order);
+      if (success) {
+        document.getElementById('requestOrderForm').reset();
+        loadOrders();
+        alert('Order request submitted!');
+      }
+    };
+
+    // Initial load
+    populateProductDropdown();
     loadOrders();
   </script>
 </body>
