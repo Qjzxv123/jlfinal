@@ -314,8 +314,14 @@
         alert('Failed to fetch user_keys: ' + error.message);
         return [];
       }
-      // Return array of { user_key, UserID } objects
-      return (data || []).filter(row => row.user_key && row.UserID);
+      // Filter for unique user_keys
+      const seen = new Set();
+      return (data || []).filter(row => {
+        if (!row.user_key || !row.UserID) return false;
+        if (seen.has(row.user_key)) return false;
+        seen.add(row.user_key);
+        return true;
+      });
     }
 
     async function populateCustomerDropdown() {
