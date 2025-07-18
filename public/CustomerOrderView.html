@@ -267,9 +267,9 @@
 
     async function fetchOrdersForUser(userID) {
       if (!userID) return [];
-      // Find orders where UserID array contains this userID
+      // Find tasks where UserID array contains this userID
       const { data, error } = await client
-        .from('WholesaleOrders')
+        .from('ManufacturingTasks')
         .select('*')
         .contains('UserID', [userID]);
       if (error) {
@@ -282,16 +282,16 @@
     function renderOrders(orders) {
       const tbody = document.getElementById('orderTableBody');
       tbody.innerHTML = '';
-      for (const order of orders) {
+      for (const task of orders) {
         const tr = document.createElement('tr');
         // Defensive: handle missing/null progress
-        const progress = order.progress || '';
+        const progress = task.Progress || '';
         const progressClass = progress ? `status-${progress.replace(/ /g, '-')}` : '';
         const progressDisplay = progress ? progress.charAt(0).toUpperCase() + progress.slice(1) : '';
         tr.innerHTML = `
-          <td>${order.order_number}</td>
-          <td>${order.product_sku}</td>
-          <td>${order.quantity}</td>
+          <td>${task.OrderNumber || ''}</td>
+          <td>${task.ProductSKU || ''}</td>
+          <td>${task.Quantity || ''}</td>
           <td class="${progressClass}">${progressDisplay}</td>
         `;
         tbody.appendChild(tr);
@@ -300,7 +300,7 @@
 
     async function addOrder(order) {
       const { error } = await client
-        .from('WholesaleOrders')
+        .from('ManufacturingTasks')
         .insert([order]);
       if (error) {
         alert('Failed to request order: ' + error.message);
@@ -347,15 +347,15 @@
       }
       // Generate a simple order number (timestamp-based)
       const orderNumber = 'REQ-' + Date.now();
-      const order = {
-        customer: displayName,
-        order_number: orderNumber,
-        product_sku: productSKU,
-        quantity: quantity,
-        progress: 'requested',
+      const task = {
+        Customer: displayName,
+        OrderNumber: orderNumber,
+        ProductSKU: productSKU,
+        Quantity: quantity,
+        Progress: 'requested',
         UserID: [userID]
       };
-      const success = await addOrder(order);
+      const success = await addOrder(task);
       if (success) {
         document.getElementById('requestOrderForm').reset();
         loadOrders();

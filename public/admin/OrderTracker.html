@@ -275,7 +275,8 @@
           <th>Product SKU</th>
           <th>Quantity</th>
           <th>Progress</th>
-          <th>Update Progress</th>
+          <th>Schedule</th>
+          <th>Remove</th>
         </tr>
       </thead>
       <tbody id="orderTableBody">
@@ -361,11 +362,11 @@
     }
     async function fetchOrders() {
       const { data, error } = await client
-        .from('WholesaleOrders')
+        .from('ManufacturingTasks')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('PlannedManufactureDate', { ascending: false });
       if (error) {
-        alert('Failed to fetch orders: ' + error.message);
+        alert('Failed to fetch tasks: ' + error.message);
         return [];
       }
       return data || [];
@@ -373,29 +374,28 @@
 
     async function addOrder(order) {
       const { error } = await client
-        .from('WholesaleOrders')
+        .from('ManufacturingTasks')
         .insert([order]);
       if (error) {
-        alert('Failed to add order: ' + error.message);
+        alert('Failed to add task: ' + error.message);
         return false;
       }
       return true;
     }
 
-    async function updateOrderProgress(orderId, progress) {
+    async function updateOrderProgress(orderNumber, progress) {
       const { error } = await client
-        .from('WholesaleOrders')
-        .update({ progress })
-        .eq('id', orderId);
+        .from('ManufacturingTasks')
+        .update({ Progress: progress })
+        .eq('OrderNumber', orderNumber);
       if (error) {
-        alert('Failed to update order: ' + error.message);
+        alert('Failed to update task: ' + error.message);
       }
     }
 
     function renderOrders(orders) {
       const tbody = document.getElementById('orderTableBody');
       tbody.innerHTML = '';
-      // Fetch UserID to user_key map for display
       (async () => {
         // Fetch UserID to user_key map for display
         const { data: userRows } = await client
@@ -405,85 +405,190 @@
         (userRows || []).forEach(row => {
           if (row.UserID && row.user_key) userIDtoKey[row.UserID] = row.user_key;
         });
-        for (const order of orders) {
+        for (const task of orders) {
           const tr = document.createElement('tr');
           // Always display user_key in the customer column
-          const customerDisplay = userIDtoKey[order.customer] || order.customer;
+          const customerDisplay = userIDtoKey[task.Customer] || task.Customer;
           // Defensive: handle missing/null progress
-          const progress = order.progress || '';
+          const progress = task.Progress || '';
           const progressClass = progress ? `status-${progress.replace(/ /g, '-')}` : '';
           const progressDisplay = progress ? progress.charAt(0).toUpperCase() + progress.slice(1) : '';
+          // Schedule column: show date if scheduled, N/A if completed/cancelled/in production, else button
+          let scheduleColHtml = '';
+          const progressLower = progress.toLowerCase();
+          if (progressLower === 'scheduled') {
+            // Show planned manufacture date (formatted)
+            let dateStr = task.PlannedManufactureDate ? new Date(task.PlannedManufactureDate).toLocaleDateString() : '<span style="color:#888;">(not set)</span>';
+            scheduleColHtml = `<span style="font-weight:500; color:#1976d2;">${dateStr}</span>`;
+          } else if (['completed', 'cancelled', 'in production'].includes(progressLower)) {
+            scheduleColHtml = '<span style="color:#888;">N/A</span>';
+          } else {
+            scheduleColHtml = `<button class="schedule-btn" data-order-id="${task.OrderNumber}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Schedule</button>`;
+          }
           tr.innerHTML = `
-            <td>${order.order_number}</td>
+            <td>${task.OrderNumber || ''}</td>
             <td>${customerDisplay}</td>
-            <td>${order.product_sku}</td>
-            <td>${order.quantity}</td>
-            <td class="${progressClass}">${progressDisplay}</td>
-            <td>
-              <select class="progress-select" data-order-id="${order.id}">
-                <option value="requested" ${progress === 'requested' ? 'selected' : ''}>Requested</option>
-                <option value="scheduled" ${progress === 'scheduled' ? 'selected' : ''}>Scheduled</option>
-                <option value="in production" ${progress === 'in production' ? 'selected' : ''}>In Production</option>
-                <option value="completed" ${progress === 'completed' ? 'selected' : ''}>Completed</option>
-                <option value="cancelled" ${progress === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-              </select>
+            <td>${task.ProductSKU || ''}</td>
+            <td>${task.Quantity || ''}</td>
+            <td class="${progressClass}">
+              <span>${progressDisplay}</span>
+              <button class="update-progress-btn" data-order-id="${task.OrderNumber}" data-current-progress="${progress}" style="margin-left:10px; background:#4dba93; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Update</button>
             </td>
-            <td>
-              <input type="date" class="schedule-date" data-order-id="${order.id}" style="margin-right:0.5em;">
-              <button type="button" class="schedule-btn" data-order-id="${order.id}">➕ Schedule</button>
-            </td>
+            <td>${scheduleColHtml}</td>
+            <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#e74c3c; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Remove</button></td>
           `;
           tbody.appendChild(tr);
-        }
-        // Add event listeners for progress dropdowns
-        document.querySelectorAll('.progress-select').forEach(sel => {
-          sel.addEventListener('change', async function() {
+        // Add event listeners for remove buttons
+        document.querySelectorAll('.remove-order-btn').forEach(btn => {
+          btn.addEventListener('click', async function() {
             const orderId = this.getAttribute('data-order-id');
-            const newProgress = this.value;
-            await updateOrderProgress(orderId, newProgress);
-            loadOrders();
+            if (confirm('Are you sure you want to remove this order?')) {
+              const { error } = await client
+                .from('ManufacturingTasks')
+                .delete()
+                .eq('OrderNumber', orderId);
+              if (error) {
+                alert('Failed to remove order: ' + error.message);
+              } else {
+                loadOrders();
+              }
+            }
+          });
+        });
+        }
+        // Add event listeners for update progress buttons
+        document.querySelectorAll('.update-progress-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const currentProgress = this.getAttribute('data-current-progress');
+            openProgressModal(orderId, currentProgress);
           });
         });
         // Add event listeners for schedule buttons
         document.querySelectorAll('.schedule-btn').forEach(btn => {
-          btn.addEventListener('click', async function() {
+          btn.addEventListener('click', function() {
             const orderId = this.getAttribute('data-order-id');
-            const dateInput = document.querySelector(`.schedule-date[data-order-id="${orderId}"]`);
-            const scheduledDate = dateInput ? dateInput.value : '';
-            if (!scheduledDate) {
-              alert('Please select a date to schedule this order.');
-              return;
-            }
-            // Find the order object
-            const order = orders.find(o => o.id === orderId);
-            if (!order) {
-              alert('Order not found.');
-              return;
-            }
-            // Insert into ManufacturingTasks table
-            const { error } = await client
-              .from('ManufacturingTasks')
-              .insert([
-                {
-                  id: order.order_number,
-                  ProductSKU: order.product_sku,
-                  Quantity: order.quantity,
-                  PlannedManufactureDate: scheduledDate,
-                }
-              ]);
-            if (error) {
-              alert('Failed to schedule manufacturing task: ' + error.message);
-            } else {
-              // Also update order progress to 'scheduled'
-              await client
-                .from('WholesaleOrders')
-                .update({ progress: 'scheduled' })
-                .eq('id', orderId);
-              alert('Manufacturing task scheduled and order marked as scheduled!');
-              loadOrders();
-            }
+            openScheduleModal(orderId);
           });
         });
+    // Modal for scheduling (set PlannedManufactureDate)
+    function createScheduleModal() {
+      if (document.getElementById('scheduleModal')) return;
+      const modal = document.createElement('div');
+      modal.id = 'scheduleModal';
+      modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2100; align-items:center; justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+          <h3 style="margin-top:0;">Schedule Order</h3>
+          <label for="modalScheduleDate" style="font-weight:600;">Planned Manufacture Date</label>
+          <input type="date" id="modalScheduleDate" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;" />
+          <div style="display:flex; gap:1em; justify-content:flex-end;">
+            <button id="modalScheduleCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
+            <button id="modalScheduleSaveBtn" style="background:#1976d2; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    function openScheduleModal(orderId) {
+      createScheduleModal();
+      const modal = document.getElementById('scheduleModal');
+      const dateInput = document.getElementById('modalScheduleDate');
+      // Default to today
+      const today = new Date();
+      dateInput.value = today.toISOString().split('T')[0];
+      modal.style.display = 'flex';
+
+      // Remove previous listeners
+      const newSaveBtn = modal.querySelector('#modalScheduleSaveBtn').cloneNode(true);
+      modal.querySelector('#modalScheduleSaveBtn').replaceWith(newSaveBtn);
+      const newCancelBtn = modal.querySelector('#modalScheduleCancelBtn').cloneNode(true);
+      modal.querySelector('#modalScheduleCancelBtn').replaceWith(newCancelBtn);
+
+      newSaveBtn.onclick = async function() {
+        const plannedDate = dateInput.value;
+        if (!plannedDate) {
+          alert('Please select a date.');
+          return;
+        }
+        // Update both Progress and PlannedManufactureDate
+        const { error } = await client
+          .from('ManufacturingTasks')
+          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate })
+          .eq('OrderNumber', orderId);
+        if (error) {
+          alert('Failed to schedule task: ' + error.message);
+        }
+        modal.style.display = 'none';
+        loadOrders();
+      };
+      newCancelBtn.onclick = function() {
+        modal.style.display = 'none';
+      };
+      // Close modal on outside click
+      modal.onclick = function(e) {
+        if (e.target === modal) modal.style.display = 'none';
+      };
+    }
+
+    // Create schedule modal on page load
+    createScheduleModal();
+    // Modal for updating progress
+    function createProgressModal() {
+      if (document.getElementById('progressModal')) return;
+      const modal = document.createElement('div');
+      modal.id = 'progressModal';
+      modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2000; align-items:center; justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:300px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+          <h3 style="margin-top:0;">Update Progress</h3>
+          <select id="modalProgressSelect" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;">
+            <option value="requested">Requested</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="in production">In Production</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <div style="display:flex; gap:1em; justify-content:flex-end;">
+            <button id="modalCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
+            <button id="modalSaveBtn" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    function openProgressModal(orderId, currentProgress) {
+      createProgressModal();
+      const modal = document.getElementById('progressModal');
+      const select = document.getElementById('modalProgressSelect');
+      select.value = currentProgress || 'requested';
+      modal.style.display = 'flex';
+
+      // Remove previous listeners
+      const newSaveBtn = modal.querySelector('#modalSaveBtn').cloneNode(true);
+      modal.querySelector('#modalSaveBtn').replaceWith(newSaveBtn);
+      const newCancelBtn = modal.querySelector('#modalCancelBtn').cloneNode(true);
+      modal.querySelector('#modalCancelBtn').replaceWith(newCancelBtn);
+
+      newSaveBtn.onclick = async function() {
+        const newProgress = select.value;
+        await updateOrderProgress(orderId, newProgress);
+        modal.style.display = 'none';
+        loadOrders();
+      };
+      newCancelBtn.onclick = function() {
+        modal.style.display = 'none';
+      };
+      // Close modal on outside click
+      modal.onclick = function(e) {
+        if (e.target === modal) modal.style.display = 'none';
+      };
+    }
+
+    // Create modal on page load
+    createProgressModal();
       })();
     }
 
@@ -502,12 +607,12 @@
         const selectedOption = customerSelect.options[customerSelect.selectedIndex];
         userKey = selectedOption ? selectedOption.textContent : '';
       }
-      const order = {
-        customer: userKey || userID,
-        order_number: document.getElementById('orderNumber').value.trim(),
-        product_sku: document.getElementById('productSKU').value.trim(),
-        quantity: parseInt(document.getElementById('quantity').value),
-        progress: document.getElementById('progress').value,
+      const task = {
+        Customer: userKey || userID,
+        OrderNumber: document.getElementById('orderNumber').value.trim(),
+        ProductSKU: document.getElementById('productSKU').value.trim(),
+        Quantity: parseInt(document.getElementById('quantity').value),
+        Progress: document.getElementById('progress').value,
         UserID: [
           userID,
           'a4df0386-d361-4f54-a936-c9a2ea01e914',
@@ -515,11 +620,11 @@
           'bc4441d2-38e8-4e77-afb4-2609ec6f56f6'
         ]
       };
-      if (!order.customer || !order.order_number || !order.product_sku || !order.quantity) {
+      if (!task.Customer || !task.OrderNumber || !task.ProductSKU || !task.Quantity) {
         alert('Please fill in all fields.');
         return;
       }
-      const success = await addOrder(order);
+      const success = await addOrder(task);
       if (success) {
         document.getElementById('addOrderForm').reset();
         loadOrders();

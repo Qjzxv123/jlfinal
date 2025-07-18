@@ -321,7 +321,7 @@
         <label>Product SKU*<input type="text" id="ProductSKU" required></label>
         <label>Name<input type="text" id="Name"></label>
         <label>Product Weight(oz)<input type="text" id="ProductSize" placeholder="e.g., 4, 8, 16, etc."></label>
-        <label>Customer<input type="text" id="Customer"></label>
+        <!-- Customer input removed; will use user_metadata.display_name -->
         <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
         <label>Pack Size<input type="number" id="PackSize" min="0" step="1"></label>
         <label>Quantity<input type="number" id="Quantity" step="1"></label>
@@ -547,11 +547,19 @@
       e.preventDefault();
       statusMsg.textContent = '';
       statusMsg.className = 'status';
+      // Get display_name from user metadata
+      let displayName = '';
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData && userData.user && userData.user.user_metadata && userData.user.user_metadata.display_name) {
+          displayName = userData.user.user_metadata.display_name;
+        }
+      } catch (e) {}
       const data = {
         ProductSKU: document.getElementById('ProductSKU').value.trim(),
         Name: document.getElementById('Name').value.trim(),
         'Product Weight(oz)': document.getElementById('ProductSize').value.trim() ? parseFloat(document.getElementById('ProductSize').value.trim()) : null,
-        Retailer: document.getElementById('Customer').value.trim(),
+        Retailer: displayName,
         ShelfLife: form.ShelfLife.value ? parseFloat(form.ShelfLife.value) : null,
         'Pack Size': form.PackSize.value ? parseInt(form.PackSize.value) : null,
         Quantity: form.Quantity.value ? parseInt(form.Quantity.value) : null,
