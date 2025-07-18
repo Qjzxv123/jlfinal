@@ -26,7 +26,7 @@
     }
     
     .sidebar-header {
-      padding: 0.75rem;
+      padding-top: 0.75rem;
       border-bottom: 1px solid #34495e;
       text-align: center;
       white-space: nowrap;
@@ -245,7 +245,9 @@
       </div>
       <div>
         <label for="productSKU">Product SKU</label>
-        <input type="text" id="productSKU" required placeholder="SKU">
+        <select id="productSKU" required>
+          <option value="">Loading...</option>
+        </select>
       </div>
       <div>
         <label for="quantity">Quantity</label>
@@ -326,7 +328,30 @@
         select.appendChild(opt);
       });
     }
+// Fetch product SKUs from Products table
+    async function fetchProductSKUs() {
+      const { data, error } = await client
+        .from('Products')
+        .select('ProductSKU,Name')
+        .order('Name', { ascending: true });
+      if (error) {
+        alert('Failed to fetch product SKUs: ' + error.message);
+        return [];
+      }
+      return data || [];
+    }
 
+    async function populateProductDropdown() {
+      const select = document.getElementById('productSKU');
+      select.innerHTML = '<option value="">Select Product</option>';
+      const products = await fetchProductSKUs();
+      products.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.ProductSKU;
+        opt.textContent = p.Name ? `${p.Name} (${p.ProductSKU})` : p.ProductSKU;
+        select.appendChild(opt);
+      });
+    }
     async function fetchOrders() {
       const { data, error } = await client
         .from('WholesaleOrders')
@@ -437,7 +462,10 @@
     (async () => {
       const loggedIn = await checkLoginAndRedirect();
       if (!loggedIn) return;
-      await populateCustomerDropdown();
+      await Promise.all([
+        populateCustomerDropdown(),
+        populateProductDropdown()
+      ]);
       await loadOrders();
     })();
   </script>
