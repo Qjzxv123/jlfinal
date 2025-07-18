@@ -656,7 +656,7 @@
       try {
         const { data: products, error } = await supabase
           .from('Products')
-          .select('ProductSKU, Name, Retailer, "Max Batch"')
+          .select('ProductSKU, Name, Retailer')
           .order('ProductSKU');
 
         if (error) {
@@ -709,7 +709,6 @@
             <div style="font-weight: 500;">${product.ProductSKU}</div>
             <div style="font-size: 0.8rem; color: #6b7280;">
               ${product.Name || 'No Name'} | Retailer: ${product.Retailer || 'No Retailer'}
-              ${product['Max Batch'] ? ` | Max Batch: ${product['Max Batch']}` : ''}
             </div>
           `;
           
@@ -728,10 +727,6 @@
             hiddenSKU.value = product.ProductSKU;
             dropdown.style.display = 'none';
             
-            // Auto-fill max batch size if available
-            if (product['Max Batch']) {
-              batchSizeInput.value = product['Max Batch'];
-            }
             
             // Trigger change event
             const changeEvent = new Event('change', { bubbles: true });
@@ -1091,86 +1086,7 @@
       }
     }
 
-    // Function to show batch size choice prompt
-    async function showBatchSizeChoice(currentBatchSize, maxBatchSize, productName, productSKU) {
-      return new Promise((resolve) => {
-        const modal = document.createElement('div');
-        modal.className = 'modal';
-        modal.style.display = 'block';
-        modal.innerHTML = `
-          <div class="modal-content" style="max-width: 600px;">
-            <h3>Batch Size Selection</h3>
-            <p>You're making <strong>${currentBatchSize} units</strong> of <strong>${productName}</strong>.</p>
-            <p>The current maximum batch size for this product is <strong>${maxBatchSize} units</strong>.</p>
-            <p>Would you like to:</p>
-            <div style="margin: 20px 0;">
-              <button id="fullBatchBtn" class="btn" style="display: block; width: 100%; margin: 8px 0; padding: 12px 20px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
-                Make Full Batch (${maxBatchSize} units)
-              </button>
-              <button id="continueBatchBtn" class="btn" style="display: block; width: 100%; margin: 8px 0; padding: 12px 20px; background: #2196F3; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
-                Continue with ${currentBatchSize} units
-              </button>
-              <div style="border: 2px solid #FF9800; border-radius: 8px; padding: 16px; margin: 8px 0; background: #fff3e0;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e65100;">Update Max Batch Size:</label>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                  <input type="number" id="newMaxBatchSize" value="${currentBatchSize}" min="1" step="1" style="flex: 1; padding: 8px 12px; border: 1px solid #FF9800; border-radius: 4px; font-size: 16px;">
-                  <span style="color: #e65100; font-weight: 600;">units</span>
-                </div>
-                <button id="updateMaxBtn" class="btn" style="width: 100%; margin-top: 8px; padding: 12px 20px; background: #FF9800; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
-                  Update Max Batch Size
-                </button>
-              </div>
-            </div>
-            <button id="cancelBatchBtn" class="btn" style="margin: 8px 0; padding: 10px 20px; background: #f44336; color: white; border: none; border-radius: 8px; cursor: pointer;">
-              Cancel
-            </button>
-          </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        // Add event listeners
-        document.getElementById('fullBatchBtn').onclick = () => {
-          document.body.removeChild(modal);
-          resolve('full');
-        };
-
-        document.getElementById('continueBatchBtn').onclick = () => {
-          document.body.removeChild(modal);
-          resolve('continue');
-        };
-
-        document.getElementById('updateMaxBtn').onclick = () => {
-          const newMaxSize = parseInt(document.getElementById('newMaxBatchSize').value);
-          if (!newMaxSize || newMaxSize < 1) {
-            alert('Please enter a valid max batch size (minimum 1)');
-            return;
-          }
-          document.body.removeChild(modal);
-          resolve({ action: 'updateMax', newMaxSize: newMaxSize });
-        };
-
-        document.getElementById('cancelBatchBtn').onclick = () => {
-          document.body.removeChild(modal);
-          resolve('cancel');
-        };
-
-        // Close on background click
-        modal.onclick = (e) => {
-          if (e.target === modal) {
-            document.body.removeChild(modal);
-            resolve('cancel');
-          }
-        };
-
-        // Allow Enter key to submit the max batch size update
-        document.getElementById('newMaxBatchSize').addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') {
-            document.getElementById('updateMaxBtn').click();
-          }
-        });
-      });
-    }
+    // Batch size choice prompt removed
 
     async function previewBatch() {
       const productSKU = productDropdownInstance ? productDropdownInstance.getSKU() : '';
@@ -1193,7 +1109,7 @@
         // Fetch product information including Product Weight(oz)
         const { data: product, error: productError } = await supabase
           .from('Products')
-          .select('Process, Name,"Max Batch", "Product Weight(oz)"')
+          .select('Process, Name, "Product Weight(oz)"')
           .eq('ProductSKU', productSKU)
           .single();
 
@@ -1212,42 +1128,6 @@
           return;
         }
 
-        // Check if Max Batch Size is available and current batch size is less than max
-        const maxBatchSize = parseInt(product['Max Batch']) || 0;
-        if (maxBatchSize > 0 && batchSize < maxBatchSize) {
-          // Show batch size choice prompt only when inputted batch size is less than max
-          const choice = await showBatchSizeChoice(batchSize, maxBatchSize, product.Name || productSKU, productSKU);
-          if (choice === 'full') {
-            // Update the batch size input and re-run preview with max batch size
-            batchSizeInput.value = maxBatchSize;
-            previewBtn.disabled = false;
-            previewBatch(); // Recursive call with new batch size
-            return;
-          } else if (choice === 'cancel') {
-            // User cancelled, reset the button and exit
-            previewBtn.disabled = false;
-            return;
-          } else if (typeof choice === 'object' && choice.action === 'updateMax') {
-            // User wants to update max batch size to a custom value
-            const newMaxSize = choice.newMaxSize;
-            try {
-              const { error } = await supabase
-                .from('Products')
-                .update({ 'Max Batch': newMaxSize })
-                .eq('ProductSKU', productSKU);
-              
-              if (error) {
-                alert(`Failed to update max batch size: ${error.message}`);
-              } else {
-                alert(`✅ Max batch size updated to ${newMaxSize} for ${productSKU}`);
-                // Continue with current batch size (no need to re-run preview)
-              }
-            } catch (error) {
-              alert(`Error updating max batch size: ${error.message}`);
-            }
-          }
-          // If choice is 'continue', proceed with the current batch size
-        }
 
         // Convert Product Weight(oz) to lbs
         const productSizeOz = Number(product['Product Weight(oz)']) || 0;

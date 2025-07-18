@@ -420,7 +420,6 @@
           </div>
         </label>
         <label>Archived <input type="checkbox" id="Archived"></label>
-        <!-- Max Batch field removed -->
         <label>Retailer<input type="text" id="Customer"></label>
         <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
         <label>Pack Size<input type="number" id="PackSize" min="0" step="1"></label>
@@ -1121,7 +1120,6 @@
         'Product Type': document.getElementById('ProductType').value.trim(),
         'Microbial Testing': document.getElementById('MicrobialTesting').checked,
         ContainerSKUs: selectedContainerSKUs.length > 0 ? selectedContainerSKUs : null,
-        // 'Max Batch' removed
         Retailer: document.getElementById('Customer').value.trim(),
         ShelfLife: form.ShelfLife.value ? parseFloat(form.ShelfLife.value) : null,
         'Pack Size': form.PackSize.value ? parseInt(form.PackSize.value) : null,
