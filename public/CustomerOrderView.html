@@ -180,7 +180,7 @@
       <nav class="sidebar-nav">
         <a href="/public/ecommerce-oauth.html" class="nav-item"><i class="cil-basket"></i><span>Onboard Stores</span></a>
         <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-storage"></i><span>Inventory Viewer</span></a>
-        <a href="/public/CustomerOrders.html" class="nav-item active"><i class="cil-user"></i><span>Customer Orders</span></a>
+        <a href="/public/CustomerOrders.html" class="nav-item"><i class="cil-user"></i><span>Customer Orders</span></a>
         <a href="/public/AddProduct.html" class="nav-item"><i class="cil-plus"></i><span>Add Product</span></a>
         <a href="/public/CustomerOrderView.html" class="nav-item active"><i class="cil-bullhorn"></i><span>Order Requester</span></a>
         <a href="/public/admin/OrderViewer.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>
@@ -214,6 +214,7 @@
           <th>Product SKU</th>
           <th>Quantity</th>
           <th>Progress</th>
+          <th>Planned Manufacture Date</th>
         </tr>
       </thead>
       <tbody id="orderTableBody">
@@ -288,11 +289,18 @@
         const progress = task.Progress || '';
         const progressClass = progress ? `status-${progress.replace(/ /g, '-')}` : '';
         const progressDisplay = progress ? progress.charAt(0).toUpperCase() + progress.slice(1) : '';
+        let plannedDate = '';
+        if (progress.toLowerCase() === 'scheduled') {
+          plannedDate = task.PlannedManufactureDate ? new Date(task.PlannedManufactureDate).toLocaleDateString() : '';
+        } else {
+          plannedDate = 'To Be Scheduled';
+        }
         tr.innerHTML = `
           <td>${task.OrderNumber || ''}</td>
           <td>${task.ProductSKU || ''}</td>
           <td>${task.Quantity || ''}</td>
           <td class="${progressClass}">${progressDisplay}</td>
+          <td>${plannedDate}</td>
         `;
         tbody.appendChild(tr);
       }
