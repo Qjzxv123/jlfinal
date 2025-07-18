@@ -205,9 +205,21 @@
         <div class="container">
             <h1>Database Table Viewer</h1>
             <div id="status" class="loading">Loading data from Supabase...</div>
-            <h2>Products</h2>
+            <div style="margin-bottom: 24px; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                <input id="searchBar" type="text" placeholder="Search Products or Ingredients..." style="padding: 0.5rem 1rem; border-radius: 6px; border: 1.5px solid #e1e5e9; font-size: 1rem; min-width: 260px; flex: 1;" />
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                <h2 style="margin:0;">Products</h2>
+                <button id="toggleProducts" type="button" style="background:#e9ecef;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:1.1rem;">Hide</button>
+            </div>
             <div id="productsTable"></div>
             <h2>Ingredients</h2>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight:500;">
+                    <input type="checkbox" id="lowInvFilter" style="margin-right:6px;vertical-align:middle;" />
+                    Show only low inventory (Quantity < LowInvThreshold)
+                </label>
+            </div>
             <div id="ingredientsTable"></div>
         </div>
     </div>
@@ -231,7 +243,12 @@
       }
     }
     checkAdmin();
-        async function fetchAndDisplayTable(tableName, containerId) {
+
+        // Store all data for filtering
+        let allProductsData = [];
+        let allIngredientsData = [];
+
+        async function fetchAndDisplayTable(tableName, containerId, searchTerm = '', ingredientLowInvOnly = false) {
             const container = document.getElementById(containerId);
             container.innerHTML = '<div class="loading">Loading...</div>';
             // Define columns to request and display for each table
@@ -239,49 +256,113 @@
             let selectString = '*';
             if (tableName === 'Products') {
                 columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'Pack Size', 'Quantity'];
-                // Wrap columns with spaces or special chars in double quotes for Supabase
                 selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)","Pack Size",Quantity';
             } else if (tableName === 'Ingredients') {
-                columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier'];
-                selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Supplier';
+                columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'];
+                selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Supplier,LowInvThreshold';
             }
             try {
                 const { data, error } = await supabase.from(tableName).select(selectString);
                 if (error) throw error;
                 if (!data || data.length === 0) {
                     container.innerHTML = '<div class="error">No data found.</div>';
+                    if (tableName === 'Products') allProductsData = [];
+                    if (tableName === 'Ingredients') allIngredientsData = [];
                     return;
                 }
-                // Build table
-                let html = '<table><thead><tr>';
-                columns.forEach(col => { html += `<th>${col}</th>`; });
-                html += '</tr></thead><tbody>';
-                data.forEach(row => {
-                    html += '<tr>';
-                    columns.forEach(col => {
-                        let val = row[col];
-                        if (typeof val === 'object' && val !== null) {
-                            val = JSON.stringify(val);
-                        }
-                        html += `<td>${val === null ? '' : val}</td>`;
-                    });
-                    html += '</tr>';
-                });
-                html += '</tbody></table>';
-                container.innerHTML = html;
+                // Store for filtering
+                if (tableName === 'Products') allProductsData = data;
+                if (tableName === 'Ingredients') allIngredientsData = data;
+                renderTable(data, columns, container, searchTerm, ingredientLowInvOnly);
             } catch (err) {
                 container.innerHTML = `<div class="error">Error loading table: ${err.message}</div>`;
             }
         }
 
-        async function loadAllTables() {
+        function renderTable(data, columns, container, searchTerm = '', ingredientLowInvOnly = false) {
+            let filtered = data;
+            if (searchTerm && searchTerm.trim() !== '') {
+                const lower = searchTerm.toLowerCase();
+                filtered = data.filter(row =>
+                    columns.some(col => (row[col] + '').toLowerCase().includes(lower))
+                );
+            }
+            // If filtering for low inventory ingredients
+            if (ingredientLowInvOnly && columns.includes('Quantity(Lbs/Units)') && columns.includes('LowInvThreshold')) {
+                filtered = filtered.filter(row => {
+                    const qty = parseFloat(row['Quantity(Lbs/Units)']);
+                    const threshold = parseFloat(row['LowInvThreshold']);
+                    return !isNaN(qty) && !isNaN(threshold) && qty < threshold;
+                });
+            }
+            if (!filtered.length) {
+                container.innerHTML = '<div class="error">No data found.</div>';
+                return;
+            }
+            let html = '<table><thead><tr>';
+            columns.forEach(col => { html += `<th>${col}</th>`; });
+            html += '</tr></thead><tbody>';
+            filtered.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    let val = row[col];
+                    if (typeof val === 'object' && val !== null) {
+                        val = JSON.stringify(val);
+                    }
+                    html += `<td>${val === null ? '' : val}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        async function loadAllTables(searchTerm = '', ingredientLowInvOnly = false) {
             document.getElementById('status').textContent = 'Loading data from Supabase...';
-            await fetchAndDisplayTable('Products', 'productsTable');
-            await fetchAndDisplayTable('Ingredients', 'ingredientsTable');
+            await fetchAndDisplayTable('Products', 'productsTable', searchTerm);
+            await fetchAndDisplayTable('Ingredients', 'ingredientsTable', searchTerm, ingredientLowInvOnly);
             document.getElementById('status').textContent = '';
         }
 
+        // Initial load
         loadAllTables();
+
+        // Search bar and low inventory filter event
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchBar = document.getElementById('searchBar');
+            const lowInvFilter = document.getElementById('lowInvFilter');
+            const productsTable = document.getElementById('productsTable');
+            const toggleProducts = document.getElementById('toggleProducts');
+            function updateTables() {
+                const term = searchBar ? searchBar.value : '';
+                const lowInv = lowInvFilter && lowInvFilter.checked;
+                renderTable(allProductsData, ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'Pack Size', 'Quantity'], productsTable, term);
+                renderTable(
+                    allIngredientsData,
+                    ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'],
+                    document.getElementById('ingredientsTable'),
+                    term,
+                    lowInv
+                );
+            }
+            if (searchBar) {
+                searchBar.addEventListener('input', updateTables);
+            }
+            if (lowInvFilter) {
+                lowInvFilter.addEventListener('change', updateTables);
+            }
+            if (toggleProducts && productsTable) {
+                toggleProducts.addEventListener('click', function() {
+                    if (productsTable.style.display === 'none') {
+                        productsTable.style.display = '';
+                        toggleProducts.textContent = 'Hide';
+                    } else {
+                        productsTable.style.display = 'none';
+                        toggleProducts.textContent = 'Show';
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>

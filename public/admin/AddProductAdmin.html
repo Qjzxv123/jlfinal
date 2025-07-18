@@ -360,6 +360,7 @@
       <form id="productForm">
         <label>Product SKU*<input type="text" id="ProductSKU" required></label>
         <label>Name<input type="text" id="Name"></label>
+        <label>Product Weight(oz)<input type="text" id="ProductSize" placeholder="e.g., 4, 8, 16, etc."></label>
         <label>Product Type
           <select id="ProductType">
             <option value="">Select Product Type</option>
@@ -419,18 +420,6 @@
           </div>
         </label>
         <label>Archived <input type="checkbox" id="Archived"></label>
-        <label>Product Weight(oz)<input type="text" id="ProductSize" placeholder="e.g., 4, 8, 16, etc."></label>
-        <label>Vessel
-          <select id="Vessel">
-            <option value="">Select Vessel</option>
-            <option value="P1-30L">P1-30L</option>
-            <option value="P2-30L">P2-30L</option>
-            <option value="P3-30L">P3-30L</option>
-            <option value="P4-30L">P4-30L</option>
-            <option value="P5-30L">P5-30L</option>
-            <option value="P6-100L">P6-100L</option>
-          </select>
-        </label>
         <label>Max Batch<input type="number" id="MaxBatch" min="0"></label>
         <label>Retailer<input type="text" id="Customer"></label>
         <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
@@ -586,16 +575,19 @@
       try {
         statusMsg.textContent = 'Loading product data...';
         statusMsg.className = 'status';
+        
         const { data: product, error } = await supabase
           .from('Products')
           .select('*')
           .eq('ProductSKU', sku)
           .single();
+
         if (error) {
-          statusMsg.textContent = 'Product not found: ' + (error.message || error);
+          statusMsg.textContent = 'Product not found: ' + error.message;
           statusMsg.className = 'status error';
           return;
         }
+
         if (!product) {
           statusMsg.textContent = 'No product found with SKU: ' + sku;
           statusMsg.className = 'status error';
@@ -688,31 +680,7 @@
         statusMsg.className = 'status error';
       }
     }
-    // Auto-calculate Max Batch based on Vessel and Product Size
-    function calculateMaxBatch() {
-      const vessel = document.getElementById('Vessel').value;
-      const productSizeStr = document.getElementById('ProductSize').value.trim();
-      const productSize = parseFloat(productSizeStr);
-      let maxBatch = '';
-      if (vessel && productSize > 0) {
-        if (["P1-30L","P2-30L","P3-30L","P4-30L","P5-30L"].includes(vessel)) {
-          maxBatch = Math.floor((816 / productSize) * 1.1);
-        } else if (vessel === "P6-100L") {
-          maxBatch = Math.floor((2576 / productSize) * 1.1);
-        }
-      }
-      document.getElementById('MaxBatch').value = maxBatch;
-    }
-
-    document.getElementById('Vessel').addEventListener('change', calculateMaxBatch);
-    document.getElementById('ProductSize').addEventListener('input', calculateMaxBatch);
-
-    // Patch loadProductData to call calculateMaxBatch after populating fields
-    const originalLoadProductData = loadProductData;
-    loadProductData = async function(sku) {
-      await originalLoadProductData(sku);
-      calculateMaxBatch();
-    };
+    
     // Fetch all ingredients for dropdowns
     async function fetchAllIngredients() {
       try {
@@ -1160,7 +1128,6 @@
         MSRP: form.MSRP.value ? parseFloat(form.MSRP.value) : null,
         'Pour Temperature': form.PourTemperature.value ? parseFloat(form.PourTemperature.value) : null,
         'Pour Consistency': document.getElementById('PourConsistency').value.trim(),
-        Vessel: document.getElementById('Vessel').value.trim(),
         Aroma: document.getElementById('Aroma').value.trim(),
         Process: getProcessFromTableEditor()
       };
