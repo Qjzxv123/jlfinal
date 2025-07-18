@@ -88,10 +88,6 @@ async function fetchOrdersForUser(userKey) {
 }
 
 exports.handler = async function(event) {
-  // Only allow scheduled invocations
-  // if (!event.headers['x-netlify-scheduled-event']) {
-  //   return { statusCode: 403, body: 'Forbidden' };
-  // }
   // Fetch all userKeys from the oauth token table in Supabase
   const { data, error } = await supabase
     .from('oauth_tokens')
