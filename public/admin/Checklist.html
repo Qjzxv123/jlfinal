@@ -343,13 +343,27 @@
         if (filterAssignedTo && (!task.AssignedTo || !task.AssignedTo.toLowerCase().includes(filterAssignedTo))) match = false;
         return match;
       });
+      // Sort by priority: High > Medium > Low > blank
+      const priorityOrder = { 'High': 3, 'Medium': 2, 'Low': 1, '': 0, null: 0, undefined: 0 };
+      filteredTasks.sort((a, b) => (priorityOrder[b.Priority] || 0) - (priorityOrder[a.Priority] || 0));
       for (const task of filteredTasks) {
         const tr = document.createElement('tr');
         const checked = task.Status && task.Status.toLowerCase() === 'complete' ? 'checked' : '';
+        // Priority icon logic
+        let priorityIcon = '';
+        if (task.Priority === 'High') {
+          priorityIcon = '<i class="cil-alarm" style="color:#e74c3c;font-size:1.2em;" title="High"></i>';
+        } else if (task.Priority === 'Medium') {
+          priorityIcon = '<i class="cil-warning" style="color:#f1c40f;font-size:1.2em;" title="Medium"></i>';
+        } else if (task.Priority === 'Low') {
+          priorityIcon = '<i class="cil-chevron-circle-down-alt" style="color:#27ae60;font-size:1.2em;" title="Low"></i>';
+        } else {
+          priorityIcon = '';
+        }
         tr.innerHTML = `
           <td style="text-align:center;"><input type="checkbox" class="status-checkbox" data-id="${task.id}" ${checked}></td>
           <td>${task.Task || ''}</td>
-          <td>${task.Priority || ''}</td>
+          <td style="text-align:center;">${priorityIcon}</td>
           <td>${task.AssignedTo || ''}</td>
           <td><button class="remove-task-btn" data-id="${task.id}" style="background:#e74c3c;">Remove</button></td>
         `;
