@@ -211,6 +211,21 @@
   </div>
   <div class="main-content" id="mainContent">
     <h1>Checklist</h1>
+    <div class="add-task-form" style="margin-bottom:1.5rem;">
+      <div>
+        <label for="filterPriority">Filter by Priority</label>
+        <select id="filterPriority">
+          <option value="">All</option>
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+        </select>
+      </div>
+      <div>
+        <label for="filterAssignedTo">Filter by Assigned To</label>
+        <input type="text" id="filterAssignedTo" placeholder="Name or email">
+      </div>
+    </div>
     <form class="add-task-form" id="addTaskForm">
       <div>
         <label for="task">Task</label>
@@ -318,7 +333,17 @@
       const completedTbody = document.getElementById('completedChecklistTableBody');
       tbody.innerHTML = '';
       completedTbody.innerHTML = '';
-      for (const task of tasks) {
+      // Get filter values
+      const filterPriority = document.getElementById('filterPriority').value;
+      const filterAssignedTo = document.getElementById('filterAssignedTo').value.trim().toLowerCase();
+      // Filter tasks
+      const filteredTasks = tasks.filter(task => {
+        let match = true;
+        if (filterPriority && task.Priority !== filterPriority) match = false;
+        if (filterAssignedTo && (!task.AssignedTo || !task.AssignedTo.toLowerCase().includes(filterAssignedTo))) match = false;
+        return match;
+      });
+      for (const task of filteredTasks) {
         const tr = document.createElement('tr');
         const checked = task.Status && task.Status.toLowerCase() === 'complete' ? 'checked' : '';
         tr.innerHTML = `
@@ -388,6 +413,10 @@
       completedSection.style.display = completedVisible ? '' : 'none';
       toggleCompletedBtn.textContent = completedVisible ? 'Hide Completed Tasks ▲' : 'Show Completed Tasks ▼';
     });
+
+    // Filter event listeners
+    document.getElementById('filterPriority').addEventListener('change', loadTasks);
+    document.getElementById('filterAssignedTo').addEventListener('input', loadTasks);
 
     // Initial load
     loadTasks();
