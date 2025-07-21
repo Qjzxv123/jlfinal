@@ -14,7 +14,7 @@ exports.handler = async function(event, context) {
   const { data: tokenRow, error: tokenError } = await supabase
     .from('oauth_tokens')
     .select('access_token')
-    .eq('user_key', 'JNL')
+    .eq('user_key', 'River')
     .eq('platform', 'faire')
     .maybeSingle();
   if (tokenError || !tokenRow || !tokenRow.access_token) {

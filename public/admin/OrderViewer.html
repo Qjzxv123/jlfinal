@@ -1123,19 +1123,24 @@
 
             // --- Master Picklist ---
             const selectedOrdersData = getSelectedOrdersData();
+            // Aggregate SKUs split by plus sign
             const skuMap = new Map();
             selectedOrdersData.forEach(order => {
                 order.products.forEach(product => {
                     if (product.sku) {
-                        const currentQty = skuMap.get(product.sku) || 0;
-                        skuMap.set(product.sku, currentQty + product.quantity);
+                        // Split by plus and aggregate
+                        const skuParts = product.sku.split('+').map(s => s.trim()).filter(Boolean);
+                        skuParts.forEach(sku => {
+                            const currentQty = skuMap.get(sku) || 0;
+                            skuMap.set(sku, currentQty + product.quantity);
+                        });
                     }
                 });
             });
             const picklistItems = Array.from(skuMap.entries()).map(([sku, quantity]) => {
                 const product = selectedOrdersData
                     .flatMap(order => order.products)
-                    .find(p => p.sku === sku);
+                    .find(p => p.sku && p.sku.split('+').map(s => s.trim()).includes(sku));
                 return {
                     sku: sku,
                     name: product ? product.name : 'Unknown Product',
@@ -1183,6 +1188,17 @@
                     order.customer.zipCode,
                     order.customer.country
                 ].filter(Boolean).join(', ');
+                // Aggregate SKUs for this order
+                const orderSkuMap = new Map();
+                order.products.forEach(product => {
+                    if (product.sku) {
+                        const skuParts = product.sku.split('+').map(s => s.trim()).filter(Boolean);
+                        skuParts.forEach(sku => {
+                            const currentQty = orderSkuMap.get(sku) || 0;
+                            orderSkuMap.set(sku, currentQty + product.quantity);
+                        });
+                    }
+                });
                 packingSlipsHtml += `
                     <div style="font-family: Arial, sans-serif; padding: 20px; background: white; ${index > 0 ? 'page-break-before: always;' : ''}">
                         <div style="text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 25px;">
@@ -1204,21 +1220,19 @@
                                 <thead>
                                     <tr style="background-color: #e9ecef;">
                                         <th style="border: 2px solid #000; padding: 8px; text-align: left; font-weight: bold;">SKU</th>
-                                        <th style="border: 2px solid #000; padding: 8px; text-align: left; font-weight: bold;">PRODUCT NAME</th>
                                         <th style="border: 2px solid #000; padding: 8px; text-align: center; font-weight: bold;">QTY</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${order.products.map(product => `
+                                    ${Array.from(orderSkuMap.entries()).map(([sku, qty]) => `
                                         <tr>
-                                            <td style="border: 1px solid #000; padding: 6px; font-weight: bold;">${product.sku || 'N/A'}</td>
-                                            <td style="border: 1px solid #000; padding: 6px;">${product.name || 'Unknown Product'}</td>
-                                            <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold; font-size: 14px;">${product.quantity}</td>
+                                            <td style="border: 1px solid #000; padding: 6px; font-weight: bold;">${sku}</td>
+                                            <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold; font-size: 14px;">${qty}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
-                            <p style="margin: 10px 0 0 0; font-size: 14px; font-weight: bold;">Total Items: ${order.products.reduce((sum, product) => sum + product.quantity, 0)}</p>
+                            <p style="margin: 10px 0 0 0; font-size: 14px; font-weight: bold;">Total Items: ${Array.from(orderSkuMap.values()).reduce((sum, qty) => sum + qty, 0)}</p>
                         </div>
                     </div>`;
             });
@@ -1595,6 +1609,52 @@ async function processShippingLabelsWithBoxData(orderParcels) {
   }
   showStatus('Shipping label(s) generated.', 'success');
   setTimeout(hideStatus, 3000);
+  // After shipping label is received, mark Faire orders as fulfilled
+  for (const parcel of orderParcels) {
+    if (parcel && parcel.order && parcel.order.platform === 'faire') {
+      try {
+        // Attempt to extract tracking code, carrier, and cost from labelData if available
+        let tracking_code = '';
+        let carrier = '';
+        let maker_cost_cents = 0;
+        if (parcel.labelData) {
+          tracking_code = parcel.labelData.tracking_number || parcel.labelData.tracking_code || '';
+          carrier = parcel.labelData.carrier || parcel.labelData.provider || '';
+          if (parcel.labelData.amount) {
+            maker_cost_cents = Math.round(parseFloat(parcel.labelData.amount) * 100);
+          }
+        }
+        // Fallback: try to get from selectedRate if available
+        if (!tracking_code && parcel.selectedRate) {
+          tracking_code = parcel.selectedRate.tracking_number || '';
+          carrier = parcel.selectedRate.provider || '';
+          if (parcel.selectedRate.amount) {
+            maker_cost_cents = Math.round(parseFloat(parcel.selectedRate.amount) * 100);
+          }
+        }
+        // Always send shipments array
+        const shipments = [{
+          order_id: parcel.order.orderNumber,
+          maker_cost_cents,
+          carrier,
+          tracking_code
+        }];
+        const response = await fetch('/.netlify/functions/faire-mark-fulfilled', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shipments })
+        });
+        const result = await response.json();
+        if (result.success) {
+          console.log(`Faire order ${parcel.order.orderNumber} marked as fulfilled.`);
+        } else {
+          console.error(`Failed to mark Faire order ${parcel.order.orderNumber} as fulfilled:`, result.error || result);
+        }
+      } catch (err) {
+        console.error(`Error marking Faire order ${parcel.order.orderNumber} as fulfilled:`, err);
+      }
+    }
+  }
 // Helper: Show Shippo rate selection modal and return selected rate
 async function showShippoRateSelectionModal(rates) {
   return new Promise((resolve) => {

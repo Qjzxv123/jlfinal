@@ -16,11 +16,11 @@ exports.handler = async function(event, context) {
     const { data: tokenRow, error: tokenError } = await supabase
       .from('oauth_tokens')
       .select('access_token')
-      .eq('user_key', 'Desesh')
+      .eq('user_key', 'River')
       .eq('platform', 'faire')
       .maybeSingle();
     if (tokenError || !tokenRow || !tokenRow.access_token) {
-      return { statusCode: 500, body: 'Missing Faire JNL access token in oauth_tokens' };
+      return { statusCode: 500, body: 'Missing Faire River access token in oauth_tokens' };
     }
     const apiToken = tokenRow.access_token;
 
@@ -28,7 +28,7 @@ exports.handler = async function(event, context) {
     const { data: products, error: productsError } = await supabase
       .from('Products')
       .select('ProductSKU')
-      .eq('Retailer', 'Desesh') ;
+      .eq('Retailer', 'River'); ;
     if (productsError || !products) {
       return { statusCode: 500, body: 'Failed to fetch products from Supabase' };
     }
