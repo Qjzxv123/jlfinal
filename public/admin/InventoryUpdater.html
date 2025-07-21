@@ -231,7 +231,6 @@
     <h1>Inventory Quantity Updater</h1>
     <div id="main-container">
     <button id="viewLogBtn" style="margin-bottom:1rem;">Download Inventory Log</button>
-    <button id="undoBtn" style="margin-bottom:1rem; margin-left:1rem;">Undo Last Update</button>
     <input type="file" id="fileInput" accept=".csv">
     <div id="output"></div>
   </div>
@@ -420,27 +419,111 @@
 
     // Expose processCSVText globally for non-module script
     window.processCSVText = processCSVText;
-    // log downloader
-    const viewLogBtn = document.getElementById('viewLogBtn');
-    viewLogBtn.textContent = 'Download Inventory Log';
-    viewLogBtn.addEventListener('click', () => {
+    // Modal for inventory log batches
+    function createLogModal() {
+      let modal = document.getElementById('inventoryLogModal');
+      if (modal) return modal;
+      modal = document.createElement('div');
+      modal.id = 'inventoryLogModal';
+      modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2100; align-items:center; justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+          <h3 style="margin-top:0;">Recent Inventory Batches</h3>
+          <div id="logModalContent"></div>
+          <div style="display:flex; gap:1em; justify-content:flex-end; margin-top:1em;">
+            <button id="logModalCloseBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Close</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.querySelector('#logModalCloseBtn').onclick = () => { modal.style.display = 'none'; };
+      modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+      return modal;
+    }
+
+    function showLogModal() {
       const log = localStorage.getItem('inventorylog.csv');
+      const modal = createLogModal();
+      const contentDiv = modal.querySelector('#logModalContent');
       if (!log) {
-        output.innerHTML = '<div class="error">No inventory log found.</div>';
+        contentDiv.innerHTML = '<div class="error">No inventory log found.</div>';
+        modal.style.display = 'flex';
         return;
       }
-      const blob = new Blob([log], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'inventorylog.csv';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 100);
-    });
+      // Split log into batches by ---BATCH--- marker
+      const lines = log.trim().split('\n');
+      let batches = [];
+      let currentBatch = [];
+      for (const line of lines) {
+        if (line.startsWith('---BATCH---')) {
+          if (currentBatch.length) batches.push(currentBatch);
+          currentBatch = [line];
+        } else {
+          currentBatch.push(line);
+        }
+      }
+      if (currentBatch.length) batches.push(currentBatch);
+      // Get last 3 batches
+      const lastBatches = batches.slice(-3).reverse();
+      contentDiv.innerHTML = lastBatches.map((batch, idx) => {
+        const batchText = batch.join('\n');
+        return `<div style="margin-bottom:1.5em; border:1px solid #e2e8f0; border-radius:8px; padding:1em; background:#f8fafc;">
+          <div style="font-weight:600; margin-bottom:0.5em;">Batch ${lastBatches.length-idx}:</div>
+          <pre style="font-size:0.95em; background:#fff; border-radius:6px; padding:0.5em;">${batchText}</pre>
+          <button class="undo-batch-btn" data-batch-idx="${lastBatches.length-idx-1}" style="background:#e74c3c; color:white; border:none; border-radius:6px; padding:0.5em 1em; font-size:1em; cursor:pointer;">Undo This Batch</button>
+        </div>`;
+      }).join('');
+      // Add undo logic
+      contentDiv.querySelectorAll('.undo-batch-btn').forEach(btn => {
+        btn.onclick = async function() {
+          const batchIdx = parseInt(this.getAttribute('data-batch-idx'));
+          // Undo the batch at batchIdx
+          let batchToUndo = lastBatches[batchIdx];
+          if (!batchToUndo) return;
+          let undoCount = 0;
+          let errorCount = 0;
+          for (const entry of batchToUndo) {
+            if (!entry.trim() || entry.startsWith('---BATCH---')) continue;
+            const [date, sku, qty] = entry.split(',');
+            if (!sku || !qty) continue;
+            // Fetch current quantity
+            const { data, error } = await supabase
+              .from('Products')
+              .select('Quantity')
+              .eq('ProductSKU', sku)
+              .single();
+            if (error || !data || typeof data.Quantity !== 'number') {
+              output.innerHTML += `<div class="error">${sku} not found for undo</div>`;
+              errorCount++;
+              continue;
+            }
+            const newQuantity = data.Quantity + parseInt(qty);
+            const { error: updateError } = await supabase
+              .from('Products')
+              .update({ Quantity: newQuantity })
+              .eq('ProductSKU', sku);
+            if (updateError) {
+              output.innerHTML += `<div class="error">Error undoing update for ${sku}: ${updateError.message}</div>`;
+              errorCount++;
+            } else {
+              undoCount++;
+            }
+          }
+          // Remove the batch from the log
+          const batchStartIdx = lines.lastIndexOf(batchToUndo[0]);
+          const batchEndIdx = batchStartIdx + batchToUndo.length;
+          const newLog = [...lines.slice(0, batchStartIdx), ...lines.slice(batchEndIdx)].join('\n');
+          localStorage.setItem('inventorylog.csv', newLog + (newLog ? '\n' : ''));
+          output.innerHTML = `<div class="success">Undo complete: ${undoCount} updates reverted, ${errorCount} errors.</div>`;
+          modal.style.display = 'none';
+        };
+      });
+      modal.style.display = 'flex';
+    }
+
+    const viewLogBtn = document.getElementById('viewLogBtn');
+    viewLogBtn.textContent = 'View Inventory Log';
+    viewLogBtn.addEventListener('click', showLogModal);
   </script>
   <script>
     // On page load, check for CSV in sessionStorage and process it if found
