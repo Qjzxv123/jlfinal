@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Checklist</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      color: #333;
+    }
+    .main-content {
+      margin: 2rem auto;
+      max-width: 800px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.12);
+      padding: 2rem;
+    }
+    h1 {
+      color: #2d3748;
+      margin-bottom: 2rem;
+    }
+    .checklist-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+    .checklist-table th, .checklist-table td {
+      border: 1px solid #e2e8f0;
+      padding: 1rem;
+      text-align: left;
+      font-size: 1.05rem;
+    }
+    .checklist-table th {
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #374151;
+    }
+    .checklist-table td.status-complete { background: #d1fae5; color: #065f46; }
+    .checklist-table td.status-incomplete { background: #fee2e2; color: #b91c1c; }
+    .checklist-table td button {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      background: #4dba93;
+      color: white;
+      transition: background 0.2s;
+    }
+    .checklist-table td button:hover {
+      background: #379c7a;
+    }
+    .add-task-form {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+      align-items: flex-end;
+    }
+    .add-task-form label {
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+      display: block;
+    }
+    .add-task-form input, .add-task-form select {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 1rem;
+      background: #f8fafc;
+      margin-bottom: 0.5rem;
+    }
+    .add-task-form button {
+      background: #4dba93;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.7rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .add-task-form button:hover {
+      background: #379c7a;
+    }
+    .status-complete { color: #27ae60; }
+    .status-incomplete { color: #e74c3c; }
+    /* Sidebar Styles */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      z-index: 1000;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar:hover {
+      width: 250px;
+    }
+    
+    .sidebar-header {
+      padding-top: 0.75rem;
+      border-bottom: 1px solid #34495e;
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #ecf0f1;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:not(:hover) .sidebar-header h2 {
+      opacity: 0;
+    }
+    
+    .sidebar:hover .sidebar-header h2 {
+      font-size: 1.3rem;
+    }
+    
+    .sidebar-nav {
+      padding: 0.5rem 0;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid transparent;
+      white-space: nowrap;
+    }
+    
+    .nav-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item.active {
+      background: rgba(77,186,147,0.2);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item i {
+      margin-right: 0.5rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    
+    .nav-item span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:hover .nav-item span {
+      opacity: 1;
+    }
+    
+    .sidebar:hover .nav-item {
+      padding: 0.75rem 1.5rem;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+  <body>
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>J&L Tools</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="BatchMaker.html" class="nav-item"><i class="cil-factory"></i><span>Batch Maker</span></a>
+      <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
+      <a href="OrderTracker.html" class="nav-item"><i class="cil-list"></i><span>Order Tracker</span></a>
+      <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
+      <a href="ProductIngredientViewer.html" class="nav-item"><i class="cil-columns"></i><span>Product Ingredients</span></a>
+      <a href="AddProductAdmin.html" class="nav-item"><i class="cil-note-add"></i><span>Add/Update Product</span></a>
+      <a href="AddIngredient.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Ingredient</span></a>
+      <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
+      <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
+      <a href="Quoting.html" class="nav-item"><i class="cil-money"></i><span>Product Quoting</span></a>
+      <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
+      <a href="DatabaseViewer.html" class="nav-item"><i class="cil-find-in-page"></i><span>Database Viewer</span></a>
+      <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
+      <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
+      <a href="Checklist.html" class="nav-item active"><i class="cil-check"></i><span>Checklist</span></a>
+      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
+    </nav>
+  </div>
+  <div class="main-content" id="mainContent">
+    <h1>Checklist</h1>
+    <form class="add-task-form" id="addTaskForm">
+      <div>
+        <label for="task">Task</label>
+        <input type="text" id="task" required placeholder="Task description">
+      </div>
+      <div>
+        <label for="priority">Priority</label>
+        <select id="priority">
+            <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+            <option value="High">High</option>
+        </select>
+      </div>
+      <div>
+        <label for="assignedTo">Assigned To</label>
+        <input type="text" id="assignedTo" placeholder="Name or email">
+      </div>
+      <div>
+        <button type="submit">Add Task</button>
+      </div>
+    </form>
+    <table class="checklist-table" id="checklistTable">
+      <thead>
+        <tr>
+          <th>Done</th>
+          <th>Task</th>
+          <th>Priority</th>
+          <th>Assigned To</th>
+          <th>Remove</th>
+        </tr>
+      </thead>
+      <tbody id="checklistTableBody">
+        <!-- Incomplete tasks will be loaded here -->
+      </tbody>
+    </table>
+
+    <button id="toggleCompletedBtn" style="margin-bottom:1rem; background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Show Completed Tasks ▼</button>
+    <div id="completedTasksSection" style="display:none;">
+      <table class="checklist-table" id="completedChecklistTable">
+        <thead>
+          <tr>
+            <th>Done</th>
+            <th>Task</th>
+            <th>Priority</th>
+            <th>Assigned To</th>
+            <th>Remove</th>
+          </tr>
+        </thead>
+        <tbody id="completedChecklistTableBody">
+          <!-- Completed tasks will be loaded here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function fetchTasks() {
+      const { data, error } = await client
+        .from('Checklist')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) {
+        alert('Failed to fetch tasks: ' + error.message);
+        return [];
+      }
+      return data || [];
+    }
+
+    async function addTask(task) {
+      const { error } = await client
+        .from('Checklist')
+        .insert([task]);
+      if (error) {
+        alert('Failed to add task: ' + error.message);
+        return false;
+      }
+      return true;
+    }
+
+    async function updateTaskStatus(id, status) {
+      const { error } = await client
+        .from('Checklist')
+        .update({ Status: status })
+        .eq('id', id);
+      if (error) {
+        alert('Failed to update task: ' + error.message);
+      }
+    }
+
+    async function removeTask(id) {
+      const { error } = await client
+        .from('Checklist')
+        .delete()
+        .eq('id', id);
+      if (error) {
+        alert('Failed to remove task: ' + error.message);
+      }
+    }
+
+    function renderTasks(tasks) {
+      const tbody = document.getElementById('checklistTableBody');
+      const completedTbody = document.getElementById('completedChecklistTableBody');
+      tbody.innerHTML = '';
+      completedTbody.innerHTML = '';
+      for (const task of tasks) {
+        const tr = document.createElement('tr');
+        const checked = task.Status && task.Status.toLowerCase() === 'complete' ? 'checked' : '';
+        tr.innerHTML = `
+          <td style="text-align:center;"><input type="checkbox" class="status-checkbox" data-id="${task.id}" ${checked}></td>
+          <td>${task.Task || ''}</td>
+          <td>${task.Priority || ''}</td>
+          <td>${task.AssignedTo || ''}</td>
+          <td><button class="remove-task-btn" data-id="${task.id}" style="background:#e74c3c;">Remove</button></td>
+        `;
+        if (checked) {
+          completedTbody.appendChild(tr);
+        } else {
+          tbody.appendChild(tr);
+        }
+      }
+      // Checkbox event listeners (for both tables)
+      document.querySelectorAll('.status-checkbox').forEach(cb => {
+        cb.addEventListener('change', async function() {
+          const id = this.getAttribute('data-id');
+          const newStatus = this.checked ? 'Complete' : 'Incomplete';
+          await updateTaskStatus(id, newStatus);
+          loadTasks();
+        });
+      });
+      // Remove button event listeners (for both tables)
+      document.querySelectorAll('.remove-task-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          const id = this.getAttribute('data-id');
+          if (confirm('Are you sure you want to remove this task?')) {
+            await removeTask(id);
+            loadTasks();
+          }
+        });
+      });
+    }
+
+    async function loadTasks() {
+      const tasks = await fetchTasks();
+      renderTasks(tasks);
+    }
+
+    document.getElementById('addTaskForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const task = {
+        Task: document.getElementById('task').value.trim(),
+        Priority: document.getElementById('priority').value,
+        AssignedTo: document.getElementById('assignedTo').value.trim(),
+        Status: 'Incomplete'
+      };
+      if (!task.Task) {
+        alert('Please enter a task description.');
+        return;
+      }
+      const success = await addTask(task);
+      if (success) {
+        document.getElementById('addTaskForm').reset();
+        loadTasks();
+      }
+    };
+
+    // Collapsible completed tasks
+    const toggleCompletedBtn = document.getElementById('toggleCompletedBtn');
+    const completedSection = document.getElementById('completedTasksSection');
+    let completedVisible = false;
+    toggleCompletedBtn.addEventListener('click', function() {
+      completedVisible = !completedVisible;
+      completedSection.style.display = completedVisible ? '' : 'none';
+      toggleCompletedBtn.textContent = completedVisible ? 'Hide Completed Tasks ▲' : 'Show Completed Tasks ▼';
+    });
+
+    // Initial load
+    loadTasks();
+  </script>
+</body>
+</html>
