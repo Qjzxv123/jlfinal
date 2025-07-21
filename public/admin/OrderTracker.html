@@ -260,6 +260,7 @@
           <option value="scheduled">Scheduled</option>
           <option value="in production">In Production</option>
           <option value="completed">Completed</option>
+          <option value="Undergoing Quality Checks">Undergoing Quality Checks</option>
           <option value="cancelled">Cancelled</option>
         </select>
       </div>
@@ -420,7 +421,7 @@
             // Show planned manufacture date (formatted)
             let dateStr = task.PlannedManufactureDate ? new Date(task.PlannedManufactureDate).toLocaleDateString() : '<span style="color:#888;">(not set)</span>';
             scheduleColHtml = `<span style="font-weight:500; color:#1976d2;">${dateStr}</span>`;
-          } else if (['completed', 'cancelled', 'in production'].includes(progressLower)) {
+          } else if (['completed', 'cancelled', 'in production', 'undergoing quality checks'].includes(progressLower)) {
             scheduleColHtml = '<span style="color:#888;">N/A</span>';
           } else {
             scheduleColHtml = `<button class="schedule-btn" data-order-id="${task.OrderNumber}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Schedule</button>`;
@@ -627,6 +628,7 @@
             <option value="in production">In Production</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
+            <option value="Undergoing Quality Checks">Undergoing Quality Checks</option>
           </select>
           <div style="display:flex; gap:1em; justify-content:flex-end;">
             <button id="modalCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
