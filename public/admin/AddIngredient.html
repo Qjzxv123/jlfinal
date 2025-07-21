@@ -290,6 +290,7 @@
         <label>Supplier<input type="text" id="Supplier" placeholder="e.g., ACME Corp, Local Supplier, etc."></label>
         <label>Quantity (Lbs/Units)<input type="number" id="Quantity" min="0" step="any" placeholder="Current quantity in stock"></label>
         <label>Location<input type="text" id="Location" placeholder="e.g., Warehouse A, Shelf B-3, etc."></label>
+        <label>Cost ($/unit)<input type="number" id="Cost" min="0" step="any" placeholder="Cost per unit or lb"></label>
         <label>Low Inventory Threshold<input type="number" id="LowInvThreshold" min="0" step="any" placeholder="Alert when quantity falls below this level"></label>
         <label>Link<input type="url" id="Link" placeholder="https://supplier-website.com/product-page"></label>
         <button type="submit" class="btn">Add/Update Ingredient</button>
@@ -454,6 +455,7 @@
         document.getElementById('Supplier').value = ingredient.Supplier || '';
         document.getElementById('Quantity').value = ingredient['Quantity(Lbs/Units)'] || '';
         document.getElementById('Location').value = ingredient.Location || '';
+        document.getElementById('Cost').value = ingredient.Cost || '';
         document.getElementById('LowInvThreshold').value = ingredient.LowInvThreshold || '';
         document.getElementById('Link').value = ingredient.Link || '';
 
@@ -478,6 +480,7 @@
         Supplier: document.getElementById('Supplier').value.trim(),
         'Quantity(Lbs/Units)': document.getElementById('Quantity').value ? parseFloat(document.getElementById('Quantity').value) : null,
         Location: document.getElementById('Location').value.trim(),
+        Cost: document.getElementById('Cost').value ? parseFloat(document.getElementById('Cost').value) : null,
         LowInvThreshold: document.getElementById('LowInvThreshold').value ? parseFloat(document.getElementById('LowInvThreshold').value) : null,
         Link: document.getElementById('Link').value.trim()
       };

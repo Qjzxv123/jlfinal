@@ -1599,7 +1599,54 @@ async function processShippingLabelsWithBoxData(orderParcels) {
       labelData = await labelResp.json();
       if (labelData && labelData.label_url) {
         window.open(labelData.label_url, '_blank');
-        // ...existing code for Supabase insert, box decrement, and UI update...
+        // Insert shipping label info into Order History
+        try {
+          await supabase.from('Order History').upsert({
+            OrderID: order.orderNumber,
+            Platform: order.platform,
+            Retailer: order.shop,
+            Customer: order.customer.name,
+            ShippedAt: new Date().toISOString(),
+            LabelUrl: labelData.label_url,
+            TrackingNumber: labelData.tracking_number || labelData.tracking_code || '',
+            Carrier: labelData.carrier || labelData.provider || '',
+            ShippingCost: labelData.amount ? parseFloat(labelData.amount) : null,
+            BoxSkus: parcel.boxes ? JSON.stringify(parcel.boxes.map(b => b.sku)) : null
+          });
+          // Remove from Orders table
+          await supabase.from('Orders').delete().eq('OrderID', order.orderNumber);
+        } catch (err) {
+          console.error('Error inserting shipping label info into Order History:', err);
+        }
+
+        // Decrement box inventory in Supabase
+        if (parcel.boxes && Array.isArray(parcel.boxes)) {
+          for (const box of parcel.boxes) {
+            if (box.sku) {
+              try {
+                // Decrement box quantity by 1
+                await supabase.rpc('decrement_box_quantity', { sku_input: box.sku, qty: 1 });
+              } catch (err) {
+                console.error('Error decrementing box inventory for', box.sku, err);
+              }
+            }
+          }
+        }
+
+        // Remove from allOrders and filteredOrders
+        allOrders = allOrders.filter(o => o.orderNumber !== order.orderNumber);
+        filteredOrders = filteredOrders.filter(o => o.orderNumber !== order.orderNumber);
+        selectedOrders.delete(order.orderNumber);
+        displayOrders();
+        updateSummary();
+        // Mark order as shipped in Supabase Order History
+       
+        // Remove from allOrders and filteredOrders
+        allOrders = allOrders.filter(o => o.orderNumber !== order.orderNumber);
+        filteredOrders = filteredOrders.filter(o => o.orderNumber !== order.orderNumber);
+        selectedOrders.delete(order.orderNumber);
+        displayOrders();
+        updateSummary();
       } else {
         alert('No label URL returned for order ' + order.orderNumber);
       }
