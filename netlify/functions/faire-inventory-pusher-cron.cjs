@@ -23,7 +23,7 @@ exports.handler = async function(event, context) {
   const apiToken = tokenRow.access_token;
 
 
-  // Example: set inventory quantity to 100 for SKU 'mr-reg'zz
+  // Example: set inventory quantity to 100 for SKU 'mr-reg'
   const sku = 'MR-REG';
   const inventoryPayload = {
     inventories: [

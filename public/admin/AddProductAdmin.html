@@ -428,6 +428,9 @@
         <label>Pour Temperature (°C)<input type="number" id="PourTemperature" min="0" step="any" placeholder="e.g., 45, 60, 80"></label>
         <label>Pour Consistency<input type="text" id="PourConsistency" placeholder="e.g., Thick, Thin, Viscous"></label>
         <label>Aroma<input type="text" id="Aroma" placeholder="e.g., Floral, Citrus, Earthy, Minty"></label>
+    <label>Manufacturing Instructions
+      <textarea id="ManufacturingInstructions" rows="6" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #e1e5e9;font-size:1rem;margin-top:4px;margin-bottom:8px;box-sizing:border-box;resize:vertical;" placeholder="Enter detailed manufacturing instructions here..."></textarea>
+    </label>
         <div style="margin-top:18px;">
           <label style="font-weight:600; color:#34495e;">Process Editor:</label>
           <div id="processTableEditor"></div>
@@ -611,6 +614,7 @@
         document.getElementById('PourTemperature').value = product['Pour Temperature'] || '';
         document.getElementById('PourConsistency').value = product['Pour Consistency'] || '';
         document.getElementById('Aroma').value = product.Aroma || '';
+        document.getElementById('ManufacturingInstructions').value = product.ManufacturingInstructions || '';
 
         // Load process data
         if (product.Process && typeof product.Process === 'object') {
@@ -1129,6 +1133,7 @@
         'Pour Consistency': document.getElementById('PourConsistency').value.trim(),
         Aroma: document.getElementById('Aroma').value.trim(),
         Process: getProcessFromTableEditor()
+        , ManufacturingInstructions: document.getElementById('ManufacturingInstructions').value.trim()
       };
       Object.keys(data).forEach(k => { if (data[k] === '') data[k] = null; });
       // Use upsert to handle both insert and update based on ProductSKU
