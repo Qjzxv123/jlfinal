@@ -583,19 +583,19 @@
 
       newSaveBtn.onclick = async function() {
         const plannedDate = dateInput.value;
-        const vesselId = vesselSelect.value;
+        const Vessel = vesselSelect.value;
         if (!plannedDate) {
           alert('Please select a date.');
           return;
         }
-        if (!vesselId) {
+        if (!Vessel) {
           alert('Please select a vessel.');
           return;
         }
-        // Update Progress, PlannedManufactureDate, and assign VesselId
+        // Update Progress, PlannedManufactureDate, and assign Vessel
         const { error } = await client
           .from('ManufacturingTasks')
-          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, VesselId: vesselId })
+          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, Vessel: Vessel })
           .eq('OrderNumber', orderId);
         if (error) {
           alert('Failed to schedule task: ' + error.message);
