@@ -29,26 +29,52 @@ console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
     const { createClient } = require('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
     for (const order of orders) {
-      // Get first SKU from line_items
+      // Get retailer value by checking all split SKUs in line_items
       let retailerValue = "JNL";
       if (order.line_items && order.line_items.length > 0) {
-        const firstSku = order.line_items[0].sku;
-        if (firstSku) {
-          // Query Product table for retailer value
-          const { data: product, error } = await supabase
-            .from('Products')
-            .select('Retailer')
-            .eq('ProductSKU', firstSku)
-            .single();
-          if (!error && product && product.Retailer) {
-            retailerValue = product.Retailer;
+        let foundRetailer = null;
+        for (const item of order.line_items) {
+          const skuStr = item.sku || '';
+          const skus = skuStr.split('+').map(s => s.trim()).filter(Boolean);
+          for (const sku of skus) {
+            const { data: product, error } = await supabase
+              .from('Products')
+              .select('Retailer')
+              .eq('ProductSKU', sku)
+              .single();
+            if (!error && product && product.Retailer) {
+              foundRetailer = product.Retailer;
+              break;
+            }
           }
+          if (foundRetailer) break;
+        }
+        if (foundRetailer) retailerValue = foundRetailer;
+      }
+      // Aggregate SKUs split by plus sign
+      let skuMap = {};
+      for (const item of (order.line_items || [])) {
+        const skuStr = item.sku || '';
+        const name = item.title || '';
+        const quantity = item.quantity || 0;
+        const skus = skuStr.split('+').map(s => s.trim()).filter(Boolean);
+        for (const sku of skus) {
+          if (!skuMap[sku]) {
+            skuMap[sku] = { sku: sku, title: name, quantity: 0 };
+          }
+          skuMap[sku].quantity += quantity;
         }
       }
+      // Convert to array and round quantities
+      const itemsArr = Object.values(skuMap).map(obj => ({
+        sku: obj.sku,
+        title: obj.title,
+        quantity: Math.round(obj.quantity)
+      }));
       await supabase.from('Orders').upsert({
         OrderID: order.order_number.replace("#",""),
         Retailer: retailerValue,
-        Items: order.line_items || null,
+        Items: itemsArr,
         Customer: order.to_address || null,
         Platform: order.shop_app,
         Link: getPlatformOrderUrl(order.shop_app, order.order_number, order.shopify_id, retailerValue),
