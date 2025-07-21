@@ -428,9 +428,14 @@
         <label>Pour Temperature (°C)<input type="number" id="PourTemperature" min="0" step="any" placeholder="e.g., 45, 60, 80"></label>
         <label>Pour Consistency<input type="text" id="PourConsistency" placeholder="e.g., Thick, Thin, Viscous"></label>
         <label>Aroma<input type="text" id="Aroma" placeholder="e.g., Floral, Citrus, Earthy, Minty"></label>
-    <label>Manufacturing Instructions
-      <textarea id="ManufacturingInstructions" rows="6" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #e1e5e9;font-size:1rem;margin-top:4px;margin-bottom:8px;box-sizing:border-box;resize:vertical;" placeholder="Enter detailed manufacturing instructions here..."></textarea>
+    <label style="display:flex;align-items:center;gap:0.5em;margin-top:1em;">
+      <input type="checkbox" id="useCustomInstructions" style="width:auto;"> Use Custom Manufacturing Instructions
     </label>
+    <div id="manufacturingInstructionsContainer" style="display:none;">
+      <label>Manufacturing Instructions
+        <textarea id="ManufacturingInstructions" rows="6" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #e1e5e9;font-size:1rem;margin-top:4px;margin-bottom:8px;box-sizing:border-box;resize:vertical;" placeholder="Enter detailed manufacturing instructions here..."></textarea>
+      </label>
+    </div>
         <div style="margin-top:18px;">
           <label style="font-weight:600; color:#34495e;">Process Editor:</label>
           <div id="processTableEditor"></div>
@@ -614,7 +619,19 @@
         document.getElementById('PourTemperature').value = product['Pour Temperature'] || '';
         document.getElementById('PourConsistency').value = product['Pour Consistency'] || '';
         document.getElementById('Aroma').value = product.Aroma || '';
-        document.getElementById('ManufacturingInstructions').value = product.ManufacturingInstructions || '';
+
+        // Manufacturing Instructions logic
+        const miCheckbox = document.getElementById('useCustomInstructions');
+        const miContainer = document.getElementById('manufacturingInstructionsContainer');
+        if (product.ManufacturingInstructions && String(product.ManufacturingInstructions).trim() !== "") {
+          miCheckbox.checked = true;
+          miContainer.style.display = '';
+          document.getElementById('ManufacturingInstructions').value = product.ManufacturingInstructions;
+        } else {
+          miCheckbox.checked = false;
+          miContainer.style.display = 'none';
+          document.getElementById('ManufacturingInstructions').value = '';
+        }
 
         // Load process data
         if (product.Process && typeof product.Process === 'object') {
@@ -1116,6 +1133,8 @@
       e.preventDefault();
       statusMsg.textContent = '';
       statusMsg.className = 'status';
+      const useCustom = document.getElementById('useCustomInstructions').checked;
+      const miValue = document.getElementById('ManufacturingInstructions').value.trim();
       const data = {
         ProductSKU: document.getElementById('ProductSKU').value.trim(),
         Archived: document.getElementById('Archived').checked,
@@ -1132,8 +1151,8 @@
         'Pour Temperature': form.PourTemperature.value ? parseFloat(form.PourTemperature.value) : null,
         'Pour Consistency': document.getElementById('PourConsistency').value.trim(),
         Aroma: document.getElementById('Aroma').value.trim(),
-        Process: getProcessFromTableEditor()
-        , ManufacturingInstructions: document.getElementById('ManufacturingInstructions').value.trim()
+        Process: getProcessFromTableEditor(),
+        ManufacturingInstructions: useCustom && miValue !== '' ? miValue : null
       };
       Object.keys(data).forEach(k => { if (data[k] === '') data[k] = null; });
       // Use upsert to handle both insert and update based on ProductSKU
@@ -1149,8 +1168,29 @@
         selectedContainerSKUs = [];
         renderProcessTableEditor();
         updateSelectedContainersDisplay();
+        // Hide MI textarea after save
+        document.getElementById('manufacturingInstructionsContainer').style.display = 'none';
+        document.getElementById('useCustomInstructions').checked = false;
       }
     };
+    // Toggle Manufacturing Instructions textarea
+    document.addEventListener('DOMContentLoaded', function() {
+      const miCheckbox = document.getElementById('useCustomInstructions');
+      const miContainer = document.getElementById('manufacturingInstructionsContainer');
+      const miTextarea = document.getElementById('ManufacturingInstructions');
+      const template = `Makeup: Step-by-Step Manufacturing Process\n\n1. Preparation & Sanitization\n\n- Wear PPE (gloves, hairnet, lab coat, and face mask) to prevent contamination.\n\nEquipment Needed:\n- Ingredient cups\n- Spatula\n- Immersion blender\n- Agitator\n\n✅ Clean & Sanitize Equipment:\n\n- Ensure all containers, utensils, and mixing vessels are cleaned and sanitized with alcohol or an approved cleaning solution.\n     - Ensure there is no oil residue on any equipment, tools, or workspace.\n- Ensure the production area meets GMP requirements.\n- Ensure scale is working properly.\n\n\nInitials: ____________      Date/Time: ________________________\n\n\nPhase 1:\n1. Set pot to [Phase 1 Temp]°C.\n2. Add [Phase 1 ingredients] to pot.\nStir occasionally with spatula to help melt quicker.\n\n\n\nInitials: ____________      Date/Time: ________________________\n\n\nTemperature: [Phase 1 temp]°C\nMelt Time: [Phase 1 melt time] mins\nConsistency: [Phase 1 consistency]\n\n\n\nInitials: ____________      Date/Time: ________________________\n\n\nPhase 2:\n3. Set temperature on pot to [Phase 2 temp]°C.\n4. Add [Phase 2 ingredients] to pot.\nStir with spatula for 30 seconds to ensure uniform blending.\n\n\nInitials: ____________      Date/Time: ________________________\n\n\nTemperature: [Phase 2 temp]°C\nMix Time: [Phase 2 time] mins\nConsistency: [Phase 2 consistency]\n\n\nInitials: ____________      Date/Time: ________________________\n\n\n\nPhase 3:\n5. Set temperature on pot to [Phase 3 temp]°C.\n6. Once temperature has reached 65°C, add [Phase 3 ingredients] to pot.\nMix with immersion blender until smooth and homogenized.\n\n\nInitials: ____________      Date/Time: ________________________\n\n\nTemperature: [Phase 3 temp]°C\nMix Time: [Phase 3 time] mins\nConsistency: [Phase 3 consistency]\n\n\n\nInitials: ____________      Date/Time: ________________________\n\n\n\n7. Set temperature on pot to [Pour temp]°C.\n\n\n\nQuality Initials: ____________      Date/Time: ________________________\n\n\n\nFilling & Cooling Procedure:\n\n1. Pre-Fill Preparation\n\n   - Verify that all containers, lids, and tools are sanitized and approved for use.\n   - Lay out only the number of containers required for the batch.\n   - Confirm container SKU [container SKU] Initials: ____________  Date/Time: ________________________\n\n\n2. Fill Conditions\n\n   - Confirm product temperature has reached [Pour temp]°C.\n   - Carefully fill each container to target fill weight/volume.\n   - Wipe container rims if necessary to prevent contamination before capping.\n\n\n3. Cooling Process\n\n   - Allow filled containers to cool in a controlled area free of drafts, debris, and contamination risk for a minimum of 10 minutes or until fully set (maximum 30 minutes).\n   - Do not disturb containers during this period to avoid texture disruption.\n\n\n4. In-Process Quality Control Checks\nPerform the following QC checks on at least 3 random units:\n\n   - Texture and consistency: [Product texture and consistency]\n   - Aroma: [Product aroma]\n   - Visual inspection: Check for separation, graininess, air bubbles, or irregularities.\n\nIf deviations are observed, document immediately and notify supervisor before proceeding.\n\nQuality Initials: ____________      Date/Time: ________________________\n\n\n5. Post-Fill Actions\n\n   - Cap all containers securely using appropriate closures.\n   - Inspect closures for proper application (tightness, alignment).\n   - Shut down all filling equipment and clean per cleaning SOP.\n   - Record number of containers filled.\n\nNo. of Pieces Filled: ____________________\n\nInitials: ____________  Date/Time: ________________________\n\n\nLabeling & Inventory Management\n1. Labeling\n\n   - Confirm label SKU [label sku] Initials: ____________  Date/Time: ________________________\n   - Apply labels evenly and securely to containers.\n   - Perform visual inspection to confirm legibility and placement.\n   - Application method: ________________________\n\n\n2. Inventory Management\nMove finished products into designated quarantine area for finished goods.\nStorage location: ________________ \nInitials: ____________\nDate/Time: ________________________`;
+      miCheckbox.addEventListener('change', function() {
+        if (miCheckbox.checked) {
+          miContainer.style.display = '';
+          if (!miTextarea.value.trim()) {
+            miTextarea.value = template;
+          }
+        } else {
+          miContainer.style.display = 'none';
+          miTextarea.value = '';
+        }
+      });
+    });
   </script>
 </body>
 </html>
