@@ -1617,7 +1617,7 @@ async function processShippingLabelsWithBoxData(orderParcels) {
             Customer: order.customer.name,
             ShippedAt: new Date().toISOString(),
             ShippingCost: labelData.amount ? parseFloat(labelData.amount) : null,
-            BoxSkus: parcel.boxes ? JSON.stringify(parcel.boxes.map(b => b.sku)) : null
+            BoxSkus: parcel.boxes ? parcel.boxes.map(b => b.sku) : null
           });
           // Remove from Orders table
           await supabase.from('Orders').delete().eq('OrderID', order.orderNumber);
@@ -1630,11 +1630,24 @@ async function processShippingLabelsWithBoxData(orderParcels) {
           for (const box of parcel.boxes) {
             if (box.sku) {
               try {
-                // Decrement box quantity by 1 using update on Boxes table
-                const { error: boxError } = await supabase
+                // Decrement box quantity by 1 (fetch and update, no supabase.literal in browser)
+                const { data: boxData, error: fetchError } = await supabase
                   .from('Boxes')
-                  .update({ Quantity: supabase.literal('Quantity - 1') })
-                  .eq('SKU', box.sku);
+                  .select('Quantity')
+                  .eq('SKU', box.sku)
+                  .single();
+                if (!fetchError && boxData) {
+                  const newQty = (boxData.Quantity ?? 0) - 1;
+                  const { error: boxError } = await supabase
+                    .from('Boxes')
+                    .update({ Quantity: newQty })
+                    .eq('SKU', box.sku);
+                  if (boxError) {
+                    console.error('Error decrementing box inventory for', box.sku, boxError);
+                  }
+                } else if (fetchError) {
+                  console.error('Error fetching box quantity for', box.sku, fetchError);
+                }
               } catch (err) {
                 console.error('Error decrementing box inventory for', box.sku, err);
               }
