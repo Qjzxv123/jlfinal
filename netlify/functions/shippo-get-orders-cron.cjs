@@ -47,11 +47,24 @@ console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
           }
         }
       }
+      // Build customer object with required fields
+      let customerObj = null;
+      if (order.to_address) {
+        customerObj = {
+          name: order.to_address.name || '',
+          address1: order.to_address.street1 || '',
+          address2: order.to_address.street2 || '',
+          city: order.to_address.city || '',
+          state: order.to_address.state || '',
+          zipCode: order.to_address.zip || '',
+          country: order.to_address.country || ''
+        };
+      }
       await supabase.from('Orders').upsert({
         OrderID: order.order_number.replace("#",""),
         Retailer: retailerValue,
         Items: order.line_items || null,
-        Customer: order.to_address || null,
+        Customer: customerObj ? JSON.stringify(customerObj) : null,
         Platform: order.shop_app,
         Link: getPlatformOrderUrl(order.shop_app, order.order_number, order.shopify_id, retailerValue),
         Status: order.status || 'Unfullfilled',
