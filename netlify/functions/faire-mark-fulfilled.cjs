@@ -75,14 +75,17 @@ exports.handler = async function(event, context) {
       }
     }
 
+    // Compose credentials for new Faire API header
+    const faireClientSecret = process.env.FAIRE_CLIENT_SECRET || '';
+    const credentials = Buffer.from(`${faireClientId}:${faireClientSecret}`).toString('base64');
     let response, result;
     try {
       response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          ...(faireClientId ? { 'X-FAIRE-CLIENT-ID': faireClientId } : {})
+          'X-FAIRE-APP-CREDENTIALS': credentials,
+          'X-FAIRE-OAUTH-ACCESS-TOKEN': accessToken,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ shipments })
       });
