@@ -1596,7 +1596,15 @@ async function processShippingLabelsWithBoxData(orderParcels) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order, parcel, rate_id: selectedRate.object_id })
       });
-      if (!labelResp.ok) throw new Error('Failed to buy label');
+      if (!labelResp.ok) {
+        let errorMsg = 'Failed to buy label';
+        try {
+          const errorBody = await labelResp.text();
+          errorMsg += `: ${errorBody}`;
+        } catch (e) {}
+        alert('Error creating label for order ' + order.orderNumber + ': ' + errorMsg);
+        continue;
+      }
       labelData = await labelResp.json();
       if (labelData && labelData.label_url) {
         window.open(labelData.label_url, '_blank');

@@ -32,8 +32,10 @@ console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
       // Get first SKU from line_items
       let retailerValue = "JNL";
       if (order.line_items && order.line_items.length > 0) {
-        const firstSku = order.line_items[0].sku;
-        if (firstSku) {
+        let firstSku = order.line_items[0].sku;
+        if (firstSku && typeof firstSku === 'string') {
+          // If SKU contains '+', only use the first part
+          firstSku = firstSku.split('+')[0].trim();
           // Query Product table for retailer value
           const { data: product, error } = await supabase
             .from('Products')

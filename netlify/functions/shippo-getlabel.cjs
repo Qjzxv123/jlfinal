@@ -115,13 +115,26 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({ rate: rate_id, label_file_type: 'PDF' })
     });
-    const transaction = await transactionResp.json();
+    const transactionText = await transactionResp.text();
+    let transaction;
+    try {
+      transaction = JSON.parse(transactionText);
+    } catch (parseErr) {
+      console.error('[Shippo Label] Failed to parse transaction response:', transactionText);
+      return { statusCode: 500, body: 'Error buying label: Invalid JSON response from Shippo.' };
+    }
     if (!transactionResp.ok || !transaction.label_url) {
-      return { statusCode: 500, body: 'Error buying label: ' + (transaction.detail || 'No label_url') };
+      console.error('[Shippo Label] Label purchase failed:', {
+        status: transactionResp.status,
+        statusText: transactionResp.statusText,
+        transaction
+      });
+      return { statusCode: 500, body: 'Error buying label: ' + (transaction.detail || 'No label_url'), debug: transaction };
     }
     labelUrl = transaction.label_url;
     shippingCost = transaction.amount;
   } catch (err) {
+    console.error('[Shippo Label] Exception during label purchase:', err);
     return { statusCode: 500, body: 'Error buying label: ' + err.message };
   }
 
