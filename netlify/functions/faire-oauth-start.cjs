@@ -21,7 +21,8 @@ exports.handler = async (event) => {
     'WRITE_INVENTORIES',
     'READ_BRAND',
     'READ_RETAILER',
-    'READ_SHIPMENTS'
+    'READ_SHIPMENTS',
+    'WRITE_SHIPMENTS'
   ];
   const scopeParams = scopes.map(scope => `scope=${scope}`).join('&');
   const authUrl = `https://faire.com/oauth2/authorize?applicationId=${clientId}&${scopeParams}&state=${state}&redirectUrl=${encodeURIComponent(redirectUri)}`;
