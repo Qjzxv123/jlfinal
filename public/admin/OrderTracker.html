@@ -404,6 +404,10 @@
     function renderOrders(orders) {
       const tbody = document.getElementById('orderTableBody');
       tbody.innerHTML = '';
+      // Remove any previous event listeners by cloning tbody
+      const newTbody = tbody.cloneNode(false);
+      tbody.parentNode.replaceChild(newTbody, tbody);
+      // Now use newTbody for all further operations
       (async () => {
         // Fetch UserID to user_key map for display
         const { data: userRows } = await client
@@ -502,10 +506,10 @@
             <td>${scheduleColHtml}</td>
             <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#e74c3c; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Remove</button></td>
           `;
-          tbody.appendChild(tr);
+          newTbody.appendChild(tr);
         }
-        // Add event listeners for remove buttons (delegate to tbody)
-        tbody.addEventListener('click', async function(e) {
+        // Add event listeners for remove buttons (delegate to newTbody)
+        newTbody.addEventListener('click', async function(e) {
           if (e.target && e.target.classList.contains('remove-order-btn')) {
             const orderId = e.target.getAttribute('data-order-id');
             if (confirm('Are you sure you want to remove this order?')) {
@@ -662,6 +666,20 @@
           .eq('OrderNumber', orderId);
         if (error) {
           alert('Failed to schedule task: ' + error.message);
+        }
+        // Fetch order details for params
+        let orderDetails = order;
+        if (!orderDetails) {
+          const { data } = await client
+            .from('ManufacturingTasks')
+            .select('ProductSKU, Quantity')
+            .eq('OrderNumber', orderId)
+            .maybeSingle();
+          orderDetails = data;
+        }
+        if (orderDetails && orderDetails.ProductSKU && plannedDate && orderDetails.Quantity) {
+          const url = `https://jlfinal.netlify.app/public/admin/manufacturinginstructions?sku=${encodeURIComponent(orderDetails.ProductSKU)}&batchtime=${encodeURIComponent(plannedDate)}&batchSize=${encodeURIComponent(orderDetails.Quantity)}`;
+          window.open(url, '_blank');
         }
         modal.style.display = 'none';
         loadOrders();
