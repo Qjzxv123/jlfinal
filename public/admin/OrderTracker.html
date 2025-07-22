@@ -659,26 +659,101 @@
           alert('Please select a vessel.');
           return;
         }
-        // Update Progress, PlannedManufactureDate, and assign Vessel
-        const { error } = await client
-          .from('ManufacturingTasks')
-          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, Vessel: Vessel })
-          .eq('OrderNumber', orderId);
-        if (error) {
-          alert('Failed to schedule task: ' + error.message);
-        }
-        // Fetch order details for params
+        // Fetch order details
         let orderDetails = order;
         if (!orderDetails) {
           const { data } = await client
             .from('ManufacturingTasks')
-            .select('ProductSKU, Quantity')
+            .select('ProductSKU, Quantity, OrderNumber, Customer, Progress, UserID')
             .eq('OrderNumber', orderId)
             .maybeSingle();
           orderDetails = data;
         }
-        if (orderDetails && orderDetails.ProductSKU && plannedDate && orderDetails.Quantity) {
-          const url = `https://jlfinal.netlify.app/public/admin/manufacturinginstructions?sku=${encodeURIComponent(orderDetails.ProductSKU)}&batchtime=${encodeURIComponent(plannedDate)}&batchSize=${encodeURIComponent(orderDetails.Quantity)}`;
+        if (!orderDetails || !orderDetails.ProductSKU || !orderDetails.Quantity) {
+          alert('Order details not found.');
+          return;
+        }
+        // --- Calculate max batch size (BatchMaker logic) ---
+        let maxBatch = 0;
+        // Fetch product size
+        const { data: productData, error: productError } = await client
+          .from('Products')
+          .select('"Product Weight(oz)"')
+          .eq('ProductSKU', orderDetails.ProductSKU)
+          .maybeSingle();
+        let productSizeOz = 0;
+        if (!productError && productData && productData["Product Weight(oz)"]) {
+          productSizeOz = Number(productData["Product Weight(oz)"]);
+        }
+        if (productSizeOz > 0) {
+          if (["P1-30L","P2-30L","P3-30L","P4-30L","P5-30L"].includes(Vessel)) {
+            maxBatch = Math.floor((816 / productSizeOz) * 1.1);
+          } else if (Vessel === "P6-100L") {
+            maxBatch = Math.floor((2576 / productSizeOz) * 1.1);
+          } else {
+            maxBatch = orderDetails.Quantity; // fallback: no split
+          }
+        } else {
+          maxBatch = orderDetails.Quantity; // fallback: no split
+        }
+        if (maxBatch < 1) maxBatch = orderDetails.Quantity;
+
+        // If quantity > maxBatch, split into multiple orders
+        let batches = [];
+        let remaining = orderDetails.Quantity;
+        let batchNum = 1;
+        while (remaining > 0) {
+          const thisBatch = Math.min(remaining, maxBatch);
+          batches.push(thisBatch);
+          remaining -= thisBatch;
+        }
+
+        // Schedule the first batch (update current order)
+        const { error } = await client
+          .from('ManufacturingTasks')
+          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, Vessel: Vessel, Quantity: batches[0] })
+          .eq('OrderNumber', orderId);
+        if (error) {
+          alert('Failed to schedule task: ' + error.message);
+        }
+
+        // For each additional batch, create a new order with OrderNumber suffix
+        // Use the original order's OrderNumber as the base
+        const baseOrderNumber = orderDetails.OrderNumber || orderId;
+        // Ensure Customer and UserID are set
+        // If Customer or UserID are missing, fetch from DB using orderId
+        let customerValue = orderDetails.Customer;
+        let userIdValue = orderDetails.UserID;
+        if (!customerValue || !userIdValue) {
+          const { data: origOrder } = await client
+            .from('ManufacturingTasks')
+            .select('Customer, UserID')
+            .eq('OrderNumber', orderId)
+            .maybeSingle();
+          if (origOrder) {
+            if (!customerValue) customerValue = origOrder.Customer;
+            if (!userIdValue) userIdValue = origOrder.UserID;
+          }
+        }
+        for (let i = 1; i < batches.length; ++i) {
+          const newOrderNumber = `${baseOrderNumber}-${i+1}`;
+          await client
+            .from('ManufacturingTasks')
+            .insert([{
+              ...orderDetails,
+              OrderNumber: newOrderNumber,
+              Quantity: batches[i],
+              Progress: 'scheduled',
+              PlannedManufactureDate: plannedDate,
+              Vessel: Vessel,
+              Customer: customerValue,
+              UserID: userIdValue
+            }]);
+        }
+
+        // Open manufacturing instructions for the first batch
+        if (orderDetails.ProductSKU && plannedDate && batches[0]) {
+          const url = `https://jlfinal.netlify.app/public/admin/manufacturinginstructions?sku=${encodeURIComponent(orderDetails.ProductSKU)}&batchtime=${encodeURIComponent(plannedDate)}&batchSize=${encodeURIComponent(batches[0])}`;
           window.open(url, '_blank');
         }
         modal.style.display = 'none';
