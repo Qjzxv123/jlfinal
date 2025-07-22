@@ -261,40 +261,22 @@
 
     // Refactor: extract file processing logic to a function
     async function processCSVText(text) {
+
       output.textContent = '';
 
-      // Count occurrences of "FREE IMP-1-BARE - ORDER $50+"
-      let freeImpBareCount = (text.match(/FREE IMP-1-BARE - ORDER \$50\+/g) || []).length;
-      if (freeImpBareCount > 0) {
-        // Fetch current quantity for "lip-bare"
-        const { data: lipBareData, error: lipBareError } = await supabase
-          .from('Products')
-          .select('Quantity')
-          .eq('ProductSKU', 'LIP-1-BARE')
-          .single();
-        if (!lipBareError && lipBareData && typeof lipBareData.Quantity === 'number') {
-          const newLipBareQty = lipBareData.Quantity - freeImpBareCount;
-          const { error: updateLipBareError } = await supabase
-            .from('Products')
-            .update({ Quantity: newLipBareQty })
-            .eq('ProductSKU', 'lip-bare');
-          if (updateLipBareError) {
-            output.innerHTML += `<div class="error">Error updating lip-bare: ${updateLipBareError.message}</div>`;
-          } else {
-            output.innerHTML += `<div class="success">lip-bare: Removed ${freeImpBareCount} (FREE IMP-1-BARE), Quantity is now ${newLipBareQty}</div>`;
-            // Log the update
-            const logEntry = `${new Date().toISOString().substring(0, 10)},lip-bare,${freeImpBareCount}\n`;
-            try {
-              let existing = localStorage.getItem('inventorylog.csv') || '';
-              existing += logEntry;
-              localStorage.setItem('inventorylog.csv', existing);
-            } catch (e) {
-              output.innerHTML += `<div class="error">Error logging update for lip-bare</div>`;
-            }
-          }
-        } else {
-          output.innerHTML += `<div class="error">lip-bare not found</div>`;
+      // Insert a ---BATCH--- marker with timestamp at the start of each new CSV upload
+      const batchTimestamp = new Date().toISOString();
+      const batchMarker = `---BATCH--- ${batchTimestamp}\n`;
+      let batchLog = batchMarker; // Will accumulate all log entries for this batch
+      try {
+        let existing = localStorage.getItem('inventorylog.csv') || '';
+        // Only add marker if not already the last line
+        if (!existing.endsWith(batchMarker)) {
+          existing += batchMarker;
+          localStorage.setItem('inventorylog.csv', existing);
         }
+      } catch (e) {
+        output.innerHTML += `<div class="error">Error logging batch marker</div>`;
       }
 
 
@@ -394,8 +376,9 @@
         } else {
           output.innerHTML += `<div class="success">${productSKU}: Removed ${quantityToRemove}, Quantity is now ${newQuantity}</div>`;
           successCount++;
-          // Append log to inventorylog.csv
+          // Append log to inventorylog.csv and to this batch's log
           const logEntry = `${new Date().toISOString().substring(0, 10)},${productSKU},${quantityToRemove}\n`;
+          batchLog += logEntry;
           try {
             let existing = localStorage.getItem('inventorylog.csv') || '';
             existing += logEntry;
@@ -406,6 +389,21 @@
         }
       }
       output.innerHTML += `<div class="success">Processed ${successCount} rows successfully, ${errorCount} errors.</div>`;
+
+      // Upload this batch's log to Supabase storage bucket
+      try {
+        const fileName = `batchlog-${batchTimestamp.replace(/[:.]/g, '-')}.txt`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('inventoryupdaterlogbucket')
+          .upload(fileName, batchLog, { contentType: 'text/plain', upsert: true });
+        if (uploadError) {
+          output.innerHTML += `<div class='error'>Error uploading batch log to Supabase: ${uploadError.message}</div>`;
+        } else {
+          output.innerHTML += `<div class='success'>Batch log uploaded to Supabase as ${fileName}</div>`;
+        }
+      } catch (e) {
+        output.innerHTML += `<div class='error'>Error uploading batch log to Supabase</div>`;
+      }
     }
 
     fileInput.addEventListener('change', async (event) => {
