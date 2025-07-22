@@ -97,21 +97,9 @@ exports.handler = async function(event, context) {
       };
     }
     if (!response.ok) {
-      // Add detailed debug info for 401 errors
-      let debug = {};
-      if (response.status === 401) {
-        debug = {
-          user_key,
-          accessToken: accessToken ? accessToken.slice(0, 8) + '...' : undefined,
-          url,
-          shipments,
-          tokenRow,
-          faire_error: result,
-        };
-      }
       return {
         statusCode: response.status,
-        body: JSON.stringify({ error: result.error || 'Failed to mark order as fulfilled', details: result, ...debug })
+        body: JSON.stringify({ error: result.error || 'Failed to mark order as fulfilled', details: result })
       };
     }
     return {
