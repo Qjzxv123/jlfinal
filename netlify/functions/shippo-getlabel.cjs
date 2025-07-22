@@ -123,13 +123,54 @@ exports.handler = async (event) => {
       console.error('[Shippo Label] Failed to parse transaction response:', transactionText);
       return { statusCode: 500, body: 'Error buying label: Invalid JSON response from Shippo.' };
     }
-    if (!transactionResp.ok || !transaction.label_url) {
+    // If label_url is missing and status is QUEUED, poll for completion
+    if (transaction.status === 'QUEUED' && transaction.object_id) {
+      const pollUrl = `https://api.goshippo.com/transactions/${transaction.object_id}`;
+      let pollCount = 0;
+      const maxPolls = 10; // up to 10 times
+      const pollDelay = 2000; // 2 seconds
+      let pollTransaction = transaction;
+      while (pollCount < maxPolls && (!pollTransaction.label_url && pollTransaction.status !== 'ERROR')) {
+        await new Promise(res => setTimeout(res, pollDelay));
+        pollCount++;
+        try {
+          const pollResp = await fetch(pollUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `ShippoToken ${SHIPPO_API_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          pollTransaction = await pollResp.json();
+          if (pollTransaction.status === 'SUCCESS' && pollTransaction.label_url) {
+            break;
+          }
+          if (pollTransaction.status === 'ERROR') {
+            break;
+          }
+        } catch (pollErr) {
+          console.error('[Shippo Label] Polling error:', pollErr);
+          break;
+        }
+      }
+      transaction.label_url = pollTransaction.label_url;
+      transaction.amount = pollTransaction.amount;
+      transaction.status = pollTransaction.status;
+      transaction.messages = pollTransaction.messages;
+    }
+    if (!transaction.label_url || transaction.status === 'ERROR') {
       console.error('[Shippo Label] Label purchase failed:', {
         status: transactionResp.status,
         statusText: transactionResp.statusText,
         transaction
       });
-      return { statusCode: 500, body: 'Error buying label: ' + (transaction.detail || 'No label_url'), debug: transaction };
+      let errorMsg = 'No label_url';
+      if (transaction.messages && Array.isArray(transaction.messages) && transaction.messages.length > 0) {
+        errorMsg = transaction.messages.map(m => m.text).join('; ');
+      } else if (transaction.detail) {
+        errorMsg = transaction.detail;
+      }
+      return { statusCode: 500, body: 'Error buying label: ' + errorMsg, debug: transaction };
     }
     labelUrl = transaction.label_url;
     shippingCost = transaction.amount;
