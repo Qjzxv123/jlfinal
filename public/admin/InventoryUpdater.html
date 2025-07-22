@@ -394,7 +394,7 @@
       try {
         const fileName = `batchlog-${batchTimestamp.replace(/[:.]/g, '-')}.txt`;
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('inventoryupdaterlogbucket')
+          .from('inventoryupdaterlog')
           .upload(fileName, batchLog, { contentType: 'text/plain', upsert: true });
         if (uploadError) {
           output.innerHTML += `<div class='error'>Error uploading batch log to Supabase: ${uploadError.message}</div>`;
