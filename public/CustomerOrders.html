@@ -684,8 +684,8 @@
             try {
                 const { data, error } = await client
                     .from('Order History')
-                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, ScannedOutAt')
-                    .order('ScannedOutAt', { ascending: false });
+                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, ShippedAt')
+                    .order('ShippedAt', { ascending: false });
                 if (error) throw error;
                 if (!data || data.length === 0) {
                     viewer.innerHTML = '<div>No order history found.</div>';
@@ -699,7 +699,7 @@
                             <th>Retailer</th>
                             <th>Items</th>
                             <th>Notes</th>
-                            <th>Scanned Out At</th>
+                            <th>Shipped At</th>
                         </tr>
                 `;
                 for (const order of data) {
@@ -730,7 +730,7 @@
                     const notesDisplay = order.Notes ? 
                         order.Notes.length > 50 ? order.Notes.substring(0, 50) + '...' : order.Notes
                         : 'No notes';
-                    const scannedOutAt = order.ScannedOutAt ? formatDate(order.ScannedOutAt) : 'N/A';
+                    const ShippedAt = order.ShippedAt ? formatDate(order.ShippedAt) : 'N/A';
                     html += `
                         <tr>
                             <td>${orderIdDisplay}</td>
@@ -738,7 +738,7 @@
                             <td>${order.Retailer || 'N/A'}</td>
                             <td>${itemsDisplay}</td>
                             <td><div style="max-width: 150px; word-wrap: break-word;">${notesDisplay}</div></td>
-                            <td>${scannedOutAt}</td>
+                            <td>${ShippedAt}</td>
                         </tr>
                     `;
                 }
