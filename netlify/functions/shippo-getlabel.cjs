@@ -172,7 +172,7 @@ exports.handler = async (event) => {
         'Authorization': `ShippoToken ${SHIPPO_API_KEY}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ rate: rate_id, label_file_type: 'PDF' })
+      body: JSON.stringify({ rate: rate_id, label_file_type: 'PDF', label_size: '4x6in' })
     });
     const transactionText = await transactionResp.text();
     let transaction;

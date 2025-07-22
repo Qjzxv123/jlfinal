@@ -295,6 +295,7 @@
         .platform-etsy { background: #f56500; }
         .platform-faire { background: #2c5aa0; }
         .platform-shopify { background: #95bf47; }
+        .platform-amazon { background: #ff9900; }
 
         .orders-grid {
             display: grid;
@@ -617,6 +618,7 @@
                     <option value="etsy">Etsy</option>
                     <option value="faire">Faire</option>
                     <option value="shopify">Shopify</option>
+                    <option value="amazon">Amazon</option>
                 </select>
                 <select id="retailerFilter" onchange="filterOrders()">
                     <option value="">All Retailers</option>
@@ -664,6 +666,10 @@
                 <div class="summary-item">
                     <span class="platform-badge platform-shopify">Shopify</span>
                     <span id="shopifyCount">0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="platform-badge platform-amazon">Amazon</span>
+                    <span id="amazonCount">0</span>
                 </div>
             </div>            <div class="orders-grid" id="ordersGrid">
                 <div class="no-orders">
@@ -1022,13 +1028,15 @@
                 total: filteredOrders.length,
                 etsy: filteredOrders.filter(o => o.platform === 'etsy').length,
                 faire: filteredOrders.filter(o => o.platform === 'faire').length,
-                shopify: filteredOrders.filter(o => o.platform === 'shopify').length
+                shopify: filteredOrders.filter(o => o.platform === 'shopify').length,
+                amazon: filteredOrders.filter(o => o.platform === 'amazon').length
             };
 
             document.getElementById('totalOrders').textContent = counts.total;
             document.getElementById('etsyCount').textContent = counts.etsy;
             document.getElementById('faireCount').textContent = counts.faire;
             document.getElementById('shopifyCount').textContent = counts.shopify;
+            document.getElementById('amazonCount').textContent = counts.amazon;
         }        function toggleProducts(orderNumber) {
             const productsList = document.getElementById(`products-${orderNumber}`);
             const toggle = productsList.previousElementSibling;
