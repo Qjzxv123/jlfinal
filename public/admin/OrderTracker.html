@@ -206,6 +206,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="icon" href="/public/favicon.ico">
 </head>
 <body>
   <div class="sidebar" id="sidebar">
@@ -432,6 +433,63 @@
           } else {
             scheduleColHtml = `<button class="schedule-btn" data-order-id="${task.OrderNumber}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Schedule</button>`;
           }
+
+          // --- Ingredient check logic (BatchMaker style) ---
+          let highlightRed = false;
+          try {
+            if (task.ProductSKU && task.Quantity) {
+              // Fetch product process and weight
+              const { data: productData, error: productError } = await client
+                .from('Products')
+                .select('Process, "Product Weight(oz)"')
+                .eq('ProductSKU', task.ProductSKU)
+                .maybeSingle();
+              if (!productError && productData && productData.Process && productData["Product Weight(oz)"]) {
+                const process = productData.Process;
+                const productSizeOz = Number(productData["Product Weight(oz)"]) || 0;
+                const productSizeLbs = productSizeOz / 16;
+                // Parse process JSON for ingredients (same as BatchMaker)
+                let ingredients = [];
+                Object.keys(process).forEach(key => {
+                  if (key.startsWith('Phase ') && process[key][`${key} Ingredients`]) {
+                    process[key][`${key} Ingredients`].forEach(ingredient => {
+                      if (ingredient.IngredientSKU && ingredient['Ingredient Quantity(%)'] !== undefined) {
+                        const percentage = ingredient['Ingredient Quantity(%)'];
+                        if (!isNaN(percentage) && percentage > 0) {
+                          const baseAmountLbs = 1.1 * (percentage / 100) * productSizeLbs;
+                          const totalAmount = baseAmountLbs * task.Quantity;
+                          ingredients.push({
+                            sku: ingredient.IngredientSKU,
+                            totalAmount
+                          });
+                        }
+                      }
+                    });
+                  }
+                });
+                // Fetch ingredient inventory
+                if (ingredients.length > 0) {
+                  const skus = ingredients.map(i => i.sku);
+                  const { data: invData, error: invError } = await client
+                    .from('Ingredients')
+                    .select('IngredientSKU, "Quantity(Lbs/Units)"')
+                    .in('IngredientSKU', skus);
+                  if (!invError && invData) {
+                    for (const ing of ingredients) {
+                      const inv = invData.find(row => row.IngredientSKU === ing.sku);
+                      if (!inv || (Number(inv["Quantity(Lbs/Units)"]) < ing.totalAmount)) {
+                        highlightRed = true;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) { /* fail safe: do not highlight */ }
+
+          if (highlightRed) tr.style.background = '#ffeaea';
+
           tr.innerHTML = `
             <td>${task.OrderNumber || ''}</td>
             <td>${customerDisplay}</td>
@@ -445,10 +503,11 @@
             <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#e74c3c; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Remove</button></td>
           `;
           tbody.appendChild(tr);
-        // Add event listeners for remove buttons
-        document.querySelectorAll('.remove-order-btn').forEach(btn => {
-          btn.addEventListener('click', async function() {
-            const orderId = this.getAttribute('data-order-id');
+        }
+        // Add event listeners for remove buttons (delegate to tbody)
+        tbody.addEventListener('click', async function(e) {
+          if (e.target && e.target.classList.contains('remove-order-btn')) {
+            const orderId = e.target.getAttribute('data-order-id');
             if (confirm('Are you sure you want to remove this order?')) {
               const { error } = await client
                 .from('ManufacturingTasks')
@@ -460,9 +519,8 @@
                 loadOrders();
               }
             }
-          });
+          }
         });
-        }
         // Add event listeners for update progress buttons
         document.querySelectorAll('.update-progress-btn').forEach(btn => {
           btn.addEventListener('click', function() {
