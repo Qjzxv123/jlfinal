@@ -42,8 +42,7 @@ exports.handler = async (event) => {
       'WRITE_INVENTORIES',
       'READ_BRAND',
       'READ_RETAILER',
-      'READ_SHIPMENTS',
-      'WRITE_SHIPMENTS'
+      'READ_SHIPMENTS'
     ];
   let tokenResponse, tokenData;
   try {

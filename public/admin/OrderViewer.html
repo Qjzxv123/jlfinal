@@ -1316,65 +1316,65 @@ function showShippingModal(orders) {
         async function calculateOrderWeight(order) {
             let totalWeight = 0;
             let weightBreakdown = [];
-            
             try {
+                // Gather all unique SKUs from the order
+                const skuSet = new Set();
                 for (const product of order.products) {
-                    if (product.sku) {
-                        // Query Supabase for product size information
-                        const { data: productData, error } = await supabase
-                            .from('Products')
-                            .select('Name, "Product Weight(oz)"')
-                            .eq('ProductSKU', product.sku)
-                            .maybeSingle();
-                        
-                        if (!error && productData) {
-                            // Use the Product Weight(oz) field directly
-                            const weightValue = productData['Product Weight(oz)'];
-                            const unitWeight = parseFloat(weightValue);
-                            
-                            if (!isNaN(unitWeight) && unitWeight > 0) {
-                                const totalProductWeight = unitWeight * product.quantity;
-                                totalWeight += totalProductWeight;
-                                
-                                weightBreakdown.push({
-                                    sku: product.sku,
-                                    name: productData.Name || product.name,
-                                    unitWeight: unitWeight,
-                                    quantity: product.quantity,
-                                    totalWeight: totalProductWeight,
-                                    weight: `${unitWeight} oz`,
-                                    weightSource: 'Database'
-                                });
-                            } else {
-                                // Weight is 0, null, or invalid
-                                weightBreakdown.push({
-                                    sku: product.sku,
-                                    name: productData.Name || product.name,
-                                    unitWeight: 0,
-                                    quantity: product.quantity,
-                                    totalWeight: 0,
-                                    weight: weightValue ? `${weightValue} oz (invalid)` : 'No weight data',
-                                    weightSource: 'Invalid or missing weight'
-                                });
-                            }
-                        } else {
-                            // Product not found in database
-                            weightBreakdown.push({
-                                sku: product.sku,
-                                name: product.name,
-                                unitWeight: 0,
-                                quantity: product.quantity,
-                                totalWeight: 0,
-                                weight: 'Product not found',
-                                weightSource: 'Not found in database'
-                            });
+                    if (product.sku) skuSet.add(product.sku);
+                }
+                const skus = Array.from(skuSet);
+                let productWeights = {};
+                if (skus.length > 0) {
+                    // Fetch all product weights in one request
+                    const { data: productsData, error } = await supabase
+                        .from('Products')
+                        .select('ProductSKU, Name, "Product Weight(oz)"')
+                        .in('ProductSKU', skus);
+                    if (!error && Array.isArray(productsData)) {
+                        for (const prod of productsData) {
+                            productWeights[prod.ProductSKU] = {
+                                name: prod.Name,
+                                unitWeight: parseFloat(prod['Product Weight(oz)'])
+                            };
                         }
+                    }
+                }
+                for (const product of order.products) {
+                    let unitWeight = 0;
+                    let name = product.name;
+                    let weightValue = '';
+                    if (product.sku && productWeights[product.sku]) {
+                        unitWeight = productWeights[product.sku].unitWeight;
+                        name = productWeights[product.sku].name || product.name;
+                        weightValue = productWeights[product.sku].unitWeight;
+                    }
+                    if (!isNaN(unitWeight) && unitWeight > 0) {
+                        const totalProductWeight = unitWeight * product.quantity;
+                        totalWeight += totalProductWeight;
+                        weightBreakdown.push({
+                            sku: product.sku,
+                            name,
+                            unitWeight,
+                            quantity: product.quantity,
+                            totalWeight: totalProductWeight,
+                            weight: `${unitWeight} oz`,
+                            weightSource: 'Database'
+                        });
+                    } else {
+                        weightBreakdown.push({
+                            sku: product.sku,
+                            name,
+                            unitWeight: 0,
+                            quantity: product.quantity,
+                            totalWeight: 0,
+                            weight: weightValue ? `${weightValue} oz (invalid)` : 'No weight data',
+                            weightSource: 'Invalid or missing weight'
+                        });
                     }
                 }
             } catch (error) {
                 console.error('Error calculating order weight:', error);
             }
-            
             return { totalWeight, weightBreakdown };
         }
 
@@ -1406,11 +1406,9 @@ function showShippingModal(orders) {
                 </div>
             `;
             boxCounter = 0;
-            
             // Populate the initial box select
             const initialSelect = boxesContainer.querySelector('.box-select');
             populateBoxSelect(initialSelect);
-            
             // Clear weight fields
             const lbsInput = document.getElementById('modalWeightLbs');
             if (lbsInput) {
@@ -1424,6 +1422,7 @@ function showShippingModal(orders) {
             } else {
                 console.warn('modalWeightOz input not found');
             }
+            // No manual tracking number input for Faire orders; will use labelData after label purchase
             
             // Display order information
             await displayOrderInfoInModal(order);
@@ -1521,6 +1520,7 @@ document.getElementById('shippingForm').onsubmit = function(e) {
     return;
   }
 
+  const modalOrder = shippingModalOrders[shippingModalIndex];
   // Build boxes array as before
   const boxes = selectedBoxes.map(box => {
     let length = 1, width = 1, height = 1;
@@ -1557,15 +1557,16 @@ document.getElementById('shippingForm').onsubmit = function(e) {
     parcelHeight = Number(boxes[0].height) > 0 ? Number(boxes[0].height) : 1;
   }
 
+  let parcelObj = {
+    weight: totalWeightOz,
+    length: parcelLength,
+    width: parcelWidth,
+    height: parcelHeight,
+    boxes
+  };
   shippingModalResults.push({
-    order: shippingModalOrders[shippingModalIndex],
-    parcel: {
-      weight: totalWeightOz,
-      length: parcelLength,
-      width: parcelWidth,
-      height: parcelHeight,
-      boxes
-    }
+    order: modalOrder,
+    parcel: parcelObj
   });
   shippingModalIndex++;
   showShippingModalStep();
@@ -1580,6 +1581,8 @@ document.getElementById('modalCloseBtn').onclick = function() {
 
 async function processShippingLabelsWithBoxData(orderParcels) {
   showStatus('Generating shipping labels...', 'loading');
+  // Track label and rate data for each order for later Faire fulfillment
+  const faireFulfillmentQueue = [];
   for (const {order, parcel} of orderParcels) {
     try {
       let ratesResp, ratesData, selectedRate, labelResp, labelData;
@@ -1673,7 +1676,18 @@ async function processShippingLabelsWithBoxData(orderParcels) {
         selectedOrders.delete(order.orderNumber);
         displayOrders();
         updateSummary();
-        // Mark order as shipped in Supabase Order History
+
+        // Queue Faire fulfillment if needed
+        if (order.platform === 'faire') {
+          // Pass retailer as user_key for Faire token lookup
+          // Use tracking number from labelData (preferred), fallback to selectedRate
+          let tracking_code = '';
+          if (labelData && labelData.tracking_number) tracking_code = labelData.tracking_number;
+          else if (labelData && labelData.tracking_code) tracking_code = labelData.tracking_code;
+          else if (selectedRate && selectedRate.tracking_number) tracking_code = selectedRate.tracking_number;
+          else if (parcel.tracking_number) tracking_code = parcel.tracking_number;
+          faireFulfillmentQueue.push({ order, parcel, labelData, selectedRate, user_key: order.shop, tracking_code });
+        }
       } else {
         alert('No label URL returned for order ' + order.orderNumber);
       }
@@ -1683,50 +1697,47 @@ async function processShippingLabelsWithBoxData(orderParcels) {
   }
   showStatus('Shipping label(s) generated.', 'success');
   setTimeout(hideStatus, 3000);
-  // After shipping label is received, mark Faire orders as fulfilled
-  for (const parcel of orderParcels) {
-    if (parcel && parcel.order && parcel.order.platform === 'faire') {
-      try {
-        // Attempt to extract tracking code, carrier, and cost from labelData if available
-        let tracking_code = '';
-        let carrier = '';
-        let maker_cost_cents = 0;
-        if (parcel.labelData) {
-          tracking_code = parcel.labelData.tracking_number || parcel.labelData.tracking_code || '';
-          carrier = parcel.labelData.carrier || parcel.labelData.provider || '';
-          if (parcel.labelData.amount) {
-            maker_cost_cents = Math.round(parseFloat(parcel.labelData.amount) * 100);
-          }
+
+  // After all labels are printed, mark Faire orders as fulfilled
+  for (const item of faireFulfillmentQueue) {
+    const { order, parcel, labelData, selectedRate, user_key, tracking_code } = item;
+    try {
+      // Attempt to extract carrier and cost from labelData if available
+      let carrier = '';
+      let maker_cost_cents = 0;
+      if (labelData) {
+        carrier = labelData.carrier || labelData.provider || '';
+        if (labelData.amount) {
+          maker_cost_cents = Math.round(parseFloat(labelData.amount) * 100);
         }
-        // Fallback: try to get from selectedRate if available
-        if (!tracking_code && parcel.selectedRate) {
-          tracking_code = parcel.selectedRate.tracking_number || '';
-          carrier = parcel.selectedRate.provider || '';
-          if (parcel.selectedRate.amount) {
-            maker_cost_cents = Math.round(parseFloat(parcel.selectedRate.amount) * 100);
-          }
-        }
-        // Always send shipments array
-        const shipments = [{
-          order_id: parcel.order.orderNumber,
-          maker_cost_cents,
-          carrier,
-          tracking_code
-        }];
-        const response = await fetch('/.netlify/functions/faire-mark-fulfilled', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shipments })
-        });
-        const result = await response.json();
-        if (result.success) {
-          console.log(`Faire order ${parcel.order.orderNumber} marked as fulfilled.`);
-        } else {
-          console.error(`Failed to mark Faire order ${parcel.order.orderNumber} as fulfilled:`, result.error || result);
-        }
-      } catch (err) {
-        console.error(`Error marking Faire order ${parcel.order.orderNumber} as fulfilled:`, err);
       }
+      // Fallback: try to get from selectedRate if available
+      if (!carrier && selectedRate) {
+        carrier = selectedRate.provider || '';
+        if (selectedRate.amount) {
+          maker_cost_cents = Math.round(parseFloat(selectedRate.amount) * 100);
+        }
+      }
+      // Always send shipments array
+      const shipments = [{
+        order_id: order.orderNumber,
+        maker_cost_cents,
+        carrier,
+        tracking_code: tracking_code || ''
+      }];
+      const response = await fetch('/.netlify/functions/faire-mark-fulfilled', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shipments, user_key })
+      });
+      const result = await response.json();
+      if (result.success) {
+        console.log(`Faire order ${order.orderNumber} marked as fulfilled.`);
+      } else {
+        console.error(`Failed to mark Faire order ${order.orderNumber} as fulfilled:`, result.error || result);
+      }
+    } catch (err) {
+      console.error(`Error marking Faire order ${order.orderNumber} as fulfilled:`, err);
     }
   }
 // Helper: Show Shippo rate selection modal and return selected rate

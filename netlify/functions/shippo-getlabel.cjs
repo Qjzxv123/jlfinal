@@ -99,6 +99,36 @@ exports.handler = async (event) => {
         tariff_number: ''
       });
     }
+
+    // Ensure parcel weight is at least the sum of customs item weights (in oz)
+    // Sum customs item weights (convert lbs to oz)
+    let customsTotalWeightOz = customsItems.reduce((sum, item) => {
+      let netWeightLbs = parseFloat(item.net_weight);
+      if (isNaN(netWeightLbs)) netWeightLbs = 0.1;
+      return sum + (netWeightLbs * 16 * (item.quantity || 1));
+    }, 0);
+    // Find the total parcel weight (sum all parcels if array)
+    let parcelTotalWeightOz = 0;
+    if (Array.isArray(parcel)) {
+      parcelTotalWeightOz = parcel.reduce((sum, box) => sum + (parseFloat(box.weight) || 0), 0);
+    } else {
+      parcelTotalWeightOz = parseFloat(parcel.weight) || 0;
+    }
+    // If customs weight > parcel weight, adjust parcel(s) weight up
+    if (customsTotalWeightOz > parcelTotalWeightOz) {
+      if (Array.isArray(parcel)) {
+        // Distribute the extra weight proportionally or add to first box
+        let extra = customsTotalWeightOz - parcelTotalWeightOz;
+        if (parcel.length > 0) {
+          parcel[0].weight = (parseFloat(parcel[0].weight) || 0) + extra;
+          parcelsArr[0].weight = (parseFloat(parcelsArr[0].weight) || 0) + extra;
+        }
+      } else {
+        parcel.weight = customsTotalWeightOz;
+        parcelsArr[0].weight = customsTotalWeightOz;
+      }
+    }
+
     // Create customs declaration
     try {
       const customsResp = await fetch('https://api.goshippo.com/customs/declarations/', {
@@ -143,9 +173,19 @@ exports.handler = async (event) => {
     });
     shipment = await shipmentResp.json();
     if (!shipmentResp.ok || !shipment.object_id) {
-      return { statusCode: 500, body: 'Error creating shipment: ' + (shipment.detail || 'No object_id') };
+      console.error('[Shippo Label] Shipment creation error:', {
+        status: shipmentResp.status,
+        statusText: shipmentResp.statusText,
+        response: shipment
+      });
+      return {
+        statusCode: 500,
+        body: 'Error creating shipment: ' + (shipment.detail || 'No object_id'),
+        debug: shipment
+      };
     }
   } catch (err) {
+    console.error('[Shippo Label] Exception during shipment creation:', err);
     return { statusCode: 500, body: 'Error creating shipment: ' + err.message };
   }
 
@@ -216,6 +256,10 @@ exports.handler = async (event) => {
       transaction.amount = pollTransaction.amount;
       transaction.status = pollTransaction.status;
       transaction.messages = pollTransaction.messages;
+      transaction.tracking_number = pollTransaction.tracking_number;
+      transaction.tracking_code = pollTransaction.tracking_code;
+      transaction.carrier = pollTransaction.carrier;
+      transaction.provider = pollTransaction.provider;
     }
     if (!transaction.label_url || transaction.status === 'ERROR') {
       console.error('[Shippo Label] Label purchase failed:', {
@@ -233,13 +277,15 @@ exports.handler = async (event) => {
     }
     labelUrl = transaction.label_url;
     shippingCost = transaction.amount;
+    // Always return tracking number and carrier for downstream fulfillment
+    const tracking_number = transaction.tracking_number || transaction.tracking_code || '';
+    const carrier = transaction.carrier || transaction.provider || '';
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ label_url: labelUrl, shipping_cost: shippingCost, tracking_number, carrier })
+    };
   } catch (err) {
     console.error('[Shippo Label] Exception during label purchase:', err);
     return { statusCode: 500, body: 'Error buying label: ' + err.message };
   }
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ label_url: labelUrl, shipping_cost: shippingCost })
-  };
 };
