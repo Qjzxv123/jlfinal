@@ -535,63 +535,65 @@
         sessionStorage.removeItem('inventoryCSV');
       }
     });
-    // Undo button logic
+    // Undo button logic (only add if button exists)
     const undoBtn = document.getElementById('undoBtn');
-    undoBtn.addEventListener('click', async () => {
-      const log = localStorage.getItem('inventorylog.csv');
-      if (!log) {
-        output.innerHTML = '<div class="error">No inventory log found to undo.</div>';
-        return;
-      }
-      const lines = log.trim().split('\n');
-      // Find the last batch marker
-      let lastBatchIdx = -1;
-      for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].startsWith('---BATCH---')) {
-          lastBatchIdx = i;
-          break;
+    if (undoBtn) {
+      undoBtn.addEventListener('click', async () => {
+        const log = localStorage.getItem('inventorylog.csv');
+        if (!log) {
+          output.innerHTML = '<div class="error">No inventory log found to undo.</div>';
+          return;
         }
-      }
-      if (lastBatchIdx === -1 || lastBatchIdx === lines.length - 1) {
-        output.innerHTML = '<div class="error">No batch to undo.</div>';
-        return;
-      }
-      // Collect all entries after the last batch marker
-      const toUndo = lines.slice(lastBatchIdx + 1);
-      let undoCount = 0;
-      let errorCount = 0;
-      for (const entry of toUndo) {
-        if (!entry.trim()) continue;
-        const [date, sku, qty] = entry.split(',');
-        if (!sku || !qty || sku.startsWith('---BATCH---')) continue;
-        // Fetch current quantity
-        const { data, error } = await supabase
-          .from('Products')
-          .select('Quantity')
-          .eq('ProductSKU', sku)
-          .single();
-        if (error || !data || typeof data.Quantity !== 'number') {
-          output.innerHTML += `<div class="error">${sku} not found for undo</div>`;
-          errorCount++;
-          continue;
+        const lines = log.trim().split('\n');
+        // Find the last batch marker
+        let lastBatchIdx = -1;
+        for (let i = lines.length - 1; i >= 0; i--) {
+          if (lines[i].startsWith('---BATCH---')) {
+            lastBatchIdx = i;
+            break;
+          }
         }
-        const newQuantity = data.Quantity + parseInt(qty);
-        const { error: updateError } = await supabase
-          .from('Products')
-          .update({ Quantity: newQuantity })
-          .eq('ProductSKU', sku);
-        if (updateError) {
-          output.innerHTML += `<div class="error">Error undoing update for ${sku}: ${updateError.message}</div>`;
-          errorCount++;
-        } else {
-          undoCount++;
+        if (lastBatchIdx === -1 || lastBatchIdx === lines.length - 1) {
+          output.innerHTML = '<div class="error">No batch to undo.</div>';
+          return;
         }
-      }
-      // Remove undone entries and the batch marker from the log
-      const newLog = lines.slice(0, lastBatchIdx).join('\n');
-      localStorage.setItem('inventorylog.csv', newLog + (newLog ? '\n' : ''));
-      output.innerHTML = `<div class="success">Undo complete: ${undoCount} updates reverted, ${errorCount} errors.</div>`;
-    });
+        // Collect all entries after the last batch marker
+        const toUndo = lines.slice(lastBatchIdx + 1);
+        let undoCount = 0;
+        let errorCount = 0;
+        for (const entry of toUndo) {
+          if (!entry.trim()) continue;
+          const [date, sku, qty] = entry.split(',');
+          if (!sku || !qty || sku.startsWith('---BATCH---')) continue;
+          // Fetch current quantity
+          const { data, error } = await supabase
+            .from('Products')
+            .select('Quantity')
+            .eq('ProductSKU', sku)
+            .single();
+          if (error || !data || typeof data.Quantity !== 'number') {
+            output.innerHTML += `<div class="error">${sku} not found for undo</div>`;
+            errorCount++;
+            continue;
+          }
+          const newQuantity = data.Quantity + parseInt(qty);
+          const { error: updateError } = await supabase
+            .from('Products')
+            .update({ Quantity: newQuantity })
+            .eq('ProductSKU', sku);
+          if (updateError) {
+            output.innerHTML += `<div class="error">Error undoing update for ${sku}: ${updateError.message}</div>`;
+            errorCount++;
+          } else {
+            undoCount++;
+          }
+        }
+        // Remove undone entries and the batch marker from the log
+        const newLog = lines.slice(0, lastBatchIdx).join('\n');
+        localStorage.setItem('inventorylog.csv', newLog + (newLog ? '\n' : ''));
+        output.innerHTML = `<div class="success">Undo complete: ${undoCount} updates reverted, ${errorCount} errors.</div>`;
+      });
+    }
   </script>
   </div> <!-- Close main-content -->
 </body>
