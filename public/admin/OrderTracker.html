@@ -386,9 +386,14 @@
     }
 
     async function updateOrderProgress(orderNumber, progress) {
+      // If progress is not 'scheduled', remove vessel assignment
+      const updateObj = { Progress: progress };
+      if (progress.toLowerCase() !== 'scheduled') {
+        updateObj.Vessel = null;
+      }
       const { error } = await client
         .from('ManufacturingTasks')
-        .update({ Progress: progress })
+        .update(updateObj)
         .eq('OrderNumber', orderNumber);
       if (error) {
         alert('Failed to update task: ' + error.message);

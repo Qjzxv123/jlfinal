@@ -345,6 +345,7 @@
       <a href="DatabaseViewer.html" class="nav-item"><i class="cil-spreadsheet"></i><span>Database Viewer</span></a>
       <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
       <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
+      <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
       <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>    
     </nav>
   </div>
@@ -994,55 +995,73 @@
         container.innerHTML = '<div style="color:#888;">No phases. Click "Add Phase" to begin.</div>';
         return;
       }
+
+      // Calculate total percent across all phases
+      let totalPercent = 0;
+      processTableData.forEach(phase => {
+        if (Array.isArray(phase.ingredients)) {
+          totalPercent += phase.ingredients.reduce((sum, ing) => {
+            const val = parseFloat(ing.percent);
+            return sum + (!isNaN(val) ? val : 0);
+          }, 0);
+        }
+      });
+      const percentWarning = (Math.abs(totalPercent - 100) > 0.01 && totalPercent > 0)
+        ? `<div style=\"color:#e74c3c;font-weight:600;margin-bottom:0.5em;\">Warning: Total ingredient percentages across all phases add up to ${totalPercent.toFixed(2)}% (should be 100%)</div>`
+        : '';
+      if (percentWarning) {
+        container.innerHTML += percentWarning;
+      }
+
       processTableData.forEach((phase, phaseIdx) => {
         const phaseDiv = document.createElement('div');
         phaseDiv.style = 'border:1px solid #cbd5e1; border-radius:8px; margin-bottom:1.5rem; background:#f8fafc; padding:1rem;';
+
         phaseDiv.innerHTML = `
-          <div style="display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:0.5rem;align-items:center;margin-bottom:1rem;">
-            <input type="text" value="${phase.name}" style="font-weight:600;font-size:1.1rem;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseName(${phaseIdx}, this.value)">
-            <input type="number" value="${phase.temp || ''}" placeholder="Temp (°C)" style="width:100px;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseField(${phaseIdx},'temp',this.value)">
-            <select onchange="updatePhaseField(${phaseIdx},'timeType',this.value)" style="padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;">
-              <option value="Melt" ${phase.timeType==="Melt"?"selected":""}>Melt Time</option>
-              <option value="Mix" ${phase.timeType==="Mix"?"selected":""}>Mix Time</option>
+          <div style=\"display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:0.5rem;align-items:center;margin-bottom:1rem;\">
+            <input type=\"text\" value=\"${phase.name}\" style=\"font-weight:600;font-size:1.1rem;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;\" onchange=\"updatePhaseName(${phaseIdx}, this.value)\">
+            <input type=\"number\" value=\"${phase.temp || ''}\" placeholder=\"Temp (°C)\" style=\"width:100px;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;\" onchange=\"updatePhaseField(${phaseIdx},'temp',this.value)\">
+            <select onchange=\"updatePhaseField(${phaseIdx},'timeType',this.value)\" style=\"padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;\">
+              <option value=\"Melt\" ${phase.timeType==="Melt"?"selected":""}>Melt Time</option>
+              <option value=\"Mix\" ${phase.timeType==="Mix"?"selected":""}>Mix Time</option>
             </select>
-            <input type="text" value="${phase.mixTime || ''}" placeholder="Time (Minutes)" style="width:110px;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseField(${phaseIdx},'mixTime',this.value)">
-            <button type="button" class="btn" style="background:#f87171;padding:0.3rem 0.5rem;font-size:0.9rem;" onclick="removePhaseRow(${phaseIdx})">Remove Phase</button>
+            <input type=\"text\" value=\"${phase.mixTime || ''}\" placeholder=\"Time (Minutes)\" style=\"width:110px;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;\" onchange=\"updatePhaseField(${phaseIdx},'mixTime',this.value)\">
+            <button type=\"button\" class=\"btn\" style=\"background:#f87171;padding:0.3rem 0.5rem;font-size:0.9rem;\" onclick=\"removePhaseRow(${phaseIdx})\">Remove Phase</button>
           </div>
-          <div style="margin-bottom:1rem;">
-            <label style="display:block;font-weight:600;margin-bottom:0.25rem;">Consistency:</label>
-            <input type="text" value="${phase.consistency || ''}" placeholder="Enter consistency details..." style="width:100%;padding:0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseField(${phaseIdx},'consistency',this.value)">
+          <div style=\"margin-bottom:1rem;\">
+            <label style=\"display:block;font-weight:600;margin-bottom:0.25rem;\">Consistency:</label>
+            <input type=\"text\" value=\"${phase.consistency || ''}\" placeholder=\"Enter consistency details...\" style=\"width:100%;padding:0.5rem;border-radius:4px;border:1px solid #cbd5e1;\" onchange=\"updatePhaseField(${phaseIdx},'consistency',this.value)\">
           </div>
-          <table style="width:100%;margin-top:1rem;border-collapse:collapse;">
+          <table style=\"width:100%;margin-top:1rem;border-collapse:collapse;\">
             <thead>
-              <tr style="background:#e2e8f0;">
-                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;">Ingredient Name</th>
-                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Percentage %</th>
-                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Actions</th>
+              <tr style=\"background:#e2e8f0;\">
+                <th style=\"padding:0.5rem;text-align:left;border:1px solid #cbd5e1;\">Ingredient Name</th>
+                <th style=\"padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;\">Percentage %</th>
+                <th style=\"padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;\">Actions</th>
               </tr>
             </thead>
-            <tbody id="phase-ingredients-${phaseIdx}"></tbody>
+            <tbody id=\"phase-ingredients-${phaseIdx}\"></tbody>
           </table>
-          <button type="button" class="btn" style="background:#10b981;margin-top:0.5rem;" onclick="addIngredientRow(${phaseIdx})">Add Ingredient</button>
+          <button type=\"button\" class=\"btn\" style=\"background:#10b981;margin-top:0.5rem;\" onclick=\"addIngredientRow(${phaseIdx})\">Add Ingredient</button>
         `;
         container.appendChild(phaseDiv);
-        
+
         // Render ingredient rows
         const tbody = phaseDiv.querySelector(`#phase-ingredients-${phaseIdx}`);
         phase.ingredients.forEach((ing, ingIdx) => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td style="padding:0.5rem;border:1px solid #cbd5e1;position:relative;">
-              <div id="ingredient-dropdown-${phaseIdx}-${ingIdx}"></div>
+            <td style=\"padding:0.5rem;border:1px solid #cbd5e1;position:relative;\">
+              <div id=\"ingredient-dropdown-${phaseIdx}-${ingIdx}\"></div>
             </td>
-            <td style="padding:0.5rem;border:1px solid #cbd5e1;">
-              <input type="number" value="${ing.percent || ''}" min="0" step="0.01" onchange="updateIngredientField(${phaseIdx},${ingIdx},'percent',this.value)" style="width:100%;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;">
+            <td style=\"padding:0.5rem;border:1px solid #cbd5e1;\">
+              <input type=\"number\" value=\"${ing.percent || ''}\" min=\"0\" step=\"0.01\" onchange=\"updateIngredientField(${phaseIdx},${ingIdx},'percent',this.value)\" oninput=\"updateIngredientField(${phaseIdx},${ingIdx},'percent',this.value); renderProcessTableEditor();\" style=\"width:100%;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;\">
             </td>
-            <td style="padding:0.5rem;border:1px solid #cbd5e1;">
-              <button type="button" class="btn" style="background:#f87171;padding:0.3rem 0.5rem;font-size:0.9rem;" onclick="removeIngredientRow(${phaseIdx},${ingIdx})">Remove</button>
+            <td style=\"padding:0.5rem;border:1px solid #cbd5e1;\">
+              <button type=\"button\" class=\"btn\" style=\"background:#f87171;padding:0.3rem 0.5rem;font-size:0.9rem;\" onclick=\"removeIngredientRow(${phaseIdx},${ingIdx})\">Remove</button>
             </td>
           `;
           tbody.appendChild(tr);
-          
           // Create ingredient dropdown for this row
           setTimeout(() => {
             createIngredientDropdown(`ingredient-dropdown-${phaseIdx}-${ingIdx}`, ing.name || '', ing.sku || '');
