@@ -67,7 +67,6 @@ console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
         Customer: customerObj ? JSON.stringify(customerObj) : null,
         Platform: order.shop_app,
         Link: getPlatformOrderUrl(order.shop_app, order.order_number, order.shopify_id, retailerValue),
-        Status: order.status || 'Unfullfilled',
         Notes: order.notes || null,
       }, { onConflict: ['OrderID'] });
     }

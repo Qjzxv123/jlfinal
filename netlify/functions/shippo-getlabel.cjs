@@ -47,7 +47,9 @@ exports.handler = async (event) => {
   }
 
   // Build Shippo shipment payload
-  const shipmentPayload = {
+  const isInternational = (order.customer?.country && order.customer.country.toUpperCase() !== 'US');
+  let customsDeclarationId = null;
+  let shipmentPayload = {
     address_from: {
       name: 'J&L Naturals',
       street1: "125 N Commercial Dr #103",
@@ -70,6 +72,63 @@ exports.handler = async (event) => {
     parcels: parcelsArr,
     async: false
   };
+
+  // If international, create customs declaration
+  if (isInternational) {
+    // Build customs items from products
+    const customsItems = (order.products || []).map(product => ({
+      description: product.name || 'Merchandise',
+      quantity: product.quantity || 1,
+      net_weight: product.weight_oz ? (product.weight_oz / 16).toFixed(2) : '0.1', // in lbs, fallback to 0.1
+      mass_unit: 'lb',
+      value_amount: product.value || 5.00, // fallback value
+      value_currency: 'USD',
+      origin_country: 'US',
+      tariff_number: product.hs_code || ''
+    }));
+    // Fallback if no products
+    if (customsItems.length === 0) {
+      customsItems.push({
+        description: 'Merchandise',
+        quantity: 1,
+        net_weight: '0.1',
+        mass_unit: 'lb',
+        value_amount: 5.00,
+        value_currency: 'USD',
+        origin_country: 'US',
+        tariff_number: ''
+      });
+    }
+    // Create customs declaration
+    try {
+      const customsResp = await fetch('https://api.goshippo.com/customs/declarations/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `ShippoToken ${SHIPPO_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          certify: true,
+          certify_signer: 'J&L Naturals',
+          contents_type: 'MERCHANDISE',
+          eel_pfc: 'NOEEI_30_37_a',
+          non_delivery_option: 'RETURN',
+          items: customsItems
+        })
+      });
+      const customsData = await customsResp.json();
+      if (customsResp.ok && customsData.object_id) {
+        customsDeclarationId = customsData.object_id;
+        shipmentPayload.customs_declaration = customsDeclarationId;
+      } else {
+        console.error('[Shippo Label] Customs declaration error:', customsData);
+        return { statusCode: 500, body: 'Error creating customs declaration: ' + (customsData.detail || 'Unknown error'), debug: customsData };
+      }
+    } catch (err) {
+      console.error('[Shippo Label] Exception during customs declaration:', err);
+      return { statusCode: 500, body: 'Error creating customs declaration: ' + err.message };
+    }
+  }
 
   // Create shipment in Shippo
   let shipment;

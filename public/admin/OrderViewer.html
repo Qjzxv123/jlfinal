@@ -850,7 +850,7 @@
                 // Get all orders from Supabase Orders table
                 const { data: supabaseOrders, error } = await supabase
                     .from('Orders')
-                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Status, Link, UserID')
+                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, UserID')
                     .order('Platform, Retailer', { ascending: true });
 
                 if (error) {
@@ -1616,9 +1616,6 @@ async function processShippingLabelsWithBoxData(orderParcels) {
             Retailer: order.shop,
             Customer: order.customer.name,
             ShippedAt: new Date().toISOString(),
-            LabelUrl: labelData.label_url,
-            TrackingNumber: labelData.tracking_number || labelData.tracking_code || '',
-            Carrier: labelData.carrier || labelData.provider || '',
             ShippingCost: labelData.amount ? parseFloat(labelData.amount) : null,
             BoxSkus: parcel.boxes ? JSON.stringify(parcel.boxes.map(b => b.sku)) : null
           });
@@ -1633,8 +1630,11 @@ async function processShippingLabelsWithBoxData(orderParcels) {
           for (const box of parcel.boxes) {
             if (box.sku) {
               try {
-                // Decrement box quantity by 1
-                await supabase.rpc('decrement_box_quantity', { sku_input: box.sku, qty: 1 });
+                // Decrement box quantity by 1 using update on Boxes table
+                const { error: boxError } = await supabase
+                  .from('Boxes')
+                  .update({ Quantity: supabase.literal('Quantity - 1') })
+                  .eq('SKU', box.sku);
               } catch (err) {
                 console.error('Error decrementing box inventory for', box.sku, err);
               }
