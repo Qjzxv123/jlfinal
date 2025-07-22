@@ -1614,10 +1614,13 @@ async function processShippingLabelsWithBoxData(orderParcels) {
             OrderID: order.orderNumber,
             Platform: order.platform,
             Retailer: order.shop,
-            Customer: order.customer.name,
+            Customer: JSON.stringify(order.customer),
             ShippedAt: new Date().toISOString(),
             ShippingCost: labelData.amount ? parseFloat(labelData.amount) : null,
-            BoxSkus: parcel.boxes ? parcel.boxes.map(b => b.sku) : null
+            BoxSkus: parcel.boxes ? parcel.boxes.map(b => b.sku) : null,
+            Items: JSON.stringify(order.products),
+            Link: getPlatformOrderUrl(order.platform, order.orderNumber, order.shopifyId, order.shop),
+            UserID: order.UserID || order.userid || order.userId || null
           });
           // Remove from Orders table
           await supabase.from('Orders').delete().eq('OrderID', order.orderNumber);
