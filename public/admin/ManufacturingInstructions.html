@@ -89,9 +89,15 @@
                 return;
             }
 
-            // If ManufacturingInstructions is present and non-empty, display it and skip auto instructions
+
+
+            // Always render batch card table first
+            let batchCardTable = await generateBatchCardTable(data.Process);
+            document.getElementById('productSteps').innerHTML = batchCardTable;
+
+            // If ManufacturingInstructions is present and non-empty, display it below the batch card and skip auto instructions
             if (data.ManufacturingInstructions!=null && data.ManufacturingInstructions.trim() !== '') {
-                document.getElementById('productSteps').innerHTML = `<div style="white-space:pre-line;font-family:inherit;line-height:1.7;padding:1.2rem;border:1px solid #888;border-radius:8px;margin:1rem 0;max-width:900px;margin-left:auto;margin-right:auto;">${data.ManufacturingInstructions}</div>`;
+                document.getElementById('productSteps').innerHTML += `<div style="white-space:pre-line;font-family:inherit;line-height:1.7;padding:1.2rem;border:1px solid #888;border-radius:8px;margin:1rem 0;max-width:900px;margin-left:auto;margin-right:auto;">${data.ManufacturingInstructions}</div>`;
                 document.getElementById('instructions').classList.add('visible');
                 return;
             }
@@ -269,10 +275,8 @@
 
 
 
-            // Render batch card table first
-            // Await the async batch card table rendering
-            const batchCardTable = await generateBatchCardTable(data.Process);
-            document.getElementById('productSteps').innerHTML = batchCardTable;
+
+            // (Already rendered batch card table above)
 
             // Now append the instructions below the table
             if (['Makeup'].includes(data['Product Type'])) {
