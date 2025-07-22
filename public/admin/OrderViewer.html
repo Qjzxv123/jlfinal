@@ -1674,13 +1674,6 @@ async function processShippingLabelsWithBoxData(orderParcels) {
         displayOrders();
         updateSummary();
         // Mark order as shipped in Supabase Order History
-       
-        // Remove from allOrders and filteredOrders
-        allOrders = allOrders.filter(o => o.orderNumber !== order.orderNumber);
-        filteredOrders = filteredOrders.filter(o => o.orderNumber !== order.orderNumber);
-        selectedOrders.delete(order.orderNumber);
-        displayOrders();
-        updateSummary();
       } else {
         alert('No label URL returned for order ' + order.orderNumber);
       }
