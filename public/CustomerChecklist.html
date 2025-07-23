@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Checklist Viewer</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      color: #333;
+    }
+    /* Sidebar Styles */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100vh;
+      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      z-index: 1000;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar:hover {
+      width: 250px;
+    }
+    
+    .sidebar-header {
+      padding: 0.75rem;
+      border-bottom: 1px solid #34495e;
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #ecf0f1;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar:not(:hover) .sidebar-header h2 {
+      opacity: 0;
+    }
+    
+    .sidebar:hover .sidebar-header h2 {
+      font-size: 1.3rem;
+    }
+    
+    .sidebar-nav {
+      padding: 0.5rem 0;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      color: #ecf0f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid transparent;
+      white-space: nowrap;
+    }
+    
+    .nav-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item.active {
+      background: rgba(77,186,147,0.2);
+      border-left-color: #4DBA93;
+      color: white;
+    }
+    
+    .nav-item i {
+      margin-right: 0.5rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    
+    .nav-item span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .nav-item i {
+      opacity: 1 !important;
+      transition: opacity 0.3s ease;
+    }
+    .sidebar:hover .nav-item span {
+      opacity: 1;
+    }
+    .sidebar:hover .nav-item {
+      padding: 0.75rem 1.5rem;
+    }
+    .main-content {
+      margin: 2rem auto;
+      max-width: 900px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.12);
+      padding: 2rem;
+    }
+    h1 {
+      color: #2d3748;
+      margin-bottom: 2rem;
+    }
+    .checklist-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+    .checklist-table th, .checklist-table td {
+      border: 1px solid #e2e8f0;
+      padding: 1rem;
+      text-align: left;
+      font-size: 1.05rem;
+    }
+    .checklist-table th {
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #374151;
+    }
+    .checklist-table td.completed { background: #d1fae5; color: #065f46; }
+    .checklist-table td.incomplete { background: #fee2e2; color: #b91c1c; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="icon" href="/public/favicon.ico">
+</head>
+  <body>
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>J&L Tools</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/public/ecommerce-oauth.html" class="nav-item"><i class="cil-basket"></i><span>Onboard Stores</span></a>
+      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-storage"></i><span>Inventory Viewer</span></a>
+      <a href="/public/CustomerOrders.html" class="nav-item"><i class="cil-user"></i><span>Customer Orders</span></a>
+      <a href="/public/AddProduct.html" class="nav-item"><i class="cil-plus"></i><span>Add Product</span></a>
+      <a href="/public/CustomerOrderView.html" class="nav-item"><i class="cil-bullhorn"></i><span>Order Requester</span></a>
+      <a href="/public/CustomerChecklist.html" class="nav-item active"><i class="cil-check"></i><span>Checklist</span></a>
+      <a href="/public/admin/OrderViewer.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>
+    </nav>
+    <div id="sidebar-signout" style="position: absolute; bottom: 24px; left: 0; width: 100%; text-align: left;">
+      <a href="/public/privacy.html" class="nav-item" style="width:90%;margin:0 auto;justify-content:left;align-items:center;"><i class="cil-lock-locked"></i><span>Privacy Policy</span></a>
+      <a id="sign-out-btn" class="nav-item" style="width:90%;margin:0 auto;display:none;justify-content:center;align-items:center;cursor:pointer;"><i class="cil-account-logout"></i><span>Sign Out</span></a>
+    </div>
+  </div>
+  <div class="main-content">
+    <h1>Your Checklist</h1>
+    <button id="openAddTaskModalBtn" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-size:1.1rem; font-weight:600; cursor:pointer; margin-bottom:2rem;">Add Task</button>
+    <div id="addTaskModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2200; align-items:center; justify-content:center;">
+      <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+        <h3 style="margin-top:0;">Add New Task</h3>
+        <form id="addTaskForm">
+          <div style="margin-bottom:1em;">
+            <label for="taskDescription" style="font-weight:600;">Task Description</label>
+            <input type="text" id="taskDescription" required placeholder="Task description" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em;">
+          </div>
+          <div style="margin-bottom:1em;">
+            <label for="Deadline" style="font-weight:600;">Due Date</label>
+            <input type="date" id="Deadline" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em;">
+          </div>
+          <div style="display:flex; gap:1em; justify-content:flex-end; margin-top:1em;">
+            <button type="button" id="closeAddTaskModalBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
+            <button type="submit" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-size:1.1rem; font-weight:600; cursor:pointer;">Add Task</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <table class="checklist-table" id="checklistTable">
+      <thead>
+        <tr>
+          <th>Done</th>
+          <th>Task</th>
+          <th>Due Date</th>
+          <th>Remove</th>
+        </tr>
+      </thead>
+      <tbody id="checklistTableBody">
+        <!-- Incomplete tasks will be loaded here -->
+      </tbody>
+    </table>
+    <button id="toggleCompletedBtn" style="margin-bottom:1rem; background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Show Completed Tasks ▼</button>
+    <div id="completedTasksSection" style="display:none;">
+      <table class="checklist-table" id="completedChecklistTable">
+        <thead>
+          <tr>
+            <th>Done</th>
+            <th>Task</th>
+            <th>Due Date</th>
+            <th><i class="cil-trash"></i></th>
+          </tr>
+        </thead>
+        <tbody id="completedChecklistTableBody">
+          <!-- Completed tasks will be loaded here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function getCurrentUserID() {
+      const { data: { session } } = await client.auth.getSession();
+      if (!session) return null;
+      // Try to get the user's UserID from oauth_tokens (if available)
+      const { data, error } = await client
+        .from('oauth_tokens')
+        .select('UserID')
+        .eq('user_key', session.user.id)
+        .maybeSingle();
+      if (data && data.UserID) return data.UserID;
+      // fallback to sub/id if not found
+      return session.user.id;
+    }
+
+    async function fetchChecklistForUser(userID) {
+      if (!userID) return [];
+      // Find checklist items where UserID array contains this userID
+      const { data, error } = await client
+        .from('Checklist')
+        .select('*')
+        .contains('UserID', [userID]);
+      if (error) {
+        alert('Failed to fetch checklist: ' + error.message);
+        return [];
+      }
+      return data || [];
+    }
+
+    async function addTask(task) {
+      const { error } = await client
+        .from('Checklist')
+        .insert([task]);
+      if (error) {
+        alert('Failed to add task: ' + error.message);
+        return false;
+      }
+      return true;
+    }
+
+    async function updateTaskStatus(id, status) {
+      const { error } = await client
+        .from('Checklist')
+        .update({ Status: status })
+        .eq('id', id);
+      if (error) {
+        alert('Failed to update task: ' + error.message);
+      }
+    }
+
+    async function removeTask(id) {
+      const { error } = await client
+        .from('Checklist')
+        .delete()
+        .eq('id', id);
+      if (error) {
+        alert('Failed to remove task: ' + error.message);
+      }
+    }
+
+    function renderChecklist(items, userID) {
+      const tbody = document.getElementById('checklistTableBody');
+      const completedTbody = document.getElementById('completedChecklistTableBody');
+      tbody.innerHTML = '';
+      completedTbody.innerHTML = '';
+      for (const item of items) {
+        const Deadline = item.Deadline ? new Date(item.Deadline).toLocaleDateString() : '';
+        const isCompleted = item.Status === 'completed';
+        const doneCheckbox = `<input type="checkbox" class="done-checkbox" data-id="${item.id}" ${isCompleted ? 'checked' : ''} />`;
+        const removeBtn = `<button class="remove-task-btn" data-id="${item.id}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1em;"><i class='cil-trash'></i></button>`;
+        const rowHtml = `
+          <td>${doneCheckbox}</td>
+          <td>${item.Task || ''}</td>
+          <td>${Deadline}</td>
+          <td>${removeBtn}</td>
+        `;
+        if (isCompleted) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = rowHtml;
+          completedTbody.appendChild(tr);
+        } else {
+          const tr = document.createElement('tr');
+          tr.innerHTML = rowHtml;
+          tbody.appendChild(tr);
+        }
+      }
+      // Add event listeners for checkboxes and remove buttons
+      document.querySelectorAll('.done-checkbox').forEach(cb => {
+        cb.addEventListener('change', async function() {
+          const id = this.getAttribute('data-id');
+          const newStatus = this.checked ? 'completed' : 'incomplete';
+          await updateTaskStatus(id, newStatus);
+          loadChecklist();
+        });
+      });
+      document.querySelectorAll('.remove-task-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          const id = this.getAttribute('data-id');
+          if (confirm('Remove this task?')) {
+            await removeTask(id);
+            loadChecklist();
+          }
+        });
+      });
+    }
+
+    async function loadChecklist() {
+      const userID = await getCurrentUserID();
+      if (!userID) {
+        document.getElementById('checklistTableBody').innerHTML = '<tr><td colspan="4">Please log in to view your checklist.</td></tr>';
+        document.getElementById('completedChecklistTableBody').innerHTML = '';
+        return;
+      }
+      const items = await fetchChecklistForUser(userID);
+      if (items.length === 0) {
+        document.getElementById('checklistTableBody').innerHTML = '<tr><td colspan="4">No checklist items found for your account.</td></tr>';
+        document.getElementById('completedChecklistTableBody').innerHTML = '';
+      } else {
+        renderChecklist(items, userID);
+      }
+    }
+
+    // Completed tasks toggle
+    document.getElementById('toggleCompletedBtn').onclick = function() {
+      const section = document.getElementById('completedTasksSection');
+      if (section.style.display === 'none') {
+        section.style.display = '';
+        this.textContent = 'Hide Completed Tasks ▲';
+      } else {
+        section.style.display = 'none';
+        this.textContent = 'Show Completed Tasks ▼';
+      }
+    };
+
+    // Modal logic for Add Task
+    const openAddTaskModalBtn = document.getElementById('openAddTaskModalBtn');
+    const addTaskModal = document.getElementById('addTaskModal');
+    const closeAddTaskModalBtn = document.getElementById('closeAddTaskModalBtn');
+
+    openAddTaskModalBtn.onclick = function() {
+      addTaskModal.style.display = 'flex';
+    };
+    closeAddTaskModalBtn.onclick = function() {
+      addTaskModal.style.display = 'none';
+    };
+    addTaskModal.onclick = function(e) {
+      if (e.target === addTaskModal) addTaskModal.style.display = 'none';
+    };
+
+    document.getElementById('addTaskForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const userID = await getCurrentUserID();
+      if (!userID) {
+        alert('You must be logged in to add a task.');
+        return;
+      }
+      const taskDescription = document.getElementById('taskDescription').value.trim();
+      const Deadline = document.getElementById('Deadline').value;
+      if (!taskDescription) {
+        alert('Please enter a task description.');
+        return;
+      }
+      const task = {
+        Task: taskDescription,
+        Deadline: Deadline || null,
+        Status: 'incomplete',
+        UserID: [userID]
+      };
+      const success = await addTask(task);
+      if (success) {
+        document.getElementById('addTaskForm').reset();
+        addTaskModal.style.display = 'none';
+        loadChecklist();
+      }
+    };
+
+    // Initial load
+    loadChecklist();
+  </script>
+</body>
+</html>
