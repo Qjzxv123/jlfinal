@@ -407,12 +407,40 @@
       if (progress.toLowerCase() !== 'scheduled') {
         updateObj.Vessel = null;
       }
+      const { data: orderData, error: orderError } = await client
+        .from('ManufacturingTasks')
+        .select('ProductSKU, Quantity')
+        .eq('OrderNumber', orderNumber)
+        .maybeSingle();
       const { error } = await client
         .from('ManufacturingTasks')
         .update(updateObj)
         .eq('OrderNumber', orderNumber);
       if (error) {
         alert('Failed to update task: ' + error.message);
+      }
+      // If progress is completed, add product to inventory
+      if (progress.toLowerCase() === 'completed' && orderData && orderData.ProductSKU && orderData.Quantity) {
+        // Fetch current product quantity
+        const { data: productData, error: productError } = await client
+          .from('Products')
+          .select('Quantity')
+          .eq('ProductSKU', orderData.ProductSKU)
+          .maybeSingle();
+        if (!productError && productData) {
+          const currentQty = productData.Quantity || 0;
+          const newQty = currentQty + orderData.Quantity;
+          const { error: updateProductError } = await client
+            .from('Products')
+            .update({ Quantity: newQty })
+            .eq('ProductSKU', orderData.ProductSKU);
+          if (updateProductError) {
+            alert('Failed to update product inventory: ' + updateProductError.message);
+          }
+          else {
+            alert('Product inventory updated successfully.');
+          }
+        }
       }
     }
 
