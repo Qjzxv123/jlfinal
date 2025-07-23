@@ -50,27 +50,38 @@ async function fetchOrdersForUser(userKey) {
   let orders = [];
   for (const order of (data.orders || [])) {
     const shippingDetails = order.address || {};
-    // Split bundle SKUs into separate items
-    let parsedItems = [];
+    // Split bundle SKUs into separate items and deduplicate by SKU+Name
+    let itemMap = {};
     for (const item of (order.items || [])) {
       if (item.sku && item.sku.includes('+')) {
         // Bundle SKU, split and create separate items
         const skus = item.sku.split('+');
         for (const sku of skus) {
-          parsedItems.push({
-            SKU: sku.trim(),
-            Name: item.product_name || '',
-            Quantity: item.quantity || 0
-          });
+          const key = `${sku.trim()}|${item.product_name || ''}`;
+          if (!itemMap[key]) {
+            itemMap[key] = {
+              SKU: sku.trim(),
+              Name: item.product_name || '',
+              Quantity: item.quantity || 0
+            };
+          } else {
+            itemMap[key].Quantity += item.quantity || 0;
+          }
         }
       } else {
-        parsedItems.push({
-          SKU: item.sku || '',
-          Name: item.product_name || '',
-          Quantity: item.quantity || 0
-        });
+        const key = `${item.sku || ''}|${item.product_name || ''}`;
+        if (!itemMap[key]) {
+          itemMap[key] = {
+            SKU: item.sku || '',
+            Name: item.product_name || '',
+            Quantity: item.quantity || 0
+          };
+        } else {
+          itemMap[key].Quantity += item.quantity || 0;
+        }
       }
     }
+    let parsedItems = Object.values(itemMap);
     const orderData = {
       OrderID: order.id || '',
       Retailer: userKey,
