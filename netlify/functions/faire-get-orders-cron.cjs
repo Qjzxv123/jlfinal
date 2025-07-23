@@ -55,10 +55,25 @@ async function fetchOrdersForUser(userKey) {
     // Split bundle SKUs into separate items and combine with non-bundled SKUs by SKU only
     let itemMap = {};
     for (const item of (order.items || [])) {
-      if (item.sku && item.sku.includes('+')) {
-        // Bundle SKU, sum the number of SKUs and add 1 if includes_tester is true
+      if (item.sku && item.sku.includes('GIFT-BOX')) {
+        // If SKU contains GIFT-BOX, keep the whole SKU string as a single item
+        const key = item.sku.trim();
+        let itemQty = item.quantity || 0;
+        if (item.includes_tester === true) {
+          itemQty += 1;
+        }
+        if (!itemMap[key]) {
+          itemMap[key] = {
+            SKU: key,
+            Name: item.product_name || '',
+            Quantity: itemQty
+          };
+        } else {
+          itemMap[key].Quantity += itemQty;
+        }
+      } else if (item.sku && item.sku.includes('+')) {
+        // Bundle SKU, split and aggregate as before
         const skus = item.sku.split('+').map(s => s.trim());
-        // If all SKUs are the same, aggregate as one
         const uniqueSKUs = Array.from(new Set(skus));
         if (uniqueSKUs.length === 1) {
           const key = uniqueSKUs[0];
@@ -76,7 +91,6 @@ async function fetchOrdersForUser(userKey) {
             itemMap[key].Quantity += totalQty;
           }
         } else {
-          // If bundle contains different SKUs, treat each separately
           for (const key of skus) {
             if (!itemMap[key]) {
               itemMap[key] = {
@@ -88,7 +102,6 @@ async function fetchOrdersForUser(userKey) {
               itemMap[key].Quantity += 1;
             }
           }
-          // If includes_tester, add 1 to the first SKU only
           if (item.includes_tester === true && skus.length > 0) {
             itemMap[skus[0]].Quantity += 1;
           }
