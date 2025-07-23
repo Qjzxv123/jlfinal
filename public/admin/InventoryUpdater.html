@@ -263,51 +263,18 @@
     async function processCSVText(text) {
       output.textContent = '';
 
-      // Count occurrences of "FREE IMP-1-BARE - ORDER $50+"
-      let freeImpBareCount = (text.match(/FREE IMP-1-BARE - ORDER \$50\+/g) || []).length;
-      if (freeImpBareCount > 0) {
-        // Fetch current quantity for "lip-bare"
-        const { data: lipBareData, error: lipBareError } = await supabase
-          .from('Products')
-          .select('Quantity')
-          .eq('ProductSKU', 'LIP-1-BARE')
-          .single();
-        if (!lipBareError && lipBareData && typeof lipBareData.Quantity === 'number') {
-          const newLipBareQty = lipBareData.Quantity - freeImpBareCount;
-          const { error: updateLipBareError } = await supabase
-            .from('Products')
-            .update({ Quantity: newLipBareQty })
-            .eq('ProductSKU', 'lip-bare');
-          if (updateLipBareError) {
-            output.innerHTML += `<div class="error">Error updating lip-bare: ${updateLipBareError.message}</div>`;
-          } else {
-            output.innerHTML += `<div class="success">lip-bare: Removed ${freeImpBareCount} (FREE IMP-1-BARE), Quantity is now ${newLipBareQty}</div>`;
-            // Log the update
-            const logEntry = `${new Date().toISOString().substring(0, 10)},lip-bare,${freeImpBareCount}\n`;
-            try {
-              let existing = localStorage.getItem('inventorylog.csv') || '';
-              existing += logEntry;
-              localStorage.setItem('inventorylog.csv', existing);
-            } catch (e) {
-              output.innerHTML += `<div class="error">Error logging update for lip-bare</div>`;
-            }
-          }
-        } else {
-          output.innerHTML += `<div class="error">lip-bare not found</div>`;
-        }
-      }
-
-
       // Parse CSV and prepare data structures
       const parsed = Papa.parse(text.trim(), { header: true, skipEmptyLines: false });
       if (!parsed.data || !parsed.data.length) {
         output.innerHTML += '<div class="error">Error: No data found in CSV.</div>';
         return;
       }
-      
+
       const skuMap = new Map();
-      const orderMap = new Map(); // Track orders and their shipping info
-      const skuToOrderMap = new Map(); // Track which SKU belongs to which order      // First pass: collect all order information and SKU mappings
+      const orderMap = new Map();
+      const skuToOrderMap = new Map();
+      let rowMessages = [];
+
       for (let i = 0; i < parsed.data.length; i++) {
         const row = parsed.data[i];
         const rawSKU = (row['SKU'] ?? row['Lineitem sku'])?.trim() ?? "ERROR NO SKU";
@@ -315,43 +282,27 @@
         const name = (row['Name'] ?? row['Lineitem name'] ?? '')?.trim() || '';
         let quantity = parseInt(row['Quantity'] ?? row['Lineitem quantity']?? row['Product Quantity']);
 
-        if (orderId) {
-          const shipTo = {            name: row['ShipTo_Name'] ?? row['Shipping Name'] ?? row['Ship To'] ?? row['Name'] ?? '',
-            address1: row['ShipTo_Address1'] ?? row['Shipping Street'] ?? row['Address 1'] ?? row['Ship Address1'] ?? '',
-            address2: row['ShipTo_Address2'] ?? row['Shipping Street 2'] ?? row['Address 2'] ?? row['Ship Address2'] ?? '',
-            city: row['ShipTo_City'] ?? row['Shipping City'] ?? row['City'] ?? row['Ship City'] ?? '',
-            state: row['ShipTo_State'] ?? row['Shipping State'] ?? row['State'] ?? row['Ship State'] ?? '',
-            zipCode: row['ShipTo_ZipCode'] ?? row['Shipping Zip'] ?? row['Zip'] ?? row['Ship Zip'] ?? '',
-            country: row['ShipTo_Country'] ?? row['Shipping Country'] ?? row['Country'] ?? row['Ship Country'] ?? '',
-            email: row['Buyer Email'] ?? row['Email'] ?? '',
-            phone: row['Phone'] ?? ''
-          };
-          orderMap.set(orderId, shipTo);        }
-        
         if (!rawSKU || rawSKU === null) {
-          output.innerHTML += `<div class="error">Warning: Row ${i + 1} has no SKU</div>`;
+          const msg = `Warning: Row ${i + 1} has no SKU`;
+          output.innerHTML += `<div class="error">${msg}</div>`;
+          rowMessages.push(`ERROR: ${msg}`);
           continue;
         }
-        
         if (isNaN(quantity)) {
-          output.innerHTML += `<div class="error">Warning: Row ${i + 1} with SKU "${rawSKU}" has invalid quantity</div>`;
+          const msg = `Warning: Row ${i + 1} with SKU "${rawSKU}" has invalid quantity`;
+          output.innerHTML += `<div class="error">${msg}</div>`;
+          rowMessages.push(`ERROR: ${msg}`);
           continue;
         }
-        
         // Split by " + " for bundle SKUs
         const skuParts = rawSKU.split(/\s*\+\s*/);
-        
         for (let part of skuParts) {
           let sku = part.trim();
-          
-          // Add to SKU map directly without any transformation
           if (skuMap.has(sku)) {
             skuMap.set(sku, skuMap.get(sku) + quantity);
           } else {
             skuMap.set(sku, quantity);
           }
-          
-          // Map the SKU to an array of order IDs
           if (orderId) {
             if (!skuToOrderMap.has(sku)) {
               skuToOrderMap.set(sku, []);
@@ -361,25 +312,20 @@
         }
       }
 
-      // Create transformed lines for processing
-      const transformedLines = Array.from(skuMap.entries()).map(([sku, qty]) => `${sku},${qty}`);
-      const newLines = ['SKU,Quantity', ...transformedLines];
+      // Process each SKU and record only success/error messages
       let successCount = 0;
       let errorCount = 0;
-      // Remove picklist logic
-      for (let i = 1; i < newLines.length; i++) {
-        const row = newLines[i].split(',').map(cell => cell.trim());
-        const productSKU = row[0];
-        const quantityToRemove = parseInt(row[1]);
+      for (const [productSKU, quantityToRemove] of skuMap.entries()) {
         if (!productSKU || isNaN(quantityToRemove)) continue;
-        // Fetch current quantity from Supabase
         const { data, error } = await supabase
           .from('Products')
           .select('Quantity,Name,"Pack Size",Retailer')
           .eq('ProductSKU', productSKU)
           .single();
         if (error || !data || typeof data.Quantity !== 'number') {
-          output.innerHTML += `<div class="error">${productSKU} not found</div>`;
+          const msg = `${productSKU} not found`;
+          output.innerHTML += `<div class="error">${msg}</div>`;
+          rowMessages.push(`ERROR: ${msg}`);
           errorCount++;
           continue;
         }
@@ -389,23 +335,35 @@
           .update({ Quantity: newQuantity })
           .eq('ProductSKU', productSKU);
         if (updateError) {
-          output.innerHTML += `<div class="error">Error updating ${productSKU}: ${updateError.message}</div>`;
+          const msg = `Error updating ${productSKU}: ${updateError.message}`;
+          output.innerHTML += `<div class="error">${msg}</div>`;
+          rowMessages.push(`ERROR: ${msg}`);
           errorCount++;
         } else {
-          output.innerHTML += `<div class="success">${productSKU}: Removed ${quantityToRemove}, Quantity is now ${newQuantity}</div>`;
+          const msg = `${productSKU}: Removed ${quantityToRemove}, Quantity is now ${newQuantity}`;
+          output.innerHTML += `<div class="success">${msg}</div>`;
+          rowMessages.push(`SUCCESS: ${msg}`);
           successCount++;
-          // Append log to inventorylog.csv
-          const logEntry = `${new Date().toISOString().substring(0, 10)},${productSKU},${quantityToRemove}\n`;
-          try {
-            let existing = localStorage.getItem('inventorylog.csv') || '';
-            existing += logEntry;
-            localStorage.setItem('inventorylog.csv', existing);
-          } catch (e) {
-            output.innerHTML += `<div class="error">Error logging update for ${productSKU}</div>`;
-          }
         }
       }
       output.innerHTML += `<div class="success">Processed ${successCount} rows successfully, ${errorCount} errors.</div>`;
+
+      // Save only the rowMessages to Supabase bucket
+      try {
+        const fileName = `inventoryupdaterlog_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+        const fileContent = rowMessages.join('\n');
+        const blob = new Blob([fileContent], { type: 'text/plain' });
+        const { data, error } = await supabase.storage.from('inventoryupdaterlog').upload(fileName, blob, {
+          upsert: true
+        });
+        if (error) {
+          output.innerHTML += `<div class="error">Error saving log to bucket: ${error.message}</div>`;
+        } else {
+          output.innerHTML += `<div class="success">Log saved to bucket as ${fileName}</div>`;
+        }
+      } catch (e) {
+        output.innerHTML += `<div class="error">Error saving log to bucket</div>`;
+      }
     }
 
     fileInput.addEventListener('change', async (event) => {
