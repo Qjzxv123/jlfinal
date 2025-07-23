@@ -1404,94 +1404,79 @@
           }
         }
 
-        // Add the finished product to inventory
-        const { data: productData, error: productFetchError } = await supabase
+        // Generate random lot number (6-digit number)
+        batchNumber = Math.floor(100000 + Math.random() * 900000);
+        batchTimestamp = new Date().toISOString();
+
+        // Generate custom lot number with shelf life lookup
+        async function generatelotNumber() {
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = now.getMonth() + 1; // 1-12
+          const day = now.getDate();
+          // Fetch shelf life from Products table
+          let shelfLifeYears = 3; // Default fallback
+          try {
+            const { data: productShelfData, error: shelfError } = await supabase
+              .from('Products')
+              .select('ShelfLife')
+              .eq('ProductSKU', currentProduct.ProductSKU)
+              .single();
+            if (!shelfError && productShelfData && productShelfData.ShelfLife) {
+              shelfLifeYears = productShelfData.ShelfLife;
+            }
+          } catch (error) {
+            console.warn('Failed to fetch shelf life, using default of 1 year:', error);
+          }
+          // Month letter (a-l for Jan-Dec)
+          const monthLetters = 'abcdefghijkl';
+          const monthLetter = monthLetters[month - 1];
+          // 3rd digit of year (from the right, e.g., 2024 -> 2)
+          const thirdDigitYear = Math.floor((year % 100) / 10);
+          // Last digit of year
+          const lastDigitYear = year % 10;
+          // Expiration month calculation
+          let expirationMonth = month;
+          let expirationYear = year + shelfLifeYears; // Current year + shelf life
+          if (day >= 15) {
+            expirationMonth = month + 1;
+            if (expirationMonth > 12) {
+              expirationMonth = 1;
+              expirationYear = year + shelfLifeYears + 1; // Account for month rollover
+            }
+          }
+          // Format expiration month (01-12)
+          const formattedExpMonth = expirationMonth.toString().padStart(2, '0');
+          // Last 2 digits of expiration year
+          const expYearLastTwo = (expirationYear % 100).toString().padStart(2, '0');
+          // Combine: monthLetter + "-" + thirdDigitYear + day + lastDigitYear + expMonth + expYearLastTwo
+          const lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
+          return lot;
+        }
+        lotNumber = await generatelotNumber();
+
+        const { error: productUpdateError } = await supabase
           .from('Products')
-          .select('Quantity')
-          .eq('ProductSKU', currentProduct.ProductSKU)
-          .single();
+          .update({ 
+            LastBatchNumber: batchNumber,
+            LastBatch: batchTimestamp
+          })
+          .eq('ProductSKU', currentProduct.ProductSKU);
 
-        if (!productFetchError && productData) {
+        if (!productUpdateError) {
+          results.push(`<div class="success">📦 Batch Number: ${batchNumber} | Lot Number: ${lotNumber} | Batch Time: ${new Date(batchTimestamp).toLocaleString()}</div>`);
 
-          const currentProductQty = productData.Quantity || 0;
-          const newProductQty = currentProductQty + batchSize;
-
-          // Generate random lot number (6-digit number)
-          batchNumber = Math.floor(100000 + Math.random() * 900000);
-          batchTimestamp = new Date().toISOString();
-
-          // Generate custom lot number with shelf life lookup
-          async function generatelotNumber() {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth() + 1; // 1-12
-            const day = now.getDate();
-            // Fetch shelf life from Products table
-            let shelfLifeYears = 3; // Default fallback
-            try {
-              const { data: productShelfData, error: shelfError } = await supabase
-                .from('Products')
-                .select('ShelfLife')
-                .eq('ProductSKU', currentProduct.ProductSKU)
-                .single();
-              if (!shelfError && productShelfData && productShelfData.ShelfLife) {
-                shelfLifeYears = productShelfData.ShelfLife;
-              }
-            } catch (error) {
-              console.warn('Failed to fetch shelf life, using default of 1 year:', error);
-            }
-            // Month letter (a-l for Jan-Dec)
-            const monthLetters = 'abcdefghijkl';
-            const monthLetter = monthLetters[month - 1];
-            // 3rd digit of year (from the right, e.g., 2024 -> 2)
-            const thirdDigitYear = Math.floor((year % 100) / 10);
-            // Last digit of year
-            const lastDigitYear = year % 10;
-            // Expiration month calculation
-            let expirationMonth = month;
-            let expirationYear = year + shelfLifeYears; // Current year + shelf life
-            if (day >= 15) {
-              expirationMonth = month + 1;
-              if (expirationMonth > 12) {
-                expirationMonth = 1;
-                expirationYear = year + shelfLifeYears + 1; // Account for month rollover
-              }
-            }
-            // Format expiration month (01-12)
-            const formattedExpMonth = expirationMonth.toString().padStart(2, '0');
-            // Last 2 digits of expiration year
-            const expYearLastTwo = (expirationYear % 100).toString().padStart(2, '0');
-            // Combine: monthLetter + "-" + thirdDigitYear + day + lastDigitYear + expMonth + expYearLastTwo
-            const lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
-            return lot;
+          // Log the product addition with lot number
+          const productLogEntry = `${new Date().toISOString().substring(0, 10)},${currentProduct.ProductSKU},${batchSize},BATCH_PRODUCTION:BATCH${batchNumber}\n`;
+          try {
+            let existing = localStorage.getItem('inventorylog.csv') || '';
+            existing += productLogEntry;
+            localStorage.setItem('inventorylog.csv', existing);
+          } catch (e) {
+            console.warn('Failed to log product addition:', e);
           }
-          lotNumber = await generatelotNumber();
-
-          const { error: productUpdateError } = await supabase
-            .from('Products')
-            .update({ 
-              Quantity: newProductQty,
-              LastBatchNumber: batchNumber,
-              LastBatch: batchTimestamp
-            })
-            .eq('ProductSKU', currentProduct.ProductSKU);
-
-          if (!productUpdateError) {
-            results.push(`<div class="success">✅ Added ${batchSize} unit(s) of ${currentProduct.ProductSKU} to inventory (${currentProductQty} → ${newProductQty})</div>`);
-            results.push(`<div class="success">📦 Batch Number: ${batchNumber} | Lot Number: ${lotNumber} | Batch Time: ${new Date(batchTimestamp).toLocaleString()}</div>`);
-
-            // Log the product addition with lot number
-            const productLogEntry = `${new Date().toISOString().substring(0, 10)},${currentProduct.ProductSKU},${batchSize},BATCH_PRODUCTION:BATCH${batchNumber}\n`;
-            try {
-              let existing = localStorage.getItem('inventorylog.csv') || '';
-              existing += productLogEntry;
-              localStorage.setItem('inventorylog.csv', existing);
-            } catch (e) {
-              console.warn('Failed to log product addition:', e);
-            }
-          } else {
-            results.push(`<div class="error">❌ Failed to add finished product to inventory: ${productUpdateError.message}</div>`);
-          }
+        } else {
+          results.push(`<div class="error">❌ Failed to add finished product to inventory: ${productUpdateError.message}</div>`);
         }
 
         // Generate low inventory warnings if any
@@ -1540,7 +1525,6 @@
             // Get the current directory of the HTML file robustly
             let basePath = window.location.pathname;
             basePath = basePath.substring(0, basePath.lastIndexOf('/') + 1);
-            const instructionsPath = basePath + 'ManufacturingInstructions.html';
             const params = new URLSearchParams({
               sku,
               batch: batchNumber,
@@ -1548,7 +1532,7 @@
               batchtime: batchTimestamp,
               batchSize: batchSize // Pass batch size through URL
             });
-            window.open((instructionsPath + '?' + params.toString()).replace("/app.asar", ""), '_blank');
+            window.open(('manufacturingInstructions.html' + '?' + params.toString()), '_blank');
           }, 1200);
         }
 
