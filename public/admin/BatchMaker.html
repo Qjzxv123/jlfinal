@@ -1406,7 +1406,7 @@
 
         // Generate random lot number (6-digit number)
         batchNumber = Math.floor(100000 + Math.random() * 900000);
-        batchTimestamp = new Date().toISOString();
+        batchTimestamp = new Date().toISOString().substring(0, 10); // YYYY-MM-DD only
 
         // Generate custom lot number with shelf life lookup
         async function generatelotNumber() {
@@ -1459,12 +1459,12 @@
           .from('Products')
           .update({ 
             LastBatchNumber: batchNumber,
-            LastBatch: batchTimestamp
+            LastBatch: batchTimestamp // Already YYYY-MM-DD
           })
           .eq('ProductSKU', currentProduct.ProductSKU);
 
         if (!productUpdateError) {
-          results.push(`<div class="success">📦 Batch Number: ${batchNumber} | Lot Number: ${lotNumber} | Batch Time: ${new Date(batchTimestamp).toLocaleString()}</div>`);
+          results.push(`<div class="success">📦 Batch Number: ${batchNumber} | Lot Number: ${lotNumber} | Batch Date: ${batchTimestamp}</div>`);
 
           // Log the product addition with lot number
           const productLogEntry = `${new Date().toISOString().substring(0, 10)},${currentProduct.ProductSKU},${batchSize},BATCH_PRODUCTION:BATCH${batchNumber}\n`;

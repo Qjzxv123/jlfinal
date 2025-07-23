@@ -293,6 +293,7 @@
           <th>Product (SKU × Qty)</th>
           <th>Progress</th>
           <th>Schedule</th>
+          <th>Instructions</th>
           <th>Deadline</th>
           <th>Remove</th>
         </tr>
@@ -554,6 +555,14 @@
             batchMakerButton = `<a href="BatchMaker.html?${params.toString()}" target="_blank" style="margin-left: 10px; display: inline-block; background: #f59e0b; color: white; padding: 0.2rem 0.5rem; text-decoration: none; border-radius: 4px; font-size: 0.8rem;">Check</a>`;
           }
 
+          // Instructions button column
+          let instructionsBtn = '';
+          if (task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
+            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Open</button>`;
+          } else {
+            instructionsBtn = `<span style="color:#888;">N/A</span>`;
+          }
+
           tr.innerHTML = `
             <td>${batchMakerButton} ${task.OrderNumber || ''}</td>
             <td>${customerDisplay}</td>
@@ -563,6 +572,7 @@
               <button class="update-progress-btn" data-order-id="${task.OrderNumber}" data-current-progress="${progress}" style="margin-left:10px; background:#4dba93; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Update</button>
             </td>
             <td>${scheduleColHtml}</td>
+            <td>${instructionsBtn}</td>
             <td>${task.Deadline ? new Date(task.Deadline).toLocaleDateString() : ''}</td>
             <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#e74c3c; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
           `;
@@ -582,6 +592,55 @@
               } else {
                 loadOrders();
               }
+            }
+          }
+          // Instructions button click
+          if (e.target && e.target.classList.contains('instructions-btn')) {
+            // Generate lot number using provided logic
+            async function generatelotNumber(productSKU) {
+              const now = new Date();
+              const year = now.getFullYear();
+              const month = now.getMonth() + 1;
+              const day = now.getDate();
+              let shelfLifeYears = 3;
+              try {
+                const { data: productShelfData, error: shelfError } = await client
+                  .from('Products')
+                  .select('ShelfLife')
+                  .eq('ProductSKU', productSKU)
+                  .maybeSingle();
+                if (!shelfError && productShelfData && productShelfData.ShelfLife) {
+                  shelfLifeYears = productShelfData.ShelfLife;
+                }
+              } catch (error) {
+                console.warn('Failed to fetch shelf life, using default of 3 years:', error);
+              }
+              const monthLetters = 'abcdefghijkl';
+              const monthLetter = monthLetters[month - 1];
+              const thirdDigitYear = Math.floor((year % 100) / 10);
+              const lastDigitYear = year % 10;
+              let expirationMonth = month;
+              let expirationYear = year + shelfLifeYears;
+              if (day >= 15) {
+                expirationMonth = month + 1;
+                if (expirationMonth > 12) {
+                  expirationMonth = 1;
+                  expirationYear = year + shelfLifeYears + 1;
+                }
+              }
+              const formattedExpMonth = expirationMonth.toString().padStart(2, '0');
+              const expYearLastTwo = (expirationYear % 100).toString().padStart(2, '0');
+              const lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
+              return lot;
+            }
+
+            const productSKU = e.target.getAttribute('data-productsku');
+            const batchtime = e.target.getAttribute('data-batchtime');
+            const batchSize = e.target.getAttribute('data-batchsize');
+            if (productSKU && batchtime && batchSize) {
+              const lot = await generatelotNumber(productSKU);
+              const url = `/public/admin/manufacturinginstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${Math.floor(100000 + Math.random() * 900000)}`;
+              window.open(url, '_blank');
             }
           }
         });

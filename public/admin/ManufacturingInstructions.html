@@ -28,7 +28,7 @@
                 batchInfoHTML = `<div style="padding: 0.7rem 1.2rem; margin: 1rem 0 0.5rem 0; font-size: 1.08em; border: 1px solid #888; border-radius: 6px; text-align:center;">
                     <b>Batch Number:</b> ${batch ? batch : '<em>Not specified</em>'} &nbsp; | &nbsp;
                     <b>Lot Number:</b> ${lot ? lot : '<em>Not specified</em>'} &nbsp; | &nbsp;
-                    <b>Batch Time:</b> ${batchtime ? (new Date(batchtime).toLocaleString() || batchtime) : '<em>Not specified</em>'}
+                    <b>Batch Date:</b> ${batchtime ? (new Date(batchtime).toISOString().slice(0,10)) : '<em>Not specified</em>'}
                 </div>`;
             }
             document.getElementById('batchInfoContainer').innerHTML = batchInfoHTML;
