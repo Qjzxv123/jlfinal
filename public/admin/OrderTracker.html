@@ -266,7 +266,7 @@
               <option value="scheduled">Scheduled</option>
               <option value="in production">In Production</option>
               <option value="completed">Completed</option>
-              <option value="Undergoing Quality Checks">Undergoing Quality Checks</option>
+              <option value="Quality Checks">Quality Checks</option>
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
@@ -289,12 +289,12 @@
       <thead>
         <tr>
           <th>Remove</th>
-          <th>Order #</th>
-          <th>Customer / Product (SKU × Qty)</th>
-          <th>Progress</th>
-          <th>Schedule</th>
-          <th>Instructions</th>
-          <th>Deadline</th>
+          <th id="sortOrderNumber" style="cursor:pointer;">Order # <span id="sortOrderNumberIcon">⇅</span></th>
+          <th id="sortCustomer" style="cursor:pointer;">Customer/SKU/Qty <span id="sortCustomerIcon">⇅</span></th>
+          <th id="sortProgress" style="cursor:pointer;">Progress <span id="sortProgressIcon">⇅</span></th>
+          <th id="sortSchedule" style="cursor:pointer;">Schedule <span id="sortScheduleIcon">⇅</span></th>
+          <th id="sortInstructions" style="cursor:pointer;">Instructions <span id="sortInstructionsIcon">⇅</span></th>
+          <th id="sortDeadline" style="cursor:pointer;">Deadline <span id="sortDeadlineIcon">⇅</span></th>
         </tr>
       </thead>
       <tbody id="orderTableBody">
@@ -475,7 +475,7 @@
             // Show planned manufacture date (formatted)
             let dateStr = task.PlannedManufactureDate ? new Date(task.PlannedManufactureDate).toLocaleDateString() : '<span style="color:#888;">(not set)</span>';
             scheduleColHtml = `<span style="font-weight:500; color:#1976d2;">${dateStr}</span>`;
-          } else if (['completed', 'cancelled', 'in production', 'undergoing quality checks'].includes(progressLower)) {
+          } else if (['completed', 'cancelled', 'in production', 'quality checks'].includes(progressLower)) {
             scheduleColHtml = '<span style="color:#888;">N/A</span>';
           } else {
             scheduleColHtml = `<button class="schedule-btn" data-order-id="${task.OrderNumber}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-calendar"></i></button>`;
@@ -1107,6 +1107,7 @@
 
     async function loadOrders() {
       const orders = await fetchOrders();
+      window._orderTableData = orders;
       renderOrders(orders);
     }
 
@@ -1176,6 +1177,77 @@
     addOrderModal.onclick = function(e) {
       if (e.target === addOrderModal) addOrderModal.style.display = 'none';
     };
+
+    // Sorting logic
+    const sortState = {
+      column: null,
+      direction: 'asc'
+    };
+    function sortOrdersBy(column) {
+      if (!window._orderTableData) return;
+      if (sortState.column === column) {
+        sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortState.column = column;
+        sortState.direction = 'asc';
+      }
+      let sorted = [...window._orderTableData];
+      sorted.sort((a, b) => {
+        let valA, valB;
+        switch (column) {
+          case 'OrderNumber':
+            valA = a.OrderNumber || '';
+            valB = b.OrderNumber || '';
+            break;
+          case 'Customer':
+            valA = a.Customer || '';
+            valB = b.Customer || '';
+            break;
+          case 'Progress':
+            valA = a.Progress || '';
+            valB = b.Progress || '';
+            break;
+          case 'Schedule':
+            valA = a.PlannedManufactureDate || '';
+            valB = b.PlannedManufactureDate || '';
+            break;
+          case 'Instructions':
+            valA = a.ProductSKU || '';
+            valB = b.ProductSKU || '';
+            break;
+          case 'Deadline':
+            valA = a.Deadline || '';
+            valB = b.Deadline || '';
+            break;
+          default:
+            valA = '';
+            valB = '';
+        }
+        if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+      renderOrders(sorted);
+      // Update sort icons
+      const columns = ['OrderNumber','Customer','Progress','Schedule','Instructions','Deadline'];
+      columns.forEach(col => {
+        const icon = document.getElementById('sort'+col+'Icon');
+        if (icon) {
+          if (sortState.column === col) {
+            icon.textContent = sortState.direction === 'asc' ? '↑' : '↓';
+          } else {
+            icon.textContent = '⇅';
+          }
+        }
+      });
+    }
+
+    document.getElementById('sortOrderNumber').onclick = () => sortOrdersBy('OrderNumber');
+    document.getElementById('sortCustomer').onclick = () => sortOrdersBy('Customer');
+    document.getElementById('sortProgress').onclick = () => sortOrdersBy('Progress');
+    document.getElementById('sortSchedule').onclick = () => sortOrdersBy('Schedule');
+    document.getElementById('sortInstructions').onclick = () => sortOrdersBy('Instructions');
+    document.getElementById('sortDeadline').onclick = () => sortOrdersBy('Deadline');
 
     // Initial load: check login first
     (async () => {
