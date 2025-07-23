@@ -160,14 +160,16 @@
         }
         @media (max-width: 600px) {
             .sidebar {
-                width: 0;
-                overflow: hidden;
+                width: 60px;
+                min-width: 60px;
+                overflow-x: visible;
+                overflow-y: auto;
             }
             .sidebar:hover {
                 width: 250px;
             }
             .main-content {
-                margin-left: 0;
+                margin-left: 60px;
             }
             .container {
                 margin-left: 0;

@@ -366,17 +366,18 @@
     }
 
     /* Responsive */
-    @media (max-width: 768px) {
+    @media (max-width: 800px) {
       .main-content {
-        margin-left: 0;
-        width: 100%;
+        margin-left: 60px;
+        width: calc(100% - 60px);
         padding: 1rem;
       }
-      
       .sidebar {
-        width: 0;
+        width: 60px;
+        min-width: 60px;
+        overflow-x: visible;
+        overflow-y: auto;
       }
-      
       .sidebar:hover {
         width: 250px;
       }

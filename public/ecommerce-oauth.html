@@ -132,10 +132,24 @@
       font-size: 1rem;
     }
     @media (max-width: 800px) {
-      .sidebar { transform: translateX(-250px); }
-      .sidebar:hover { transform: translateX(0); }
-      .main-content { margin-left: 0; width: 100%; }
-      .container { padding: 1rem; max-width: 98vw; margin-top: 1rem; }
+      .sidebar {
+        width: 60px;
+        min-width: 60px;
+        transform: none;
+        overflow: visible;
+      }
+      .sidebar:hover {
+        width: 250px;
+      }
+      .main-content {
+        margin-left: 60px;
+        width: calc(100% - 60px);
+      }
+      .container {
+        padding: 1rem;
+        max-width: 98vw;
+        margin-top: 1rem;
+      }
     }
   </style>
   <link rel="icon" href="favicon.ico">

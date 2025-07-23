@@ -6,6 +6,25 @@
   <title>Incoming Ingredients</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
   <style>
+    @media (max-width: 600px) {
+      .sidebar {
+        width: 60px;
+        min-width: 60px;
+        transform: none;
+        overflow: visible;
+      }
+      .sidebar:hover {
+        width: 250px;
+      }
+      .main-content {
+        margin-left: 60px;
+        width: calc(100% - 60px);
+      }
+      .container {
+        margin: 20px 10px;
+        padding: 1rem;
+      }
+    }
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);

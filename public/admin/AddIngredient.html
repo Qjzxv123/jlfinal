@@ -115,21 +115,20 @@
       justify-content: flex-start;
       min-height: 100vh;
     }
-    @media (max-width: 600px) {
+    @media (max-width: 800px) {
       .sidebar {
-        width: 0;
-        overflow: hidden;
+        width: 60px;
+        min-width: 60px;
+        transform: none;
+        overflow: visible;
       }
-      
       .sidebar:hover {
         width: 250px;
       }
-      
       .main-content {
-        margin-left: 0;
-        width: 100%;
+        margin-left: 60px;
+        width: calc(100% - 60px);
       }
-      
       .container {
         margin: 20px 10px;
         padding: 1rem;
