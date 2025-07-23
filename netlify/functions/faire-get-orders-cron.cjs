@@ -50,14 +50,31 @@ async function fetchOrdersForUser(userKey) {
   let orders = [];
   for (const order of (data.orders || [])) {
     const shippingDetails = order.address || {};
+    // Split bundle SKUs into separate items
+    let parsedItems = [];
+    for (const item of (order.items || [])) {
+      if (item.sku && item.sku.includes('+')) {
+        // Bundle SKU, split and create separate items
+        const skus = item.sku.split('+');
+        for (const sku of skus) {
+          parsedItems.push({
+            SKU: sku.trim(),
+            Name: item.product_name || '',
+            Quantity: item.quantity || 0
+          });
+        }
+      } else {
+        parsedItems.push({
+          SKU: item.sku || '',
+          Name: item.product_name || '',
+          Quantity: item.quantity || 0
+        });
+      }
+    }
     const orderData = {
       OrderID: order.id || '',
       Retailer: userKey,
-      Items: JSON.stringify((order.items || []).map(item => ({
-        SKU: item.sku || '',
-        Name: item.product_name || '',
-        Quantity: item.quantity || 0
-      }))),
+      Items: JSON.stringify(parsedItems),
       Customer: JSON.stringify({
         name: shippingDetails.name || '',
         address1: shippingDetails.address1 || '',

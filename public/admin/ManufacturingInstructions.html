@@ -262,7 +262,7 @@
                                     `<td style='padding:4px 8px; border:1px solid #b2d8a6; width:10%; min-width:50px;'>${ing['Ingredient Quantity(%)'] !== undefined ? ing['Ingredient Quantity(%)'] : (ing.Percent !== undefined ? ing.Percent : '')}</td>` +
                                     `<td style='padding:4px 8px; border:1px solid #b2d8a6; width:17%; min-width:90px;'>${weightGrams !== undefined ? formatWeight(weightGrams) : ''}</td>` +
                                     `<td style='padding:4px 8px; border:1px solid #b2d8a6; width:15%; min-width:80px;'>${location}</td>` +
-                                    `<td style='padding:4px 8px; border:1px solid #b2d8a6; width:15%; min-width:80px;'></td>` +
+                                    `<td style='padding:4px 8px; border:1px solid #b2d8a6; width:15%; min-width:80px;'><input type="text" style="width:90%;padding:4px 6px;border-radius:4px;border:1px solid #b2d8a6;" placeholder="Initials"></td>` +
                                 `</tr>`;
                             });
                         }
@@ -331,7 +331,7 @@
                         <li>Ensure scale is working properly.</li>
                     </ul>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -341,7 +341,7 @@
                         <li>Set temperature on pot to <strong>${pourTemp}°C</strong>.</li>
                     </ol>
                     
-                    <p><strong>Quality Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Quality Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -352,7 +352,7 @@
                         <li>Verify that all containers, lids, and tools are sanitized and approved for use.</li>
                         <li>Lay out only the number of containers required for the batch.</li>
                         <li>Confirm container SKU <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong><br>
-                        <strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</li>
+                        <strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></li>
                     </ul>
                     
                     <h4>2. Fill Conditions</h4>
@@ -378,7 +378,7 @@
                     
                     <p>If deviations are observed, document immediately and notify supervisor before proceeding.</p>
                     
-                    <p><strong>Quality Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Quality Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <h4>5. Post-Fill Actions</h4>
                     <ul>
@@ -388,8 +388,8 @@
                         <li>Record number of containers filled.</li>
                     </ul>
                     
-                    <p><strong>No. of Pieces Filled:</strong> ____________________</p>
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>No. of Pieces Filled:</strong> <input type="text" style="width:120px;" placeholder="No. of Pieces Filled"></p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -397,17 +397,18 @@
                     
                     <h4>1. Packaging</h4>
                     <ul>
-                        <li>Confirm Container SKUs <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong> <strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</li>
+                        <li>Confirm Container SKUs <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong> <br>
+                            <strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></li>
                         <li>Apply labels evenly and securely to containers.</li>
                         <li>Perform visual inspection to confirm legibility and placement.</li>
-                        <li>Application method: ________________________</li>
+                        <li>Application method: <input type="text" style="width:180px;" placeholder="Application method"></li>
                     </ul>
                     
                     <h4>2. Inventory Management</h4>
                     <p>Move finished products into designated quarantine area for finished goods.</p>
-                    <p><strong>Storage location:</strong> ________________</p>
-                    <p><strong>Initials:</strong> ____________</p>
-                    <p><strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Storage location:</strong> <input type="text" style="width:180px;" placeholder="Storage location"></p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"></p>
+                    <p><strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                 </div>
             `;
             
@@ -445,7 +446,7 @@
                         <li>Ensure scale is working properly.</li>
                     </ul>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -458,7 +459,7 @@
                         <li>Verify that all containers, lids, and tools are sanitized and approved for use.</li>
                         <li>Lay out only the number of containers required for the batch.</li>
                         <li>Confirm container SKU <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong><br>
-                        <strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</li>
+                        <strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></li>
                     </ul>
                     
                     <h4>2. Fill Conditions</h4>
@@ -485,7 +486,7 @@
                     
                     <p>If deviations are observed, document immediately and notify supervisor before proceeding.</p>
                     
-                    <p><strong>Quality Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Quality Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <h4>5. Post-Fill Actions</h4>
                     <ul>
@@ -495,8 +496,8 @@
                         <li>Record number of containers filled.</li>
                     </ul>
                     
-                    <p><strong>No. of Pieces Filled:</strong> ____________________</p>
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>No. of Pieces Filled:</strong> <input type="text" style="width:120px;" placeholder="No. of Pieces Filled"></p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -505,17 +506,17 @@
                     <h4>1. Packaging</h4>
                     <ul>
                         <li>Confirm Container SKUs <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong><br>
-                        <strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</li>
+                        <strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></li>
                         <li>Apply labels evenly and securely to containers.</li>
                         <li>Perform visual inspection to confirm legibility and placement.</li>
-                        <li>Application method: ________________________</li>
+                        <li>Application method: <input type="text" style="width:120px;" placeholder="Application method"></li>
                     </ul>
                     
                     <h4>2. Inventory Management</h4>
                     <p>Move finished products into designated quarantine area for finished goods.</p>
-                    <p><strong>Storage location:</strong> ________________</p>
-                    <p><strong>Initials:</strong> ____________</p>
-                    <p><strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Storage location:</strong> <input type="text" style="width:120px;" placeholder="Storage location"></p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"></p>
+                    <p><strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                 </div>
             `;
             
@@ -558,7 +559,7 @@
                         <li>For critical or expensive ingredients, have a second person verify.</li>
                     </ul>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -616,14 +617,14 @@
                     <h4>8. Packaging Process</h4>
                     <ul>
                         <li>Confirm container SKU <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong><br>
-                        <strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</li>
+                        <strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></li>
                         <li>Inspect closures for proper application</li>
                         <li>Record number of bars packaged.</li>
                     </ul>
                     
-                    <p><strong>No. of Pieces Filled:</strong> ____________________</p>
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
-                    
+                    <p><strong>No. of Pieces Filled:</strong> <input type="text" style="width:120px;" placeholder="No. of Pieces Filled"></p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
+
                     <hr style="margin: 20px 0;">
                     
                     <h3>Labeling & Inventory Management</h3>
@@ -631,17 +632,17 @@
                     <h4>1. Labeling</h4>
                     <ul>
                         <li>Confirm Container SKUs <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong><br>
-                        <strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</li>
+                        <strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></li>
                         <li>Apply labels evenly and securely to containers.</li>
                         <li>Perform visual inspection to confirm legibility and placement.</li>
-                        <li>Application method: ________________________</li>
+                        <li>Application method: <input type="text" style="width:120px;" placeholder="Application method"></li>
                     </ul>
                     
                     <h4>2. Inventory Management</h4>
                     <p>Move finished products into designated quarantine area for finished goods.</p>
-                    <p><strong>Storage location:</strong> ________________</p>
-                    <p><strong>Initials:</strong> ____________</p>
-                    <p><strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Storage location:</strong> <input type="text" style="width:120px;" placeholder="Storage location"></p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"></p>
+                    <p><strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                 </div>
             `;
             
@@ -690,7 +691,7 @@
                         <li>For critical or expensive ingredients, have a second person verify.</li>
                     </ul>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -704,12 +705,13 @@
                     <h3>9. Filling Process</h3>
                     <ul>
                         <li>Ensure temperature has reached <strong>${pourTemp}°C</strong>.</li>
-                        <li>Confirm container SKU <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong> <strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</li>
+                        <li>Confirm container SKU <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong><br> 
+                        <strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></li>
                         <li>Dispense product directly into proper containers.</li>
                         <li>Place filled containers on a tray to cool.</li>
                     </ul>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -728,7 +730,7 @@
                     
                     <p>If deviations are observed, document immediately and notify supervisor before proceeding.</p>
                     
-                    <p><strong>Quality Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Quality Initials:</strong> <input type="text" style="width:120px;" placeholder="Quality Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -740,8 +742,8 @@
                         <li>Record number of containers filled.</li>
                     </ul>
                     
-                    <p><strong>No. of Pieces Filled:</strong> ____________________</p>
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>No. of Pieces Filled:</strong> <input type="text" style="width:120px;" placeholder="No. of Pieces Filled"></p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -749,17 +751,18 @@
                     
                     <h4>1. Labeling</h4>
                     <ul>
-                        <li>Confirm label SKU <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong> <strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</li>
+                        <li>Confirm label SKU <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong><br>
+                        <strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></li>
                         <li>Apply labels evenly and securely to containers.</li>
                         <li>Perform visual inspection to confirm legibility and placement.</li>
-                        <li>Application method: ________________________</li>
+                        <li>Application method: <input type="text" style="width:120px;" placeholder="Application method"></li>
                     </ul>
                     
                     <h4>2. Inventory Management</h4>
                     <p>Move finished products into designated quarantine area for finished goods.</p>
-                    <p><strong>Storage location:</strong> ________________</p>
-                    <p><strong>Initials:</strong> ____________</p>
-                    <p><strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Storage location:</strong> <input type="text" style="width:120px;" placeholder="Storage location"></p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"></p>
+                    <p><strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                 </div>
             `;
             
@@ -806,13 +809,13 @@
                           'Stir with spatula for 30 seconds to ensure uniform blending.'}</li>
                     </ol>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <p><strong>Temperature:</strong> ${phase.temp}°C<br>
                     <strong>${phase.timeType} Time:</strong> ${phase.time} mins<br>
                     <strong>Consistency:</strong> ${phase.consistency}</p>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong> <input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                 `;
@@ -907,15 +910,11 @@
                         <li>Add <strong>${phase.ingredients}</strong> to Phase ${phaseNum} pot.<br>
                         ${phaseNum === 1 ? 'Mix continuously to help melt quicker.' : 'Mix continuously.'}</li>
                     </ol>
-                    
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
-                    
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     <p><strong>Temperature:</strong> ${phase.temp}°C<br>
                     <strong>${phase.timeType} Time:</strong> ${phase.time} mins<br>
                     <strong>Consistency:</strong> ${phase.consistency}</p>
-                    
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
-                    
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     <hr style="margin: 20px 0;">
                 `;
                 
@@ -938,7 +937,7 @@
                         <li>Repeat step ${stepNumber + 3}-${stepNumber + 4} until temperature has reached <strong>${pourTemp}°C</strong>.</li>
                     </ol>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <p><strong>${finalPhase.timeType} Time:</strong> ${finalPhase.time} mins<br>
                     <strong>Consistency:</strong> ${finalPhase.consistency}</p>
@@ -947,9 +946,7 @@
                         <li>Add <strong>${finalPhase.ingredients}</strong> to pot.<br>
                         Mix for 5 more minutes to ensure all ingredients are mixed in evenly.</li>
                     </ol>
-                    
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
-                    
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     <hr style="margin: 20px 0;">
                 `;
             }
@@ -1013,13 +1010,13 @@
                 }
                 
                 instructions += `
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
-                    
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
+
                     <p><strong>Temperature:</strong> ${phase.temp}°C<br>
                     <strong>${phase.timeType} Time:</strong> ${phase.time} mins<br>
                     <strong>Consistency:</strong> ${phase.consistency}</p>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                 `;
@@ -1075,7 +1072,7 @@
                         <li>For critical or expensive ingredients, have a second person verify.</li>
                     </ul>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <p><strong>Install agitator.</strong></p>
                     
@@ -1090,12 +1087,13 @@
                     <h3>9. Filling Process</h3>
                     <ul>
                         <li>Ensure temperature has reached <strong>${pourTemp}°C</strong>.</li>
-                        <li>Confirm container SKU <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong> <strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</li>
+                        <li>Confirm container SKU <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong><br>
+                        <strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></li>
                         <li>Dispense product directly into proper containers.</li>
                         <li>Place filled containers on a tray to cool.</li>
                     </ul>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -1114,7 +1112,7 @@
                     
                     <p>If deviations are observed, document immediately and notify supervisor before proceeding.</p>
                     
-                    <p><strong>Quality Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Quality Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -1126,8 +1124,8 @@
                         <li>Record number of containers filled.</li>
                     </ul>
                     
-                    <p><strong>No. of Pieces Filled:</strong> ____________________</p>
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>No. of Pieces Filled:</strong><input type="text" style="width:120px;" placeholder="No. of Pieces Filled"></p>
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                     
@@ -1135,17 +1133,17 @@
                     
                     <h4>1. Labeling</h4>
                     <ul>
-                        <li>Confirm Container SKUs <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong> <strong>Initials:</strong> ____________ &nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</li>
+                        <li>Confirm Container SKUs <strong>${containerSKUs.join(', ') || 'Unspecified'}</strong><br>
+                        <strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></li>
                         <li>Apply labels evenly and securely to containers.</li>
                         <li>Perform visual inspection to confirm legibility and placement.</li>
-                        <li>Application method: ________________________</li>
+                        <li>Application method: <input type="text" style="width:300px;" placeholder="Application method"></li>
                     </ul>
                     
                     <h4>2. Inventory Management</h4>
                     <p>Move finished products into designated quarantine area for finished goods.</p>
-                    <p><strong>Storage location:</strong> ________________</p>
-                    <p><strong>Initials:</strong> ____________</p>
-                    <p><strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Storage location:</strong> <input type="text" style="width:300px;" placeholder="Storage location"></p>
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                 </div>
             `;
             
@@ -1172,13 +1170,13 @@
                              'Stir with agitator ensure uniform blending.'}</li>
                     </ul>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <p><strong>Temperature:</strong> ${phase.temp}°C<br>
                     <strong>${phase.timeType} Time:</strong> ${phase.time} mins<br>
                     <strong>Consistency:</strong> ${phase.consistency}</p>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                 `;
@@ -1202,13 +1200,13 @@
                              'Stir with spatula for 30 seconds to ensure uniform blending.'}</li>
                     </ul>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <p><strong>Temperature:</strong> ${phase.temp}°C<br>
                     <strong>${phase.timeType} Time:</strong> ${phase.time} mins<br>
                     <strong>Consistency:</strong> ${phase.consistency}</p>
                     
-                    <p><strong>Initials:</strong> ____________ &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> ________________________</p>
+                    <p><strong>Initials:</strong><input type="text" style="width:120px;" placeholder="Initials"> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Date/Time:</strong> <input type="text" style="width:180px;" placeholder="Date/Time"></p>
                     
                     <hr style="margin: 20px 0;">
                 `;
