@@ -288,14 +288,13 @@
     <table class="order-table" id="orderTable">
       <thead>
         <tr>
+          <th>Remove</th>
           <th>Order #</th>
-          <th>Customer</th>
-          <th>Product (SKU × Qty)</th>
+          <th>Customer / Product (SKU × Qty)</th>
           <th>Progress</th>
           <th>Schedule</th>
           <th>Instructions</th>
           <th>Deadline</th>
-          <th>Remove</th>
         </tr>
       </thead>
       <tbody id="orderTableBody">
@@ -484,67 +483,69 @@
 
           // --- Ingredient check logic (BatchMaker style) ---
           let highlightRed = false;
-          try {
-            if (task.ProductSKU && task.Quantity) {
-              // Fetch product process and weight
-              const { data: productData, error: productError } = await client
-                .from('Products')
-                .select('Process, "Product Weight(oz)"')
-                .eq('ProductSKU', task.ProductSKU)
-                .maybeSingle();
-              if (!productError && productData && productData.Process && productData["Product Weight(oz)"]) {
-                const process = productData.Process;
-                const productSizeOz = Number(productData["Product Weight(oz)"]) || 0;
-                const productSizeLbs = productSizeOz / 16;
-                // Parse process JSON for ingredients (same as BatchMaker)
-                let ingredients = [];
-                Object.keys(process).forEach(key => {
-                  if (key.startsWith('Phase ') && process[key][`${key} Ingredients`]) {
-                    process[key][`${key} Ingredients`].forEach(ingredient => {
-                      if (ingredient.IngredientSKU && ingredient['Ingredient Quantity(%)'] !== undefined) {
-                        const percentage = ingredient['Ingredient Quantity(%)'];
-                        if (!isNaN(percentage) && percentage > 0) {
-                          const baseAmountLbs = 1.1 * (percentage / 100) * productSizeLbs;
-                          const totalAmount = baseAmountLbs * task.Quantity;
-                          ingredients.push({
-                            sku: ingredient.IngredientSKU,
-                            totalAmount
-                          });
+          // Only check ingredient quantity for 'requested' orders
+          if ((task.Progress || '').toLowerCase() === 'requested') {
+            try {
+              if (task.ProductSKU && task.Quantity) {
+                // Fetch product process and weight
+                const { data: productData, error: productError } = await client
+                  .from('Products')
+                  .select('Process, "Product Weight(oz)"')
+                  .eq('ProductSKU', task.ProductSKU)
+                  .maybeSingle();
+                if (!productError && productData && productData.Process && productData["Product Weight(oz)"]) {
+                  const process = productData.Process;
+                  const productSizeOz = Number(productData["Product Weight(oz)"]) || 0;
+                  const productSizeLbs = productSizeOz / 16;
+                  // Parse process JSON for ingredients (same as BatchMaker)
+                  let ingredients = [];
+                  Object.keys(process).forEach(key => {
+                    if (key.startsWith('Phase ') && process[key][`${key} Ingredients`]) {
+                      process[key][`${key} Ingredients`].forEach(ingredient => {
+                        if (ingredient.IngredientSKU && ingredient['Ingredient Quantity(%)'] !== undefined) {
+                          const percentage = ingredient['Ingredient Quantity(%)'];
+                          if (!isNaN(percentage) && percentage > 0) {
+                            const baseAmountLbs = 1.1 * (percentage / 100) * productSizeLbs;
+                            const totalAmount = baseAmountLbs * task.Quantity;
+                            ingredients.push({
+                              sku: ingredient.IngredientSKU,
+                              totalAmount
+                            });
+                          }
+                        }
+                      });
+                    }
+                  });
+                  // Fetch ingredient inventory
+                  if (ingredients.length > 0) {
+                    const skus = ingredients.map(i => i.sku);
+                    const { data: invData, error: invError } = await client
+                      .from('Ingredients')
+                      .select('IngredientSKU, "Quantity(Lbs/Units)"')
+                      .in('IngredientSKU', skus);
+                    
+                    if (invError) {
+                      // If we can't fetch inventory, assume we can't make it.
+                      highlightRed = true;
+                    } else if (invData) {
+                      for (const ing of ingredients) {
+                        const inv = invData.find(row => row.IngredientSKU === ing.sku);
+                        // If ingredient not found in inventory OR quantity is insufficient
+                        if (!inv || (Number(inv["Quantity(Lbs/Units)"]) < ing.totalAmount)) {
+                          highlightRed = true;
+                          break; // Exit the loop as soon as one missing ingredient is found
                         }
                       }
-                    });
-                  }
-                });
-                // Fetch ingredient inventory
-                if (ingredients.length > 0) {
-                  const skus = ingredients.map(i => i.sku);
-                  const { data: invData, error: invError } = await client
-                    .from('Ingredients')
-                    .select('IngredientSKU, "Quantity(Lbs/Units)"')
-                    .in('IngredientSKU', skus);
-                  
-                  if (invError) {
-                    // If we can't fetch inventory, assume we can't make it.
-                    highlightRed = true;
-                  } else if (invData) {
-                    for (const ing of ingredients) {
-                      const inv = invData.find(row => row.IngredientSKU === ing.sku);
-                      // If ingredient not found in inventory OR quantity is insufficient
-                      if (!inv || (Number(inv["Quantity(Lbs/Units)"]) < ing.totalAmount)) {
-                        highlightRed = true;
-                        break; // Exit the loop as soon as one missing ingredient is found
-                      }
+                    } else {
+                      // invData is null or empty, meaning none of the ingredients were found.
+                      highlightRed = true;
                     }
-                  } else {
-                    // invData is null or empty, meaning none of the ingredients were found.
-                    highlightRed = true;
                   }
                 }
               }
-            }
-          } catch (e) { /* fail safe: do not highlight */ }
-
-          if (highlightRed) tr.style.background = '#ffeaea';
+            } catch (e) { /* fail safe: do not highlight */ }
+          }
+          // if (highlightRed) tr.style.background = '#ffeaea';
 
           let batchMakerButton = '';
           if (highlightRed) {
@@ -552,29 +553,34 @@
               ProductSKU: task.ProductSKU,
               Quantity: task.Quantity
             });
-            batchMakerButton = `<a href="BatchMaker.html?${params.toString()}" target="_blank" style="margin-left: 10px; display: inline-block; background: #f59e0b; color: white; padding: 0.2rem 0.5rem; text-decoration: none; border-radius: 4px; font-size: 0.8rem;">Check</a>`;
+            batchMakerButton = `<a href="BatchMaker.html?${params.toString()}" target="_blank" style="margin-left: 10px; display: inline-block; background: #F9AD28; color: white; padding: 0.2rem 0.5rem; text-decoration: none; border-radius: 4px; font-size: 0.8rem;"><i class='cil-warning'></i></a>`;
           }
 
           // Instructions button column
           let instructionsBtn = '';
+          const instructionsBtnStyle = 'background:#9B41E5; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.4em;';
           if (task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
-            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Open</button>`;
+            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}" style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
+          } else if (task.ProductSKU && task.Quantity) {
+            // Show button even if PlannedManufactureDate is missing
+            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="" data-batchsize="${task.Quantity}" style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
           } else {
             instructionsBtn = `<span style="color:#888;">N/A</span>`;
           }
 
           tr.innerHTML = `
+            <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
             <td>${batchMakerButton} ${task.OrderNumber || ''}</td>
-            <td>${customerDisplay}</td>
-            <td>${task.ProductSKU || ''} × ${task.Quantity || ''}</td>
-            <td class="${progressClass}">
+            <td><span style="font-weight:600; color:#E2DB53;">${customerDisplay}</span><br><span style="color:#374151;">${task.ProductSKU || ''} × <span style='opacity:0.65;'>${task.Quantity || ''}</span></span></td>
+          <td class="${progressClass}">
+            <button class="update-progress-btn" data-order-id="${task.OrderNumber}" data-current-progress="${progress}" style="background:#4dba93; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.5em;">
               <span>${progressDisplay}</span>
-              <button class="update-progress-btn" data-order-id="${task.OrderNumber}" data-current-progress="${progress}" style="margin-left:10px; background:#4dba93; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Update</button>
-            </td>
+              <i class="cil-pencil"></i>
+            </button>
+          </td>
             <td>${scheduleColHtml}</td>
             <td>${instructionsBtn}</td>
             <td>${task.Deadline ? new Date(task.Deadline).toLocaleDateString() : ''}</td>
-            <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#e74c3c; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
           `;
           newTbody.appendChild(tr);
         }
@@ -832,9 +838,120 @@
           .from('ManufacturingTasks')
           .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, Vessel: Vessel, Quantity: batches[0] })
           .eq('OrderNumber', orderId);
+        let modalResults = [];
         if (error) {
-          alert('Failed to schedule task: ' + error.message);
+          modalResults.push({ sku: null, status: 'error', message: 'Failed to schedule task: ' + error.message });
+        } else {
+          // Subtract ingredients from inventory for the first batch
+          try {
+            // Fetch product process and weight
+            const { data: productData, error: productError } = await client
+              .from('Products')
+              .select('Process, "Product Weight(oz)"')
+              .eq('ProductSKU', orderDetails.ProductSKU)
+              .maybeSingle();
+            if (!productError && productData && productData.Process && productData["Product Weight(oz)"]) {
+              const process = productData.Process;
+              const productSizeOz = Number(productData["Product Weight(oz)"]) || 0;
+              const productSizeLbs = productSizeOz / 16;
+              let ingredients = [];
+              Object.keys(process).forEach(key => {
+                if (key.startsWith('Phase ') && process[key][`${key} Ingredients`]) {
+                  process[key][`${key} Ingredients`].forEach(ingredient => {
+                    if (ingredient.IngredientSKU && ingredient['Ingredient Quantity(%)'] !== undefined) {
+                      const percentage = ingredient['Ingredient Quantity(%)'];
+                      if (!isNaN(percentage) && percentage > 0) {
+                        const baseAmountLbs = 1.1 * (percentage / 100) * productSizeLbs;
+                        const totalAmount = baseAmountLbs * batches[0];
+                        ingredients.push({
+                          sku: ingredient.IngredientSKU,
+                          totalAmount
+                        });
+                      }
+                    }
+                  });
+                }
+              });
+              // Subtract each ingredient from inventory
+              for (const ing of ingredients) {
+                // Fetch current inventory
+                let rowStatus = { sku: ing.sku, status: '', message: '' };
+                try {
+                  const { data: invData, error: invError } = await client
+                    .from('Ingredients')
+                    .select('"Quantity(Lbs/Units)"')
+                    .eq('IngredientSKU', ing.sku)
+                    .maybeSingle();
+                  if (!invError && invData && invData["Quantity(Lbs/Units)"] !== undefined) {
+                    const currentQty = Number(invData["Quantity(Lbs/Units)"]);
+                    const newQty = Math.max(0, currentQty - ing.totalAmount);
+                    const { error: updateError } = await client
+                      .from('Ingredients')
+                      .update({ "Quantity(Lbs/Units)": newQty })
+                      .eq('IngredientSKU', ing.sku);
+                    if (!updateError) {
+                      rowStatus.status = 'success';
+                      rowStatus.message = `Updated ${ing.sku}: ${currentQty} → ${newQty}`;
+                    } else {
+                      rowStatus.status = 'error';
+                      rowStatus.message = `Error updating ${ing.sku}: ${updateError.message}`;
+                    }
+                  } else {
+                    rowStatus.status = 'error';
+                    rowStatus.message = `Error fetching ${ing.sku} inventory.`;
+                  }
+                } catch (e) {
+                  rowStatus.status = 'error';
+                  rowStatus.message = `Exception for ${ing.sku}: ${e.message}`;
+                }
+                modalResults.push(rowStatus);
+              }
+            }
+          } catch (e) {
+            modalResults.push({ sku: null, status: 'error', message: 'Failed to subtract ingredients from inventory: ' + e.message });
+          }
         }
+        // Show modal with results
+        showInventoryUpdateModal(modalResults);
+    // Modal to show inventory update results
+    function showInventoryUpdateModal(results) {
+      let modal = document.getElementById('inventoryUpdateModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'inventoryUpdateModal';
+        modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2500; align-items:center; justify-content:center;';
+        modal.innerHTML = `
+          <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+            <h3 style="margin-top:0;">Inventory Update Results</h3>
+            <div id="inventoryUpdateResults"></div>
+            <div style="display:flex; gap:1em; justify-content:flex-end; margin-top:1em;">
+              <button id="inventoryUpdateCloseBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Close</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      }
+      // Fill results
+      const resultsDiv = modal.querySelector('#inventoryUpdateResults');
+      resultsDiv.innerHTML = results.map(r => {
+        if (r.status === 'success') {
+          return `<div style="color:#065f46; margin-bottom:0.5em;">✔️ ${r.message}</div>`;
+        } else {
+          return `<div style="color:#b91c1c; margin-bottom:0.5em;">❌ ${r.message}</div>`;
+        }
+      }).join('');
+      // Show modal
+      modal.style.display = 'flex';
+      // Close button
+      const closeBtn = modal.querySelector('#inventoryUpdateCloseBtn');
+      closeBtn.onclick = function() {
+        modal.style.display = 'none';
+      };
+      // Close modal on outside click
+      modal.onclick = function(e) {
+        if (e.target === modal) modal.style.display = 'none';
+      };
+    }
 
         // For each additional batch, create a new order with OrderNumber suffix
         // Use the original order's OrderNumber as the base
@@ -872,7 +989,42 @@
 
         // Open manufacturing instructions for the first batch
         if (orderDetails.ProductSKU && plannedDate && batches[0]) {
-          const url = `https://jlfinal.netlify.app/public/admin/manufacturinginstructions?sku=${encodeURIComponent(orderDetails.ProductSKU)}&batchtime=${encodeURIComponent(plannedDate)}&batchSize=${encodeURIComponent(batches[0])}`;
+          // Generate lot number using the same logic as instructions button
+          let lot = '';
+          try {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const day = now.getDate();
+            let shelfLifeYears = 3;
+            const { data: productShelfData, error: shelfError } = await client
+              .from('Products')
+              .select('ShelfLife')
+              .eq('ProductSKU', orderDetails.ProductSKU)
+              .maybeSingle();
+            if (!shelfError && productShelfData && productShelfData.ShelfLife) {
+              shelfLifeYears = productShelfData.ShelfLife;
+            }
+            const monthLetters = 'abcdefghijkl';
+            const monthLetter = monthLetters[month - 1];
+            const thirdDigitYear = Math.floor((year % 100) / 10);
+            const lastDigitYear = year % 10;
+            let expirationMonth = month;
+            let expirationYear = year + shelfLifeYears;
+            if (day >= 15) {
+              expirationMonth = month + 1;
+              if (expirationMonth > 12) {
+                expirationMonth = 1;
+                expirationYear = year + shelfLifeYears + 1;
+              }
+            }
+            const formattedExpMonth = expirationMonth.toString().padStart(2, '0');
+            const expYearLastTwo = (expirationYear % 100).toString().padStart(2, '0');
+            lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
+          } catch (e) {
+            lot = '';
+          }
+          const url = `/public/admin/manufacturinginstructions.html?sku=${encodeURIComponent(orderDetails.ProductSKU)}&batchtime=${encodeURIComponent(plannedDate)}&batchSize=${encodeURIComponent(batches[0])}&lot=${encodeURIComponent(lot)}&batch=${Math.floor(100000 + Math.random() * 900000)}`;
           window.open(url, '_blank');
         }
         modal.style.display = 'none';
@@ -904,7 +1056,7 @@
             <option value="in production">In Production</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
-            <option value="Undergoing Quality Checks">Undergoing Quality Checks</option>
+            <option value="Quality Checks">Quality Checks</option>
           </select>
           <div style="display:flex; gap:1em; justify-content:flex-end;">
             <button id="modalCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
