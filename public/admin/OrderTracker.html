@@ -493,14 +493,22 @@
                     .from('Ingredients')
                     .select('IngredientSKU, "Quantity(Lbs/Units)"')
                     .in('IngredientSKU', skus);
-                  if (!invError && invData) {
+                  
+                  if (invError) {
+                    // If we can't fetch inventory, assume we can't make it.
+                    highlightRed = true;
+                  } else if (invData) {
                     for (const ing of ingredients) {
                       const inv = invData.find(row => row.IngredientSKU === ing.sku);
+                      // If ingredient not found in inventory OR quantity is insufficient
                       if (!inv || (Number(inv["Quantity(Lbs/Units)"]) < ing.totalAmount)) {
                         highlightRed = true;
-                        break;
+                        break; // Exit the loop as soon as one missing ingredient is found
                       }
                     }
+                  } else {
+                    // invData is null or empty, meaning none of the ingredients were found.
+                    highlightRed = true;
                   }
                 }
               }
@@ -509,8 +517,17 @@
 
           if (highlightRed) tr.style.background = '#ffeaea';
 
+          let batchMakerButton = '';
+          if (highlightRed) {
+            const params = new URLSearchParams({
+              ProductSKU: task.ProductSKU,
+              Quantity: task.Quantity
+            });
+            batchMakerButton = `<a href="BatchMaker.html?${params.toString()}" target="_blank" style="margin-left: 10px; display: inline-block; background: #f59e0b; color: white; padding: 0.2rem 0.5rem; text-decoration: none; border-radius: 4px; font-size: 0.8rem;">Check</a>`;
+          }
+
           tr.innerHTML = `
-            <td>${task.OrderNumber || ''}</td>
+            <td>${batchMakerButton} ${task.OrderNumber || ''}</td>
             <td>${customerDisplay}</td>
             <td>${task.ProductSKU || ''} × ${task.Quantity || ''}</td>
             <td class="${progressClass}">
