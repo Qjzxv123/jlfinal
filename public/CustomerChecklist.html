@@ -376,21 +376,24 @@
 
     document.getElementById('addTaskForm').onsubmit = async function(e) {
       e.preventDefault();
+      // Get session and userID
+      const { data: { session } } = await client.auth.getSession();
       const userID = await getCurrentUserID();
-      if (!userID) {
+      if (!userID || !session) {
         alert('You must be logged in to add a task.');
         return;
       }
       const taskDescription = document.getElementById('taskDescription').value.trim();
       const Deadline = document.getElementById('Deadline').value;
       const Priority = document.getElementById('priority') ? document.getElementById('priority').value : 'Low';
+      const assignedTo = session.user && session.user.user_metadata && session.user.user_metadata.display_name ? session.user.user_metadata.display_name : '';
       const task = {
         Task: taskDescription,
         Deadline: Deadline || null,
         Priority: Priority || 'Low',
         Status: 'incomplete',
         UserID: [userID],
-        AssignedTo: "JNL"
+        AssignedTo: assignedTo
       };
       const success = await addTask(task);
       if (success) {
