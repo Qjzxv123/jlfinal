@@ -380,7 +380,7 @@ async function checkAdmin() {
           <td>${task.Task || ''}</td>
           <td style="text-align:center;">${priorityIcon}</td>
           <td>${task.AssignedTo || ''}</td>
-          <td><button class="remove-task-btn" data-id="${task.id}" style="background:#e74c3c;">Remove</button></td>
+          <td><button class="remove-task-btn" data-id="${task.id}" style="background:#e74c3c;"><i class="cil-trash"></i></button></td>
         `;
         if (checked) {
           completedTbody.appendChild(tr);

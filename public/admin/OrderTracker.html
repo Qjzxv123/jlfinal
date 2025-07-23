@@ -234,51 +234,66 @@
   </div>
   <div class="main-content">
     <h1>Wholesale Order Tracker</h1>
-    <form class="add-order-form" id="addOrderForm">
-      <div>
-        <label for="customer">Customer</label>
-        <select id="customer" required>
-          <option value="">Loading...</option>
-        </select>
+    <button id="openAddOrderModalBtn" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-size:1.1rem; font-weight:600; cursor:pointer; margin-bottom:2rem;">Add New Order</button>
+    <div id="addOrderModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2200; align-items:center; justify-content:center;">
+      <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+        <h3 style="margin-top:0;">Add New Order</h3>
+        <form class="add-order-form" id="addOrderForm">
+          <div>
+            <label for="customer">Customer</label>
+            <select id="customer" required>
+              <option value="">Loading...</option>
+            </select>
+          </div>
+          <div>
+            <label for="orderNumber">Order #</label>
+            <input type="text" id="orderNumber" required placeholder="Order Number">
+          </div>
+          <div>
+            <label for="productSKU">Product SKU</label>
+            <select id="productSKU" required>
+              <option value="">Loading...</option>
+            </select>
+          </div>
+          <div>
+            <label for="quantity">Quantity</label>
+            <input type="number" id="quantity" required min="1" placeholder="Quantity">
+          </div>
+          <div>
+            <label for="progress">Progress</label>
+            <select id="progress" required>
+              <option value="requested">Requested</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="in production">In Production</option>
+              <option value="completed">Completed</option>
+              <option value="Undergoing Quality Checks">Undergoing Quality Checks</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div>
+            <label for="deadline">Deadline</label>
+            <input type="date" id="deadline" placeholder="Deadline">
+          </div>
+          <div id="plannedDateContainer" style="display:none;">
+            <label for="plannedManufactureDate">Planned Manufacture Date</label>
+            <input type="date" id="plannedManufactureDate" placeholder="Planned Manufacture Date">
+          </div>
+          <div style="display:flex; gap:1em; justify-content:flex-end; margin-top:1em;">
+            <button type="button" id="closeAddOrderModalBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
+            <button type="submit" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-size:1.1rem; font-weight:600; cursor:pointer;">Add Order</button>
+          </div>
+        </form>
       </div>
-      <div>
-        <label for="orderNumber">Order #</label>
-        <input type="text" id="orderNumber" required placeholder="Order Number">
-      </div>
-      <div>
-        <label for="productSKU">Product SKU</label>
-        <select id="productSKU" required>
-          <option value="">Loading...</option>
-        </select>
-      </div>
-      <div>
-        <label for="quantity">Quantity</label>
-        <input type="number" id="quantity" required min="1" placeholder="Quantity">
-      </div>
-      <div>
-        <label for="progress">Progress</label>
-        <select id="progress" required>
-          <option value="requested">Requested</option>
-          <option value="scheduled">Scheduled</option>
-          <option value="in production">In Production</option>
-          <option value="completed">Completed</option>
-          <option value="Undergoing Quality Checks">Undergoing Quality Checks</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-      </div>
-      <div>
-        <button type="submit">Add Order</button>
-      </div>
-    </form>
+    </div>
     <table class="order-table" id="orderTable">
       <thead>
         <tr>
           <th>Order #</th>
           <th>Customer</th>
-          <th>Product SKU</th>
-          <th>Quantity</th>
+          <th>Product (SKU × Qty)</th>
           <th>Progress</th>
           <th>Schedule</th>
+          <th>Deadline</th>
           <th>Remove</th>
         </tr>
       </thead>
@@ -435,7 +450,7 @@
           } else if (['completed', 'cancelled', 'in production', 'undergoing quality checks'].includes(progressLower)) {
             scheduleColHtml = '<span style="color:#888;">N/A</span>';
           } else {
-            scheduleColHtml = `<button class="schedule-btn" data-order-id="${task.OrderNumber}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Schedule</button>`;
+            scheduleColHtml = `<button class="schedule-btn" data-order-id="${task.OrderNumber}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-calendar"></i></button>`;
           }
 
           // --- Ingredient check logic (BatchMaker style) ---
@@ -497,14 +512,14 @@
           tr.innerHTML = `
             <td>${task.OrderNumber || ''}</td>
             <td>${customerDisplay}</td>
-            <td>${task.ProductSKU || ''}</td>
-            <td>${task.Quantity || ''}</td>
+            <td>${task.ProductSKU || ''} × ${task.Quantity || ''}</td>
             <td class="${progressClass}">
               <span>${progressDisplay}</span>
               <button class="update-progress-btn" data-order-id="${task.OrderNumber}" data-current-progress="${progress}" style="margin-left:10px; background:#4dba93; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Update</button>
             </td>
             <td>${scheduleColHtml}</td>
-            <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#e74c3c; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em;">Remove</button></td>
+            <td>${task.Deadline ? new Date(task.Deadline).toLocaleDateString() : ''}</td>
+            <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#e74c3c; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
           `;
           newTbody.appendChild(tr);
         }
@@ -811,6 +826,11 @@
 
       newSaveBtn.onclick = async function() {
         const newProgress = select.value;
+        if (newProgress === 'scheduled') {
+          modal.style.display = 'none';
+          openScheduleModal(orderId);
+          return;
+        }
         await updateOrderProgress(orderId, newProgress);
         modal.style.display = 'none';
         loadOrders();
@@ -850,6 +870,7 @@
         ProductSKU: document.getElementById('productSKU').value.trim(),
         Quantity: parseInt(document.getElementById('quantity').value),
         Progress: document.getElementById('progress').value,
+        Deadline: document.getElementById('deadline').value,
         UserID: [
           userID,
           'a4df0386-d361-4f54-a936-c9a2ea01e914',
@@ -857,6 +878,14 @@
           'bc4441d2-38e8-4e77-afb4-2609ec6f56f6'
         ]
       };
+      if (task.Progress === 'scheduled') {
+        const plannedDate = document.getElementById('plannedManufactureDate').value;
+        if (!plannedDate) {
+          alert('Please select a Planned Manufacture Date for scheduled orders.');
+          return;
+        }
+        task.PlannedManufactureDate = plannedDate;
+      }
       if (!task.Customer || !task.OrderNumber || !task.ProductSKU || !task.Quantity) {
         alert('Please fill in all fields.');
         return;
@@ -866,6 +895,30 @@
         document.getElementById('addOrderForm').reset();
         loadOrders();
       }
+    };
+
+    // Modal logic for Add Order
+    const openAddOrderModalBtn = document.getElementById('openAddOrderModalBtn');
+    const addOrderModal = document.getElementById('addOrderModal');
+    const closeAddOrderModalBtn = document.getElementById('closeAddOrderModalBtn');
+    const progressSelect = document.getElementById('progress');
+    const plannedDateContainer = document.getElementById('plannedDateContainer');
+    progressSelect.addEventListener('change', function() {
+      if (this.value === 'scheduled') {
+        plannedDateContainer.style.display = '';
+      } else {
+        plannedDateContainer.style.display = 'none';
+        document.getElementById('plannedManufactureDate').value = '';
+      }
+    });
+    openAddOrderModalBtn.onclick = function() {
+      addOrderModal.style.display = 'flex';
+    };
+    closeAddOrderModalBtn.onclick = function() {
+      addOrderModal.style.display = 'none';
+    };
+    addOrderModal.onclick = function(e) {
+      if (e.target === addOrderModal) addOrderModal.style.display = 'none';
     };
 
     // Initial load: check login first
