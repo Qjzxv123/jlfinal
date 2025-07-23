@@ -24,6 +24,7 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: 'Error fetching Shippo orders: ' + err.message };
   }
 console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
+console.log(`[CRON] Orders:`, orders);
   // Save orders to Supabase
   try {
     const { createClient } = require('@supabase/supabase-js');

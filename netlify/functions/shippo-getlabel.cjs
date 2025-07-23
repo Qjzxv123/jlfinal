@@ -14,6 +14,7 @@ exports.handler = async (event) => {
 
   let body;
   try {
+    console.log(`[Shippo Label] Using order.object_id for label purchase:`, transactionBody.order);
     body = JSON.parse(event.body);
   } catch (err) {
     return { statusCode: 400, body: 'Invalid JSON body.' };
