@@ -43,6 +43,8 @@ async function fetchOrdersForUser(userKey) {
   let data;
   try {
     data = await response.json();
+    // Log raw Faire API output for debugging
+    console.log('[CRON] Raw Faire API response:', JSON.stringify(data, null, 2));
   } catch (jsonErr) {
     console.error(`[CRON] Failed to parse Faire API response as JSON for userKey ${userKey}:`, jsonErr);
     return;
@@ -50,34 +52,61 @@ async function fetchOrdersForUser(userKey) {
   let orders = [];
   for (const order of (data.orders || [])) {
     const shippingDetails = order.address || {};
-    // Split bundle SKUs into separate items and deduplicate by SKU+Name
+    // Split bundle SKUs into separate items and combine with non-bundled SKUs by SKU only
     let itemMap = {};
     for (const item of (order.items || [])) {
       if (item.sku && item.sku.includes('+')) {
-        // Bundle SKU, split and create separate items
-        const skus = item.sku.split('+');
-        for (const sku of skus) {
-          const key = `${sku.trim()}|${item.product_name || ''}`;
+        // Bundle SKU, sum the number of SKUs and add 1 if includes_tester is true
+        const skus = item.sku.split('+').map(s => s.trim());
+        // If all SKUs are the same, aggregate as one
+        const uniqueSKUs = Array.from(new Set(skus));
+        if (uniqueSKUs.length === 1) {
+          const key = uniqueSKUs[0];
+          let totalQty = skus.length;
+          if (item.includes_tester === true) {
+            totalQty += 1;
+          }
           if (!itemMap[key]) {
             itemMap[key] = {
-              SKU: sku.trim(),
+              SKU: key,
               Name: item.product_name || '',
-              Quantity: item.quantity || 0
+              Quantity: totalQty
             };
           } else {
-            itemMap[key].Quantity += item.quantity || 0;
+            itemMap[key].Quantity += totalQty;
+          }
+        } else {
+          // If bundle contains different SKUs, treat each separately
+          for (const key of skus) {
+            if (!itemMap[key]) {
+              itemMap[key] = {
+                SKU: key,
+                Name: item.product_name || '',
+                Quantity: 1
+              };
+            } else {
+              itemMap[key].Quantity += 1;
+            }
+          }
+          // If includes_tester, add 1 to the first SKU only
+          if (item.includes_tester === true && skus.length > 0) {
+            itemMap[skus[0]].Quantity += 1;
           }
         }
       } else {
-        const key = `${item.sku || ''}|${item.product_name || ''}`;
+        const key = item.sku || '';
+        let itemQty = item.quantity || 0;
+        if (item.includes_tester === true) {
+          itemQty += 1;
+        }
         if (!itemMap[key]) {
           itemMap[key] = {
             SKU: item.sku || '',
             Name: item.product_name || '',
-            Quantity: item.quantity || 0
+            Quantity: itemQty
           };
         } else {
-          itemMap[key].Quantity += item.quantity || 0;
+          itemMap[key].Quantity += itemQty;
         }
       }
     }
