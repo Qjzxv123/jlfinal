@@ -1216,6 +1216,53 @@
         }
 
         showInstructions();
+        // Add Finish button after instructions
+        function addFinishButton() {
+            const instructionsDiv = document.getElementById('instructions');
+            if (!instructionsDiv) return;
+            // Only add once
+            if (document.getElementById('finishInstructionsBtn')) return;
+            const btn = document.createElement('button');
+            btn.id = 'finishInstructionsBtn';
+            btn.textContent = 'Finish & Save Instructions';
+            btn.style = 'margin: 2rem auto; display: block; background: #4dba93; color: white; font-size: 1.2rem; padding: 1rem 2.5rem; border-radius: 8px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(77,186,147,0.2);';
+            btn.onclick = async function() {
+                // Collect all input values
+                const inputs = instructionsDiv.querySelectorAll('input');
+                let filledInstructions = instructionsDiv.innerHTML;
+                inputs.forEach(input => {
+                    // Replace input with its value in the HTML
+                    const value = input.value || '';
+                    // Create a span to show the value for saving
+                    const span = `<span style='background:#e9ecef;border-radius:4px;padding:2px 6px;'>${value}</span>`;
+                    filledInstructions = filledInstructions.replace(input.outerHTML, span);
+                });
+                // Save to Supabase storage bucket
+                const sku = getSku();
+                const filename = `instructions_${sku}_${Date.now()}.html`;
+                try {
+                    const { data, error } = await supabase.storage
+                        .from('manufacturinginstructions')
+                        .upload(filename, new Blob([filledInstructions], { type: 'text/html' }), {
+                            cacheControl: '3600',
+                            upsert: true
+                        });
+                    if (error) {
+                        alert('Failed to save instructions: ' + error.message);
+                    } else {
+                        alert('Instructions saved to Supabase!');
+                    }
+                } catch (err) {
+                    alert('Error saving instructions: ' + err.message);
+                }
+            };
+            instructionsDiv.appendChild(btn);
+        }
+
+        // Call after instructions are rendered
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(addFinishButton, 1200);
+        });
     </script>
 </body>
 </html>
