@@ -173,6 +173,14 @@
             <label for="Deadline" style="font-weight:600;">Due Date</label>
             <input type="date" id="Deadline" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em;">
           </div>
+          <div style="margin-bottom:1em;">
+            <label for="priority" style="font-weight:600;">Priority</label>
+            <select id="priority" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em;">
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
+          </div>
           <div style="display:flex; gap:1em; justify-content:flex-end; margin-top:1em;">
             <button type="button" id="closeAddTaskModalBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
             <button type="submit" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-size:1.1rem; font-weight:600; cursor:pointer;">Add Task</button>
@@ -185,6 +193,7 @@
         <tr>
           <th>Done</th>
           <th>Task</th>
+          <th>Priority</th>
           <th>Due Date</th>
           <th>Remove</th>
         </tr>
@@ -200,8 +209,9 @@
           <tr>
             <th>Done</th>
             <th>Task</th>
+            <th>Priority</th>
             <th>Due Date</th>
-            <th><i class="cil-trash"></i></th>
+            <th>Remove</th>
           </tr>
         </thead>
         <tbody id="completedChecklistTableBody">
@@ -287,6 +297,7 @@
         const rowHtml = `
           <td>${doneCheckbox}</td>
           <td>${item.Task || ''}</td>
+          <td>${item.Priority || 'Low'}</td>
           <td>${Deadline}</td>
           <td>${removeBtn}</td>
         `;
@@ -372,15 +383,14 @@
       }
       const taskDescription = document.getElementById('taskDescription').value.trim();
       const Deadline = document.getElementById('Deadline').value;
-      if (!taskDescription) {
-        alert('Please enter a task description.');
-        return;
-      }
+      const Priority = document.getElementById('priority') ? document.getElementById('priority').value : 'Low';
       const task = {
         Task: taskDescription,
         Deadline: Deadline || null,
+        Priority: Priority || 'Low',
         Status: 'incomplete',
-        UserID: [userID]
+        UserID: [userID],
+        AssignedTo: "JNL"
       };
       const success = await addTask(task);
       if (success) {
