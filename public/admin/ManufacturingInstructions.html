@@ -213,9 +213,12 @@
                     // Store globally for use in instructions rendering
                     window._skuToNameMap = skuToName;
                     const batchSize = getBatchSize();
+                    // Get vessel from URL params
+                    const params = new URLSearchParams(window.location.search);
+                    const vessel = params.get('vessel') || '';
                     let html = `<div style="padding: 1.2rem; border: 1px solid #888; border-radius: 8px; margin: 1rem 0;">
                     <h2 style="margin: 0 0 0.5rem 0; font-size: 1.3rem; font-weight: 700; letter-spacing: 1px; text-align:center;">BATCH CARD</h2>
-                    <div style="text-align:center; font-size:1.05rem; margin-bottom:0.5rem;">${data.Name || 'Product'}<br><span style='font-size:0.95em;'>SKU: ${sku || ''}</span><br><span style='font-size:0.95em;'><b>Batch Size:</b> ${batchSize}</span></div>`;
+                    <div style="text-align:center; font-size:1.05rem; margin-bottom:0.5rem;">${data.Name || 'Product'}<br><span style='font-size:0.95em;'>SKU: ${sku || ''}</span><br><span style='font-size:0.95em;'><b>Batch Size:</b> ${batchSize}</span>${vessel ? `<br><span style='font-size:0.95em;'><b>Vessel:</b> ${vessel}</span>` : ''}</div>`;
                     const productTotalWeightGrams = getProductTotalWeightGrams();
                     phaseKeys.forEach(phaseKey => {
                         const phase = process[phaseKey];
