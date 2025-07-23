@@ -166,13 +166,24 @@ exports.handler = async (event) => {
   let labelUrl = null;
   let shippingCost = null;
   try {
+    // Reference the Shippo order's object_id in the transaction request
+    const transactionBody = {
+      rate: rate_id,
+      label_file_type: 'PDF'
+    };
+    // Prefer order.object_id from incoming order if available
+    if (order && order.object_id) {
+      transactionBody.order = order.object_id;
+    } else if (shipment && shipment.object_id) {
+      transactionBody.order = shipment.object_id;
+    }
     const transactionResp = await fetch('https://api.goshippo.com/transactions/', {
       method: 'POST',
       headers: {
         'Authorization': `ShippoToken ${SHIPPO_API_KEY}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ rate: rate_id, label_file_type: 'PDF'})
+      body: JSON.stringify(transactionBody)
     });
     const transactionText = await transactionResp.text();
     let transaction;

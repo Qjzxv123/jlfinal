@@ -68,6 +68,7 @@ console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
         Platform: order.shop_app,
         Link: getPlatformOrderUrl(order.shop_app, order.order_number, order.shopify_id, retailerValue),
         Notes: order.notes || null,
+        ShippoObjectID: order.object_id || null,
       }, { onConflict: ['OrderID'] });
     }
   } catch (e) {
