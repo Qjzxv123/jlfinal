@@ -322,10 +322,17 @@
           .select('Quantity,Name,"Pack Size",Retailer')
           .eq('ProductSKU', productSKU)
           .single();
+        const { data: { user } } = await supabase.auth.getUser();
+        const displayName = user?.user_metadata?.display_name || user?.email || null;
         if (error || !data || typeof data.Quantity !== 'number') {
-          const msg = `${productSKU} not found`;
-          output.innerHTML += `<div class="error">${msg}</div>`;
-          rowMessages.push(`ERROR: ${msg}`);
+          const msg = `ERROR: ${productSKU} not found`;
+          output.innerHTML += `<div class="error">${productSKU} not found</div>`;
+          rowMessages.push(msg);
+          await supabase.from('inventoryupdatelogs').insert({
+            log: msg,
+            updated_by: displayName,
+            SKU: productSKU
+          });
           errorCount++;
           continue;
         }
@@ -335,35 +342,30 @@
           .update({ Quantity: newQuantity })
           .eq('ProductSKU', productSKU);
         if (updateError) {
-          const msg = `Error updating ${productSKU}: ${updateError.message}`;
-          output.innerHTML += `<div class="error">${msg}</div>`;
-          rowMessages.push(`ERROR: ${msg}`);
+          const msg = `ERROR: Error updating ${productSKU}: ${updateError.message}`;
+          output.innerHTML += `<div class="error">Error updating ${productSKU}: ${updateError.message}</div>`;
+          rowMessages.push(msg);
+          await supabase.from('inventoryupdatelogs').insert({
+            log: msg,
+            updated_by: displayName,
+            SKU: productSKU
+          });
           errorCount++;
         } else {
-          const msg = `${productSKU}: Removed ${quantityToRemove}, Quantity is now ${newQuantity}`;
-          output.innerHTML += `<div class="success">${msg}</div>`;
-          rowMessages.push(`SUCCESS: ${msg}`);
+          const msg = `SUCCESS: ${productSKU}: Removed ${quantityToRemove}, Quantity is now ${newQuantity}`;
+          output.innerHTML += `<div class="success">${productSKU}: Removed ${quantityToRemove}, Quantity is now ${newQuantity}</div>`;
+          rowMessages.push(msg);
+          await supabase.from('inventoryupdatelogs').insert({
+            log: msg,
+            updated_by: displayName,
+            SKU: productSKU
+          });
           successCount++;
         }
       }
       output.innerHTML += `<div class="success">Processed ${successCount} rows successfully, ${errorCount} errors.</div>`;
 
-      // Save only the rowMessages to Supabase bucket
-      try {
-        const fileName = `inventoryupdaterlog_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
-        const fileContent = rowMessages.join('\n');
-        const blob = new Blob([fileContent], { type: 'text/plain' });
-        const { data, error } = await supabase.storage.from('inventoryupdaterlog').upload(fileName, blob, {
-          upsert: true
-        });
-        if (error) {
-          output.innerHTML += `<div class="error">Error saving log to bucket: ${error.message}</div>`;
-        } else {
-          output.innerHTML += `<div class="success">Log saved to bucket as ${fileName}</div>`;
-        }
-      } catch (e) {
-        output.innerHTML += `<div class="error">Error saving log to bucket</div>`;
-      }
+      output.innerHTML += `<div class=\"success\">Logs saved to inventoryupdatelogs table.</div>`;
     }
 
     fileInput.addEventListener('change', async (event) => {
