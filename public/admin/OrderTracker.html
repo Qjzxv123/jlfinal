@@ -444,12 +444,13 @@
       }
     }
 
-    function renderOrders(orders) {
+     function renderOrders(orders) {
       const tbody = document.getElementById('orderTableBody');
       tbody.innerHTML = '';
       // Remove any previous event listeners by cloning tbody
       const newTbody = tbody.cloneNode(false);
       tbody.parentNode.replaceChild(newTbody, tbody);
+      // Now use newTbody for all further operations
       (async () => {
         // Batch fetch user_keys for display
         const { data: userRows } = await client
@@ -533,13 +534,12 @@
             let dateStr = task.PlannedManufactureDate ? new Date(task.PlannedManufactureDate).toLocaleDateString() : '<span style="color:#888;">(not set)</span>';
             scheduleColHtml = `<span style="font-weight:500; color:#1976d2;">${dateStr}</span>`;
           } else if (['completed', 'cancelled', 'in production', 'quality checks'].includes(progressLower)) {
-            scheduleColHtml = '<span style="color:#888;">N/A</span>';
+            scheduleColHtml = '<span style="color:#888;"></span>';
           } else {
             scheduleColHtml = `<button class="schedule-btn" data-order-id="${task.OrderNumber}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-calendar"></i></button>`;
           }
           // Ensure batchMakerButton and instructionsBtn are always defined
           let batchMakerButton = '';
-          let instructionsBtn = '';
           // --- Ingredient check logic (BatchMaker style) ---
           let highlightRed = false;
           if ((task.Progress || '').toLowerCase() === 'requested') {
@@ -554,6 +554,7 @@
               }
             }
           }
+
           if (highlightRed) {
             const params = new URLSearchParams({
               ProductSKU: task.ProductSKU,
@@ -565,7 +566,7 @@
           if (task.Progress && task.Progress.toLowerCase() === 'scheduled' && task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
             instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}" style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
           } else {
-            instructionsBtn = `<span style=\"color:#888;\">N/A</span>`;
+            instructionsBtn = `<span style=\"color:#888;\"></span>`;
           }
           tr.innerHTML = `
             <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
@@ -583,10 +584,26 @@
           `;
           newTbody.appendChild(tr);
         }
-        // Fix: re-add event listeners for instructions button after table re-render
+        // Add event listeners for remove buttons (delegate to newTbody)
         newTbody.addEventListener('click', async function(e) {
+          if (e.target && e.target.classList.contains('remove-order-btn')) {
+            const orderId = e.target.getAttribute('data-order-id');
+            if (confirm('Are you sure you want to remove this order?')) {
+              const { error } = await client
+                .from('ManufacturingTasks')
+                .delete()
+                .eq('OrderNumber', orderId);
+              if (error) {
+                alert('Failed to remove order: ' + error.message);
+              } else {
+                loadOrders();
+              }
+            }
+          }
+          // Instructions button click
           const btn = e.target.closest('.instructions-btn');
           if (btn) {
+            // Generate lot number using provided logic
             async function generatelotNumber(productSKU) {
               const now = new Date();
               const year = now.getFullYear();
@@ -623,6 +640,7 @@
               const lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
               return lot;
             }
+
             const productSKU = btn.getAttribute('data-productsku');
             const batchtime = btn.getAttribute('data-batchtime');
             const batchSize = btn.getAttribute('data-batchsize');
@@ -671,7 +689,458 @@
             }
           }
         });
-        // ...existing code for other event listeners and modals...
+        // Add event listeners for update progress buttons
+        document.querySelectorAll('.update-progress-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const currentProgress = this.getAttribute('data-current-progress');
+            openProgressModal(orderId, currentProgress);
+          });
+        });
+        // Add event listeners for schedule buttons
+        document.querySelectorAll('.schedule-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            openScheduleModal(orderId);
+          });
+        });
+    // Modal for scheduling (set PlannedManufactureDate)
+    function createScheduleModal() {
+      if (document.getElementById('scheduleModal')) return;
+      const modal = document.createElement('div');
+      modal.id = 'scheduleModal';
+      modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2100; align-items:center; justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+          <h3 style="margin-top:0;">Schedule Order</h3>
+          <label for="modalScheduleDate" style="font-weight:600;">Planned Manufacture Date</label>
+          <input type="date" id="modalScheduleDate" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;" />
+          <label for="modalVesselSelect" style="font-weight:600;">Available Vessel</label>
+          <select id="modalVesselSelect" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;">
+            <option value="">Loading vessels...</option>
+          </select>
+          <div style="display:flex; gap:1em; justify-content:flex-end;">
+            <button id="modalScheduleCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
+            <button id="modalScheduleSaveBtn" style="background:#1976d2; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    async function openScheduleModal(orderId) {
+      createScheduleModal();
+      const modal = document.getElementById('scheduleModal');
+      const dateInput = document.getElementById('modalScheduleDate');
+      const vesselSelect = document.getElementById('modalVesselSelect');
+      // Default to today
+      const today = new Date();
+      dateInput.value = today.toISOString().split('T')[0];
+      modal.style.display = 'flex';
+
+
+      // Fetch order details to get ProductSKU and Quantity
+      let order;
+      {
+        const { data, error } = await client
+          .from('ManufacturingTasks')
+          .select('ProductSKU, Quantity')
+          .eq('OrderNumber', orderId)
+          .maybeSingle();
+        if (error || !data) {
+          vesselSelect.innerHTML = '<option value="">Failed to load vessels</option>';
+          order = null;
+        } else {
+          order = data;
+        }
+      }
+
+      // Helper: get all vessel options (sync with BatchMaker.html)
+      const ALL_VESSELS = [
+        'P1-30L',
+        'P2-30L',
+        'P3-30L',
+        'P4-30L',
+        'P5-30L',
+        'P6-100L',
+        'Other'
+      ];
+
+      // Helper: fetch vessels already scheduled for a date
+      async function getUnavailableVesselsForDate(date) {
+        if (!date) return [];
+        try {
+          const { data, error } = await client
+            .from('ManufacturingTasks')
+            .select('Vessel')
+            .eq('PlannedManufactureDate', date);
+          if (error) return [];
+          return (data || []).map(row => row.Vessel).filter(Boolean);
+        } catch (e) {
+          return [];
+        }
+      }
+
+      // Helper: update vessel select options based on date
+      async function updateScheduleVesselOptions() {
+        const date = dateInput.value;
+        vesselSelect.innerHTML = '<option value="">-- Select Vessel --</option>';
+        if (!date) {
+          ALL_VESSELS.forEach(v => {
+            vesselSelect.innerHTML += `<option value="${v}">${v}</option>`;
+          });
+          return;
+        }
+        const unavailable = await getUnavailableVesselsForDate(date);
+        const available = ALL_VESSELS.filter(v => !unavailable.includes(v));
+        available.forEach(v => {
+          vesselSelect.innerHTML += `<option value="${v}">${v}</option>`;
+        });
+      }
+
+      // Initial vessel dropdown population
+      await updateScheduleVesselOptions();
+      // Add event listener for date change to update vessels
+      if (!dateInput._vesselListenerAdded) {
+        dateInput.addEventListener('change', updateScheduleVesselOptions);
+        dateInput._vesselListenerAdded = true;
+      }
+
+      // Remove previous listeners
+      const newSaveBtn = modal.querySelector('#modalScheduleSaveBtn').cloneNode(true);
+      modal.querySelector('#modalScheduleSaveBtn').replaceWith(newSaveBtn);
+      const newCancelBtn = modal.querySelector('#modalScheduleCancelBtn').cloneNode(true);
+      modal.querySelector('#modalScheduleCancelBtn').replaceWith(newCancelBtn);
+
+      newSaveBtn.onclick = async function() {
+        const plannedDate = dateInput.value;
+        const Vessel = vesselSelect.value;
+        if (!plannedDate) {
+          alert('Please select a date.');
+          return;
+        }
+        if (!Vessel) {
+          alert('Please select a vessel.');
+          return;
+        }
+        // Fetch order details
+        let orderDetails = order;
+        if (!orderDetails) {
+          const { data } = await client
+            .from('ManufacturingTasks')
+            .select('ProductSKU, Quantity, OrderNumber, Customer, Progress, UserID')
+            .eq('OrderNumber', orderId)
+            .maybeSingle();
+          orderDetails = data;
+        }
+        if (!orderDetails || !orderDetails.ProductSKU || !orderDetails.Quantity) {
+          alert('Order details not found.');
+          return;
+        }
+        // --- Calculate max batch size (BatchMaker logic) ---
+        let maxBatch = 0;
+        // Fetch product size
+        const { data: productData, error: productError } = await client
+          .from('Products')
+          .select('"Product Weight(oz)"')
+          .eq('ProductSKU', orderDetails.ProductSKU)
+          .maybeSingle();
+        let productSizeOz = 0;
+        if (!productError && productData && productData["Product Weight(oz)"]) {
+          productSizeOz = Number(productData["Product Weight(oz)"]);
+        }
+        if (productSizeOz > 0) {
+          if (["P1-30L","P2-30L","P3-30L","P4-30L","P5-30L"].includes(Vessel)) {
+            maxBatch = Math.floor((816 / productSizeOz) * 1.1);
+          } else if (Vessel === "P6-100L") {
+            maxBatch = Math.floor((2576 / productSizeOz) * 1.1);
+          } else {
+            maxBatch = orderDetails.Quantity; // fallback: no split
+          }
+        } else {
+          maxBatch = orderDetails.Quantity; // fallback: no split
+        }
+        if (maxBatch < 1) maxBatch = orderDetails.Quantity;
+
+        // If quantity > maxBatch, split into multiple orders
+        let batches = [];
+        let remaining = orderDetails.Quantity;
+        let batchNum = 1;
+        while (remaining > 0) {
+          const thisBatch = Math.min(remaining, maxBatch);
+          batches.push(thisBatch);
+          remaining -= thisBatch;
+        }
+
+        // Schedule the first batch (update current order)
+        const { error } = await client
+          .from('ManufacturingTasks')
+          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, Vessel: Vessel, Quantity: batches[0] })
+          .eq('OrderNumber', orderId);
+        let modalResults = [];
+        if (error) {
+          modalResults.push({ sku: null, status: 'error', message: 'Failed to schedule task: ' + error.message });
+        } else {
+          // Subtract ingredients from inventory for the first batch
+          try {
+            // Fetch product process and weight
+            const { data: productData, error: productError } = await client
+              .from('Products')
+              .select('Process, "Product Weight(oz)"')
+              .eq('ProductSKU', orderDetails.ProductSKU)
+              .maybeSingle();
+            if (!productError && productData && productData.Process && productData["Product Weight(oz)"]) {
+              const process = productData.Process;
+              const productSizeOz = Number(productData["Product Weight(oz)"]) || 0;
+              const productSizeLbs = productSizeOz / 16;
+              let ingredients = [];
+              Object.keys(process).forEach(key => {
+                if (key.startsWith('Phase ') && process[key][`${key} Ingredients`]) {
+                  process[key][`${key} Ingredients`].forEach(ingredient => {
+                    if (ingredient.IngredientSKU && ingredient['Ingredient Quantity(%)'] !== undefined) {
+                      const percentage = ingredient['Ingredient Quantity(%)'];
+                      if (!isNaN(percentage) && percentage > 0) {
+                        const baseAmountLbs = 1.1 * (percentage / 100) * productSizeLbs;
+                        const totalAmount = baseAmountLbs * batches[0];
+                        ingredients.push({
+                          sku: ingredient.IngredientSKU,
+                          totalAmount
+                        });
+                      }
+                    }
+                  });
+                }
+              });
+              // Subtract each ingredient from inventory
+              for (const ing of ingredients) {
+                // Fetch current inventory
+                let rowStatus = { sku: ing.sku, status: '', message: '' };
+                try {
+                  const { data: invData, error: invError } = await client
+                    .from('Ingredients')
+                    .select('"Quantity(Lbs/Units)"')
+                    .eq('IngredientSKU', ing.sku)
+                    .maybeSingle();
+                  if (!invError && invData && invData["Quantity(Lbs/Units)"] !== undefined) {
+                    const currentQty = Number(invData["Quantity(Lbs/Units)"]);
+                    const newQty = Math.max(0, currentQty - ing.totalAmount);
+                    const { error: updateError } = await client
+                      .from('Ingredients')
+                      .update({ "Quantity(Lbs/Units)": newQty })
+                      .eq('IngredientSKU', ing.sku);
+                    if (!updateError) {
+                      rowStatus.status = 'success';
+                      rowStatus.message = `Updated ${ing.sku}: ${currentQty} → ${newQty}`;
+                    } else {
+                      rowStatus.status = 'error';
+                      rowStatus.message = `Error updating ${ing.sku}: ${updateError.message}`;
+                    }
+                  } else {
+                    rowStatus.status = 'error';
+                    rowStatus.message = `Error fetching ${ing.sku} inventory.`;
+                  }
+                } catch (e) {
+                  rowStatus.status = 'error';
+                  rowStatus.message = `Exception for ${ing.sku}: ${e.message}`;
+                }
+                modalResults.push(rowStatus);
+              }
+            }
+          } catch (e) {
+            modalResults.push({ sku: null, status: 'error', message: 'Failed to subtract ingredients from inventory: ' + e.message });
+          }
+        }
+        // Show modal with results
+        showInventoryUpdateModal(modalResults);
+    // Modal to show inventory update results
+    function showInventoryUpdateModal(results) {
+      let modal = document.getElementById('inventoryUpdateModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'inventoryUpdateModal';
+        modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2500; align-items:center; justify-content:center;';
+        modal.innerHTML = `
+          <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+            <h3 style="margin-top:0;">Inventory Update Results</h3>
+            <div id="inventoryUpdateResults"></div>
+            <div style="display:flex; gap:1em; justify-content:flex-end; margin-top:1em;">
+              <button id="inventoryUpdateCloseBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Close</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      }
+      // Fill results
+      const resultsDiv = modal.querySelector('#inventoryUpdateResults');
+      resultsDiv.innerHTML = results.map(r => {
+        if (r.status === 'success') {
+          return `<div style="color:#065f46; margin-bottom:0.5em;">✔️ ${r.message}</div>`;
+        } else {
+          return `<div style="color:#b91c1c; margin-bottom:0.5em;">❌ ${r.message}</div>`;
+        }
+      }).join('');
+      // Show modal
+      modal.style.display = 'flex';
+      // Close button
+      const closeBtn = modal.querySelector('#inventoryUpdateCloseBtn');
+      closeBtn.onclick = function() {
+        modal.style.display = 'none';
+      };
+      // Close modal on outside click
+      modal.onclick = function(e) {
+        if (e.target === modal) modal.style.display = 'none';
+      };
+    }
+
+        // For each additional batch, create a new order with OrderNumber suffix
+        // Use the original order's OrderNumber as the base
+        const baseOrderNumber = orderDetails.OrderNumber || orderId;
+        // Ensure Customer and UserID are set
+        // If Customer or UserID are missing, fetch from DB using orderId
+        let customerValue = orderDetails.Customer;
+        let userIdValue = orderDetails.UserID;
+        if (!customerValue || !userIdValue) {
+          const { data: origOrder } = await client
+            .from('ManufacturingTasks')
+            .select('Customer, UserID')
+            .eq('OrderNumber', orderId)
+            .maybeSingle();
+          if (origOrder) {
+            if (!customerValue) customerValue = origOrder.Customer;
+            if (!userIdValue) userIdValue = origOrder.UserID;
+          }
+        }
+        for (let i = 1; i < batches.length; ++i) {
+          const newOrderNumber = `${baseOrderNumber}-${i+1}`;
+          await client
+            .from('ManufacturingTasks')
+            .insert([{
+              ...orderDetails,
+              OrderNumber: newOrderNumber,
+              Quantity: batches[i],
+              Progress: 'scheduled',
+              PlannedManufactureDate: plannedDate,
+              Vessel: Vessel,
+              Customer: customerValue,
+              UserID: userIdValue
+            }]);
+        }
+
+        // Open manufacturing instructions for the first batch
+        if (orderDetails.ProductSKU && plannedDate && batches[0]) {
+          // Generate lot number using the same logic as instructions button
+          let lot = '';
+          try {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const day = now.getDate();
+            let shelfLifeYears = 3;
+            const { data: productShelfData, error: shelfError } = await client
+              .from('Products')
+              .select('ShelfLife')
+              .eq('ProductSKU', orderDetails.ProductSKU)
+              .maybeSingle();
+            if (!shelfError && productShelfData && productShelfData.ShelfLife) {
+              shelfLifeYears = productShelfData.ShelfLife;
+            }
+            const monthLetters = 'abcdefghijkl';
+            const monthLetter = monthLetters[month - 1];
+            const thirdDigitYear = Math.floor((year % 100) / 10);
+            const lastDigitYear = year % 10;
+            let expirationMonth = month;
+            let expirationYear = year + shelfLifeYears;
+            if (day >= 15) {
+              expirationMonth = month + 1;
+              if (expirationMonth > 12) {
+                expirationMonth = 1;
+                expirationYear = year + shelfLifeYears + 1;
+              }
+            }
+            const formattedExpMonth = expirationMonth.toString().padStart(2, '0');
+            const expYearLastTwo = (expirationYear % 100).toString().padStart(2, '0');
+            lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
+          } catch (e) {
+            lot = '';
+          }
+          const url = `/public/admin/manufacturinginstructions.html?sku=${encodeURIComponent(orderDetails.ProductSKU)}&batchtime=${encodeURIComponent(plannedDate)}&batchSize=${encodeURIComponent(batches[0])}&lot=${encodeURIComponent(lot)}&batch=${Math.floor(100000 + Math.random() * 900000)}`;
+          window.open(url, '_blank');
+        }
+        modal.style.display = 'none';
+        loadOrders();
+      };
+      newCancelBtn.onclick = function() {
+        modal.style.display = 'none';
+      };
+      // Close modal on outside click
+      modal.onclick = function(e) {
+        if (e.target === modal) modal.style.display = 'none';
+      };
+    }
+
+    // Create schedule modal on page load
+    createScheduleModal();
+    // Modal for updating progress
+    function createProgressModal() {
+      if (document.getElementById('progressModal')) return;
+      const modal = document.createElement('div');
+      modal.id = 'progressModal';
+      modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2000; align-items:center; justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:300px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+          <h3 style="margin-top:0;">Update Progress</h3>
+          <select id="modalProgressSelect" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;">
+            <option value="requested">Requested</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="in production">In Production</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="Quality Checks">Quality Checks</option>
+          </select>
+          <div style="display:flex; gap:1em; justify-content:flex-end;">
+            <button id="modalCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
+            <button id="modalSaveBtn" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    function openProgressModal(orderId, currentProgress) {
+      createProgressModal();
+      const modal = document.getElementById('progressModal');
+      const select = document.getElementById('modalProgressSelect');
+      select.value = currentProgress || 'requested';
+      modal.style.display = 'flex';
+
+      // Remove previous listeners
+      const newSaveBtn = modal.querySelector('#modalSaveBtn').cloneNode(true);
+      modal.querySelector('#modalSaveBtn').replaceWith(newSaveBtn);
+      const newCancelBtn = modal.querySelector('#modalCancelBtn').cloneNode(true);
+      modal.querySelector('#modalCancelBtn').replaceWith(newCancelBtn);
+
+      newSaveBtn.onclick = async function() {
+        const newProgress = select.value;
+        if (newProgress === 'scheduled') {
+          modal.style.display = 'none';
+          openScheduleModal(orderId);
+          return;
+        }
+        await updateOrderProgress(orderId, newProgress);
+        modal.style.display = 'none';
+        loadOrders();
+      };
+      newCancelBtn.onclick = function() {
+        modal.style.display = 'none';
+      };
+      // Close modal on outside click
+      modal.onclick = function(e) {
+        if (e.target === modal) modal.style.display = 'none';
+      };
+    }
+
+    // Create modal on page load
+    createProgressModal();
       })();
     }
 
