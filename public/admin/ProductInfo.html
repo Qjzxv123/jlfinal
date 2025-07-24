@@ -122,7 +122,30 @@
           html += `<tr><td style='font-weight:600;padding:6px 10px;'>${key}</td><td style='padding:6px 10px;'>${value}</td></tr>`;
         }
         html += '</table>';
-        detailsDiv.innerHTML = html;
+
+        // Fetch inventory update logs for this SKU
+        let logsHtml = '';
+        try {
+          const { data: logs, error: logsError } = await supabase
+            .from('inventoryupdatelogs')
+            .select('created_at,log,updated_by')
+            .eq('SKU', sku)
+            .order('created_at', { ascending: false })
+            .limit(10);
+          if (logs && logs.length) {
+            logsHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Recent Inventory Updates</div>`;
+            logsHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Time</th><th style='padding:6px 10px;text-align:left;'>User</th><th style='padding:6px 10px;text-align:left;'>Message</th></tr></thead><tbody>`;
+            for (const log of logs) {
+              logsHtml += `<tr><td style='padding:6px 10px;'>${new Date(log.created_at).toLocaleString()}</td><td style='padding:6px 10px;'>${log.updated_by || ''}</td><td style='padding:6px 10px;'>${log.log}</td></tr>`;
+            }
+            logsHtml += '</tbody></table>';
+          } else {
+            logsHtml += `<div style='margin-top:2em;color:#888;'>No inventory update logs found for this SKU.</div>`;
+          }
+        } catch (logErr) {
+          logsHtml += `<div class='error'>Error loading inventory update logs.</div>`;
+        }
+        detailsDiv.innerHTML = html + logsHtml;
       } catch (err) {
         detailsDiv.innerHTML = `<span class='error'>Error loading product info: ${err.message}</span>`;
       }
