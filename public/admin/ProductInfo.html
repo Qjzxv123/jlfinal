@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Info</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      min-height: 100vh;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .product-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      padding: 32px 24px;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
+    .product-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #4DBA93;
+      margin-bottom: 12px;
+    }
+    .product-sku {
+      font-size: 1.1rem;
+      color: #888;
+      margin-bottom: 18px;
+    }
+    .product-details {
+      font-size: 1rem;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .error {
+      color: #e74c3c;
+      font-weight: 600;
+      margin-top: 20px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <div class="product-container" id="productContainer">
+    <div class="product-title">Product Info</div>
+    <div class="product-sku" id="skuDisplay"></div>
+    <div class="product-details" id="productDetails">Loading...</div>
+  </div>
+  <script>
+    // Supabase config
+    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+    // Get SKU from URL
+    function getSKUFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('sku');
+    }
+
+    async function loadProductInfo(sku) {
+      document.getElementById('skuDisplay').textContent = `SKU: ${sku}`;
+      const detailsDiv = document.getElementById('productDetails');
+      detailsDiv.textContent = 'Loading...';
+      try {
+        // Query Supabase for product info by SKU
+        const { data, error } = await supabase
+          .from('Products')
+          .select('*')
+          .eq('ProductSKU', sku)
+          .single();
+        if (error || !data) {
+          detailsDiv.innerHTML = `<span class='error'>Product not found for SKU: ${sku}</span>`;
+          return;
+        }
+        // Display all product info fields
+        let html = '';
+        // Get image from Supabase storage using SKU and filetype
+        let filetype = (data.imageurl && typeof data.imageurl === 'string' && data.imageurl.split('.').pop()) || 'jpg';
+        try {
+          const { data: imgUrl, error: imgError } = await supabase.storage
+            .from('productimages')
+            .getPublicUrl(`${sku}.png`);
+          if (imgUrl && imgUrl.publicUrl) {
+            html += `<div style='margin-bottom:18px;'><img src='${imgUrl.publicUrl}' alt='Product Image' style='max-width:220px;max-height:220px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);'></div>`;
+          }
+        } catch (imgErr) {
+          // If error, do not display image
+        }
+        html += '<table style="width:100%;margin:auto;text-align:left;font-size:1rem;">';
+        const hiddenFields = [
+          'UserID', 'Process', 'ManufacturingInstructions', 'Microbial Testing', 'Product Type',
+          'ContainerSKUs', 'Pour Temperature', 'Pour Consistency', 'Aroma', 'imageurl'
+        ];
+        for (const key in data) {
+          if (hiddenFields.includes(key)) continue;
+          let value = data[key];
+          if (Array.isArray(value)) {
+            value = value.length ? value.map(v => `<span style='background:#f8f9fa;border-radius:4px;padding:2px 6px;margin:2px;'>${v}</span>`).join(' ') : '[]';
+          } else if (typeof value === 'object' && value !== null) {
+            value = `<pre style='background:#f8f9fa;border-radius:4px;padding:6px;'>${JSON.stringify(value, null, 2)}</pre>`;
+          } else if (value === null || value === undefined || value === '') {
+            value = '<span style="color:#888;">N/A</span>';
+          }
+          html += `<tr><td style='font-weight:600;padding:6px 10px;'>${key}</td><td style='padding:6px 10px;'>${value}</td></tr>`;
+        }
+        html += '</table>';
+        detailsDiv.innerHTML = html;
+      } catch (err) {
+        detailsDiv.innerHTML = `<span class='error'>Error loading product info: ${err.message}</span>`;
+      }
+    }
+
+    const sku = getSKUFromURL();
+    if (sku) {
+      loadProductInfo(sku);
+    } else {
+      document.getElementById('skuDisplay').textContent = '';
+      document.getElementById('productDetails').innerHTML = `<span class='error'>No SKU provided in URL.</span>`;
+    }
+  </script>
+</body>
+</html>
