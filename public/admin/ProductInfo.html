@@ -86,11 +86,11 @@
         // Display all product info fields
         let html = '';
         // Get image from Supabase storage using SKU and filetype
-        let filetype = (data.imageurl && typeof data.imageurl === 'string' && data.imageurl.split('.').pop()) || 'jpg';
+        let filetype = (data.imageurl && typeof data.imageurl === 'string' && data.imageurl.split('.').pop()) || 'png';
         try {
           const { data: imgUrl, error: imgError } = await supabase.storage
             .from('productimages')
-            .getPublicUrl(`${sku}.png`);
+            .getPublicUrl(`${sku}.${filetype}`);
           if (imgUrl && imgUrl.publicUrl) {
             html += `<div style='margin-bottom:18px;'><img src='${imgUrl.publicUrl}' alt='Product Image' style='max-width:220px;max-height:220px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);'></div>`;
           }
