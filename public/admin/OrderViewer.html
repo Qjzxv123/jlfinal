@@ -998,8 +998,8 @@
                             </div>
                             <div class="products-list" id="products-${order.orderNumber}">                                ${order.products.map(product => `
                     <div class="product-item">
-                        <div class="product-details">
-                            ${product.sku ? `<div class="product-sku">SKU: ${product.sku}</div>` : ''}
+                        <a class="product-details" href="/public/admin/ProductInfo.html?sku=${encodeURIComponent(product.sku)}" target="_blank" >
+                            ${product.sku ? `<div class="product-sku">SKU: ${product.sku}</a>` : ''}
                             <div class="product-name">${product.name || 'Unknown Product'}</div>
                         </div>
                         <div class="product-quantity">${product.quantity}</div>
