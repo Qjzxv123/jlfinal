@@ -24,7 +24,6 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: 'Error fetching Shippo orders: ' + err.message };
   }
 console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
-console.log(`[CRON] Orders:`, orders);
   // Save orders to Supabase
   try {
     const { createClient } = require('@supabase/supabase-js');
@@ -70,6 +69,7 @@ console.log(`[CRON] Orders:`, orders);
         Link: getPlatformOrderUrl(order.shop_app, order.order_number, order.shopify_id, retailerValue),
         Notes: order.notes || null,
         ShippoObjectID: order.object_id || null,
+        ShippoAddressID: order.to_address.object_id || null
       }, { onConflict: ['OrderID'] });
     }
   } catch (e) {

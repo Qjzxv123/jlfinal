@@ -3,53 +3,38 @@
 
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
-
+  // Validate request
+  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
   const SHIPPO_API_KEY = process.env.SHIPPO_API_KEY;
-  if (!SHIPPO_API_KEY) {
-    return { statusCode: 500, body: 'Missing Shippo API token.' };
-  }
-
+  if (!SHIPPO_API_KEY) return { statusCode: 500, body: 'Missing Shippo API token.' };
   let body;
-  try {
-    console.log(`[Shippo Label] Using order.object_id for label purchase:`, transactionBody.order);
-    body = JSON.parse(event.body);
-  } catch (err) {
-    return { statusCode: 400, body: 'Invalid JSON body.' };
-  }
-
+  try { body = JSON.parse(event.body); } catch (err) { return { statusCode: 400, body: 'Invalid JSON body.' }; }
   const { order, parcel, rate_id } = body;
-  if (!order || !parcel) {
-    return { statusCode: 400, body: 'Missing order or parcel data.' };
-  }
+  if (!order || !parcel) return { statusCode: 400, body: 'Missing order or parcel data.' };
 
-  // Support multiple boxes: parcel can be an array of box objects
-  let parcelsArr = [];
-  if (Array.isArray(parcel)) {
-    parcelsArr = parcel.map(box => ({
-      length: box.length,
-      width: box.width,
-      height: box.height,
-      distance_unit: 'in',
-      weight: box.weight,
-      mass_unit: 'oz'
-    }));
-  } else {
-    parcelsArr = [{
-      length: parcel.length,
-      width: parcel.width,
-      height: parcel.height,
-      distance_unit: 'in',
-      weight: parcel.weight,
-      mass_unit: 'oz'
-    }];
-  }
+  // Build parcels array
+  const parcelsArr = Array.isArray(parcel)
+    ? parcel.map(box => ({ length: box.length, width: box.width, height: box.height, distance_unit: 'in', weight: box.weight, mass_unit: 'oz' }))
+    : [{ length: parcel.length, width: parcel.width, height: parcel.height, distance_unit: 'in', weight: parcel.weight, mass_unit: 'oz' }];
 
-  // Build Shippo shipment payload
-  const isInternational = (order.customer?.country && order.customer.country.toUpperCase() !== 'US');
-  let customsDeclarationId = null;
+  // Build address_to
+  let address_to = body.ShippoAddressID && body.ShippoAddressID.trim() !== '' ? body.ShippoAddressID
+: order.toAddressObjectID && order.toAddressObjectID.trim() !== ''
+      ? order.toAddressObjectID
+      : {
+          name: order.customer?.name || '',
+          street1: order.customer?.address1 || '',
+          street2: order.customer?.address2 || '',
+          city: order.customer?.city || '',
+          state: order.customer?.state || '',
+          zip: order.customer?.zipCode || '',
+          country: order.customer?.country || '',
+          phone: order.customer?.phone || '',
+          email: order.customer?.email || ''
+        };
+
+  // Build shipment payload
+  const isInternational = order.customer?.country && order.customer.country.toUpperCase() !== 'US';
   let shipmentPayload = {
     address_from: {
       name: 'J&L Naturals',
@@ -58,21 +43,14 @@ exports.handler = async (event) => {
       state: 'NC',
       zip: '28115',
       country: 'US',
+      phone: '7046777577',
+      email: 'jenn@jnlnaturals.com'
     },
-    address_to: {
-      name: order.customer?.name || '',
-      street1: order.customer?.address1 || '',
-      street2: order.customer?.address2 || '',
-      city: order.customer?.city || '',
-      state: order.customer?.state || '',
-      zip: order.customer?.zipCode || '',
-      country: order.customer?.country || 'US',
-      phone: order.customer?.phone || '',
-      email: order.customer?.email || ''
-    },
+    address_to,
     parcels: parcelsArr,
-    async: false
+    order: order.ShippoObjectID
   };
+  console.log('[Shippo Label] Shipment payload:', shipmentPayload);
 
   // If international, create customs declaration
   if (isInternational) {
@@ -142,9 +120,16 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify(shipmentPayload)
     });
-    shipment = await shipmentResp.json();
+    const shipmentText = await shipmentResp.text();
+    // Removed full shipment response log for rates
+    try {
+      shipment = JSON.parse(shipmentText);
+    } catch (parseErr) {
+      console.error('[Shippo Label] Failed to parse shipment response:', shipmentText);
+      return { statusCode: 500, body: 'Error parsing shipment response from Shippo.' };
+    }
     if (!shipmentResp.ok || !shipment.object_id) {
-      return { statusCode: 500, body: 'Error creating shipment: ' + (shipment.detail || 'No object_id') };
+      return { statusCode: 500, body: 'Error creating shipment: ' + (shipment.detail || 'No object_id'), debug: shipment };
     }
   } catch (err) {
     return { statusCode: 500, body: 'Error creating shipment: ' + err.message };
@@ -170,7 +155,7 @@ exports.handler = async (event) => {
     // Reference the Shippo order's object_id in the transaction request
     const transactionBody = {
       rate: rate_id,
-      label_file_type: 'PDF'
+      label_file_type: 'PDF_4x6'
     };
     // Prefer order.object_id from incoming order if available
     if (order && order.object_id) {
@@ -187,9 +172,13 @@ exports.handler = async (event) => {
       body: JSON.stringify(transactionBody)
     });
     const transactionText = await transactionResp.text();
+    // Log the full raw response from Shippo for label purchase
+    console.log('[Shippo Label] Full transaction response (raw):', transactionText);
+    // Also log the parsed JSON response for clarity
     let transaction;
     try {
       transaction = JSON.parse(transactionText);
+      console.log('[Shippo Label] Full transaction response (parsed):', transaction);
     } catch (parseErr) {
       console.error('[Shippo Label] Failed to parse transaction response:', transactionText);
       return { statusCode: 500, body: 'Error buying label: Invalid JSON response from Shippo.' };

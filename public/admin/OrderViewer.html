@@ -1582,13 +1582,31 @@ async function processShippingLabelsWithBoxData(orderParcels) {
   // Track label and rate data for each order for later Faire fulfillment
   const faireFulfillmentQueue = [];
   for (const {order, parcel} of orderParcels) {
+    // Ensure ShippoObjectID and ShippoAddressID are present in order for label creation
+    if ((!order.ShippoObjectID || !order.ShippoAddressID) && order.orderNumber) {
+      try {
+        const { data: supaOrder, error } = await supabase
+          .from('Orders')
+          .select('ShippoObjectID,ShippoAddressID')
+          .eq('OrderID', order.orderNumber)
+          .single();
+        if (!error && supaOrder) {
+          if (supaOrder.ShippoObjectID) order.ShippoObjectID = supaOrder.ShippoObjectID;
+          if (supaOrder.ShippoAddressID) order.ShippoAddressID = supaOrder.ShippoAddressID;
+        }
+      } catch (err) {
+        console.error('Error fetching ShippoObjectID/ShippoAddressID from Supabase:', err);
+      }
+    }
     try {
       let ratesResp, ratesData, selectedRate, labelResp, labelData;
       // Use Shippo for all platforms
+      const payload = { order, parcel };
+      if (order.ShippoAddressID) payload.ShippoAddressID = order.ShippoAddressID;
       ratesResp = await fetch('/.netlify/functions/shippo-getlabel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order, parcel })
+        body: JSON.stringify(payload)
       });
       if (!ratesResp.ok) throw new Error('Failed to get rates');
       ratesData = await ratesResp.json();
@@ -1601,10 +1619,12 @@ async function processShippingLabelsWithBoxData(orderParcels) {
         alert('No rate selected for order ' + order.orderNumber);
         continue;
       }
+      const labelPayload = { order, parcel, rate_id: selectedRate.object_id };
+      if (order.ShippoAddressID) labelPayload.ShippoAddressID = order.ShippoAddressID;
       labelResp = await fetch('/.netlify/functions/shippo-getlabel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order, parcel, rate_id: selectedRate.object_id })
+        body: JSON.stringify(labelPayload)
       });
       if (!labelResp.ok) {
         let errorMsg = 'Failed to buy label';
