@@ -85,22 +85,24 @@
         }
         // Display all product info fields
         let html = '';
-        // Try all common image file types for the SKU
-        const imageTypes = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
-        let imageFound = false;
-        for (const ext of imageTypes) {
-          try {
-            const { data: imgUrl, error: imgError } = await supabase.storage
-              .from('productimages')
-              .getPublicUrl(`${sku}.${ext}`);
-            if (imgUrl && imgUrl.publicUrl && !imgError) {
-              html += `<div style='margin-bottom:18px;'><img src='${imgUrl.publicUrl}' alt='Product Image' style='max-width:220px;max-height:220px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);'></div>`;
-              imageFound = true;
-              break;
+        // Search for the SKU in the productimages bucket and display the first matching image
+        try {
+          const { data: fileList, error: listError } = await supabase.storage
+            .from('productimages')
+            .list();
+          if (fileList && Array.isArray(fileList)) {
+            const match = fileList.find(f => f.name.startsWith(sku));
+            if (match) {
+              const { data: imgUrl, error: imgError } = await supabase.storage
+                .from('productimages')
+                .getPublicUrl(match.name);
+              if (imgUrl && imgUrl.publicUrl && !imgError) {
+                html += `<div style='margin-bottom:18px;'><img src='${imgUrl.publicUrl}' alt='Product Image' style='max-width:220px;max-height:220px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);'></div>`;
+              }
             }
-          } catch (imgErr) {
-            // If error, try next extension
           }
+        } catch (imgErr) {
+          // If error, do not display image
         }
         html += '<table style="width:100%;margin:auto;text-align:left;font-size:1rem;">';
         const hiddenFields = [
