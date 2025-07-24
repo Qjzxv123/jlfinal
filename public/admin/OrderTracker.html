@@ -586,8 +586,9 @@
         }
         // Add event listeners for remove buttons (delegate to newTbody)
         newTbody.addEventListener('click', async function(e) {
-          if (e.target && e.target.classList.contains('remove-order-btn')) {
-            const orderId = e.target.getAttribute('data-order-id');
+          const removeBtn = e.target.closest('.remove-order-btn');
+          if (removeBtn) {
+            const orderId = removeBtn.getAttribute('data-order-id');
             if (confirm('Are you sure you want to remove this order?')) {
               const { error } = await client
                 .from('ManufacturingTasks')
