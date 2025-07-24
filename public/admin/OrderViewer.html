@@ -641,9 +641,6 @@
             <button class="action-btn" onclick="printShippingLabels()" id="shippingLabelBtn">
                 🏷️ Print Shipping Label
             </button>
-            <button class="action-btn" onclick="markOrdersAsShipped()" id="markShippedBtn" style="background: #e67e22;">
-                ✅ Mark as Shipped
-            </button>
         </div>        <div class="orders-container">
             <div class="select-all-container" id="selectAllContainer" style="display: none;">
                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
@@ -1845,121 +1842,6 @@ async function printShippingLabels() {
   const selectedOrdersData = getSelectedOrdersData();
   showShippingModal(selectedOrdersData);
 }
-        async function markOrdersAsShipped() {
-            if (selectedOrders.size === 0) {
-                alert('Please select at least one order to mark as shipped.');
-                return;
-            }
-
-            const confirmMsg = `Are you sure you want to mark ${selectedOrders.size} order(s) as shipped?\n\nThis will:\n- Remove them from the Orders table\n- Add them to Order History\n- Remove them from this view`;
-            if (!confirm(confirmMsg)) {
-                return;
-            }
-
-            const markShippedBtn = document.getElementById('markShippedBtn');
-            markShippedBtn.disabled = true;
-            markShippedBtn.textContent = '⏳ Processing...';
-            
-            showStatus('Moving orders to Order History...', 'loading');
-            
-            const selectedOrdersData = getSelectedOrdersData();
-            let successCount = 0;
-            let errorCount = 0;
-
-            for (const order of selectedOrdersData) {
-                try {
-                    const orderId = getOrderUniqueId(order);
-                    let retailer = order.shop;
-
-                    // For Etsy, query Supabase for the customer of the first SKU
-                    if (order.platform === 'etsy' && order.products && order.products.length > 0) {
-                        const firstSku = order.products[0].sku;
-                        try {
-                            const { data: prodRows, error: prodError } = await supabase
-                                .from('Products')
-                                .select('Retailer')
-                                .eq('ProductSKU', firstSku)
-                                .maybeSingle();
-                            if (!prodError && prodRows && prodRows.Retailer) {
-                                retailer = prodRows.Retailer;
-                            }
-                        } catch (err) {
-                            console.warn('Supabase Products query failed for SKU:', firstSku, err);
-                        }
-                    }
-
-                    // Create order history entry
-                    const orderHistoryRow = {
-                        OrderID: orderId,
-                        Retailer: retailer,
-                        Items: JSON.stringify(order.products),
-                        Customer: JSON.stringify(order.customer),
-                        Platform: order.platform,
-                        Link: getPlatformOrderUrl(order.platform, order.orderNumber, order.shopifyId, order.shop),
-                        Notes: order.notes || null,
-                        BoxSkus: null, // No box SKUs since manually marked
-                        ShippingCost: null,
-                        UserID: order.UserID || order.userid || order.userId || null
-                    };
-
-                    // Insert into Order History
-                    const { error: insertError } = await supabase
-                        .from('Order History')
-                        .insert([orderHistoryRow]);
-
-                    if (insertError) {
-                        console.error('Error inserting into Order History:', insertError);
-                        errorCount++;
-                        continue;
-                    }
-
-                    // Remove from Orders table
-                    const { error: deleteError } = await supabase
-                        .from('Orders')
-                        .delete()
-                        .eq('OrderID', orderId);
-
-                    if (deleteError) {
-                        console.error('Error removing from Orders table:', deleteError);
-                        // Try to remove from Order History since the main operation failed
-                        await supabase
-                            .from('Order History')
-                            .delete()
-                            .eq('OrderID', orderId);
-                        errorCount++;
-                        continue;
-                    }
-
-                    successCount++;
-
-                } catch (err) {
-                    console.error('Error processing order:', order.orderNumber, err);
-                    errorCount++;
-                }
-            }
-
-            // Remove successfully processed orders from view
-            if (successCount > 0) {
-                const processedOrderNumbers = selectedOrdersData.slice(0, successCount).map(order => order.orderNumber);
-                allOrders = allOrders.filter(order => !processedOrderNumbers.includes(order.orderNumber));
-                filteredOrders = filteredOrders.filter(order => !processedOrderNumbers.includes(order.orderNumber));
-                selectedOrders.clear();
-                displayOrders();
-                updateSummary();
-            }
-
-            markShippedBtn.disabled = false;
-            markShippedBtn.textContent = '✅ Mark as Shipped';
-
-            if (errorCount === 0) {
-                showStatus(`Successfully marked ${successCount} order(s) as shipped!`, 'success');
-            } else {
-                showStatus(`Processed ${successCount} orders, ${errorCount} failed. Check console for details.`, 'error');
-            }
-            
-            setTimeout(hideStatus, 5000);
-        }
-
         // Load available boxes from Supabase
         async function loadAvailableBoxes() {
             try {
