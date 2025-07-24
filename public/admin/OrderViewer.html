@@ -881,20 +881,6 @@
             refreshBtn.disabled = false;
             refreshBtn.textContent = '🔄 Refresh Orders';
 
-            // Filter out orders that are already in Order History (shipped orders)
-            try {
-                const { data: shippedOrders, error: historyError } = await supabase
-                    .from('Order History')
-                    .select('OrderID');
-
-                if (!historyError && shippedOrders) {
-                    const shippedOrderIds = shippedOrders.map(row => row.OrderID);
-                    allOrders = allOrders.filter(order => !shippedOrderIds.includes(getOrderUniqueId(order)));
-                }
-            } catch (err) {
-                console.error('Error loading shipped orders from Supabase Order History:', err);
-            }
-
             filteredOrders = [...allOrders];
             displayOrders();
             updateSummary();
@@ -998,8 +984,8 @@
                             </div>
                             <div class="products-list" id="products-${order.orderNumber}">                                ${order.products.map(product => `
                     <div class="product-item">
-                        <a class="product-details" href="/public/admin/ProductInfo.html?sku=${encodeURIComponent(product.sku)}" target="_blank" >
-                            ${product.sku ? `<div class="product-sku">SKU: ${product.sku}</a>` : ''}
+                        <div class="product-details">
+                            ${product.sku ? `<a class="product-sku" href="/public/admin/ProductInfo.html?sku=${encodeURIComponent(product.sku)}" target="_blank">SKU: ${product.sku}</a>` : ''}
                             <div class="product-name">${product.name || 'Unknown Product'}</div>
                         </div>
                         <div class="product-quantity">${product.quantity}</div>
