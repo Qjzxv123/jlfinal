@@ -47,10 +47,8 @@ exports.handler = async (event) => {
       email: 'jenn@jnlnaturals.com'
     },
     address_to,
-    parcels: parcelsArr,
-    order: order.ShippoObjectID
+    parcels: parcelsArr
   };
-  console.log('[Shippo Label] Shipment payload:', shipmentPayload);
 
   // If international, create customs declaration
   if (isInternational) {
@@ -157,9 +155,14 @@ exports.handler = async (event) => {
       rate: rate_id,
       label_file_type: 'PDF_4x6'
     };
-    // Prefer order.object_id from incoming order if available
-    if (order && order.object_id) {
-      transactionBody.order = order.object_id;
+    // Add address and order IDs only to transaction payload
+    if (body.ShippoAddressID && body.ShippoAddressID.trim() !== '') {
+      transactionBody.address_to = body.ShippoAddressID;
+    } else if (order.toAddressObjectID && order.toAddressObjectID.trim() !== '') {
+      transactionBody.address_to = order.toAddressObjectID;
+    }
+    if (order && order.ShippoObjectID) {
+      transactionBody.order = order.ShippoObjectID;
     } else if (shipment && shipment.object_id) {
       transactionBody.order = shipment.object_id;
     }
