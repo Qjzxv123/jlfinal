@@ -144,7 +144,71 @@
         } catch (logErr) {
           logsHtml += `<div class='error'>Error loading inventory update logs.</div>`;
         }
-        detailsDiv.innerHTML = html + logsHtml;
+        // Fetch order history for this SKU using new schema
+        let ordersHtml = '';
+        try {
+          // Query the new table and filter for this SKU in Items JSONB
+          const { data: orders, error: ordersError } = await supabase
+            .from('Order History')
+            .select('OrderID,ShippedAt,Items,Customer,Platform,Retailer,Link,ShippingCost,Notes')
+            .order('ShippedAt', { ascending: false });
+          let filteredOrders = [];
+          if (orders && Array.isArray(orders)) {
+            // Find orders where Items contains this SKU
+            filteredOrders = orders.filter(order => {
+              if (!order.Items) return false;
+              if (Array.isArray(order.Items)) {
+                // If Items is an array of objects
+                return order.Items.some(item => item.SKU === sku);
+              } else if (typeof order.Items === 'object') {
+                // If Items is a single object or object map
+                if (Array.isArray(order.Items.items)) {
+                  return order.Items.items.some(item => item.SKU === sku);
+                } else if (order.Items.SKU) {
+                  return order.Items.SKU === sku;
+                }
+              }
+              return false;
+            });
+          }
+          if (filteredOrders.length) {
+            ordersHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Order History</div>`;
+            ordersHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Shipped</th><th style='padding:6px 10px;text-align:left;'>Order ID</th><th style='padding:6px 10px;text-align:left;'>Customer</th><th style='padding:6px 10px;text-align:left;'>Retailer</th><th style='padding:6px 10px;text-align:left;'>Platform</th><th style='padding:6px 10px;text-align:left;'>Qty</th><th style='padding:6px 10px;text-align:left;'>Link</th></tr></thead><tbody>`;
+            for (const order of filteredOrders) {
+              // Find quantity for this SKU in Items
+              let qty = '';
+              if (order.Items) {
+                if (Array.isArray(order.Items)) {
+                  const found = order.Items.find(item => item.SKU === sku);
+                  qty = found ? (found.Quantity || found.Qty || '') : '';
+                } else if (typeof order.Items === 'object') {
+                  if (Array.isArray(order.Items.items)) {
+                    const found = order.Items.items.find(item => item.SKU === sku);
+                    qty = found ? (found.Quantity || found.Qty || '') : '';
+                  } else if (order.Items.SKU === sku) {
+                    qty = order.Items.Quantity || order.Items.Qty || '';
+                  }
+                }
+              }
+              // Customer name
+              let customerName = '';
+              if (order.Customer) {
+                if (typeof order.Customer === 'object') {
+                  customerName = order.Customer.name || order.Customer.Name || '';
+                } else {
+                  customerName = order.Customer;
+                }
+              }
+              ordersHtml += `<tr><td style='padding:6px 10px;'>${order.ShippedAt ? new Date(order.ShippedAt).toLocaleString() : ''}</td><td style='padding:6px 10px;'>${order.OrderID || ''}</td><td style='padding:6px 10px;'>${customerName}</td><td style='padding:6px 10px;'>${order.Retailer || ''}</td><td style='padding:6px 10px;'>${order.Platform || ''}</td><td style='padding:6px 10px;'>${qty}</td><td style='padding:6px 10px;'>${order.Link ? `<a href='${order.Link}' target='_blank'>View</a>` : ''}</td></tr>`;
+            }
+            ordersHtml += '</tbody></table>';
+          } else {
+            ordersHtml += `<div style='margin-top:2em;color:#888;'>No order history found for this SKU.</div>`;
+          }
+        } catch (ordersErr) {
+          ordersHtml += `<div class='error'>Error loading order history.</div>`;
+        }
+        detailsDiv.innerHTML = html + logsHtml + ordersHtml;
       } catch (err) {
         detailsDiv.innerHTML = `<span class='error'>Error loading product info: ${err.message}</span>`;
       }
