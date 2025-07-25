@@ -641,6 +641,9 @@
             <button class="action-btn" onclick="printShippingLabels()" id="shippingLabelBtn">
                 🏷️ Print Shipping Label
             </button>
+            <button class="action-btn" style="background:#D7444D;" onclick="removeSelectedOrders()" id="removeOrdersBtn">
+                <i class="cil-trash"></i> 
+            </button>
         </div>        <div class="orders-container">
             <div class="select-all-container" id="selectAllContainer" style="display: none;">
                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
@@ -1105,7 +1108,42 @@
                     return '#';
             }
         }
-
+// Remove selected orders from Supabase and update UI
+async function removeSelectedOrders() {
+  if (selectedOrders.size === 0) {
+    alert('Please select at least one order to remove.');
+    return;
+  }
+  if (!confirm('Are you sure you want to remove the selected orders? This action cannot be undone.')) {
+    return;
+  }
+  showStatus('Removing selected orders...', 'loading');
+  const selectedOrdersData = getSelectedOrdersData();
+  let removedCount = 0;
+  for (const order of selectedOrdersData) {
+    try {
+      const { error } = await supabase
+        .from('Orders')
+        .delete()
+        .eq('OrderID', order.orderNumber);
+      if (!error) {
+        removedCount++;
+        // Remove from local arrays
+        allOrders = allOrders.filter(o => o.orderNumber !== order.orderNumber);
+        filteredOrders = filteredOrders.filter(o => o.orderNumber !== order.orderNumber);
+        selectedOrders.delete(order.orderNumber);
+      } else {
+        console.error('Error removing order', order.orderNumber, error);
+      }
+    } catch (err) {
+      console.error('Error removing order', order.orderNumber, err);
+    }
+  }
+  displayOrders();
+  updateSummary();
+  showStatus(`${removedCount} order(s) removed.`, 'success');
+  setTimeout(hideStatus, 2500);
+}
         function generatePicklistAndPackingSlips() {
             if (selectedOrders.size === 0) {
                 alert('Please select at least one order to generate picklist and packing slips.');
