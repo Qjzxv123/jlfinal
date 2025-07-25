@@ -407,19 +407,22 @@
       if (progress.toLowerCase() !== 'scheduled') {
         updateObj.Vessel = null;
       }
+      // Fetch order data
       const { data: orderData, error: orderError } = await client
         .from('ManufacturingTasks')
         .select('ProductSKU, Quantity')
         .eq('OrderNumber', orderNumber)
         .maybeSingle();
+      // Update order progress
       const { error } = await client
         .from('ManufacturingTasks')
         .update(updateObj)
         .eq('OrderNumber', orderNumber);
       if (error) {
         alert('Failed to update task: ' + error.message);
+        return;
       }
-      // If progress is completed, add product to inventory
+      // If progress is completed, add product to inventory and log in inventoryupdatelogs
       if (progress.toLowerCase() === 'completed' && orderData && orderData.ProductSKU && orderData.Quantity) {
         // Fetch current product quantity
         const { data: productData, error: productError } = await client
@@ -436,10 +439,20 @@
             .eq('ProductSKU', orderData.ProductSKU);
           if (updateProductError) {
             alert('Failed to update product inventory: ' + updateProductError.message);
+            return;
           }
-          else {
-            alert('Product inventory updated successfully.');
-          }
+          // Get current user's display_name for updated_by using session data
+          const { data: { session } } = await client.auth.getSession();
+          const displayName = (session && session.user && session.user.user_metadata && session.user.user_metadata.display_name) ? session.user.user_metadata.display_name : 'Unknown User';
+          // Log the addition in inventoryupdatelogs
+          const logEntry = {
+            SKU: orderData.ProductSKU,
+            QuantityChanged: orderData.Quantity,
+            log: `Added ${orderData.Quantity} of ${orderData.ProductSKU} to inventory`,
+            updated_by: displayName
+          };
+          await client.from('inventoryupdatelogs').insert([logEntry]);
+          alert('Product inventory updated and logged successfully.');
         }
       }
     }
@@ -1027,46 +1040,6 @@
             }]);
         }
 
-        // Open manufacturing instructions for the first batch
-        if (orderDetails.ProductSKU && plannedDate && batches[0]) {
-          // Generate lot number using the same logic as instructions button
-          let lot = '';
-          try {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth() + 1;
-            const day = now.getDate();
-            let shelfLifeYears = 3;
-            const { data: productShelfData, error: shelfError } = await client
-              .from('Products')
-              .select('ShelfLife')
-              .eq('ProductSKU', orderDetails.ProductSKU)
-              .maybeSingle();
-            if (!shelfError && productShelfData && productShelfData.ShelfLife) {
-              shelfLifeYears = productShelfData.ShelfLife;
-            }
-            const monthLetters = 'abcdefghijkl';
-            const monthLetter = monthLetters[month - 1];
-            const thirdDigitYear = Math.floor((year % 100) / 10);
-            const lastDigitYear = year % 10;
-            let expirationMonth = month;
-            let expirationYear = year + shelfLifeYears;
-            if (day >= 15) {
-              expirationMonth = month + 1;
-              if (expirationMonth > 12) {
-                expirationMonth = 1;
-                expirationYear = year + shelfLifeYears + 1;
-              }
-            }
-            const formattedExpMonth = expirationMonth.toString().padStart(2, '0');
-            const expYearLastTwo = (expirationYear % 100).toString().padStart(2, '0');
-            lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
-          } catch (e) {
-            lot = '';
-          }
-          const url = `/public/admin/manufacturinginstructions.html?sku=${encodeURIComponent(orderDetails.ProductSKU)}&batchtime=${encodeURIComponent(plannedDate)}&batchSize=${encodeURIComponent(batches[0])}&lot=${encodeURIComponent(lot)}&batch=${Math.floor(100000 + Math.random() * 900000)}`;
-          window.open(url, '_blank');
-        }
         modal.style.display = 'none';
         loadOrders();
       };
