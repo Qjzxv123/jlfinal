@@ -231,7 +231,21 @@
   <div class="main-content" id="mainContent">
     <h1>Inventory Quantity Updater</h1>
     <div id="main-container">
-    <button id="viewLogBtn" style="margin-bottom:1rem;">Download Inventory Log</button>
+    <button id="openUndoModalBtn" style="margin-bottom:1rem; background:#e74c3c; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Undo Removals</button>
+    <!-- Undo Modal -->
+    <div id="undoModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2100; align-items:center; justify-content:center;">
+      <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative; display:flex; flex-direction:column; align-items:center;">
+        <h3 style="margin-top:0;">Undo Inventory Removals</h3>
+        <label for="undoMinutes" style="font-size:1em; margin-bottom:1em;">Undo removals made in the last
+          <input id="undoMinutes" type="number" min="1" max="1440" value="10" style="width:60px; margin:0 0.3em;"> minutes
+        </label>
+        <div id="undoPreview" style="width:100%; max-width:420px; min-height:40px; max-height:220px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:1em; padding:0.7em 1em; font-size:0.98em; color:#333; overflow-x:auto; overflow-y:auto;"></div>
+        <div style="display:flex; gap:1em; margin-top:1em;">
+          <button id="confirmUndoBtn" style="background:#4DBA93; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Undo</button>
+          <button id="cancelUndoBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
+        </div>
+      </div>
+    </div>
     <input type="file" id="fileInput" accept=".csv">
     <div id="output"></div>
   </div>
@@ -358,7 +372,8 @@
           await supabase.from('inventoryupdatelogs').insert({
             log: msg,
             updated_by: displayName,
-            SKU: productSKU
+            SKU: productSKU,
+            QuantityChanged: -quantityToRemove
           });
           successCount++;
         }
@@ -367,6 +382,118 @@
 
       output.innerHTML += `<div class=\"success\">Logs saved to inventoryupdatelogs table.</div>`;
     }
+
+    // Undo last removal function (user chooses minutes, modal)
+    async function UndoLastRemoval() {
+      output.innerHTML = '';
+      let minutes = 10;
+      const minutesInput = document.getElementById('undoMinutes');
+      if (minutesInput && minutesInput.value) {
+        minutes = parseInt(minutesInput.value, 10);
+        if (isNaN(minutes) || minutes < 1) minutes = 10;
+      }
+      const since = new Date(Date.now() - 60 * minutes * 1000).toISOString();
+      // Get all negative QuantityChanged logs in the time window
+      const { data: logs, error } = await supabase
+        .from('inventoryupdatelogs')
+        .select('*')
+        .gt('created_at', since)
+        .order('created_at', { ascending: true });
+      if (error || !logs || logs.length === 0) {
+        output.innerHTML = `<div class="error">No removals found in the last ${minutes} minutes to undo.</div>`;
+        return;
+      }
+      // Only undo negative QuantityChanged
+      const removals = logs.filter(l => l.QuantityChanged && l.QuantityChanged < 0);
+      if (removals.length === 0) {
+        output.innerHTML = `<div class="error">No removals found in the last ${minutes} minutes to undo.</div>`;
+        return;
+      }
+      let undoCount = 0;
+      let errorCount = 0;
+      for (const log of removals) {
+        const sku = log.SKU;
+        const qtyToAdd = Math.abs(log.QuantityChanged);
+        // Fetch current quantity
+        const { data: prod, error: prodError } = await supabase
+          .from('Products')
+          .select('Quantity')
+          .eq('ProductSKU', sku)
+          .single();
+        if (prodError || !prod || typeof prod.Quantity !== 'number') {
+          output.innerHTML += `<div class="error">${sku} not found for undo</div>`;
+          errorCount++;
+          continue;
+        }
+        const newQuantity = prod.Quantity + qtyToAdd;
+        const { error: updateError } = await supabase
+          .from('Products')
+          .update({ Quantity: newQuantity })
+          .eq('ProductSKU', sku);
+        if (updateError) {
+          output.innerHTML += `<div class="error">Error undoing removal for ${sku}: ${updateError.message}</div>`;
+          errorCount++;
+        } else {
+          // Remove the original removal log so it can't be undone again
+          await supabase
+            .from('inventoryupdatelogs')
+            .delete()
+            .eq('id', log.id);
+          output.innerHTML += `<div class="success">${sku}: Added back ${qtyToAdd}, Quantity is now ${newQuantity}</div>`;
+          undoCount++;
+        }
+      }
+      output.innerHTML += `<div class="success">Undo complete: ${undoCount} SKUs reverted, ${errorCount} errors..</div>`;
+    }
+    window.UndoLastRemoval = UndoLastRemoval;
+
+    // Modal open/close logic
+    // --- Undo Modal Preview Logic ---
+    const undoModal = document.getElementById('undoModal');
+    const undoMinutesInput = document.getElementById('undoMinutes');
+    const undoPreviewDiv = document.getElementById('undoPreview');
+    async function updateUndoPreview() {
+      let minutes = 10;
+      if (undoMinutesInput && undoMinutesInput.value) {
+        minutes = parseInt(undoMinutesInput.value, 10);
+        if (isNaN(minutes) || minutes < 1) minutes = 10;
+      }
+      const since = new Date(Date.now() - 60 * minutes * 1000).toISOString();
+      // Get all negative QuantityChanged logs in the time window
+      const { data: logs, error } = await supabase
+        .from('inventoryupdatelogs')
+        .select('*')
+        .gt('created_at', since)
+        .order('created_at', { ascending: true });
+      if (error || !logs) {
+        undoPreviewDiv.innerHTML = '<span style="color:#b91c1c;">Error loading preview.</span>';
+        return;
+      }
+      const removals = logs.filter(l => l.QuantityChanged && l.QuantityChanged < 0);
+      if (removals.length === 0) {
+        undoPreviewDiv.innerHTML = `<span style="color:#b91c1c;">No removals found in the last ${minutes} minutes.</span>`;
+        return;
+      }
+      let html = `<strong>Will undo ${removals.length} removal(s):</strong><br><div style='overflow-x:auto;'><table style='width:100%;font-size:0.97em;'><thead><tr><th style='text-align:left;'>SKU</th><th style='text-align:left;'>Qty Removed</th><th style='text-align:left;'>Time</th></tr></thead><tbody>`;
+      for (const log of removals) {
+        html += `<tr><td>${log.SKU}</td><td>${-log.QuantityChanged}</td><td>${(new Date(log.created_at)).toLocaleString()}</td></tr>`;
+      }
+      html += '</tbody></table></div>';
+      undoPreviewDiv.innerHTML = html;
+    }
+
+    document.getElementById('openUndoModalBtn').onclick = function() {
+      undoModal.style.display = 'flex';
+      updateUndoPreview();
+    };
+    document.getElementById('cancelUndoBtn').onclick = function() {
+      undoModal.style.display = 'none';
+    };
+    document.getElementById('confirmUndoBtn').onclick = async function() {
+      undoModal.style.display = 'none';
+      await UndoLastRemoval();
+    };
+    undoMinutesInput.addEventListener('input', updateUndoPreview);
 
     fileInput.addEventListener('change', async (event) => {
       const file = event.target.files[0];
@@ -380,111 +507,6 @@
 
     // Expose processCSVText globally for non-module script
     window.processCSVText = processCSVText;
-    // Modal for inventory log batches
-    function createLogModal() {
-      let modal = document.getElementById('inventoryLogModal');
-      if (modal) return modal;
-      modal = document.createElement('div');
-      modal.id = 'inventoryLogModal';
-      modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2100; align-items:center; justify-content:center;';
-      modal.innerHTML = `
-        <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
-          <h3 style="margin-top:0;">Recent Inventory Batches</h3>
-          <div id="logModalContent"></div>
-          <div style="display:flex; gap:1em; justify-content:flex-end; margin-top:1em;">
-            <button id="logModalCloseBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Close</button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
-      modal.querySelector('#logModalCloseBtn').onclick = () => { modal.style.display = 'none'; };
-      modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
-      return modal;
-    }
-
-    function showLogModal() {
-      const log = localStorage.getItem('inventorylog.csv');
-      const modal = createLogModal();
-      const contentDiv = modal.querySelector('#logModalContent');
-      if (!log) {
-        contentDiv.innerHTML = '<div class="error">No inventory log found.</div>';
-        modal.style.display = 'flex';
-        return;
-      }
-      // Split log into batches by ---BATCH--- marker
-      const lines = log.trim().split('\n');
-      let batches = [];
-      let currentBatch = [];
-      for (const line of lines) {
-        if (line.startsWith('---BATCH---')) {
-          if (currentBatch.length) batches.push(currentBatch);
-          currentBatch = [line];
-        } else {
-          currentBatch.push(line);
-        }
-      }
-      if (currentBatch.length) batches.push(currentBatch);
-      // Get last 3 batches
-      const lastBatches = batches.slice(-3).reverse();
-      contentDiv.innerHTML = lastBatches.map((batch, idx) => {
-        const batchText = batch.join('\n');
-        return `<div style="margin-bottom:1.5em; border:1px solid #e2e8f0; border-radius:8px; padding:1em; background:#f8fafc;">
-          <div style="font-weight:600; margin-bottom:0.5em;">Batch ${lastBatches.length-idx}:</div>
-          <pre style="font-size:0.95em; background:#fff; border-radius:6px; padding:0.5em;">${batchText}</pre>
-          <button class="undo-batch-btn" data-batch-idx="${lastBatches.length-idx-1}" style="background:#e74c3c; color:white; border:none; border-radius:6px; padding:0.5em 1em; font-size:1em; cursor:pointer;">Undo This Batch</button>
-        </div>`;
-      }).join('');
-      // Add undo logic
-      contentDiv.querySelectorAll('.undo-batch-btn').forEach(btn => {
-        btn.onclick = async function() {
-          const batchIdx = parseInt(this.getAttribute('data-batch-idx'));
-          // Undo the batch at batchIdx
-          let batchToUndo = lastBatches[batchIdx];
-          if (!batchToUndo) return;
-          let undoCount = 0;
-          let errorCount = 0;
-          for (const entry of batchToUndo) {
-            if (!entry.trim() || entry.startsWith('---BATCH---')) continue;
-            const [date, sku, qty] = entry.split(',');
-            if (!sku || !qty) continue;
-            // Fetch current quantity
-            const { data, error } = await supabase
-              .from('Products')
-              .select('Quantity')
-              .eq('ProductSKU', sku)
-              .single();
-            if (error || !data || typeof data.Quantity !== 'number') {
-              output.innerHTML += `<div class="error">${sku} not found for undo</div>`;
-              errorCount++;
-              continue;
-            }
-            const newQuantity = data.Quantity + parseInt(qty);
-            const { error: updateError } = await supabase
-              .from('Products')
-              .update({ Quantity: newQuantity })
-              .eq('ProductSKU', sku);
-            if (updateError) {
-              output.innerHTML += `<div class="error">Error undoing update for ${sku}: ${updateError.message}</div>`;
-              errorCount++;
-            } else {
-              undoCount++;
-            }
-          }
-          // Remove the batch from the log
-          const batchStartIdx = lines.lastIndexOf(batchToUndo[0]);
-          const batchEndIdx = batchStartIdx + batchToUndo.length;
-          const newLog = [...lines.slice(0, batchStartIdx), ...lines.slice(batchEndIdx)].join('\n');
-          localStorage.setItem('inventorylog.csv', newLog + (newLog ? '\n' : ''));
-          output.innerHTML = `<div class="success">Undo complete: ${undoCount} updates reverted, ${errorCount} errors.</div>`;
-          modal.style.display = 'none';
-        };
-      });
-      modal.style.display = 'flex';
-    }
-
-    const viewLogBtn = document.getElementById('viewLogBtn');
-    viewLogBtn.textContent = 'View Inventory Log';
-    viewLogBtn.addEventListener('click', showLogModal);
   </script>
   <script>
     // On page load, check for CSV in sessionStorage and process it if found
@@ -495,65 +517,6 @@
         sessionStorage.removeItem('inventoryCSV');
       }
     });
-    // Undo button logic (only add if button exists)
-    const undoBtn = document.getElementById('undoBtn');
-    if (undoBtn) {
-      undoBtn.addEventListener('click', async () => {
-        const log = localStorage.getItem('inventorylog.csv');
-        if (!log) {
-          output.innerHTML = '<div class="error">No inventory log found to undo.</div>';
-          return;
-        }
-        const lines = log.trim().split('\n');
-        // Find the last batch marker
-        let lastBatchIdx = -1;
-        for (let i = lines.length - 1; i >= 0; i--) {
-          if (lines[i].startsWith('---BATCH---')) {
-            lastBatchIdx = i;
-            break;
-          }
-        }
-        if (lastBatchIdx === -1 || lastBatchIdx === lines.length - 1) {
-          output.innerHTML = '<div class="error">No batch to undo.</div>';
-          return;
-        }
-        // Collect all entries after the last batch marker
-        const toUndo = lines.slice(lastBatchIdx + 1);
-        let undoCount = 0;
-        let errorCount = 0;
-        for (const entry of toUndo) {
-          if (!entry.trim()) continue;
-          const [date, sku, qty] = entry.split(',');
-          if (!sku || !qty || sku.startsWith('---BATCH---')) continue;
-          // Fetch current quantity
-          const { data, error } = await supabase
-            .from('Products')
-            .select('Quantity')
-            .eq('ProductSKU', sku)
-            .single();
-          if (error || !data || typeof data.Quantity !== 'number') {
-            output.innerHTML += `<div class="error">${sku} not found for undo</div>`;
-            errorCount++;
-            continue;
-          }
-          const newQuantity = data.Quantity + parseInt(qty);
-          const { error: updateError } = await supabase
-            .from('Products')
-            .update({ Quantity: newQuantity })
-            .eq('ProductSKU', sku);
-          if (updateError) {
-            output.innerHTML += `<div class="error">Error undoing update for ${sku}: ${updateError.message}</div>`;
-            errorCount++;
-          } else {
-            undoCount++;
-          }
-        }
-        // Remove undone entries and the batch marker from the log
-        const newLog = lines.slice(0, lastBatchIdx).join('\n');
-        localStorage.setItem('inventorylog.csv', newLog + (newLog ? '\n' : ''));
-        output.innerHTML = `<div class="success">Undo complete: ${undoCount} updates reverted, ${errorCount} errors.</div>`;
-      });
-    }
   </script>
   </div> <!-- Close main-content -->
 </body>
