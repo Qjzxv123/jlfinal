@@ -44,7 +44,6 @@ async function fetchOrdersForUser(userKey) {
   try {
     data = await response.json();
     // Log raw Faire API output for debugging
-    console.log('[CRON] Raw Faire API response:', JSON.stringify(data, null, 2));
   } catch (jsonErr) {
     console.error(`[CRON] Failed to parse Faire API response as JSON for userKey ${userKey}:`, jsonErr);
     return;
