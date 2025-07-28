@@ -808,6 +808,19 @@
         loadPendingOrders(); // Refresh pending orders
       }
     }
+     window.addOrderRow = addOrderRow;
+    window.removeOrderRow = removeOrderRow;
+    window.clearAllOrderRows = clearAllOrderRows;
+    window.saveAllOrders = saveAllOrders;
+    window.loadPendingOrders = loadPendingOrders;
+    window.removePendingOrder = removePendingOrder;
+    window.processSingleReceivedIngredient = processSingleReceivedIngredient;
+    window.checkExpiries = checkExpiries;
+    window.removeExhaustedLot = removeExhaustedLot;
+    window.selectLotForRemoval = selectLotForRemoval;
+    window.addBoxRow = addBoxRow;
+    window.removeBoxRow = removeBoxRow;
+    window.processReceivedBoxes = processReceivedBoxes;
 
     // ========== RECEIVE INGREDIENTS FUNCTIONS ==========
 
@@ -1043,6 +1056,7 @@
         showReceiveStatus('Error processing order: ' + error.message, 'error');
       }
     }
+    window.processSingleReceivedIngredient = processSingleReceivedIngredient;
 
     // Update recent additions display function removed
 
@@ -1617,7 +1631,6 @@
             continue;
           }
           successCount++;
-          results.push(`✅ SKU: ${sku}: +${quantity} (now ${newQuantity})`);
         } catch (err) {
           errorCount++;
           results.push(`❌ Error updating SKU: ${sku}: ${err.message}`);
