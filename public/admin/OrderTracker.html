@@ -925,9 +925,14 @@
                   });
                 }
               });
-              // Subtract each ingredient from inventory
+              // Subtract each ingredient from inventory and log to IngredientLog
+              // Get current user's display_name for Updated_By
+              let updatedBy = 'Unknown User';
+              try {
+                const { data: { session } } = await client.auth.getSession();
+                updatedBy = (session && session.user && session.user.user_metadata && session.user.user_metadata.display_name) ? session.user.user_metadata.display_name : 'Unknown User';
+              } catch (e) {}
               for (const ing of ingredients) {
-                // Fetch current inventory
                 let rowStatus = { sku: ing.sku, status: '', message: '' };
                 try {
                   const { data: invData, error: invError } = await client
@@ -937,11 +942,21 @@
                     .maybeSingle();
                   if (!invError && invData && invData["Quantity(Lbs/Units)"] !== undefined) {
                     const currentQty = Number(invData["Quantity(Lbs/Units)"]);
-                    const newQty = Math.max(0, currentQty - ing.totalAmount);
+                    const removalAmount = Math.round(ing.totalAmount * 1000) / 1000;
+                    const newQty = Math.max(0, Math.round((currentQty - removalAmount) * 1000) / 1000);
                     const { error: updateError } = await client
                       .from('Ingredients')
                       .update({ "Quantity(Lbs/Units)": newQty })
                       .eq('IngredientSKU', ing.sku);
+                    // Log to IngredientLog
+                    const logEntry = {
+                      ChangeTime: new Date().toISOString(),
+                      IngredientSKU: ing.sku,
+                      QuantityChanged: -removalAmount,
+                      Updated_By: updatedBy,
+                      Log: `Removed ${removalAmount} from ${ing.sku} for scheduled order ${orderDetails.OrderNumber}`
+                    };
+                    await client.from('IngredientLog').insert([logEntry]);
                     if (!updateError) {
                       rowStatus.status = 'success';
                       rowStatus.message = `Updated ${ing.sku}: ${currentQty} → ${newQty}`;
@@ -958,6 +973,35 @@
                   rowStatus.message = `Exception for ${ing.sku}: ${e.message}`;
                 }
                 modalResults.push(rowStatus);
+              }
+              // Also decrement 1 from each IngredientSKU in ContainerSKUs
+              if (productData && productData.ContainerSKUs && Array.isArray(productData.ContainerSKUs)) {
+                for (const containerSKU of productData.ContainerSKUs) {
+                  try {
+                    const { data: containerInv, error: containerErr } = await client
+                      .from('Ingredients')
+                      .select('"Quantity(Lbs/Units)"')
+                      .eq('IngredientSKU', containerSKU)
+                      .maybeSingle();
+                    if (!containerErr && containerInv && containerInv["Quantity(Lbs/Units)"] !== undefined) {
+                      const currentQty = Number(containerInv["Quantity(Lbs/Units)"]);
+                      const newQty = Math.max(0, currentQty - 1);
+                      const { error: updateError } = await client
+                        .from('Ingredients')
+                        .update({ "Quantity(Lbs/Units)": newQty })
+                        .eq('IngredientSKU', containerSKU);
+                      if (!updateError) {
+                        modalResults.push({ sku: containerSKU, status: 'success', message: `Container ${containerSKU}: ${currentQty} → ${newQty}` });
+                      } else {
+                        modalResults.push({ sku: containerSKU, status: 'error', message: `Error updating container ${containerSKU}: ${updateError.message}` });
+                      }
+                    } else {
+                      modalResults.push({ sku: containerSKU, status: 'error', message: `Error fetching container ${containerSKU} inventory.` });
+                    }
+                  } catch (e) {
+                    modalResults.push({ sku: containerSKU, status: 'error', message: `Exception for container ${containerSKU}: ${e.message}` });
+                  }
+                }
               }
             }
           } catch (e) {
@@ -1134,13 +1178,13 @@
         const selectedOption = customerSelect.options[customerSelect.selectedIndex];
         userKey = selectedOption ? selectedOption.textContent : '';
       }
+      const deadlineValue = document.getElementById('deadline').value;
       const task = {
         Customer: userKey || userID,
         OrderNumber: document.getElementById('orderNumber').value.trim(),
         ProductSKU: document.getElementById('productSKU').value.trim(),
         Quantity: parseInt(document.getElementById('quantity').value),
         Progress: document.getElementById('progress').value,
-        Deadline: document.getElementById('deadline').value,
         UserID: [
           userID,
           'a4df0386-d361-4f54-a936-c9a2ea01e914',
@@ -1148,6 +1192,9 @@
           'bc4441d2-38e8-4e77-afb4-2609ec6f56f6'
         ]
       };
+      if (deadlineValue) {
+        task.Deadline = deadlineValue;
+      }
       if (task.Progress === 'scheduled') {
         const plannedDate = document.getElementById('plannedManufactureDate').value;
         if (!plannedDate) {
