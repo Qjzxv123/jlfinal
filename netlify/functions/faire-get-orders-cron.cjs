@@ -161,7 +161,8 @@ exports.handler = async function(event) {
   const { data, error } = await supabase
     .from('oauth_tokens')
     .select('user_key')
-    .neq('user_key', null);
+    .neq('user_key', null)
+    .eq('platform', 'faire');
   if (error) {
     console.error('[CRON] Failed to fetch userKeys:', error);
     return { statusCode: 500, body: 'Failed to fetch userKeys' };
