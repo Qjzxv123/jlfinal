@@ -1006,12 +1006,7 @@
           }, 0);
         }
       });
-      const percentWarning = (Math.abs(totalPercent - 100) > 0.01 && totalPercent > 0)
-        ? `<div style=\"color:#e74c3c;font-weight:600;margin-bottom:0.5em;\">Warning: Total ingredient percentages across all phases add up to ${totalPercent.toFixed(2)}% (should be 100%)</div>`
-        : '';
-      if (percentWarning) {
-        container.innerHTML += percentWarning;
-      }
+      // Remove percent warning from inline display
 
       processTableData.forEach((phase, phaseIdx) => {
         const phaseDiv = document.createElement('div');
@@ -1055,7 +1050,7 @@
               <div id=\"ingredient-dropdown-${phaseIdx}-${ingIdx}\"></div>
             </td>
             <td style=\"padding:0.5rem;border:1px solid #cbd5e1;\">
-              <input type=\"number\" value=\"${ing.percent || ''}\" min=\"0\" step=\"0.01\" onchange=\"updateIngredientField(${phaseIdx},${ingIdx},'percent',this.value)\" oninput=\"updateIngredientField(${phaseIdx},${ingIdx},'percent',this.value); renderProcessTableEditor();\" style=\"width:100%;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;\">
+              <input type=\"number\" value=\"${ing.percent || ''}\" min=\"0\" step=\"0.01\" oninput=\"updateIngredientField(${phaseIdx},${ingIdx},'percent',this.value);\" style=\"width:100%;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;\">
             </td>
             <td style=\"padding:0.5rem;border:1px solid #cbd5e1;\">
               <button type=\"button\" class=\"btn\" style=\"background:#f87171;padding:0.3rem 0.5rem;font-size:0.9rem;\" onclick=\"removeIngredientRow(${phaseIdx},${ingIdx})\">Remove</button>
@@ -1174,6 +1169,69 @@
         ManufacturingInstructions: useCustom && miValue !== '' ? miValue : null
       };
       Object.keys(data).forEach(k => { if (data[k] === '') data[k] = null; });
+
+      // Calculate total percent across all phases
+      let totalPercent = 0;
+      processTableData.forEach(phase => {
+        if (Array.isArray(phase.ingredients)) {
+          totalPercent += phase.ingredients.reduce((sum, ing) => {
+            const val = parseFloat(ing.percent);
+            return sum + (!isNaN(val) ? val : 0);
+          }, 0);
+        }
+      });
+
+      if (Math.abs(totalPercent - 100) > 0.01 && totalPercent > 0) {
+        showPercentModal(totalPercent, async function(confirmed) {
+          if (!confirmed) {
+            statusMsg.textContent = 'Save cancelled.';
+            statusMsg.className = 'status error';
+            return;
+          }
+          await saveProduct(data);
+        });
+      } else {
+        await saveProduct(data);
+      }
+    };
+
+    // Modal for percent warning
+    function showPercentModal(totalPercent, callback) {
+      let modal = document.getElementById('percentModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'percentModal';
+        modal.style = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.35);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = `
+          <div style="background:white;padding:2rem 2.5rem;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.18);max-width:400px;text-align:center;">
+            <div style="font-size:1.15rem;color:#e74c3c;font-weight:600;margin-bottom:1em;">Warning: Total ingredient percentages across all phases add up to <span style='font-weight:bold;'>${totalPercent.toFixed(2)}%</span> (should be 100%)</div>
+            <div style="margin-bottom:1.5em;color:#555;">Are you sure you want to continue saving?</div>
+            <button id="percentModalContinue" style="background:#10b981;color:white;padding:0.6em 1.2em;border:none;border-radius:6px;font-size:1rem;margin-right:1em;cursor:pointer;">Continue</button>
+            <button id="percentModalCancel" style="background:#f87171;color:white;padding:0.6em 1.2em;border:none;border-radius:6px;font-size:1rem;cursor:pointer;">Cancel</button>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      } else {
+        modal.style.display = 'flex';
+        modal.querySelector('div').innerHTML = `
+          <div style=\"font-size:1.15rem;color:#e74c3c;font-weight:600;margin-bottom:1em;\">Warning: Total ingredient percentages across all phases add up to <span style='font-weight:bold;'>${totalPercent.toFixed(2)}%</span> (should be 100%)</div>
+          <div style=\"margin-bottom:1.5em;color:#555;\">Are you sure you want to continue saving?</div>
+          <button id=\"percentModalContinue\" style=\"background:#10b981;color:white;padding:0.6em 1.2em;border:none;border-radius:6px;font-size:1rem;margin-right:1em;cursor:pointer;\">Continue</button>
+          <button id=\"percentModalCancel\" style=\"background:#f87171;color:white;padding:0.6em 1.2em;border:none;border-radius:6px;font-size:1rem;cursor:pointer;\">Cancel</button>
+        `;
+      }
+      // Button listeners
+      modal.querySelector('#percentModalContinue').onclick = function() {
+        modal.style.display = 'none';
+        callback(true);
+      };
+      modal.querySelector('#percentModalCancel').onclick = function() {
+        modal.style.display = 'none';
+        callback(false);
+      };
+    }
+
+    async function saveProduct(data) {
       // Use upsert to handle both insert and update based on ProductSKU
       const { error } = await supabase.from('Products').upsert([data], { onConflict: 'ProductSKU' });
       if (error) {
@@ -1191,7 +1249,7 @@
         document.getElementById('manufacturingInstructionsContainer').style.display = 'none';
         document.getElementById('useCustomInstructions').checked = false;
       }
-    };
+    }
     // Toggle Manufacturing Instructions textarea
     document.addEventListener('DOMContentLoaded', function() {
       const miCheckbox = document.getElementById('useCustomInstructions');
