@@ -540,7 +540,88 @@
     <!-- 📋 Recent Additions section removed -->
   </div>
 
+  <style>
+    @media print {
+      @page {
+        size: 3in 5in;
+        margin: 0;
+      }
+      html, body {
+        width: 3in;
+        height: 5in;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+      }
+      body * {
+        display: none !important;
+      }
+      #labelContainer {
+        display: block !important;
+        position: absolute !important;
+        left: 0; top: 0;
+        width: 3in !important;
+        height: 5in !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+        background: white !important;
+      }
+      #labelContainer * {
+        display: block !important;
+        visibility: visible !important;
+      }
+    }
+  </style>
   <script type="module">
+    // Print a 3x5 label with SKU, expiry, and lot number
+    function printLabel(sku, expiry, lot) {
+      let labelContainer = document.getElementById('labelContainer');
+      if (!labelContainer) {
+        labelContainer = document.createElement('div');
+        labelContainer.id = 'labelContainer';
+        document.body.appendChild(labelContainer);
+      }
+      labelContainer.innerHTML = '';
+      const labelDiv = document.createElement('div');
+      labelDiv.style.width = '3in';
+      labelDiv.style.height = '5in';
+      labelDiv.style.border = '1px solid #333';
+      labelDiv.style.margin = '0.5in auto';
+      labelDiv.style.padding = '0.5in';
+      labelDiv.style.display = 'flex';
+      labelDiv.style.flexDirection = 'column';
+      labelDiv.style.justifyContent = 'center';
+      labelDiv.style.alignItems = 'center';
+      labelDiv.style.fontFamily = 'Arial, sans-serif';
+      // No QR code
+      // SKU
+      const skuDiv = document.createElement('div');
+      skuDiv.style.fontSize = '3rem';
+      skuDiv.style.fontWeight = 'bold';
+      skuDiv.style.marginTop = '1rem';
+      skuDiv.style.marginBottom = '1.2rem';
+      skuDiv.textContent = `${sku}`;
+      labelDiv.appendChild(skuDiv);
+      // Expiry
+      const expiryDiv = document.createElement('div');
+      expiryDiv.style.fontSize = '2.2rem';
+      expiryDiv.style.marginTop = '0.5rem';
+      expiryDiv.style.marginBottom = '1.2rem';
+      expiryDiv.textContent = `Expiry: ${expiry}`;
+      labelDiv.appendChild(expiryDiv);
+      // Lot number
+      const lotDiv = document.createElement('div');
+      lotDiv.style.fontSize = '2.2rem';
+      lotDiv.style.marginTop = '0.5rem';
+      lotDiv.textContent = `Lot: ${lot}`;
+      labelDiv.appendChild(lotDiv);
+      labelContainer.appendChild(labelDiv);
+      setTimeout(() => {
+        window.print();
+        labelContainer.innerHTML = '';
+      }, 500);
+    }
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
     
     const supabaseUrl = 'https://ypvyrophqkfqwpefuigi.supabase.co';
@@ -1018,6 +1099,7 @@
             Updated_By: updatedBy,
             Log: logMessage
           });
+          printLabel(order.IngredientSKU, expiry, lot);
         // Save cost to CostLog if cost is provided
         if (cost !== null && !isNaN(cost)) {
           const today = new Date();
