@@ -49,6 +49,8 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <!-- Chart.js for cost graph -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="Ingredient-container" id="IngredientContainer">
@@ -123,6 +125,23 @@
         }
         html += '</table>';
 
+        // Cost over time graph
+        let costGraphHtml = `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Cost Over Time</div><canvas id='costGraph' style='max-width:100%;background:#f8f9fa;border-radius:8px;'></canvas>`;
+        // Query CostLog for this SKU
+        let costData = [];
+        try {
+          const { data: costRows, error: costError } = await supabase
+            .from('CostLog')
+            .select('Date,Cost')
+            .eq('SKU', sku)
+            .order('Date');
+          if (costRows && costRows.length) {
+            costData = costRows.map(row => ({ date: row.Date, cost: row.Cost }));
+          }
+        } catch (e) {
+          // If error, leave costData empty
+        }
+
         // Fetch ingredient logs for this SKU
         let logsHtml = '';
         try {
@@ -193,7 +212,48 @@
           productsHtml += `<div class='error'>Error loading products using this ingredient.</div>`;
         }
 
-        detailsDiv.innerHTML = html + logsHtml + productsHtml;
+        detailsDiv.innerHTML = html + costGraphHtml + logsHtml + productsHtml;
+
+        // Render cost graph if data exists
+        if (costData.length) {
+          // Wait for canvas to be in DOM
+          setTimeout(() => {
+            const ctx = document.getElementById('costGraph').getContext('2d');
+            new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels: costData.map(d => d.date),
+                datasets: [{
+                  label: 'Cost',
+                  data: costData.map(d => d.cost),
+                  borderColor: '#4DBA93',
+                  backgroundColor: 'rgba(77,186,147,0.12)',
+                  fill: true,
+                  tension: 0.2,
+                  pointRadius: 3,
+                  pointBackgroundColor: '#4DBA93',
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: {
+                  legend: { display: false },
+                  title: { display: false }
+                },
+                scales: {
+                  x: { title: { display: true, text: 'Date' }, grid: { display: false } },
+                  y: { title: { display: true, text: 'Cost ($)' }, beginAtZero: true }
+                }
+              }
+            });
+          }, 0);
+        } else {
+          // If no cost data, show message
+          const graphDiv = document.getElementById('costGraph');
+          if (graphDiv) {
+            graphDiv.outerHTML = `<div style='margin-top:1em;color:#888;'>No cost data found for this SKU.</div>`;
+          }
+        }
       } catch (err) {
         detailsDiv.innerHTML = `<span class='error'>Error loading Ingredient info: ${err.message}</span>`;
       }
