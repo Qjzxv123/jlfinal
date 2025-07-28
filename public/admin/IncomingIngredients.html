@@ -876,7 +876,10 @@
     async function loadPendingOrders() {
       try {
         showReceiveStatus('Loading pending orders...', 'info');
-        
+        // Ensure allIngredients is loaded before displaying
+        if (!allIngredients || allIngredients.length === 0) {
+          await fetchAllIngredients();
+        }
         const { data: orders, error } = await supabase
           .from('IngredientOrders')
           .select('*')
@@ -889,7 +892,6 @@
 
         pendingOrders = orders || [];
         displayPendingOrders();
-        
       } catch (error) {
         showReceiveStatus('Error loading pending orders: ' + error.message, 'error');
       }

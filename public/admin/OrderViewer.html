@@ -1568,24 +1568,30 @@ document.getElementById('shippingForm').onsubmit = function(e) {
     };
   });
 
-  // For single-box shipments, set top-level parcel.length/width/height for EasyPost
-  let parcelLength = 1, parcelWidth = 1, parcelHeight = 1;
-  if (boxes.length > 0) {
-    parcelLength = Number(boxes[0].length) > 0 ? Number(boxes[0].length) : 1;
-    parcelWidth = Number(boxes[0].width) > 0 ? Number(boxes[0].width) : 1;
-    parcelHeight = Number(boxes[0].height) > 0 ? Number(boxes[0].height) : 1;
+  // Build parcels array for Shippo API
+  const parcels = boxes.map(box => {
+    // Use box dimensions and weight, fallback to entered weight if missing
+    let length = Number(box.length) > 0 ? Number(box.length) : 1;
+    let width = Number(box.width) > 0 ? Number(box.width) : 1;
+    let height = Number(box.height) > 0 ? Number(box.height) : 1;
+    let weight = box.weight && Number(box.weight) > 0 ? Number(box.weight) : totalWeightOz / 16; // convert oz to lb
+    return {
+      length: String(length),
+      width: String(width),
+      height: String(height),
+      distance_unit: 'in',
+      weight: String(weight),
+      mass_unit: 'lb'
+    };
+  });
+  // If only one box, use entered weight for accuracy
+  if (parcels.length === 1) {
+    parcels[0].weight = String(totalWeightOz / 16); // oz to lb
   }
-
-  let parcelObj = {
-    weight: totalWeightOz,
-    length: parcelLength,
-    width: parcelWidth,
-    height: parcelHeight,
-    boxes
-  };
   shippingModalResults.push({
     order: modalOrder,
-    parcel: parcelObj
+    parcels,
+    boxes
   });
   shippingModalIndex++;
   showShippingModalStep();
