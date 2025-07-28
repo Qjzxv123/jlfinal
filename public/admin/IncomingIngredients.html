@@ -1775,6 +1775,61 @@
       }
     }
 
+
+    // Remove a lot from an ingredient's ActiveLotNumbers and update UI
+    async function removeLotFromView(sku, lotString, btn) {
+      const statusDiv = document.getElementById('viewLotStatus');
+      statusDiv.style.display = 'none';
+      if (!sku || !lotString) {
+        statusDiv.textContent = 'Missing SKU or lot information.';
+        statusDiv.className = 'status error';
+        statusDiv.style.display = 'block';
+        return;
+      }
+      try {
+        // Find ingredient in local data
+        const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
+        if (!ingredient) {
+          statusDiv.textContent = 'Ingredient not found.';
+          statusDiv.className = 'status error';
+          statusDiv.style.display = 'block';
+          return;
+        }
+        const activeLots = ingredient.ActiveLotNumbers || [];
+        if (!activeLots.includes(lotString)) {
+          statusDiv.textContent = 'Lot not found for this ingredient.';
+          statusDiv.className = 'status error';
+          statusDiv.style.display = 'block';
+          return;
+        }
+        // Remove the lot
+        const updatedLots = activeLots.filter(lot => lot !== lotString);
+        // Update in Supabase
+        const { error } = await supabase
+          .from('Ingredients')
+          .update({ ActiveLotNumbers: updatedLots })
+          .eq('IngredientSKU', sku);
+        if (error) {
+          statusDiv.textContent = 'Error removing lot: ' + error.message;
+          statusDiv.className = 'status error';
+          statusDiv.style.display = 'block';
+          return;
+        }
+        // Update local data
+        ingredient.ActiveLotNumbers = updatedLots;
+        statusDiv.textContent = 'Lot removed successfully.';
+        statusDiv.className = 'status success';
+        statusDiv.style.display = 'block';
+        // Refresh the table
+        window.viewLotNumbers();
+      } catch (err) {
+        statusDiv.textContent = 'Error: ' + err.message;
+        statusDiv.className = 'status error';
+        statusDiv.style.display = 'block';
+      }
+    }
+    window.removeLotFromView = removeLotFromView;
+
     // Initialize the application
     async function initializeApp() {
       showOrderStatus('Loading ingredients...', 'info');
