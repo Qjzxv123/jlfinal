@@ -445,17 +445,14 @@
               <th>Lot Number</th>
               <th>Actual Quantity</th>
               <th>Expiry Date</th>
+              <th>Cost Per Unit/Lb</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="pendingOrdersTableBody">
           </tbody>
         </table>
-        <div style="text-align: center; margin: 2rem 0;">
-          <button class="btn" onclick="processReceivedIngredients()" style="background: #059669; font-size: 1.1rem; padding: 1rem 2rem;">
-            <i class="cil-check"></i> Process Received Ingredients
-          </button>
-        </div>
+        <!-- Bulk process button removed, now handled per row -->
       </div>
     </div>
 
@@ -517,44 +514,30 @@
     
     <br><br>
     <div class="container">
-      <h2>🗑️ Remove Exhausted Lot Numbers</h2>
-      <p style="color: #6b7280; margin-bottom: 1rem;">Enter lot numbers that have been exhausted to remove them from active inventory.</p>
-      
-      <div style="margin-bottom: 1.5rem;">
-        <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 200px;">
-            <label for="exhaustedIngredientDropdown" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Select Ingredient:</label>
-            <div id="exhaustedIngredientDropdown"></div>
-          </div>
-          <div style="flex: 1; min-width: 200px;">
-            <label for="exhaustedLotNumber" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Lot Number to Remove:</label>
-            <input type="text" id="exhaustedLotNumber" placeholder="Enter lot number or click to select" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem;" />
-          </div>
-          <div>
-            <button class="btn" onclick="removeExhaustedLot()" style="background: #dc2626; padding: 0.75rem 1.5rem;">
-              <i class="cil-trash"></i> Remove Lot
-            </button>
-          </div>
-        </div>
+      <h2>View Lot Numbers</h2>
+      <p style="color: #6b7280; margin-bottom: 1rem;">Search for an ingredient to view all active lot numbers, expiry dates, and remove lots as needed.</p>
+      <div style="margin-bottom: 1.5rem; max-width: 400px;">
+        <label for="viewLotIngredientDropdown" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Ingredient:</label>
+        <div id="viewLotIngredientDropdown"></div>
       </div>
-      
-      <div id="exhaustedLotStatus" class="status" style="display: none; margin-bottom: 1rem;"></div>
-      
-      <div id="activeLotsList" style="display: none;">
-        <h3 style="margin-bottom: 1rem;">Active Lot Numbers for Selected Ingredient:</h3>
-        <div id="activeLotsContainer" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 1rem; min-height: 50px;">
-          <p style="color: #6b7280; font-style: italic;">Select an ingredient to view active lot numbers</p>
-        </div>
+      <div id="viewLotStatus" class="status" style="display: none; margin-bottom: 1rem;"></div>
+      <div id="viewLotsTableContainer" style="display: none;">
+        <h3 style="margin-bottom: 1rem;">Active Lot Numbers for <span id="viewLotsNameDisplay"></span> (<span id="viewLotsSKUDisplay"></span>)</h3>
+        <table class="ingredients-table" id="viewLotsTable">
+          <thead>
+            <tr>
+              <th>Lot Number</th>
+              <th>Quantity</th>
+              <th>Expiry Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="viewLotsTableBody"></tbody>
+        </table>
       </div>
     </div>
     
-    <br><br>
-    <div class="container">
-      <h2>📋 Recent Additions</h2>
-      <div id="recentAdditions">
-        <p style="color: #6b7280; font-style: italic;">No recent additions. Add some ingredients above to see them here.</p>
-      </div>
-    </div>
+    <!-- 📋 Recent Additions section removed -->
   </div>
 
   <script type="module">
@@ -761,50 +744,40 @@
     async function saveAllOrders() {
       const tableBody = document.getElementById('ordersTableBody');
       const rows = tableBody.querySelectorAll('tr');
-      
       if (rows.length === 0) {
         showOrderStatus('No orders to save', 'info');
         return;
       }
-
       let successCount = 0;
       let errorCount = 0;
       const results = [];
-
       showOrderStatus('Processing orders...', 'info');
-
       for (const row of rows) {
         const dropdown = row.querySelector('.selected-sku');
         const orderQuantity = row.querySelector('.order-quantity');
         const expectedDate = row.querySelector('.expected-date');
-
         const sku = dropdown ? dropdown.value : '';
         const quantity = parseFloat(orderQuantity.value) || 0;
         const expectedBy = expectedDate.value;
-
         if (!sku) {
           results.push(`❌ Row ${successCount + errorCount + 1}: No ingredient selected`);
           errorCount++;
           continue;
         }
-
         if (quantity <= 0) {
           results.push(`❌ Row ${successCount + errorCount + 1}: Invalid quantity`);
           errorCount++;
           continue;
         }
-
         if (!expectedBy) {
           results.push(`❌ Row ${successCount + errorCount + 1}: Expected arrival date required`);
           errorCount++;
           continue;
         }
-
         try {
           // Get ingredient name for display
           const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
           const ingredientName = ingredient ? ingredient.Name : sku;
-
           // Insert the order into IngredientOrders table
           const { data, error } = await supabase
             .from('IngredientOrders')
@@ -814,55 +787,21 @@
               'ExpectedBy': expectedBy
             })
             .select();
-
           if (error || !data || !data[0] || !data[0].id) {
             results.push(`❌ ${sku}: Failed to save order - ${error ? error.message : 'No ID returned'}`);
             errorCount++;
           } else {
             results.push(`✅ ${ingredientName} (${sku}): Order for ${quantity} lbs expected by ${expectedBy}`);
             successCount++;
-
-            // Upsert IncomingOrderIDs in Calender table for the matching date
-            const orderId = data[0].id;
-            const calDate = expectedBy;
-            // Fetch existing Calender row for the date
-            const { data: calRow, error: calError } = await supabase
-              .from('Calender')
-              .select('id, Date, IncomingOrderIDs')
-              .eq('Date', calDate)
-              .single();
-
-            let newIncomingOrderIDs = [];
-            if (calRow && Array.isArray(calRow.IncomingOrderIDs)) {
-              newIncomingOrderIDs = [...calRow.IncomingOrderIDs];
-            }
-            if (!newIncomingOrderIDs.includes(orderId)) {
-              newIncomingOrderIDs.push(orderId);
-            }
-
-            // Upsert (insert or update) the Calender row
-            if (calRow && calRow.id) {
-              await supabase
-                .from('Calender')
-                .update({ IncomingOrderIDs: newIncomingOrderIDs })
-                .eq('id', calRow.id);
-            } else {
-              await supabase
-                .from('Calender')
-                .upsert({ Date: calDate, IncomingOrderIDs: [orderId] }, { onConflict: ['Date'] });
-            }
           }
-
         } catch (error) {
           results.push(`❌ ${sku}: Error - ${error.message}`);
           errorCount++;
         }
       }
-
       // Show results
       const resultMessage = `Processing complete: ${successCount} successful, ${errorCount} errors\n\n${results.join('\n')}`;
       showOrderStatus(resultMessage, errorCount === 0 ? 'success' : 'error');
-
       // Clear successful rows
       if (successCount > 0) {
         clearAllOrderRows();
@@ -901,18 +840,15 @@
     function displayPendingOrders() {
       const container = document.getElementById('pendingOrdersContainer');
       const tableBody = document.getElementById('pendingOrdersTableBody');
-      
       if (pendingOrders.length === 0) {
         container.style.display = 'none';
         showReceiveStatus('No pending orders found', 'info');
         return;
       }
-
       const tableRows = pendingOrders.map((order, index) => {
         const ingredient = allIngredients.find(ing => ing.IngredientSKU === order.IngredientSKU);
         const ingredientName = ingredient ? ingredient.Name : 'Unknown';
         const expectedDate = new Date(order.ExpectedBy).toLocaleDateString();
-        
         return `
           <tr data-order-id="${order.id}">
             <td style="font-weight: 500;">${ingredientName}</td>
@@ -929,6 +865,12 @@
               <input type="date" class="expiry-date" style="width: 100%;" />
             </td>
             <td>
+              <input type="number" class="cost-field" placeholder="Cost" min="0" step="0.01" style="width: 100%;" />
+            </td>
+            <td>
+              <button class="btn btn-success" onclick="processSingleReceivedIngredient(this)" style="padding: 0.5rem; margin-right: 0.5rem;">
+                <i class="cil-check"></i>
+              </button>
               <button class="btn btn-danger" onclick="removePendingOrder(${order.id})" style="padding: 0.5rem;">
                 <i class="cil-trash"></i>
               </button>
@@ -936,10 +878,12 @@
           </tr>
         `;
       }).join('');
-
       tableBody.innerHTML = tableRows;
       container.style.display = 'block';
       showReceiveStatus(`Loaded ${pendingOrders.length} pending order(s)`, 'success');
+      // Remove the bulk process button below the table
+      const bulkBtn = container.querySelector('button[onclick="processSingleReceivedIngredient()"]');
+      if (bulkBtn) bulkBtn.style.display = 'none';
     }
 
     // Show receive status message
@@ -979,169 +923,128 @@
     }
 
     // Process received ingredients
-    async function processReceivedIngredients() {
-      const tableBody = document.getElementById('pendingOrdersTableBody');
-      const rows = tableBody.querySelectorAll('tr');
-      
-      if (rows.length === 0) {
-        showReceiveStatus('No orders to process', 'info');
+    async function processSingleReceivedIngredient(btn) {
+      const row = btn.closest('tr');
+      if (!row) return;
+      const orderId = parseInt(row.getAttribute('data-order-id'));
+      const lotNumber = row.querySelector('.lot-number');
+      const actualQuantity = row.querySelector('.actual-quantity');
+      const expiryDate = row.querySelector('.expiry-date');
+      const costField = row.querySelector('.cost-field');
+      const lot = lotNumber.value.trim();
+      const quantity = parseFloat(actualQuantity.value) || 0;
+      const expiry = expiryDate.value;
+      const cost = parseFloat(costField.value) || null;
+      if (!lot) {
+        showReceiveStatus('Lot number required', 'error');
         return;
       }
-
-      let successCount = 0;
-      let errorCount = 0;
-      const results = [];
-
-      showReceiveStatus('Processing received ingredients...', 'info');
-
-      for (const row of rows) {
-        const orderId = parseInt(row.getAttribute('data-order-id'));
-        const lotNumber = row.querySelector('.lot-number');
-        const actualQuantity = row.querySelector('.actual-quantity');
-        const expiryDate = row.querySelector('.expiry-date');
-
-        const lot = lotNumber.value.trim();
-        const quantity = parseFloat(actualQuantity.value) || 0;
-        const expiry = expiryDate.value;
-
-        // Skip rows without lot number (not being processed)
-        if (!lot) {
-          continue;
-        }
-
-        if (quantity <= 0) {
-          results.push(`❌ Order ${orderId}: Invalid quantity`);
-          errorCount++;
-          continue;
-        }
-
-        if (!expiry) {
-          results.push(`❌ Order ${orderId}: Expiry date required`);
-          errorCount++;
-          continue;
-        }
-
-        try {
-          // Find the order
-          const order = pendingOrders.find(o => o.id === orderId);
-          if (!order) {
-            results.push(`❌ Order ${orderId}: Order not found`);
-            errorCount++;
-            continue;
-          }
-
-          // Get current ingredient data
-          const { data: currentData, error: fetchError } = await supabase
-            .from('Ingredients')
-            .select('IngredientSKU, Name, "Quantity(Lbs/Units)", ActiveLotNumbers')
-            .eq('IngredientSKU', order.IngredientSKU)
-            .single();
-
-          if (fetchError) {
-            results.push(`❌ ${order.IngredientSKU}: Failed to fetch current data - ${fetchError.message}`);
-            errorCount++;
-            continue;
-          }
-
-          const currentQuantity = currentData['Quantity(Lbs/Units)'] || 0;
-          const newQuantity = currentQuantity + quantity;
-
-          // Parse existing lot numbers or initialize empty array
-          let activeLotNumbers = [];
-          if (currentData.ActiveLotNumbers && Array.isArray(currentData.ActiveLotNumbers)) {
-            activeLotNumbers = [...currentData.ActiveLotNumbers];
-          }
-
-          // Add new lot number with quantity and expiry date
-          const newLotEntry = `${lot}, ${quantity}, ${expiry}`;
-          activeLotNumbers.push(newLotEntry);
-
-          // Update the ingredient
-          const { error: updateError } = await supabase
-            .from('Ingredients')
-            .update({ 
-              'Quantity(Lbs/Units)': newQuantity,
-              'ActiveLotNumbers': activeLotNumbers
-            })
-            .eq('IngredientSKU', order.IngredientSKU);
-
-          if (updateError) {
-            results.push(`❌ ${order.IngredientSKU}: Failed to update inventory - ${updateError.message}`);
-            errorCount++;
-            continue;
-          }
-
-          // Remove the order from IngredientOrders table
-          const { error: deleteError } = await supabase
-            .from('IngredientOrders')
-            .delete()
-            .eq('id', orderId);
-
-          if (deleteError) {
-            results.push(`⚠️ ${order.IngredientSKU}: Inventory updated but failed to remove order - ${deleteError.message}`);
-          }
-
-          results.push(`✅ ${currentData.Name} (${order.IngredientSKU}): +${quantity} lbs (${currentQuantity} → ${newQuantity}), Lot: ${lot}`);
-          successCount++;
-
-          // Add to recent additions
-          recentAdditions.unshift({
-            name: currentData.Name,
-            sku: order.IngredientSKU,
-            quantity: quantity,
-            lotNumber: lot,
-            lotQuantity: quantity,
-            expiryDate: expiry,
-            timestamp: new Date()
-          });
-
-        } catch (error) {
-          results.push(`❌ Order ${orderId}: Error - ${error.message}`);
-          errorCount++;
-        }
+      if (quantity <= 0) {
+        showReceiveStatus('Invalid quantity', 'error');
+        return;
       }
-
-      // Show results
-      const resultMessage = `Processing complete: ${successCount} successful, ${errorCount} errors\n\n${results.join('\n')}`;
-      showReceiveStatus(resultMessage, errorCount === 0 ? 'success' : 'error');
-
-      // Refresh displays
-      if (successCount > 0) {
+      if (!expiry) {
+        showReceiveStatus('Expiry date required', 'error');
+        return;
+      }
+      try {
+        // Find the order
+        const order = pendingOrders.find(o => o.id === orderId);
+        if (!order) {
+          showReceiveStatus('Order not found', 'error');
+          return;
+        }
+        // Get current ingredient data
+        const { data: currentData, error: fetchError } = await supabase
+          .from('Ingredients')
+          .select('IngredientSKU, Name, "Quantity(Lbs/Units)", ActiveLotNumbers')
+          .eq('IngredientSKU', order.IngredientSKU)
+          .single();
+        if (fetchError) {
+          showReceiveStatus('Failed to fetch ingredient data: ' + fetchError.message, 'error');
+          return;
+        }
+        const currentQuantity = currentData['Quantity(Lbs/Units)'] || 0;
+        const newQuantity = currentQuantity + quantity;
+        // Parse existing lot numbers or initialize empty array
+        let activeLotNumbers = [];
+        if (currentData.ActiveLotNumbers && Array.isArray(currentData.ActiveLotNumbers)) {
+          activeLotNumbers = [...currentData.ActiveLotNumbers];
+        }
+        // Add new lot number with quantity and expiry date
+        const newLotEntry = `${lot}, ${quantity}, ${expiry}`;
+        activeLotNumbers.push(newLotEntry);
+        // Update the ingredient
+        const { error: updateError } = await supabase
+          .from('Ingredients')
+          .update({ 
+            'Quantity(Lbs/Units)': newQuantity,
+            'ActiveLotNumbers': activeLotNumbers
+          })
+          .eq('IngredientSKU', order.IngredientSKU);
+        if (updateError) {
+          showReceiveStatus('Failed to update inventory: ' + updateError.message, 'error');
+          return;
+        }
+        // Log the ingredient change in IngredientLog
+        const changeTime = new Date().toISOString();
+        let updatedBy = null;
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          updatedBy = user?.email || user?.id || null;
+        } catch (e) {
+          updatedBy = null;
+        }
+        const logMessage = `Received ${quantity} lbs, Lot: ${lot}, Expiry: ${expiry}`;
+        await supabase
+          .from('IngredientLog')
+          .insert({
+            ChangeTime: changeTime,
+            IngredientSKU: order.IngredientSKU,
+            QuantityChanged: quantity,
+            Updated_By: updatedBy,
+            Log: logMessage
+          });
+        // Save cost to CostLog if cost is provided
+        if (cost !== null && !isNaN(cost)) {
+          const today = new Date();
+          const dateStr = today.toISOString().slice(0,10);
+          await supabase
+            .from('CostLog')
+            .insert({
+              Date: dateStr,
+              SKU: order.IngredientSKU,
+              Cost: cost
+            });
+        }
+        // Remove the order from IngredientOrders table
+        const { error: deleteError } = await supabase
+          .from('IngredientOrders')
+          .delete()
+          .eq('id', orderId);
+        if (deleteError) {
+          showReceiveStatus('Inventory updated but failed to remove order: ' + deleteError.message, 'error');
+        }
+        showReceiveStatus(`Processed: ${currentData.Name} (${order.IngredientSKU}) +${quantity} lbs, Lot: ${lot}`, 'success');
+        // Add to recent additions
+        recentAdditions.unshift({
+          name: currentData.Name,
+          sku: order.IngredientSKU,
+          quantity: quantity,
+          lotNumber: lot,
+          lotQuantity: quantity,
+          expiryDate: expiry,
+          timestamp: new Date()
+        });
+        // Refresh displays
         loadPendingOrders();
         updateRecentAdditions();
+      } catch (error) {
+        showReceiveStatus('Error processing order: ' + error.message, 'error');
       }
     }
 
-    // Update recent additions display
-    function updateRecentAdditions() {
-      const recentContainer = document.getElementById('recentAdditions');
-      
-      if (recentAdditions.length === 0) {
-        recentContainer.innerHTML = '<p style="color: #6b7280; font-style: italic;">No recent additions. Process some ingredient deliveries to see them here.</p>';
-        return;
-      }
-
-      const recentHTML = recentAdditions.slice(0, 10).map(addition => `
-        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem;">
-          <div style="display: flex; justify-content: between; align-items: start; flex-wrap: wrap; gap: 1rem;">
-            <div style="flex: 1; min-width: 200px;">
-              <div style="font-weight: 600; color: #1e40af;">${addition.name}</div>
-              <div style="font-size: 0.9rem; color: #6b7280;">SKU: ${addition.sku}</div>
-            </div>
-            <div style="flex: 1; min-width: 150px;">
-              <div style="font-weight: 600; color: #059669;">+${addition.quantity} lbs</div>
-              <div style="font-size: 0.9rem; color: #6b7280;">Lot: ${addition.lotNumber} (${addition.lotQuantity} lbs)</div>
-            </div>
-            <div style="flex: 1; min-width: 150px;">
-              <div style="font-size: 0.9rem; color: #6b7280;">Expires: ${addition.expiryDate}</div>
-              <div style="font-size: 0.8rem; color: #9ca3af;">Received: ${addition.timestamp.toLocaleString()}</div>
-            </div>
-          </div>
-        </div>
-      `).join('');
-
-      recentContainer.innerHTML = recentHTML;
-    }
+    // Update recent additions display function removed
 
     // Check ingredient expiries
     async function checkExpiries() {
@@ -1728,20 +1631,136 @@
       await fetchAllBoxes();
     }
 
-    // Make functions globally accessible
-    window.addOrderRow = addOrderRow;
-    window.removeOrderRow = removeOrderRow;
-    window.clearAllOrderRows = clearAllOrderRows;
-    window.saveAllOrders = saveAllOrders;
-    window.loadPendingOrders = loadPendingOrders;
-    window.removePendingOrder = removePendingOrder;
-    window.processReceivedIngredients = processReceivedIngredients;
-    window.checkExpiries = checkExpiries;
-    window.removeExhaustedLot = removeExhaustedLot;
-    window.selectLotForRemoval = selectLotForRemoval;
-    window.addBoxRow = addBoxRow;
-    window.removeBoxRow = removeBoxRow;
-    window.processReceivedBoxes = processReceivedBoxes;
+    // Add ingredient dropdown for view lot numbers
+    function createViewLotIngredientDropdown() {
+      const container = document.getElementById('viewLotIngredientDropdown');
+      if (!container) return null;
+      const dropdownHTML = `
+        <div class="ingredient-dropdown-container">
+          <input type="text" class="ingredient-search" placeholder="Type to search ingredients..." />
+          <div class="ingredient-dropdown" style="display: none;"></div>
+          <input type="hidden" class="selected-sku" value="" />
+        </div>
+      `;
+      container.innerHTML = dropdownHTML;
+      const searchInput = container.querySelector('.ingredient-search');
+      const dropdown = container.querySelector('.ingredient-dropdown');
+      const hiddenSKU = container.querySelector('.selected-sku');
+      function updateDropdown(searchTerm = '') {
+        const filtered = allIngredients.filter(ingredient => {
+          const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
+          return searchText.includes(searchTerm.toLowerCase());
+        });
+        dropdown.innerHTML = '';
+        filtered.slice(0, 15).forEach(ingredient => {
+          const option = document.createElement('div');
+          option.className = 'ingredient-option';
+          option.innerHTML = `
+            <div style="font-weight: 500; margin-bottom: 0.25rem;">${ingredient.Name}</div>
+            <div style="font-size: 0.8rem; color: #6b7280;">
+              SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'}
+            </div>
+          `;
+          option.addEventListener('click', () => {
+            searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
+            hiddenSKU.value = ingredient.IngredientSKU;
+            dropdown.style.display = 'none';
+            viewLotNumbers();
+          });
+          dropdown.appendChild(option);
+        });
+        if (filtered.length === 0) {
+          dropdown.innerHTML = '<div class="ingredient-option" style="color: #6b7280; font-style: italic;">No ingredients found</div>';
+        }
+      }
+      searchInput.addEventListener('focus', () => {
+        updateDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+      });
+      searchInput.addEventListener('input', (e) => {
+        updateDropdown(e.target.value);
+        dropdown.style.display = 'block';
+        hiddenSKU.value = '';
+      });
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+      return {
+        getSKU: () => hiddenSKU.value,
+        setSKU: (sku) => {
+          hiddenSKU.value = sku;
+          const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
+          if (ingredient) {
+            searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
+          }
+        },
+        clear: () => {
+          searchInput.value = '';
+          hiddenSKU.value = '';
+        }
+      };
+    }
+
+    // Replace viewLotNumbers to use dropdown
+    window.viewLotNumbers = async function() {
+      const dropdown = document.querySelector('#viewLotIngredientDropdown .selected-sku');
+      const sku = dropdown ? dropdown.value.trim() : '';
+      const statusDiv = document.getElementById('viewLotStatus');
+      const tableContainer = document.getElementById('viewLotsTableContainer');
+      const tableBody = document.getElementById('viewLotsTableBody');
+      const skuDisplay = document.getElementById('viewLotsSKUDisplay');
+      const nameDisplay = document.getElementById('viewLotsNameDisplay');
+      statusDiv.style.display = 'none';
+      tableContainer.style.display = 'none';
+      tableBody.innerHTML = '';
+      skuDisplay.textContent = sku;
+      nameDisplay.textContent = '';
+      if (!sku) {
+        statusDiv.textContent = 'Please select an ingredient.';
+        statusDiv.className = 'status error';
+        statusDiv.style.display = 'block';
+        return;
+      }
+      try {
+        const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
+        if (!ingredient) {
+          statusDiv.textContent = 'Ingredient not found.';
+          statusDiv.className = 'status error';
+          statusDiv.style.display = 'block';
+          return;
+        }
+        nameDisplay.textContent = ingredient.Name;
+        const lots = ingredient.ActiveLotNumbers || [];
+        if (lots.length === 0) {
+          statusDiv.textContent = 'No active lot numbers found for this ingredient.';
+          statusDiv.className = 'status info';
+          statusDiv.style.display = 'block';
+          return;
+        }
+        let rows = '';
+        lots.forEach(lot => {
+          // lot is a string: "Lot Number, Quantity, Expiry Date"
+          const parts = lot.split(', ');
+          let lotNumber = parts[0] || '';
+          let lotQuantity = parts.length >= 2 ? parts[1] : '';
+          let expiry = parts.length >= 3 ? parts[2] : '';
+          rows += `<tr>
+            <td style='font-family: "Courier New", monospace;'>${lotNumber}</td>
+            <td>${lotQuantity}</td>
+            <td>${expiry}</td>
+            <td><button class='btn btn-danger' style='padding:0.3rem 0.8rem;font-size:0.9em;' onclick="removeLotFromView('${sku}','${lot.replace(/'/g, "&#39;")}', this)">Remove</button></td>
+          </tr>`;
+        });
+        tableBody.innerHTML = rows;
+        tableContainer.style.display = 'block';
+      } catch (err) {
+        statusDiv.textContent = 'Error loading lots: ' + err.message;
+        statusDiv.className = 'status error';
+        statusDiv.style.display = 'block';
+      }
+    }
 
     // Initialize the application
     async function initializeApp() {
@@ -1750,6 +1769,8 @@
       await fetchAllBoxes();
       // Create the exhausted ingredient dropdown
       createExhaustedIngredientDropdown();
+      // Create the view lot ingredient dropdown
+      createViewLotIngredientDropdown();
       showOrderStatus('Ready! Create orders or load pending deliveries.', 'success');
       // Add one order row by default
       addOrderRow();

@@ -253,6 +253,16 @@ async function checkAdmin() {
                 return;
             }
 
+            let logMessage = '';
+            let quantityChanged = null;
+            let updatedBy = null;
+            try {
+                const { data: { user } } = await client.auth.getUser();
+                updatedBy = user?.user_metadata?.display_name || user?.email || user?.id || null;
+            } catch (e) {
+                updatedBy = null;
+            }
+
             if (setCheckbox.checked) {
                 // Set quantity directly
                 const { error: setErr } = await client
@@ -263,6 +273,8 @@ async function checkAdmin() {
                     skuMsg.textContent = `Error setting quantity for ${sku}: ${setErr.message}`;
                     skuMsg.style.color = 'red';
                 } else {
+                    logMessage = `Set ${sku} quantity to ${qtyValue}`;
+                    quantityChanged = qtyValue - prod.Quantity;
                     skuMsg.textContent = `Set ${sku} to ${qtyValue}`;
                     skuMsg.style.color = 'green';
                     skuInput.value = '';
@@ -271,7 +283,6 @@ async function checkAdmin() {
             } else {
                 // Decrement quantity
                 const newQty = prod.Quantity - qtyValue;
-        
                 const { error: updateErr } = await client
                     .from('Products')
                     .update({ Quantity: newQty })
@@ -280,14 +291,25 @@ async function checkAdmin() {
                     skuMsg.textContent = `Error updating ${sku}: ${updateErr.message}`;
                     skuMsg.style.color = 'red';
                 } else {
-                    if (qtyValue < 0){
-                        skuMsg.textContent = `Updated ${sku} +${Math.abs(qtyValue)}. New quantity: ${newQty}`;
-                    }else{
-                        skuMsg.textContent = `Updated ${sku} -${qtyValue}. New quantity: ${newQty}`;
-                    }
+                    logMessage = qtyValue < 0
+                        ? `Updated ${sku} +${Math.abs(qtyValue)}. New quantity: ${newQty}`
+                        : `Updated ${sku} -${qtyValue}. New quantity: ${newQty}`;
+                    quantityChanged = -qtyValue;
                     skuMsg.style.color = 'green';
+                    skuMsg.textContent = logMessage;
                     skuInput.value = '';
                 }
+            }
+            // Log to inventoryupdatelogs if logMessage is set
+            if (logMessage) {
+                await client
+                    .from('inventoryupdatelogs')
+                    .insert({
+                        log: logMessage,
+                        updated_by: updatedBy,
+                        SKU: sku,
+                        QuantityChanged: quantityChanged
+                    });
             }
             skuInput.focus();
         }
