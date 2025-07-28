@@ -13,9 +13,36 @@ exports.handler = async (event) => {
   if (!order || !parcel) return { statusCode: 400, body: 'Missing order or parcel data.' };
 
   // Build parcels array
-  const parcelsArr = Array.isArray(parcel)
-    ? parcel.map(box => ({ length: box.length, width: box.width, height: box.height, distance_unit: 'in', weight: box.weight, mass_unit: 'oz' }))
-    : [{ length: parcel.length, width: parcel.width, height: parcel.height, distance_unit: 'in', weight: parcel.weight, mass_unit: 'oz' }];
+  // Validate parcel(s) and build parcelsArr
+  let parcelsArr = [];
+  if (Array.isArray(parcel)) {
+    parcelsArr = parcel
+      .filter(box => box && box.length && box.width && box.height && box.weight)
+      .map(box => ({
+        length: Number(box.length),
+        width: Number(box.width),
+        height: Number(box.height),
+        distance_unit: 'in',
+        weight: Number(box.weight),
+        mass_unit: 'oz'
+      }));
+  } else if (parcel && parcel.length && parcel.width && parcel.height && parcel.weight) {
+    parcelsArr = [{
+      length: Number(parcel.length),
+      width: Number(parcel.width),
+      height: Number(parcel.height),
+      distance_unit: 'in',
+      weight: Number(parcel.weight),
+      mass_unit: 'oz'
+    }];
+  }
+  if (!parcelsArr.length) {
+    console.error('[Shippo Label] Invalid or missing parcel data:', parcel);
+    return { statusCode: 400, body: 'Invalid or missing parcel/package data.' };
+  }
+
+  // Log parcelsArr for debugging
+  console.log('[Shippo Label] parcelsArr:', parcelsArr);
 
   // Build address_to
   let address_to = body.ShippoAddressID && body.ShippoAddressID.trim() !== '' ? body.ShippoAddressID
