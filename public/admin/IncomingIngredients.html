@@ -1004,7 +1004,7 @@
         let updatedBy = null;
         try {
           const { data: { user } } = await supabase.auth.getUser();
-          updatedBy = user?.email || user?.id || null;
+          updatedBy = user?.user_metadata?.display_name || user?.email || user?.id || null;
         } catch (e) {
           updatedBy = null;
         }

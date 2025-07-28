@@ -90,13 +90,13 @@
         // Search for the SKU in the Ingredientimages bucket and display the first matching image
         try {
           const { data: fileList, error: listError } = await supabase.storage
-            .from('Ingredientimages')
+            .from('ingredientimages')
             .list();
           if (fileList && Array.isArray(fileList)) {
             const match = fileList.find(f => f.name.startsWith(sku));
             if (match) {
               const { data: imgUrl, error: imgError } = await supabase.storage
-                .from('Ingredientimages')
+                .from('ingredientimages')
                 .getPublicUrl(match.name);
               if (imgUrl && imgUrl.publicUrl && !imgError) {
                 html += `<div style='margin-bottom:18px;'><img src='${imgUrl.publicUrl}' alt='Ingredient Image' style='max-width:220px;max-height:220px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);'></div>`;
@@ -108,8 +108,7 @@
         }
         html += '<table style="width:100%;margin:auto;text-align:left;font-size:1rem;">';
         const hiddenFields = [
-          'UserID', 'Process', 'ManufacturingInstructions', 'Microbial Testing', 'Ingredient Type',
-          'ContainerSKUs', 'Pour Temperature', 'Pour Consistency', 'Aroma', 'imageurl'
+          'UserID', 'ActiveLotNumbers'
         ];
         for (const key in data) {
           if (hiddenFields.includes(key)) continue;
@@ -124,6 +123,23 @@
           html += `<tr><td style='font-weight:600;padding:6px 10px;'>${key}</td><td style='padding:6px 10px;'>${value}</td></tr>`;
         }
         html += '</table>';
+
+        // Active Lot Numbers Table
+        let lotNumbersHtml = '';
+        if (data.ActiveLotNumbers && Array.isArray(data.ActiveLotNumbers) && data.ActiveLotNumbers.length) {
+          lotNumbersHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Active Lot Numbers</div>`;
+          lotNumbersHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Lot Number</th><th style='padding:6px 10px;text-align:left;'>Quantity</th><th style='padding:6px 10px;text-align:left;'>Expiry Date</th><th style='padding:6px 10px;text-align:left;'>Actions</th></tr></thead><tbody>`;
+          for (const lot of data.ActiveLotNumbers) {
+            const parts = lot.split(', ');
+            let lotNumber = parts[0] || '';
+            let lotQuantity = parts.length >= 2 ? parts[1] : '';
+            let expiry = parts.length >= 3 ? parts[2] : '';
+            lotNumbersHtml += `<tr><td style='padding:6px 10px;'>${lotNumber}</td><td style='padding:6px 10px;'>${lotQuantity}</td><td style='padding:6px 10px;'>${expiry}</td><td style='padding:6px 10px;'><button class='btn btn-danger' style='padding:0.3rem 0.8rem;font-size:0.9em;background:#dc2626;color:#fff;border:none;' onclick=\"removeLotFromIngredient('${sku}','${lot.replace(/'/g, "&#39;")}', this)\"><i class='cil-trash'></i></button></td></tr>`;
+          }
+          lotNumbersHtml += '</tbody></table>';
+        } else {
+          lotNumbersHtml += `<div style='margin-top:2em;color:#888;'>No active lot numbers for this ingredient.</div>`;
+        }
 
         // Cost over time graph
         let costGraphHtml = `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Cost Over Time</div><canvas id='costGraph' style='max-width:100%;background:#f8f9fa;border-radius:8px;'></canvas>`;
@@ -212,7 +228,7 @@
           productsHtml += `<div class='error'>Error loading products using this ingredient.</div>`;
         }
 
-        detailsDiv.innerHTML = html + costGraphHtml + logsHtml + productsHtml;
+        detailsDiv.innerHTML = html + lotNumbersHtml + costGraphHtml + logsHtml + productsHtml;
 
         // Render cost graph if data exists
         if (costData.length) {
@@ -265,6 +281,38 @@
     } else {
       document.getElementById('skuDisplay').textContent = '';
       document.getElementById('IngredientDetails').innerHTML = `<span class='error'>No SKU provided in URL.</span>`;
+    }
+
+    // Add removeLotFromIngredient function to window
+    window.removeLotFromIngredient = async function(sku, lotString, btn) {
+      btn.disabled = true;
+      try {
+        const { data: ingredient, error } = await supabase
+          .from('Ingredients')
+          .select('ActiveLotNumbers')
+          .eq('IngredientSKU', sku)
+          .single();
+        if (error || !ingredient) {
+          alert('Error finding ingredient or lot numbers.');
+          btn.disabled = false;
+          return;
+        }
+        const updatedLots = (ingredient.ActiveLotNumbers || []).filter(lot => lot !== lotString);
+        const { error: updateError } = await supabase
+          .from('Ingredients')
+          .update({ ActiveLotNumbers: updatedLots })
+          .eq('IngredientSKU', sku);
+        if (updateError) {
+          alert('Error removing lot: ' + updateError.message);
+          btn.disabled = false;
+          return;
+        }
+        // Reload info
+        loadIngredientInfo(sku);
+      } catch (err) {
+        alert('Error removing lot: ' + err.message);
+        btn.disabled = false;
+      }
     }
   </script>
 </body>
