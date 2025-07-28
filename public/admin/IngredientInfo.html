@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ingredient Info</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      min-height: 100vh;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .Ingredient-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      padding: 32px 24px;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
+    .Ingredient-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #4DBA93;
+      margin-bottom: 12px;
+    }
+    .Ingredient-sku {
+      font-size: 1.1rem;
+      color: #888;
+      margin-bottom: 18px;
+    }
+    .Ingredient-details {
+      font-size: 1rem;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .error {
+      color: #e74c3c;
+      font-weight: 600;
+      margin-top: 20px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <div class="Ingredient-container" id="IngredientContainer">
+    <div class="Ingredient-title">Ingredient Info</div>
+    <div class="Ingredient-sku" id="skuDisplay"></div>
+    <div class="Ingredient-details" id="IngredientDetails">Loading...</div>
+  </div>
+  <script>
+    // Supabase config
+    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+    // Get SKU from URL
+    function getSKUFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('sku');
+    }
+
+    async function loadIngredientInfo(sku) {
+      document.getElementById('skuDisplay').textContent = `SKU: ${sku}`;
+      const detailsDiv = document.getElementById('IngredientDetails');
+      detailsDiv.textContent = 'Loading...';
+      try {
+        // Query Supabase for Ingredient info by SKU
+        const { data, error } = await supabase
+          .from('Ingredients')
+          .select('*')
+          .eq('IngredientSKU', sku)
+          .single();
+        if (error || !data) {
+          detailsDiv.innerHTML = `<span class='error'>Ingredient not found for SKU: ${sku}</span>`;
+          return;
+        }
+        // Display all Ingredient info fields
+        let html = '';
+        // Search for the SKU in the Ingredientimages bucket and display the first matching image
+        try {
+          const { data: fileList, error: listError } = await supabase.storage
+            .from('Ingredientimages')
+            .list();
+          if (fileList && Array.isArray(fileList)) {
+            const match = fileList.find(f => f.name.startsWith(sku));
+            if (match) {
+              const { data: imgUrl, error: imgError } = await supabase.storage
+                .from('Ingredientimages')
+                .getPublicUrl(match.name);
+              if (imgUrl && imgUrl.publicUrl && !imgError) {
+                html += `<div style='margin-bottom:18px;'><img src='${imgUrl.publicUrl}' alt='Ingredient Image' style='max-width:220px;max-height:220px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);'></div>`;
+              }
+            }
+          }
+        } catch (imgErr) {
+          // If error, do not display image
+        }
+        html += '<table style="width:100%;margin:auto;text-align:left;font-size:1rem;">';
+        const hiddenFields = [
+          'UserID', 'Process', 'ManufacturingInstructions', 'Microbial Testing', 'Ingredient Type',
+          'ContainerSKUs', 'Pour Temperature', 'Pour Consistency', 'Aroma', 'imageurl'
+        ];
+        for (const key in data) {
+          if (hiddenFields.includes(key)) continue;
+          let value = data[key];
+          if (Array.isArray(value)) {
+            value = value.length ? value.map(v => `<span style='background:#f8f9fa;border-radius:4px;padding:2px 6px;margin:2px;'>${v}</span>`).join(' ') : '[]';
+          } else if (typeof value === 'object' && value !== null) {
+            value = `<pre style='background:#f8f9fa;border-radius:4px;padding:6px;'>${JSON.stringify(value, null, 2)}</pre>`;
+          } else if (value === null || value === undefined || value === '') {
+            value = '<span style="color:#888;">N/A</span>';
+          }
+          html += `<tr><td style='font-weight:600;padding:6px 10px;'>${key}</td><td style='padding:6px 10px;'>${value}</td></tr>`;
+        }
+        html += '</table>';
+
+        // Fetch inventory update logs for this SKU
+        let logsHtml = '';
+        try {
+          const { data: logs, error: logsError } = await supabase
+            .from('inventoryupdatelogs')
+            .select('created_at,log,updated_by')
+            .eq('SKU', sku)
+            .order('created_at', { ascending: false })
+          if (logs && logs.length) {
+            logsHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Recent Inventory Updates</div>`;
+            logsHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Time</th><th style='padding:6px 10px;text-align:left;'>User</th><th style='padding:6px 10px;text-align:left;'>Message</th></tr></thead><tbody>`;
+            for (const log of logs) {
+              logsHtml += `<tr><td style='padding:6px 10px;'>${new Date(log.created_at).toLocaleString()}</td><td style='padding:6px 10px;'>${log.updated_by || ''}</td><td style='padding:6px 10px;'>${log.log}</td></tr>`;
+            }
+            logsHtml += '</tbody></table>';
+          } else {
+            logsHtml += `<div style='margin-top:2em;color:#888;'>No inventory update logs found for this SKU.</div>`;
+          }
+        } catch (logErr) {
+          logsHtml += `<div class='error'>Error loading inventory update logs.</div>`;
+        }
+        // Fetch order history for this SKU using new schema
+        let ordersHtml = '';
+        try {
+          // Query the new table and filter for this SKU in Items JSONB
+          const { data: orders, error: ordersError } = await supabase
+            .from('Order History')
+            .select('OrderID,ShippedAt,Items,Customer,Platform,Retailer,Link,ShippingCost,Notes')
+            .order('ShippedAt', { ascending: false });
+          let filteredOrders = [];
+          if (orders && Array.isArray(orders)) {
+            // Find orders where Items contains this SKU
+            filteredOrders = orders.filter(order => {
+              if (!order.Items) return false;
+              if (Array.isArray(order.Items)) {
+                // If Items is an array of objects
+                return order.Items.some(item => item.SKU === sku);
+              } else if (typeof order.Items === 'object') {
+                // If Items is a single object or object map
+                if (Array.isArray(order.Items.items)) {
+                  return order.Items.items.some(item => item.SKU === sku);
+                } else if (order.Items.SKU) {
+                  return order.Items.SKU === sku;
+                }
+              }
+              return false;
+            });
+          }
+          if (filteredOrders.length) {
+            ordersHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Order History</div>`;
+            ordersHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Shipped</th><th style='padding:6px 10px;text-align:left;'>Order ID</th><th style='padding:6px 10px;text-align:left;'>Customer</th><th style='padding:6px 10px;text-align:left;'>Retailer</th><th style='padding:6px 10px;text-align:left;'>Platform</th><th style='padding:6px 10px;text-align:left;'>Qty</th><th style='padding:6px 10px;text-align:left;'>Link</th></tr></thead><tbody>`;
+            for (const order of filteredOrders) {
+              // Find quantity for this SKU in Items
+              let qty = '';
+              if (order.Items) {
+                if (Array.isArray(order.Items)) {
+                  const found = order.Items.find(item => item.SKU === sku);
+                  qty = found ? (found.Quantity || found.Qty || '') : '';
+                } else if (typeof order.Items === 'object') {
+                  if (Array.isArray(order.Items.items)) {
+                    const found = order.Items.items.find(item => item.SKU === sku);
+                    qty = found ? (found.Quantity || found.Qty || '') : '';
+                  } else if (order.Items.SKU === sku) {
+                    qty = order.Items.Quantity || order.Items.Qty || '';
+                  }
+                }
+              }
+              // Customer name
+              let customerName = '';
+              if (order.Customer) {
+                if (typeof order.Customer === 'object') {
+                  customerName = order.Customer.name || order.Customer.Name || '';
+                } else {
+                  customerName = order.Customer;
+                }
+              }
+              ordersHtml += `<tr><td style='padding:6px 10px;'>${order.ShippedAt ? new Date(order.ShippedAt).toLocaleString() : ''}</td><td style='padding:6px 10px;'>${order.OrderID || ''}</td><td style='padding:6px 10px;'>${customerName}</td><td style='padding:6px 10px;'>${order.Retailer || ''}</td><td style='padding:6px 10px;'>${order.Platform || ''}</td><td style='padding:6px 10px;'>${qty}</td><td style='padding:6px 10px;'>${order.Link ? `<a href='${order.Link}' target='_blank'>View</a>` : ''}</td></tr>`;
+            }
+            ordersHtml += '</tbody></table>';
+          } else {
+            ordersHtml += `<div style='margin-top:2em;color:#888;'>No order history found for this SKU.</div>`;
+          }
+        } catch (ordersErr) {
+          ordersHtml += `<div class='error'>Error loading order history.</div>`;
+        }
+        detailsDiv.innerHTML = html + logsHtml + ordersHtml;
+      } catch (err) {
+        detailsDiv.innerHTML = `<span class='error'>Error loading Ingredient info: ${err.message}</span>`;
+      }
+    }
+
+    const sku = getSKUFromURL();
+    if (sku) {
+      loadIngredientInfo(sku);
+    } else {
+      document.getElementById('skuDisplay').textContent = '';
+      document.getElementById('IngredientDetails').innerHTML = `<span class='error'>No SKU provided in URL.</span>`;
+    }
+  </script>
+</body>
+</html>
