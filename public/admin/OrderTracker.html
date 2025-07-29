@@ -575,6 +575,16 @@
             });
             batchMakerButton = `<a href="BatchMaker.html?${params.toString()}" target="_blank" style="margin-left: 10px; display: inline-block; background: #F9AD28; color: white; padding: 0.2rem 0.5rem; text-decoration: none; border-radius: 4px; font-size: 0.8rem;"><i class='cil-warning'></i></a>`;
           }
+          // --- Batch number logic ---
+          function hashOrderNumber(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+              hash = ((hash << 5) - hash) + str.charCodeAt(i);
+              hash |= 0;
+            }
+            return Math.abs(hash % 1000000).toString().padStart(6, '0');
+          }
+          const batchNum = hashOrderNumber(task.OrderNumber || '');
           const instructionsBtnStyle = 'background:#9B41E5; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.4em;';
           if (task.Progress && task.Progress.toLowerCase() === 'scheduled' && task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
             instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}" style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
@@ -583,7 +593,7 @@
           }
           tr.innerHTML = `
             <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
-            <td>${batchMakerButton} ${task.OrderNumber || ''}</td>
+            <td>${batchMakerButton} ${task.OrderNumber || ''}<br><span style="display:block;opacity:0.45;font-size:0.95em;line-height:1.1;">Batch: ${batchNum}</span></td>
             <td><span style="font-weight:600; color:#E2DB53;">${customerDisplay}</span><br><span style="color:#374151;">${task.ProductSKU || ''} × <span style='opacity:0.65;'>${task.Quantity || ''}</span></span></td>
           <td class="${progressClass}">
             <button class="update-progress-btn" data-order-id="${task.OrderNumber}" data-current-progress="${progress}" style="background:#4dba93; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.5em;">
