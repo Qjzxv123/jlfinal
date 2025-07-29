@@ -37,12 +37,12 @@ exports.handler = async (event) => {
   const tokenRes = await fetch('https://api.etsy.com/v3/public/oauth/token', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': 'Basic ' + Buffer.from(`${ETSY_CLIENT_ID}:${ETSY_CLIENT_SECRET}`).toString('base64')
+      'Content-Type': 'application/x-www-form-urlencoded'
     },
     body: new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: ETSY_CLIENT_ID,
+      client_secret: ETSY_CLIENT_SECRET,
       redirect_uri: ETSY_REDIRECT_URI,
       code,
       ...(code_verifier ? { code_verifier } : {})
