@@ -620,9 +620,6 @@
                 </select>
                 <select id="retailerFilter" onchange="filterOrders()">
                     <option value="">All Retailers</option>
-                    <option value="JNL">J&L</option>
-                    <option value="River">River</option>
-                    <option value="Desesh">Desesh</option>
                 </select>
             </div>
         </div>
@@ -895,6 +892,30 @@
     filteredOrders = [...allOrders];
     displayOrders();
     updateSummary();
+    populateRetailerDropdown();
+}
+// Populate retailer dropdown with unique retailers from allOrders
+function populateRetailerDropdown() {
+    const retailerSelect = document.getElementById('retailerFilter');
+    if (!retailerSelect) return;
+    const currentValue = retailerSelect.value;
+    // Get unique retailers from allOrders
+    const retailers = Array.from(new Set(allOrders.map(order => order.shop).filter(Boolean)));
+    retailers.sort((a, b) => a.localeCompare(b));
+    // Save the first option (All Retailers)
+    const firstOption = document.createElement('option');
+    firstOption.value = '';
+    firstOption.textContent = 'All Retailers';
+    retailerSelect.innerHTML = '';
+    retailerSelect.appendChild(firstOption);
+    retailers.forEach(retailer => {
+        const opt = document.createElement('option');
+        opt.value = retailer;
+        opt.textContent = retailer;
+        retailerSelect.appendChild(opt);
+    });
+    // Restore previous selection if possible
+    retailerSelect.value = currentValue;
 }
         
         function filterOrders() {
