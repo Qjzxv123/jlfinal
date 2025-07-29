@@ -71,7 +71,7 @@ exports.handler = async (event) => {
       refresh_token: tokenData.refresh_token,
       expires_at: Math.floor(Date.now() / 1000) + (tokenData.expires_in || 0),
       user_key: userInfo.user_display_name || null
-    }, { onConflict: ['UserID', 'platform'] });
+    });
     console.log('[ETSY OAUTH CALLBACK] Upsert result:', { data, error });
   }
 
