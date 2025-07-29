@@ -583,10 +583,10 @@
                 // Query orders from Order History for the specific retailer and month
                 const { data: orders, error } = await supabase
                     .from('Order History')
-                    .select('OrderID, Retailer, ShippingCost, BoxSkus, Items, Notes, ScannedOutAt')
+                    .select('OrderID, Retailer, ShippingCost, BoxSkus, Items, Notes, ShippedAt')
                     .eq('Retailer', retailer)
-                    .gte('ScannedOutAt', startDateStr)
-                    .lte('ScannedOutAt', endDateStr + 'T23:59:59');
+                    .gte('ShippedAt', startDateStr)
+                    .lte('ShippedAt', endDateStr + 'T23:59:59');
 
                 if (error) throw error;
 
@@ -725,7 +725,7 @@
                         shippingCost: parseFloat(order.ShippingCost) || 0,
                         boxesUsed: orderBoxes,
                         boxCost: orderBoxCost,
-                        createdAt: order.ScannedOutAt
+                        createdAt: order.ShippedAt
                     });
                 });
 
