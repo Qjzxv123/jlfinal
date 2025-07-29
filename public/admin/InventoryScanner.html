@@ -154,7 +154,7 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="icon" href="/public/favicon.ico">
+<link rel="icon" href="favicon.ico">
 </head>
 <body>
     <div class="sidebar" id="sidebar">
@@ -177,7 +177,7 @@
       <a href="InventoryScanner.html" class="nav-item active"><i class="cil-center-focus"></i><span>Scanner</span></a>
       <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
       <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
+      <a href="/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
       </nav>
     </div>
     <div class="main-content" id="mainContent">
@@ -190,7 +190,7 @@
 async function checkAdmin() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        window.location.href = '/public/login.html';
+        window.location.href = 'login.html';
         return;
       }
       const { data: { user } } = await supabase.auth.getUser();

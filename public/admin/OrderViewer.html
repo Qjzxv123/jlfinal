@@ -565,7 +565,7 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<link rel="icon" href="/public/favicon.ico">
+<link rel="icon" href="/favicon.ico">
 </head>
 <body>
     <!-- Sidebar -->
@@ -589,7 +589,7 @@
       <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
       <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
       <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
+      <a href="/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
         </nav>
     </div>
     
@@ -721,7 +721,7 @@
     async function checkAdmin() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        window.location.href = '/public/Login.html';
+        window.location.href = 'Login.html';
         return;
       }
       const { data: { user } } = await supabase.auth.getUser();
@@ -1017,7 +1017,7 @@ function populateRetailerDropdown() {
                             <div class="products-list" id="products-${order.orderNumber}">                                ${order.products.map(product => `
                     <div class="product-item">
                         <div class="product-details">
-                            ${product.sku ? `<a class="product-sku" href="/public/admin/ProductInfo.html?sku=${encodeURIComponent(product.sku)}" target="_blank">SKU: ${product.sku}</a>` : ''}
+                            ${product.sku ? `<a class="product-sku" href="admin/ProductInfo.html?sku=${encodeURIComponent(product.sku)}" target="_blank">SKU: ${product.sku}</a>` : ''}
                             <div class="product-name">${product.name || 'Unknown Product'}</div>
                         </div>
                         <div class="product-quantity">${product.quantity}</div>

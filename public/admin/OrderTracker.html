@@ -206,7 +206,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="icon" href="/public/favicon.ico">
+  <link rel="icon" href="/favicon.ico">
 </head>
 <body>
   <div class="sidebar" id="sidebar">
@@ -229,7 +229,7 @@
       <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
       <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
       <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
+      <a href="/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
     </nav>
   </div>
   <div class="main-content">
@@ -316,7 +316,7 @@
       if (!session) {
         // Redirect to Login.html, with redirect back to this page after login
         const currentPath = window.location.pathname.replace(/^\//, '');
-        window.location.href = `/public/Login.html?redirect=${encodeURIComponent(currentPath)}`;
+        window.location.href = `Login.html?redirect=${encodeURIComponent(currentPath)}`;
         return false;
       }
       return true;
@@ -708,7 +708,7 @@
                 console.warn('Failed to fetch vessel from Supabase:', err);
               }
               const batchNum = hashOrderNumber(orderNumber);
-              const url = `/public/admin/manufacturinginstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(vessel)}`;
+              const url = `admin/manufacturinginstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(vessel)}`;
               window.open(url, '_blank');
             }
           }
