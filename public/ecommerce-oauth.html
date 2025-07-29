@@ -187,7 +187,7 @@
           <input id="shopify-domain" type="text" placeholder="your-store.myshopify.com" />
           <button id="shopify-btn">Connect Shopify</button>
         </div>
-      </div>
+      <button id="etsy-btn" style="margin-top: 12px; background: #f56400;">Connect Etsy</button>
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
@@ -240,6 +240,7 @@ async function startOAuth(provider) {
 }
 
 document.getElementById('faire-btn').onclick = requireLogin(() => startOAuth('faire'));
+document.getElementById('etsy-btn').onclick = requireLogin(() => startOAuth('etsy'));
 // Shopify: Use input value for domain
 document.getElementById('shopify-btn').onclick = requireLogin(async () => {
   let domain = document.getElementById('shopify-domain').value.trim();
