@@ -1,6 +1,6 @@
 // Netlify Function: etsy-oauth-callback
 // Handles the OAuth2 callback from Etsy, exchanges code for access token, and stores in Supabase
-const fetch = require('node-fetch');
+// Use native fetch (Node 18+ on Netlify)
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
