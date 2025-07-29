@@ -844,47 +844,58 @@
         }
 
         async function loadAllOrders() {
-            const refreshBtn = document.getElementById('refreshBtn');
-            refreshBtn.disabled = true;
-            refreshBtn.textContent = '⏳ Loading...';
-            
-            showStatus('Loading orders from Supabase...', 'loading');
-            allOrders = [];
+    const refreshBtn = document.getElementById('refreshBtn');
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '⏳ Loading...';
 
-            try {
-                // Get all orders from Supabase Orders table
-                const { data: supabaseOrders, error } = await supabase
-                    .from('Orders')
-                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, UserID')
-                    .order('Platform, Retailer', { ascending: true });
+    showStatus('Refreshing orders from Faire and Shippo...', 'loading');
+    allOrders = [];
 
-                if (error) {
-                    throw error;
-                }
+    try {
+        // Call Faire and Shippo order cron endpoints to refresh orders
+        await Promise.all([
+            fetch('/.netlify/functions/faire-get-orders-cron', { method: 'POST' }),
+            fetch('/.netlify/functions/shippo-get-orders-cron', { method: 'POST' })
+        ]);
+    } catch (err) {
+        console.error('Error calling order refresh endpoints:', err);
+        // Continue to load orders even if refresh fails
+    }
 
-                if (supabaseOrders && supabaseOrders.length > 0) {
-                    // Transform Supabase orders to expected format
-                    allOrders = supabaseOrders.map(transformSupabaseOrder);
-                    
-                    showStatus(`Successfully loaded ${allOrders.length} orders from Supabase`, 'success');
-                    setTimeout(hideStatus, 3000);
-                } else {
-                    showStatus('No orders found in Supabase Orders table', 'success');
-                    setTimeout(hideStatus, 3000);
-                }
+    showStatus('Loading orders from Supabase...', 'loading');
+    try {
+        // Get all orders from Supabase Orders table
+        const { data: supabaseOrders, error } = await supabase
+            .from('Orders')
+            .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, UserID')
+            .order('Platform, Retailer', { ascending: true });
 
-            } catch (error) {
-                console.error('Error loading orders from Supabase:', error);
-                showStatus(`Error loading orders: ${error.message}`, 'error');
-            }
-
-            refreshBtn.disabled = false;
-            refreshBtn.textContent = '🔄 Refresh Orders';
-
-            filteredOrders = [...allOrders];
-            displayOrders();
-            updateSummary();
+        if (error) {
+            throw error;
         }
+
+        if (supabaseOrders && supabaseOrders.length > 0) {
+            // Transform Supabase orders to expected format
+            allOrders = supabaseOrders.map(transformSupabaseOrder);
+            showStatus(`Successfully loaded ${allOrders.length} orders from Supabase`, 'success');
+            setTimeout(hideStatus, 3000);
+        } else {
+            showStatus('No orders found in Supabase Orders table', 'success');
+            setTimeout(hideStatus, 3000);
+        }
+
+    } catch (error) {
+        console.error('Error loading orders from Supabase:', error);
+        showStatus(`Error loading orders: ${error.message}`, 'error');
+    }
+
+    refreshBtn.disabled = false;
+    refreshBtn.textContent = '🔄 Refresh Orders';
+
+    filteredOrders = [...allOrders];
+    displayOrders();
+    updateSummary();
+}
         
         function filterOrders() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
