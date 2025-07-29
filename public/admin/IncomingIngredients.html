@@ -515,21 +515,18 @@
     <br><br>
     <div class="container">
       <h2>View Lot Numbers</h2>
-      <p style="color: #6b7280; margin-bottom: 1rem;">Search for an ingredient to view all active lot numbers, expiry dates, and remove lots as needed.</p>
-      <div style="margin-bottom: 1.5rem; max-width: 400px;">
-        <label for="viewLotIngredientDropdown" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Ingredient:</label>
-        <div id="viewLotIngredientDropdown"></div>
-      </div>
+      <p style="color: #6b7280; margin-bottom: 1rem;">Below are all products with their active lot numbers and expiry dates. Click remove to delete a lot.</p>
       <div id="viewLotStatus" class="status" style="display: none; margin-bottom: 1rem;"></div>
-      <div id="viewLotsTableContainer" style="display: none;">
-        <h3 style="margin-bottom: 1rem;">Active Lot Numbers for <span id="viewLotsNameDisplay"></span> (<span id="viewLotsSKUDisplay"></span>)</h3>
-        <table class="ingredients-table" id="viewLotsTable">
+      <div id="viewLotsTableContainer">
+        <table class="ingredients-table" style="width:100%;">
           <thead>
             <tr>
+              <th>Product Name</th>
+              <th>SKU</th>
               <th>Lot Number</th>
               <th>Quantity</th>
-              <th>Expiry Date</th>
-              <th>Actions</th>
+              <th>Expiry</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody id="viewLotsTableBody"></tbody>
@@ -543,12 +540,12 @@
   <style>
     @media print {
       @page {
-        size: 3in 5in;
+        size: 5in 3in landscape;
         margin: 0;
       }
       html, body {
-        width: 3in;
-        height: 5in;
+        width: 5in;
+        height: 3in;
         margin: 0 !important;
         padding: 0 !important;
         overflow: hidden !important;
@@ -560,8 +557,8 @@
         display: block !important;
         position: absolute !important;
         left: 0; top: 0;
-        width: 3in !important;
-        height: 5in !important;
+        width: 5in !important;
+        height: 3in !important;
         margin: 0 !important;
         padding: 0 !important;
         box-sizing: border-box !important;
@@ -584,44 +581,55 @@
       }
       labelContainer.innerHTML = '';
       const labelDiv = document.createElement('div');
-      labelDiv.style.width = '3in';
-      labelDiv.style.height = '5in';
+      labelDiv.style.width = '5in';
+      labelDiv.style.height = '3in';
       labelDiv.style.border = '1px solid #333';
-      labelDiv.style.margin = '0.5in auto';
-      labelDiv.style.padding = '0.5in';
+      labelDiv.style.margin = '0.2in auto';
+      labelDiv.style.padding = '0.2in';
       labelDiv.style.display = 'flex';
-      labelDiv.style.flexDirection = 'column';
+      labelDiv.style.flexDirection = 'row';
       labelDiv.style.justifyContent = 'center';
       labelDiv.style.alignItems = 'center';
       labelDiv.style.fontFamily = 'Arial, sans-serif';
-      // No QR code
-      // SKU
+      // Layout: SKU on left, Expiry and Lot stacked on right
+      const leftDiv = document.createElement('div');
+      leftDiv.style.flex = '1';
+      leftDiv.style.display = 'flex';
+      leftDiv.style.flexDirection = 'column';
+      leftDiv.style.justifyContent = 'center';
+      leftDiv.style.alignItems = 'flex-end';
       const skuDiv = document.createElement('div');
-      skuDiv.style.fontSize = '3rem';
+      skuDiv.style.fontSize = '2.5rem';
       skuDiv.style.fontWeight = 'bold';
       skuDiv.style.marginTop = '1rem';
       skuDiv.style.marginBottom = '1.2rem';
       skuDiv.textContent = `${sku}`;
-      labelDiv.appendChild(skuDiv);
-      // Expiry
+      leftDiv.appendChild(skuDiv);
+      const rightDiv = document.createElement('div');
+      rightDiv.style.flex = '2';
+      rightDiv.style.display = 'flex';
+      rightDiv.style.flexDirection = 'column';
+      rightDiv.style.justifyContent = 'center';
+      rightDiv.style.alignItems = 'flex-start';
       const expiryDiv = document.createElement('div');
       expiryDiv.style.fontSize = '2.2rem';
-      expiryDiv.style.marginTop = '0.5rem';
       expiryDiv.style.marginBottom = '1.2rem';
       expiryDiv.textContent = `Expiry: ${expiry}`;
-      labelDiv.appendChild(expiryDiv);
-      // Lot number
+      rightDiv.appendChild(expiryDiv);
       const lotDiv = document.createElement('div');
       lotDiv.style.fontSize = '2.2rem';
-      lotDiv.style.marginTop = '0.5rem';
       lotDiv.textContent = `Lot: ${lot}`;
-      labelDiv.appendChild(lotDiv);
+      rightDiv.appendChild(lotDiv);
+      labelDiv.appendChild(leftDiv);
+      labelDiv.appendChild(rightDiv);
       labelContainer.appendChild(labelDiv);
       setTimeout(() => {
         window.print();
         labelContainer.innerHTML = '';
       }, 500);
     }
+    // Expose printLabel globally for inline onclick usage
+    window.printLabel = printLabel;
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
     
     const supabaseUrl = 'https://ypvyrophqkfqwpefuigi.supabase.co';
@@ -1726,135 +1734,48 @@
       await fetchAllBoxes();
     }
 
-    // Add ingredient dropdown for view lot numbers
-    function createViewLotIngredientDropdown() {
-      const container = document.getElementById('viewLotIngredientDropdown');
-      if (!container) return null;
-      const dropdownHTML = `
-        <div class="ingredient-dropdown-container">
-          <input type="text" class="ingredient-search" placeholder="Type to search ingredients..." />
-          <div class="ingredient-dropdown" style="display: none;"></div>
-          <input type="hidden" class="selected-sku" value="" />
-        </div>
-      `;
-      container.innerHTML = dropdownHTML;
-      const searchInput = container.querySelector('.ingredient-search');
-      const dropdown = container.querySelector('.ingredient-dropdown');
-      const hiddenSKU = container.querySelector('.selected-sku');
-      function updateDropdown(searchTerm = '') {
-        const filtered = allIngredients.filter(ingredient => {
-          const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
-          return searchText.includes(searchTerm.toLowerCase());
-        });
-        dropdown.innerHTML = '';
-        filtered.slice(0, 15).forEach(ingredient => {
-          const option = document.createElement('div');
-          option.className = 'ingredient-option';
-          option.innerHTML = `
-            <div style="font-weight: 500; margin-bottom: 0.25rem;">${ingredient.Name}</div>
-            <div style="font-size: 0.8rem; color: #6b7280;">
-              SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'}
-            </div>
-          `;
-          option.addEventListener('click', () => {
-            searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
-            hiddenSKU.value = ingredient.IngredientSKU;
-            dropdown.style.display = 'none';
-            viewLotNumbers();
-          });
-          dropdown.appendChild(option);
-        });
-        if (filtered.length === 0) {
-          dropdown.innerHTML = '<div class="ingredient-option" style="color: #6b7280; font-style: italic;">No ingredients found</div>';
-        }
-      }
-      searchInput.addEventListener('focus', () => {
-        updateDropdown(searchInput.value);
-        dropdown.style.display = 'block';
-      });
-      searchInput.addEventListener('input', (e) => {
-        updateDropdown(e.target.value);
-        dropdown.style.display = 'block';
-        hiddenSKU.value = '';
-      });
-      document.addEventListener('click', (e) => {
-        if (!container.contains(e.target)) {
-          dropdown.style.display = 'none';
-        }
-      });
-      return {
-        getSKU: () => hiddenSKU.value,
-        setSKU: (sku) => {
-          hiddenSKU.value = sku;
-          const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
-          if (ingredient) {
-            searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
-          }
-        },
-        clear: () => {
-          searchInput.value = '';
-          hiddenSKU.value = '';
-        }
-      };
-    }
 
-    // Replace viewLotNumbers to use dropdown
+
+    // Show all products and their lot numbers in the View Lot Numbers section
     window.viewLotNumbers = async function() {
-      const dropdown = document.querySelector('#viewLotIngredientDropdown .selected-sku');
-      const sku = dropdown ? dropdown.value.trim() : '';
       const statusDiv = document.getElementById('viewLotStatus');
-      const tableContainer = document.getElementById('viewLotsTableContainer');
       const tableBody = document.getElementById('viewLotsTableBody');
-      const skuDisplay = document.getElementById('viewLotsSKUDisplay');
-      const nameDisplay = document.getElementById('viewLotsNameDisplay');
       statusDiv.style.display = 'none';
-      tableContainer.style.display = 'none';
       tableBody.innerHTML = '';
-      skuDisplay.textContent = sku;
-      nameDisplay.textContent = '';
-      if (!sku) {
-        statusDiv.textContent = 'Please select an ingredient.';
+      if (!allIngredients || allIngredients.length === 0) {
+        statusDiv.textContent = 'No ingredients found.';
         statusDiv.className = 'status error';
         statusDiv.style.display = 'block';
         return;
       }
-      try {
-        const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
-        if (!ingredient) {
-          statusDiv.textContent = 'Ingredient not found.';
-          statusDiv.className = 'status error';
-          statusDiv.style.display = 'block';
-          return;
-        }
-        nameDisplay.textContent = ingredient.Name;
+      let rows = '';
+      let anyLots = false;
+      allIngredients.forEach(ingredient => {
         const lots = ingredient.ActiveLotNumbers || [];
-        if (lots.length === 0) {
-          statusDiv.textContent = 'No active lot numbers found for this ingredient.';
-          statusDiv.className = 'status info';
-          statusDiv.style.display = 'block';
-          return;
-        }
-        let rows = '';
+        if (lots.length === 0) return;
         lots.forEach(lot => {
-          // lot is a string: "Lot Number, Quantity, Expiry Date"
           const parts = lot.split(', ');
           let lotNumber = parts[0] || '';
           let lotQuantity = parts.length >= 2 ? parts[1] : '';
           let expiry = parts.length >= 3 ? parts[2] : '';
           rows += `<tr>
+            <td>${ingredient.Name}</td>
+            <td style='font-family: "Courier New", monospace;'>${ingredient.IngredientSKU}</td>
             <td style='font-family: "Courier New", monospace;'>${lotNumber}</td>
             <td>${lotQuantity}</td>
             <td>${expiry}</td>
-            <td><button class='btn btn-danger' style='padding:0.3rem 0.8rem;font-size:0.9em;' onclick="removeLotFromView('${sku}','${lot.replace(/'/g, "&#39;")}', this)">Remove</button></td>
+            <td>
+              <button class='btn btn-secondary' style='padding:0.3rem 0.8rem;font-size:0.9em;margin-right:0.5em;' onclick="printLabel('${ingredient.IngredientSKU}','${expiry}','${lotNumber}')"><i class='cil-print'></i></button>
+              <button class='btn btn-danger' style='padding:0.3rem 0.8rem;font-size:0.9em;' onclick="removeLotFromView('${ingredient.IngredientSKU}','${lot.replace(/'/g, "&#39;")}', this)"><i class='cil-trash'></i></button>
+            </td>
           </tr>`;
+          anyLots = true;
         });
-        tableBody.innerHTML = rows;
-        tableContainer.style.display = 'block';
-      } catch (err) {
-        statusDiv.textContent = 'Error loading lots: ' + err.message;
-        statusDiv.className = 'status error';
-        statusDiv.style.display = 'block';
+      });
+      if (!anyLots) {
+        rows = `<tr><td colspan="6" style="text-align:center;color:#6b7280;font-style:italic;padding:2rem;">No active lot numbers found for any product.</td></tr>`;
       }
+      tableBody.innerHTML = rows;
     }
 
 
@@ -1919,11 +1840,11 @@
       await fetchAllBoxes();
       // Create the exhausted ingredient dropdown
       createExhaustedIngredientDropdown();
-      // Create the view lot ingredient dropdown
-      createViewLotIngredientDropdown();
       showOrderStatus('Ready! Create orders or load pending deliveries.', 'success');
       // Add one order row by default
       addOrderRow();
+      // Show all lots in View Lot Numbers
+      window.viewLotNumbers();
     }
 
     // Start the app when page loads
