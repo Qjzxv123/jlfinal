@@ -1017,7 +1017,7 @@ function populateRetailerDropdown() {
                             <div class="products-list" id="products-${order.orderNumber}">                                ${order.products.map(product => `
                     <div class="product-item">
                         <div class="product-details">
-                            ${product.sku ? `<a class="product-sku" href="admin/ProductInfo.html?sku=${encodeURIComponent(product.sku)}" target="_blank">SKU: ${product.sku}</a>` : ''}
+                            ${product.sku ? `<a class="product-sku" href="ProductInfo.html?sku=${encodeURIComponent(product.sku)}" target="_blank">SKU: ${product.sku}</a>` : ''}
                             <div class="product-name">${product.name || 'Unknown Product'}</div>
                         </div>
                         <div class="product-quantity">${product.quantity}</div>

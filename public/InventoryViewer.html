@@ -264,6 +264,8 @@
     <div class="main-content" id="mainContent">
         <div id="main-container">
         <h2>Inventory Viewer</h2>
+        <button id="sync-faire-btn" style="margin-bottom:1.2em;background:#4DBA93;color:#fff;border:none;padding:0.6em 1.2em;border-radius:6px;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s;">Sync Faire Inventory</button>
+        <div id="sync-faire-status" style="margin-bottom:1em;font-size:1em;"></div>
         <div id="data-viewer" style="display:none; margin-top:2rem;"></div>
         <div id="login-redirect" style="margin-top:2rem;">
             <p>You must be <a href="Login.html?redirect=InventoryViewer.html">logged in</a> to view inventory.</p>
@@ -296,34 +298,88 @@
                 dataViewer.innerHTML = '<div>No inventory data found for your account.</div>';
                 return;
             }
-            // Render as table
+            // Render as table with Faire Inventory column
             let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-            html += '<tr>' + ['ProductSKU', 'Name', 'Quantity'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
+            html += '<tr>' + ['ProductSKU', 'Name', 'Quantity', 'Faire Inventory'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
             // Sort data by ProductSKU (A-Z)
             data.sort((a, b) => {
                 if (a.ProductSKU < b.ProductSKU) return -1;
                 if (a.ProductSKU > b.ProductSKU) return 1;
                 return 0;
             });
+            // Build rows and collect SKUs for batch fetch
+            const skuList = [];
             for (const row of data) {
                 const quantity = parseInt(row.Quantity) || 0;
                 let quantityClass = '';
-                
                 if (quantity <= 0) {
                     quantityClass = 'quantity-critical';
                 } else if (quantity < 20) {
                     quantityClass = 'quantity-low';
                 }
-                
-                html += '<tr>';
+                skuList.push(row.ProductSKU);
+                html += `<tr>`;
                 html += `<td style='padding:4px;'>${row.ProductSKU ?? ''}</td>`;
                 html += `<td style='padding:4px;'>${row.Name ?? ''}</td>`;
                 html += `<td style='padding:4px;' class='${quantityClass}'>${row.Quantity ?? ''}</td>`;
-                html += '</tr>';
+                html += `<td style='padding:4px;' id='faire-inv-${row.ProductSKU}'>Loading...</td>`;
+                html += `</tr>`;
             }
             html += '</table>';
             dataViewer.innerHTML = html;
+
+            // Fetch Faire inventory in batch
+            try {
+                const faireRes = await fetch('/.netlify/functions/faire-get-inventory', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ skus: skuList })
+                });
+                if (faireRes.ok) {
+                    const faireData = await faireRes.json();
+                    for (const sku of skuList) {
+                        const cell = document.getElementById(`faire-inv-${sku}`);
+                        if (cell) {
+                            const val = faireData && typeof faireData[sku] !== 'undefined' ? faireData[sku] : '';
+                            cell.textContent = (val !== '' && val !== undefined) ? val : '—';
+                        }
+                    }
+                } else {
+                    for (const sku of skuList) {
+                        const cell = document.getElementById(`faire-inv-${sku}`);
+                        if (cell) cell.textContent = '—';
+                    }
+                }
+            } catch (e) {
+                for (const sku of skuList) {
+                    const cell = document.getElementById(`faire-inv-${sku}`);
+                    if (cell) cell.textContent = '—';
+                }
+            }
         }
+
+        // Sync Faire Inventory button handler
+        document.getElementById('sync-faire-btn').addEventListener('click', async () => {
+            const statusDiv = document.getElementById('sync-faire-status');
+            statusDiv.textContent = 'Syncing Faire inventory...';
+            statusDiv.style.color = '#333';
+            try {
+                const res = await fetch('/.netlify/functions/faire-sync-inventory', { method: 'POST' });
+                if (res.ok) {
+                    statusDiv.textContent = 'Faire inventory sync complete!';
+                    statusDiv.style.color = '#228B22';
+                    // Optionally, refresh the table after sync
+                    fetchAndDisplayData();
+                } else {
+                    const err = await res.text();
+                    statusDiv.textContent = 'Sync failed: ' + err;
+                    statusDiv.style.color = '#b91c1c';
+                }
+            } catch (e) {
+                statusDiv.textContent = 'Sync failed: ' + e.message;
+                statusDiv.style.color = '#b91c1c';
+            }
+        });
 
         // On load, check for session and redirect to login if not logged in
         window.addEventListener('DOMContentLoaded', async () => {
