@@ -7,7 +7,28 @@ const crypto = require('crypto');
 exports.handler = async (event) => {
   const ETSY_CLIENT_ID = process.env.ETSY_CLIENT_ID;
   const ETSY_REDIRECT_URI = 'https://jlfinal.netlify.app/.netlify/functions/etsy-oauth-callback';
-  const ETSY_SCOPES = 'transactions_r shops_r listings_r'; // adjust scopes as needed
+  const ETSY_SCOPES = [
+    'address_r',
+    'address_w',
+    'billing_r',
+    'cart_r',
+    'cart_w',
+    'email_r',
+    'favorites_r',
+    'favorites_w',
+    'feedback_r',
+    'listings_d',
+    'listings_r',
+    'listings_w',
+    'profile_r',
+    'profile_w',
+    'recommend_r',
+    'recommend_w',
+    'shops_r',
+    'shops_w',
+    'transactions_r',
+    'transactions_w'
+  ].join(' '); // all requested scopes
 
   const stateRaw = event.queryStringParameters.state;
 
