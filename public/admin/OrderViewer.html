@@ -825,7 +825,8 @@
                     name: item.Name || item.name || item.title || 'Unknown Product',
                     quantity: parseInt(item.Quantity || item.quantity || 0)
                 })),
-                UserID: supabaseOrder.UserID || null
+                UserID: supabaseOrder.UserID || null,
+                Link: supabaseOrder.Link || null
             };
         }
 
@@ -977,13 +978,14 @@ function populateRetailerDropdown() {
                 const isSelected = selectedOrders.has(order.orderNumber);
                 // Add notes section if present
                 const notesSection = order.notes ? `<div class="order-notes"><strong style="color:#e74c3c;">📝 Notes:</strong> ${order.notes}</div>` : '';
+                const orderLink = order.Link || '#';
                 return `
                     <div class="order-card ${isSelected ? 'selected' : ''}" id="order-${order.orderNumber}">
                         <input type="checkbox" class="order-checkbox" 
                                ${isSelected ? 'checked' : ''} 
                                onchange="toggleOrderSelection('${order.orderNumber}')">                        <div class="order-header">
                             <div class="order-number">
-                                <a href="${getPlatformOrderUrl(order.platform, order.orderNumber, order.shopifyId, order.shop)}" target="_blank" style="color: #2c3e50; text-decoration: none;">
+                                <a href="${orderLink}" target="_blank" style="color: #2c3e50; text-decoration: none;">
                                     Order #${order.orderNumber} 🔗
                                 </a>
                             </div>
@@ -1108,26 +1110,9 @@ function populateRetailerDropdown() {
                 selectAllCheckbox.checked = false;
                 selectAllCheckbox.indeterminate = true;
             }
-        }        function getSelectedOrdersData() {
+        }
+        function getSelectedOrdersData() {
             return allOrders.filter(order => selectedOrders.has(order.orderNumber));
-        }        function getPlatformOrderUrl(platform, orderNumber, shopifyId = null, shop = null) {
-            switch(platform) {
-                case 'etsy':
-                    return `https://www.etsy.com/your/orders/sold?ref=seller-platform-mcnav&order_id=${orderNumber}`;
-                case 'faire':
-                    return `https://www.faire.com/brand-portal/orders/${orderNumber}/order-fulfilment?sync=true&type=UNFULFILLED`;
-                case 'shopify': {
-                    // Determine Shopify store name based on shop value
-                    let storeName = 'j-l-naturals'; // default
-                    if (shop) {
-                        if (shop.toLowerCase() === 'river') storeName = 'river-organics-skincare';
-                    }
-                    const shopifyOrderId = shopifyId || orderNumber;
-                    return `https://admin.shopify.com/store/${storeName}/orders/${shopifyOrderId}`;
-                }
-                default:
-                    return '#';
-            }
         }
 // Remove selected orders from Supabase and update UI
 async function removeSelectedOrders() {
