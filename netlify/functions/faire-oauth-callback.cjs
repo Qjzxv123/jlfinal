@@ -47,40 +47,27 @@ exports.handler = async (event) => {
     ];
   let tokenResponse, tokenData;
   try {
-    if (authorizationCode === 'testcode') {
-      // Mock response for local testing
-      tokenData = {
-        access_token: 'mock_access_token',
-        refresh_token: 'mock_refresh_token',
-        expires_in: 3600,
-        token_type: 'BEARER',
-        mock: true
+    tokenResponse = await fetch('https://www.faire.com/api/external-api-oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        application_token: applicationId,
+        application_secret: applicationSecret,
+        redirect_url: redirectUrl,
+        scope,
+        grant_type: 'AUTHORIZATION_CODE',
+        authorization_code: authorizationCode,
+      }),
+    });
+    tokenData = await tokenResponse.json();
+    console.log('[DEBUG] Token response:', tokenData);
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      // Log the full response for debugging
+      console.error('[ERROR] Full token response:', tokenData);
+      return {
+        statusCode: 500,
+        body: 'Error exchanging code for token: ' + (tokenData.error_description || tokenData.error || 'No access_token in response') + '\nFull response: ' + JSON.stringify(tokenData),
       };
-      tokenResponse = { ok: true };
-      console.log('[DEBUG] Mock token response:', tokenData);
-    } else {
-      tokenResponse = await fetch('https://www.faire.com/api/external-api-oauth2/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          application_token: applicationId,
-          application_secret: applicationSecret,
-          redirect_url: redirectUrl,
-          scope,
-          grant_type: 'AUTHORIZATION_CODE',
-          authorization_code: authorizationCode,
-        }),
-      });
-      tokenData = await tokenResponse.json();
-      console.log('[DEBUG] Token response:', tokenData);
-      if (!tokenResponse.ok || !tokenData.access_token) {
-        // Log the full response for debugging
-        console.error('[ERROR] Full token response:', tokenData);
-        return {
-          statusCode: 500,
-          body: 'Error exchanging code for token: ' + (tokenData.error_description || tokenData.error || 'No access_token in response') + '\nFull response: ' + JSON.stringify(tokenData),
-        };
-      }
     }
   } catch (err) {
     console.log('[DEBUG] Error exchanging code for token:', err);
@@ -105,7 +92,6 @@ exports.handler = async (event) => {
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token || null,
         expires_at,
-        token_type: tokenData.token_type || tokenData.tokenType || null,
         user_key: display_name || null, // Save email as user_key
         UserID: user_id || null      // Save id as UserID
       });
