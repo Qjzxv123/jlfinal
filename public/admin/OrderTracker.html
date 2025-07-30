@@ -708,7 +708,7 @@
                 console.warn('Failed to fetch vessel from Supabase:', err);
               }
               const batchNum = hashOrderNumber(orderNumber);
-              const url = `admin/manufacturinginstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(vessel)}`;
+              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(vessel)}`;
               window.open(url, '_blank');
             }
           }
