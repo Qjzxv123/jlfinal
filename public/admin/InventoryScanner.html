@@ -204,7 +204,7 @@ async function checkAdmin() {
       }
       const { data: { user } } = await supabase.auth.getUser();
       // Adjust this check to match your Supabase user admin logic
-      if (!user || !user.user_metadata || (user.user_metadata.role !== 'service_role' && user.user_metadata.role !== 'Employee')) {
+      if (!user || !user.user_metadata || (user.user_metadata.role !== 'service_role' && user.user_metadata.role !== 'employee')) {
         console.log(user.user_metadata);
         document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins and Employees only</div>';
         throw new Error('Not admin or employee');

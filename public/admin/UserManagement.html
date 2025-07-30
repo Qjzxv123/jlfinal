@@ -236,17 +236,15 @@
       tbody.innerHTML = '';
       (data || []).forEach(user => {
         const tr = document.createElement('tr');
-        // Map service_role to Admin for display and selection
-        const displayRole = user.Role === 'service_role' ? 'Admin' : user.Role;
         tr.innerHTML = `
           <td>${user.id}</td>
           <td>${user.display_name || ''}</td>
           <td>
             <select id="role-select-${user.id}" onchange="changeUserRoleDropdown('${user.id}', this.value)" class="btn">
-              <option value="Client" ${displayRole === 'Client' ? 'selected' : ''}>Client</option>
-              <option value="Employee" ${displayRole === 'Employee' ? 'selected' : ''}>Employee</option>
-              <option value="NewUser" ${displayRole === 'NewUser' ? 'selected' : ''}>NewUser</option>
-              <option value="Admin" ${displayRole === 'Admin' ? 'selected' : ''}>Admin</option>
+              <option value="client" ${user.Role === 'client' ? 'selected' : ''}>client</option>
+              <option value="employee" ${user.Role === 'employee' ? 'selected' : ''}>employee</option>
+              <option value="newuser" ${user.Role === 'newuser' ? 'selected' : ''}>newuser</option>
+              <option value="service_role" ${user.Role === 'service_role' ? 'selected' : ''}>service_role</option>
             </select>
           </td>
           <td class="actions">
@@ -256,7 +254,6 @@
         tbody.appendChild(tr);
       });
     }
-
 
     // Change Role logic for dropdown
     window.changeUserRoleDropdown = async function(userId, newRole) {
