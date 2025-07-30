@@ -237,7 +237,7 @@ exports.handler = async function(event) {
               // Clamp negative quantities to zero
               if (Array.isArray(newProduct.offerings)) {
                 newProduct.offerings = newProduct.offerings.map(o => {
-                  let newOffering = { ...o, quantity: Math.max(0, bundleQty) };
+                  let newOffering = { ...o, quantity: Math.max(0, Math.min(999, bundleQty)) };
                   // If price is a Money object, set price as Money object (amount, divisor, currency_code)
                   if (o.price && typeof o.price.amount === 'number' && typeof o.price.divisor === 'number' && typeof o.price.currency_code === 'string') {
                     newOffering.price = {
@@ -305,7 +305,7 @@ exports.handler = async function(event) {
                 if (Array.isArray(newProduct.offerings)) {
                   newProduct.offerings = newProduct.offerings.map(o => ({
                     ...o,
-                    quantity: Math.max(0, bundleQty)
+                    quantity: Math.max(0, Math.min(999, bundleQty))
                   }));
                 }
               }
