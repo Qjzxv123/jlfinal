@@ -206,6 +206,12 @@ async function checkLoginAndShowUI() {
   if (!user) {
     window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
     return;
+  }else{
+    const role = user?.user_metadata?.role || 'NewUser';
+        if (role === 'NewUser') {
+            window.location.href = 'PendingApproval.html';
+              return;
+                    }
   }
   // Only show platform OAuth buttons if logged in
   platformOAuthDiv.style.display = '';

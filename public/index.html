@@ -89,5 +89,27 @@
     </div>
     <div class="footer">&copy; 2025 J&L Tools</div>
   </div>
+  <script>
+const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function checkLoginAndShowUI() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    window.location.href = 'Login.html?redirect=index.html';
+    return;
+  }
+  const role = user?.user_metadata?.role || 'NewUser';
+  if (role === 'NewUser') {
+    window.location.href = 'PendingApproval.html';
+    return;
+  }
+  // Show main content
+  document.getElementById('main-content').style.display = 'block';
+}
+
+window.addEventListener('DOMContentLoaded', checkLoginAndShowUI);
+</script>
 </body>
 </html>

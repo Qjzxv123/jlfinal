@@ -228,7 +228,25 @@
     const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-removeWhenWeGetOurShitTogether
+
+    // Check login and user role, redirect NewUser to PendingApproval.html
+    async function checkLoginAndShowUI() {
+      const { data: { session } } = await client.auth.getSession();
+      if (!session) {
+        window.location.href = 'Login.html?redirect=CustomerOrderView.html';
+        return false;
+      }
+      const user = session.user;
+      let role = null;
+      if (user && user.user_metadata && user.user_metadata.role) {
+        role = user.user_metadata.role;
+      }
+      if (role === 'NewUser') {
+        window.location.href = 'PendingApproval.html';
+        return false;
+      }
+      return true;
+    }
     async function getCurrentUserID() {
       const { data: { session } } = await client.auth.getSession();
       if (!session) return null;
@@ -373,9 +391,14 @@ removeWhenWeGetOurShitTogether
       }
     };
 
-    // Initial load
-    populateProductDropdown();
-    loadOrders();
+    // Initial load with login check
+    (async () => {
+      const ok = await checkLoginAndShowUI();
+      if (ok) {
+        populateProductDropdown();
+        loadOrders();
+      }
+    })();
   </script>
 </body>
 </html>

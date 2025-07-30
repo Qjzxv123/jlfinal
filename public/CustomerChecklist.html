@@ -223,7 +223,23 @@
   <script>
     const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function checkLoginAndShowUI() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        window.location.href = 'Login.html?redirect=CustomerChecklist.html';
+        return;
+      }
+      const role = user?.user_metadata?.role || 'NewUser';
+      if (role === 'NewUser') {
+        window.location.href = 'PendingApproval.html';
+        return;
+      }
+      // Show checklist UI
+      document.querySelector('.main-content').style.display = 'block';
+      loadChecklist();
+    }
 
     async function getCurrentUserID() {
       const { data: { session } } = await client.auth.getSession();
@@ -404,7 +420,7 @@
     };
 
     // Initial load
-    loadChecklist();
+    window.addEventListener('DOMContentLoaded', checkLoginAndShowUI);
   </script>
 </body>
 </html>
