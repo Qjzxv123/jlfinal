@@ -255,15 +255,6 @@
     }
     async function getCurrentUserID() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return null;
-      // Try to get the user's UserID from oauth_tokens (if available)
-      const { data, error } = await supabase
-        .from('oauth_tokens')
-        .select('UserID')
-        .eq('user_key', session.user.id)
-        .maybeSingle();
-      if (data && data.UserID) return data.UserID;
-      // fallback to sub/id if not found
       return session.user.id;
     }
 
