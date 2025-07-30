@@ -113,7 +113,7 @@
             padding: 2.5rem 2.5rem 2.5rem 2.5rem;
             margin-top: 3rem;
             width: 100%;
-            max-width: 420px;
+            max-width: 900px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -167,17 +167,19 @@
             padding: 1rem;
             width: 100%;
             min-height: 60px;
-            max-width: 400px;
+            max-width: 100%;
             color: #22223b;
             font-size: 1rem;
             white-space: pre-line;
             box-sizing: border-box;
+            overflow-x: auto;
         }
         table {
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-            width: 100%;
+            width: max-content;
+            min-width: 100%;
             margin-top: 1rem;
         }
         th, td {
@@ -264,8 +266,13 @@
     <div class="main-content" id="mainContent">
         <div id="main-container">
         <h2>Inventory Viewer</h2>
-        <button id="sync-faire-btn" style="margin-bottom:1.2em;background:#4DBA93;color:#fff;border:none;padding:0.6em 1.2em;border-radius:6px;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s;">Sync Faire Inventory</button>
-        <div id="sync-faire-status" style="margin-bottom:1em;font-size:1em;"></div>
+        <div style="display: flex; gap: 1em; flex-wrap: wrap; margin-bottom: 1.2em;">
+          <button id="sync-faire-btn" style="background:#4DBA93;color:#fff;border:none;padding:0.6em 1.2em;border-radius:6px;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s;">Sync Faire Inventory</button>
+          <button id="sync-etsy-btn" style="background:#F56400;color:#fff;border:none;padding:0.6em 1.2em;border-radius:6px;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s;">Sync Etsy Inventory</button>
+        </div>
+        <div id="sync-faire-status" style="margin-bottom:0.5em;font-size:1em;"></div>
+        <div id="sync-etsy-status" style="margin-bottom:1em;font-size:1em;"></div>
+        <!-- Search bar removed -->
         <div id="data-viewer" style="display:none; margin-top:2rem;"></div>
         <div id="login-redirect" style="margin-top:2rem;">
             <p>You must be <a href="Login.html?redirect=InventoryViewer.html">logged in</a> to view inventory.</p>
@@ -285,10 +292,10 @@
         async function fetchAndDisplayData(session) {
             dataViewer.style.display = 'block';
             dataViewer.innerHTML = '<b>Loading your inventory data...</b>';
-            // Fetch only ProductSKU, Name, and Quantity columns
+            // Fetch ProductSKU, Name, Quantity, Retailer columns
             const { data, error } = await client
                 .from('Products')
-                .select('ProductSKU,Name,Quantity', { head: false })
+                .select('ProductSKU,Name,Quantity,Retailer', { head: false })
                 .throwOnError();
             if (error) {
                 dataViewer.innerHTML = `<div class='error'>Error loading data: ${error.message}<br>Check your Supabase RLS policies and make sure your anon key is correct.</div>`;
@@ -300,15 +307,16 @@
             }
             // Render as table with Faire Inventory column
             let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-            html += '<tr>' + ['ProductSKU', 'Name', 'Quantity', 'Faire Inventory'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
+            html += '<tr>' + ['ProductSKU', 'Name', 'Quantity', 'Faire Inventory', 'Etsy Inventory'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
             // Sort data by ProductSKU (A-Z)
             data.sort((a, b) => {
                 if (a.ProductSKU < b.ProductSKU) return -1;
                 if (a.ProductSKU > b.ProductSKU) return 1;
                 return 0;
             });
-            // Build rows and collect SKUs for batch fetch
+            // Build rows and collect SKUs for batch fetch, and group by Retailer
             const skuList = [];
+            const etsySkuMap = {};
             for (const row of data) {
                 const quantity = parseInt(row.Quantity) || 0;
                 let quantityClass = '';
@@ -318,11 +326,17 @@
                     quantityClass = 'quantity-low';
                 }
                 skuList.push(row.ProductSKU);
+                // Group SKUs by Retailer for Etsy
+                if (row.Retailer) {
+                    if (!etsySkuMap[row.Retailer]) etsySkuMap[row.Retailer] = [];
+                    etsySkuMap[row.Retailer].push(row.ProductSKU);
+                }
                 html += `<tr>`;
                 html += `<td style='padding:4px;'>${row.ProductSKU ?? ''}</td>`;
                 html += `<td style='padding:4px;'>${row.Name ?? ''}</td>`;
                 html += `<td style='padding:4px;' class='${quantityClass}'>${row.Quantity ?? ''}</td>`;
                 html += `<td style='padding:4px;' id='faire-inv-${row.ProductSKU}'>Loading...</td>`;
+                html += `<td style='padding:4px;' id='etsy-inv-${row.ProductSKU}'>Loading...</td>`;
                 html += `</tr>`;
             }
             html += '</table>';
@@ -356,6 +370,67 @@
                     if (cell) cell.textContent = '—';
                 }
             }
+            // Fetch Etsy inventory for each Retailer group (user_key) ONLY if they have an Etsy access token
+            try {
+                let accessToken = null;
+                if (client.auth.getSession) {
+                    const sessionObj = await client.auth.getSession();
+                    accessToken = sessionObj?.data?.session?.access_token;
+                }
+                // Query oauth_tokens table for all userKeys in etsySkuMap
+                const userKeys = Object.keys(etsySkuMap);
+                let etsyTokenRows = [];
+                if (userKeys.length > 0) {
+                    const { data: tokenRows, error: tokenError } = await client
+                        .from('oauth_tokens')
+                        .select('user_key, platform')
+                        .in('user_key', userKeys)
+                        .eq('platform', 'etsy');
+                    if (!tokenError && tokenRows) {
+                        etsyTokenRows = tokenRows;
+                    }
+                }
+                const etsyUserKeysWithToken = new Set(etsyTokenRows.map(r => r.user_key));
+                for (const [userKey, skus] of Object.entries(etsySkuMap)) {
+                    if (!etsyUserKeysWithToken.has(userKey)) {
+                        // No Etsy token for this retailer, show dash for all their SKUs
+                        for (const sku of skus) {
+                            const cell = document.getElementById(`etsy-inv-${sku}`);
+                            if (cell) cell.textContent = '—';
+                        }
+                        continue;
+                    }
+                    const etsyRes = await fetch('/.netlify/functions/etsy-get-inventory', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                            'x-etsy-user-key': userKey
+                        },
+                        body: JSON.stringify({ skus })
+                    });
+                    let etsyData = {};
+                    if (etsyRes.ok) {
+                        etsyData = await etsyRes.json();
+                    }
+                    for (const sku of skus) {
+                        const cell = document.getElementById(`etsy-inv-${sku}`);
+                        if (cell) {
+                            let val = etsyData && typeof etsyData[sku] !== 'undefined' ? etsyData[sku] : '';
+                            // If the value is an object (listing), show quantity, else show as is
+                            if (val && typeof val === 'object' && val !== null) {
+                                val = typeof val.quantity !== 'undefined' ? val.quantity : '';
+                            }
+                            cell.textContent = (val !== '' && val !== undefined) ? val : '—';
+                        }
+                    }
+                }
+            } catch (e) {
+                for (const sku of skuList) {
+                    const cell = document.getElementById(`etsy-inv-${sku}`);
+                    if (cell) cell.textContent = '—';
+                }
+            }
         }
 
         // Sync Faire Inventory button handler
@@ -380,6 +455,30 @@
                 statusDiv.style.color = '#b91c1c';
             }
         });
+
+        // Sync Etsy Inventory button handler
+        document.getElementById('sync-etsy-btn').addEventListener('click', async () => {
+            const statusDiv = document.getElementById('sync-etsy-status');
+            statusDiv.textContent = 'Syncing Etsy inventory...';
+            statusDiv.style.color = '#333';
+            try {
+                const res = await fetch('/.netlify/functions/etsy-sync-inventory', { method: 'POST' });
+                if (res.ok) {
+                    statusDiv.textContent = 'Etsy inventory sync complete!';
+                    statusDiv.style.color = '#228B22';
+                    // Optionally, refresh the table after sync
+                    fetchAndDisplayData();
+                } else {
+                    const err = await res.text();
+                    statusDiv.textContent = 'Sync failed: ' + err;
+                    statusDiv.style.color = '#b91c1c';
+                }
+            } catch (e) {
+                statusDiv.textContent = 'Sync failed: ' + e.message;
+                statusDiv.style.color = '#b91c1c';
+            }
+        });
+        // Search bar removed
 
         // On load, check for session and redirect to login if not logged in
         window.addEventListener('DOMContentLoaded', async () => {

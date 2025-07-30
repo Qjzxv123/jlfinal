@@ -848,17 +848,6 @@
     showStatus('Refreshing orders from Faire and Shippo...', 'loading');
     allOrders = [];
 
-    try {
-        // Call Faire and Shippo order cron endpoints to refresh orders
-        await Promise.all([
-            fetch('/.netlify/functions/faire-get-orders-cron', { method: 'POST' }),
-            fetch('/.netlify/functions/shippo-get-orders-cron', { method: 'POST' })
-        ]);
-    } catch (err) {
-        console.error('Error calling order refresh endpoints:', err);
-        // Continue to load orders even if refresh fails
-    }
-
     showStatus('Loading orders from Supabase...', 'loading');
     try {
         // Get all orders from Supabase Orders table
