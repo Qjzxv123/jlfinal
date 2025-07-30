@@ -243,7 +243,7 @@
           <td>${user.display_name || ''}</td>
           <td>
             <select id="role-select-${user.id}" onchange="changeUserRoleDropdown('${user.id}', this.value)" class="btn">
-              <option value="Customer" ${displayRole === 'Customer' ? 'selected' : ''}>Client</option>
+              <option value="Client" ${displayRole === 'Client' ? 'selected' : ''}>Client</option>
               <option value="Employee" ${displayRole === 'Employee' ? 'selected' : ''}>Employee</option>
               <option value="NewUser" ${displayRole === 'NewUser' ? 'selected' : ''}>NewUser</option>
               <option value="Admin" ${displayRole === 'Admin' ? 'selected' : ''}>Admin</option>
