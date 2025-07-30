@@ -154,8 +154,36 @@ exports.handler = async function(event) {
           break;
         }
       }
-      if (match) {
-        results[sku] = match;
+      if (match && match.listing_id) {
+        // Fetch inventory for this listing
+        try {
+          const invResp = await fetch(`https://openapi.etsy.com/v3/application/listings/${match.listing_id}/inventory`, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'x-api-key': ETSY_CLIENT_ID
+            }
+          });
+          if (invResp.ok) {
+            const invJson = await invResp.json();
+            let foundQty = null;
+            if (Array.isArray(invJson.products)) {
+              for (const p of invJson.products) {
+                if (p.sku === sku) {
+                  // Sum all offering quantities for this SKU
+                  if (Array.isArray(p.offerings)) {
+                    foundQty = p.offerings.reduce((sum, o) => sum + (parseInt(o.quantity) || 0), 0);
+                  }
+                  break;
+                }
+              }
+            }
+            results[sku] = foundQty;
+          } else {
+            results[sku] = null;
+          }
+        } catch (e) {
+          results[sku] = null;
+        }
       } else {
         results[sku] = null;
       }

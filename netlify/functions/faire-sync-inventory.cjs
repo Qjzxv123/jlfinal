@@ -36,7 +36,6 @@ exports.handler = async function(event, context) {
 
   // For each token, fetch all inventory from Faire, calculate bundle logic, then PATCH updates
   const results = {};
-  console.log(tokenRows)
   for (const row of tokenRows) {
     const retailer = row.user_key;
     const token = row.access_token;
@@ -122,7 +121,6 @@ exports.handler = async function(event, context) {
         }
       }
       // 4. PATCH update to Faire
-      console.log(`PATCH payload for retailer ${retailer}:`, JSON.stringify(patchPayload));
       const patchUrl = 'https://www.faire.com/external-api/v2/product-inventory/by-skus';
       const patchRes = await fetch(patchUrl, {
         method: 'PATCH',
@@ -141,6 +139,7 @@ exports.handler = async function(event, context) {
       continue;
     }
   }
+  console.log('Faire sync results:', results);
   return {
     statusCode: 200,
     body: JSON.stringify(results),
