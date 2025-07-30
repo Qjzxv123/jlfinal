@@ -279,12 +279,16 @@
         </div>
     </div>
     <script>
-        // Replace with your Supabase project URL and anon key
         const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-
-        // Initialize Supabase client correctly
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        session: { maxAge: 3600 }
+      }
+    });
 
         const dataViewer = document.getElementById('data-viewer');
 
@@ -293,7 +297,7 @@
             dataViewer.style.display = 'block';
             dataViewer.innerHTML = '<b>Loading your inventory data...</b>';
             // Fetch ProductSKU, Name, Quantity, Retailer columns
-            const { data, error } = await client
+            const { data, error } = await supabase
                 .from('Products')
                 .select('ProductSKU,Name,Quantity,Retailer', { head: false })
                 .throwOnError();
@@ -374,15 +378,15 @@
             // Fetch Etsy inventory for each Retailer group (user_key) ONLY if they have an Etsy access token
             try {
                 let accessToken = null;
-                if (client.auth.getSession) {
-                    const sessionObj = await client.auth.getSession();
+                if (supabase.auth.getSession) {
+                    const sessionObj = await supabase.auth.getSession();
                     accessToken = sessionObj?.data?.session?.access_token;
                 }
                 // Query oauth_tokens table for all userKeys in etsySkuMap
                 const userKeys = Object.keys(etsySkuMap);
                 let etsyTokenRows = [];
                 if (userKeys.length > 0) {
-                    const { data: tokenRows, error: tokenError } = await client
+                    const { data: tokenRows, error: tokenError } = await supabase
                         .from('oauth_tokens')
                         .select('user_key, platform')
                         .in('user_key', userKeys)
@@ -483,7 +487,7 @@
 
         // On load, check for session and redirect to login if not logged in
         window.addEventListener('DOMContentLoaded', async () => {
-            const session = client.auth.getSession && (await client.auth.getSession()).data.session;
+            const session = supabase.auth.getSession && (await supabase.auth.getSession()).data.session;
             if (!session) {
                 // Not logged in, show login link and hide data viewer
                 dataViewer.style.display = 'none';
@@ -492,7 +496,7 @@
             } else {
                 // Check user role and redirect if NewUser
                 try {
-                    const { data: { user } } = await client.auth.getUser();
+                    const { data: { user } } = await supabase.auth.getUser();
                     const role = user?.user_metadata?.role || 'NewUser';
                     if (role === 'NewUser') {
                         window.location.href = 'PendingApproval.html';
@@ -511,7 +515,7 @@
         // Sign out button handler
         document.getElementById('sign-out-btn').addEventListener('click', async (e) => {
             e.preventDefault();
-            await client.auth.signOut();
+            await supabase.auth.signOut();
             window.location.reload();
         });
     </script>

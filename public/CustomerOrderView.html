@@ -227,11 +227,17 @@
   <script>
     const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        session: { maxAge: 3600 }
+      }
+    });
     // Check login and user role, redirect NewUser to PendingApproval.html
     async function checkLoginAndShowUI() {
-      const { data: { session } } = await client.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         window.location.href = 'Login.html?redirect=CustomerOrderView.html';
         return false;
@@ -248,10 +254,10 @@
       return true;
     }
     async function getCurrentUserID() {
-      const { data: { session } } = await client.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) return null;
       // Try to get the user's UserID from oauth_tokens (if available)
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('oauth_tokens')
         .select('UserID')
         .eq('user_key', session.user.id)
@@ -262,7 +268,7 @@
     }
 
     async function fetchProductSKUs() {
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('Products')
         .select('ProductSKU,Name')
         .order('Name', { ascending: true });
@@ -289,7 +295,7 @@
     async function fetchOrdersForUser(userID) {
       if (!userID) return [];
       // Find tasks where UserID array contains this userID
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('ManufacturingTasks')
         .select('*')
         .contains('UserID', [userID]);
@@ -327,7 +333,7 @@
     }
 
     async function addOrder(order) {
-      const { error } = await client
+      const { error } = await supabase
         .from('ManufacturingTasks')
         .insert([order]);
       if (error) {
@@ -360,7 +366,7 @@
       }
       // Fetch user display_name from auth.users
       let displayName = '';
-      const { data: userData, error: userError } = await client.auth.getUser();
+      const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userData && userData.user && userData.user.user_metadata && userData.user.user_metadata.display_name) {
         displayName = userData.user.user_metadata.display_name;
       } else {

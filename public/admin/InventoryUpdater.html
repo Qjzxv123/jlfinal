@@ -252,9 +252,16 @@
   <div id="print-area" style="display:none;"></div>
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-    const supabaseUrl = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        session: { maxAge: 3600 }
+      }
+    });
     async function checkAdmin() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {

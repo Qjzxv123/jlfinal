@@ -185,8 +185,16 @@
     </div>
     <script>
         // Replace with your Supabase project URL and anon key
-        const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        session: { maxAge: 3600 }
+      }
+    });
 async function checkAdmin() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -201,10 +209,7 @@ async function checkAdmin() {
         throw new Error('Not admin or employee');
       }
     }
-    checkAdmin();
-        // Initialize Supabase client correctly
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
+    checkAdmin();        
         // Helper to add the SKU update form
         function addSkuDecrementForm() {
             const mainContainer = document.getElementById('main-container');
@@ -241,7 +246,7 @@ async function checkAdmin() {
                 return;
             }
             // Fetch current quantity
-            const { data: prod, error: fetchErr } = await client
+            const { data: prod, error: fetchErr } = await supabase
                 .from('Products')
                 .select('Quantity')
                 .eq('ProductSKU', sku)
@@ -257,7 +262,7 @@ async function checkAdmin() {
             let quantityChanged = null;
             let updatedBy = null;
             try {
-                const { data: { user } } = await client.auth.getUser();
+                const { data: { user } } = await supabase.auth.getUser();
                 updatedBy = user?.user_metadata?.display_name || user?.email || user?.id || null;
             } catch (e) {
                 updatedBy = null;
@@ -265,7 +270,7 @@ async function checkAdmin() {
 
             if (setCheckbox.checked) {
                 // Set quantity directly
-                const { error: setErr } = await client
+                const { error: setErr } = await supabase
                     .from('Products')
                     .update({ Quantity: qtyValue })
                     .eq('ProductSKU', sku);
@@ -283,7 +288,7 @@ async function checkAdmin() {
             } else {
                 // Decrement quantity
                 const newQty = prod.Quantity - qtyValue;
-                const { error: updateErr } = await client
+                const { error: updateErr } = await supabase
                     .from('Products')
                     .update({ Quantity: newQty })
                     .eq('ProductSKU', sku);
@@ -302,7 +307,7 @@ async function checkAdmin() {
             }
             // Log to inventoryupdatelogs if logMessage is set
             if (logMessage) {
-                await client
+                await supabase
                     .from('inventoryupdatelogs')
                     .insert({
                         log: logMessage,
@@ -316,7 +321,7 @@ async function checkAdmin() {
 
         // On load, check for session and redirect to login if not logged in
         window.addEventListener('DOMContentLoaded', async () => {
-            const session = client.auth.getSession && (await client.auth.getSession()).data.session;
+            const session = supabase.auth.getSession && (await supabase.auth.getSession()).data.session;
             if (!session) {
                 window.location.href = 'Login.html';
             } else {

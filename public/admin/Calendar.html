@@ -244,7 +244,14 @@
   <script>
     const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        session: { maxAge: 3600 }
+      }
+    });
 async function checkAdmin() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -340,13 +347,13 @@ async function checkAdmin() {
       const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
       const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
       // Get all ManufacturingTasks for the month
-      const { data: tasks, error: taskError } = await client
+      const { data: tasks, error: taskError } = await supabase
         .from('ManufacturingTasks')
         .select('*')
         .gte('PlannedManufactureDate', startDate)
         .lte('PlannedManufactureDate', endDate);
       // Get all IngredientOrders for the month
-      const { data: ingOrders, error: ingError } = await client
+      const { data: ingOrders, error: ingError } = await supabase
         .from('IngredientOrders')
         .select('*')
         .gte('ExpectedBy', startDate)

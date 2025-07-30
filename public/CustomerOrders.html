@@ -570,12 +570,16 @@
     <script>
 // checkLoginAndShowUI and Supabase client already declared above, do not redeclare
         // Replace with your Supabase project URL and anon key
-        const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-
-        // Initialize Supabase client
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+       const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        session: { maxAge: 3600 }
+      }
+    });
         const message = document.getElementById('message');
         const orderInterface = document.getElementById('order-interface');
         let currentUser = null;
@@ -596,7 +600,7 @@
             const viewer = document.getElementById('active-orders-viewer');
             viewer.innerHTML = '<b>Loading your active orders...</b>';
             try {
-                const { data, error } = await client
+                const { data, error } = await supabase
                     .from('Orders')
                     .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link')
                     .order('Platform', { ascending: true });
@@ -684,7 +688,7 @@
             const viewer = document.getElementById('order-history-viewer');
             viewer.innerHTML = '<b>Loading your order history...</b>';
             try {
-                const { data, error } = await client
+                const { data, error } = await supabase
                     .from('Order History')
                     .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, ShippedAt')
                     .order('ShippedAt', { ascending: false });
@@ -753,7 +757,7 @@
 
         // View order details
         function viewOrderDetails(orderId) {
-            client
+            supabase
                 .from('Orders')
                 .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link')
                 .eq('OrderID', orderId)
@@ -853,7 +857,7 @@ Notes: ${data.Notes || 'None'}
             if (!note || note.trim() === '') return;
             
             // First get the current order to append the note
-            client
+            supabase
                 .from('Orders')
                 .select('Notes')
                 .eq('OrderID', orderId)
@@ -865,7 +869,7 @@ Notes: ${data.Notes || 'None'}
                     }
                     
                     // Update the order with the new note
-                    client
+                    supabase
                         .from('Orders')
                         .update({ Notes: note })
                         .eq('OrderID', orderId)
@@ -882,7 +886,7 @@ Notes: ${data.Notes || 'None'}
         // Load products from Supabase
         async function loadProducts() {
             try {
-                const { data, error } = await client
+                const { data, error } = await supabase
                     .from('Products')
                     .select('ProductSKU, Name')
                     .order('Name');
@@ -928,7 +932,7 @@ Notes: ${data.Notes || 'None'}
         
         function loadCurrentOrderItems(orderId) {
             // Get current order items from the server
-            client
+            supabase
                 .from('Orders')
                 .select('Items')
                 .eq('OrderID', orderId)
@@ -1011,7 +1015,7 @@ Notes: ${data.Notes || 'None'}
             const orderId = document.getElementById('modal-order-id').value;
             
             // Save the updated items to the database
-            client
+            supabase
                 .from('Orders')
                 .update({ Items: JSON.stringify(currentOrderItems) })
                 .eq('OrderID', orderId)
@@ -1101,7 +1105,7 @@ Notes: ${data.Notes || 'None'}
 
         // Check login and user role, redirect NewUser to PendingApproval.html
         async function checkLoginAndShowUI() {
-            const { data: { session } } = await client.auth.getSession();
+            const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 window.location.href = 'Login.html?redirect=CustomerOrders.html';
                 return;
@@ -1125,8 +1129,8 @@ Notes: ${data.Notes || 'None'}
 
         // Sign out button handler
         document.addEventListener('DOMContentLoaded', function() {
-            const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            client.auth.getSession().then(({ data: { session } }) => {
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            supabase.auth.getSession().then(({ data: { session } }) => {
                 if (session) {
                     document.getElementById('sign-out-btn').style.display = 'inline-block';
                 } else {
@@ -1135,7 +1139,7 @@ Notes: ${data.Notes || 'None'}
             });
             document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
                 e.preventDefault();
-                await client.auth.signOut();
+                await supabase.auth.signOut();
                 window.location.reload();
             });
         });

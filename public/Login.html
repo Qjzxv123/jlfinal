@@ -102,8 +102,15 @@
     </div>
     <script>
         const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        session: { maxAge: 3600 }
+      }
+    });
         const form = document.getElementById('login-form');
         const signupForm = document.getElementById('signup-form');
         const message = document.getElementById('message');
@@ -116,14 +123,14 @@
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const { data, error } = await client.auth.signInWithPassword({ email, password });
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) {
                 message.textContent = 'Login failed: ' + error.message;
                 message.style.color = 'red';
             } else {
                 // After login, call serverless function to add user row securely
                 try {
-                    const { data: { user } } = await client.auth.getUser();
+                    const { data: { user } } = await supabase.auth.getUser();
                     if (user) {
                         const response = await fetch('/.netlify/functions/add-user-row', {
                             method: 'POST',
@@ -158,7 +165,7 @@
             const email = document.getElementById('signup-email').value;
             const password = document.getElementById('signup-password').value;
             const company = document.getElementById('signup-company').value;
-            const { data, error } = await client.auth.signUp({
+            const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
@@ -175,7 +182,7 @@
         });
         // If already logged in, redirect immediately
         window.addEventListener('DOMContentLoaded', async () => {
-            const session = client.auth.getSession && (await client.auth.getSession()).data.session;
+            const session = supabase.auth.getSession && (await supabase.auth.getSession()).data.session;
             if (session) {
                 window.location.href = getRedirectUrl();
             }

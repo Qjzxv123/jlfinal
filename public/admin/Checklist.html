@@ -284,15 +284,21 @@
   <script>
     const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    // Fix checkAdmin: use client.auth.getSession() and client.auth.getUser()
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        session: { maxAge: 3600 }
+      }
+    });
 async function checkAdmin() {
-  const { data: { session } } = await client.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
     window.location.href = 'Login.html';
     return;
   }
-  const { data: { user } } = await client.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   // Adjust this check to match your Supabase user admin logic
   if (!user || !user.user_metadata || user.user_metadata.role !== 'service_role') {
     console.log(user.user_metadata);
@@ -302,7 +308,7 @@ async function checkAdmin() {
 }
 checkAdmin();
     async function fetchTasks() {
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('Checklist')
         .select('*')
         .order('created_at', { ascending: false });
@@ -314,7 +320,7 @@ checkAdmin();
     }
 
     async function addTask(task) {
-      const { error } = await client
+      const { error } = await supabase
         .from('Checklist')
         .insert([task]);
       if (error) {
@@ -325,7 +331,7 @@ checkAdmin();
     }
 
     async function updateTaskStatus(id, status) {
-      const { error } = await client
+      const { error } = await supabase
         .from('Checklist')
         .update({ Status: status })
         .eq('id', id);
@@ -335,7 +341,7 @@ checkAdmin();
     }
 
     async function removeTask(id) {
-      const { error } = await client
+      const { error } = await supabase
         .from('Checklist')
         .delete()
         .eq('id', id);
@@ -432,7 +438,7 @@ checkAdmin();
 
     // Populate Assigned To select from Users table
     async function populateAssignedToSelect() {
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('Users')
         .select('id, display_name, "Role"');
       const select = document.getElementById('assignedTo');
