@@ -429,18 +429,20 @@ checkAdmin();
       renderTasks(tasks);
     }
 
+
+    // Populate Assigned To select from Users table
     async function populateAssignedToSelect() {
       const { data, error } = await client
-        .from('oauth_tokens')
-        .select('user_key,UserID');
+        .from('Users')
+        .select('id, display_name, "Role"');
       const select = document.getElementById('assignedTo');
       if (!select) return;
       select.innerHTML = '<option value="">Select user...</option>';
       if (data) {
         data.forEach(user => {
-          const label = user.UserID ? `${user.user_key}` : user.user_key;
+          const label = user.display_name ? `${user.display_name} (${user.Role || ''})` : user.id;
           const option = document.createElement('option');
-          option.value = JSON.stringify({UserID: user.UserID || '', user_key: user.user_key});
+          option.value = JSON.stringify({id: user.id, display_name: user.display_name || '', Role: user.Role || ''});
           option.textContent = label;
           select.appendChild(option);
         });
@@ -455,13 +457,13 @@ checkAdmin();
       try {
         assignedObj = JSON.parse(document.getElementById('assignedTo').value);
       } catch (err) {
-        assignedObj = {UserID: '', user_key: ''};
+        assignedObj = {id: '', display_name: '', Role: ''};
       }
       const task = {
         Task: document.getElementById('task').value.trim(),
         Priority: document.getElementById('priority').value,
-        AssignedTo: assignedObj.user_key,
-        UserID: [assignedObj.UserID],
+        AssignedTo: assignedObj.display_name,
+        UserID: [assignedObj.id],
         Deadline: document.getElementById('Deadline').value || null,
         Status: 'Incomplete'
       };
