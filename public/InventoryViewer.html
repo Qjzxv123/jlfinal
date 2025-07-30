@@ -256,7 +256,7 @@
         <a href="privacy.html" class="nav-item" style="width:90%;margin:0 auto;justify-content:left;align-items:center;">
           <i class="cil-lock-locked"></i><span>Privacy Policy</span>
         </a>
-        <a id="sign-out-btn" class="nav-item" style="width:90%;margin:0 auto;display:none;justify-content:center;align-items:center;cursor:pointer;">
+        <a id="sign-out-btn" class="nav-item" style="width:90%;margin:0 auto;display:inline-block;justify-content:center;align-items:center;cursor:pointer;">
           <i class="cil-account-logout"></i><span>Sign Out</span>
         </a>
       </div>
@@ -274,9 +274,6 @@
         <div id="sync-etsy-status" style="margin-bottom:1em;font-size:1em;"></div>
         <!-- Search bar removed -->
         <div id="data-viewer" style="display:none; margin-top:2rem;"></div>
-        <div id="login-redirect" style="margin-top:2rem;">
-            <p>You must be <a href="Login.html?redirect=InventoryViewer.html">logged in</a> to view inventory.</p>
-        </div>
     </div>
     <script>
         const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
@@ -485,31 +482,23 @@
         });
         // Search bar removed
 
-        // On load, check for session and redirect to login if not logged in
+        // On load, check for session and user role, similar to ecommerce-oauth.html
         window.addEventListener('DOMContentLoaded', async () => {
-            const session = supabase.auth.getSession && (await supabase.auth.getSession()).data.session;
-            if (!session) {
-                // Not logged in, show login link and hide data viewer
-                dataViewer.style.display = 'none';
-                document.getElementById('login-redirect').style.display = 'block';
-                document.getElementById('sign-out-btn').style.display = 'none';
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
+                return;
             } else {
-                // Check user role and redirect if NewUser
-                try {
-                    const { data: { user } } = await supabase.auth.getUser();
-                    const role = user?.user_metadata?.role || 'NewUser';
-                    if (role === 'NewUser') {
-                        window.location.href = 'PendingApproval.html';
-                        return;
-                    }
-                } catch (e) {
-                    // If error, default to showing data
+                const role = user?.user_metadata?.role;
+                if (role === 'newuser') {
+                    window.location.href = 'PendingApproval.html';
+                    return;
+                } else if (role === 'employee') {
+                    document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins and Clients only</div>';
+                    throw new Error('Not admin or client');
                 }
-                // Logged in, show data
-                document.getElementById('login-redirect').style.display = 'none';
-                document.getElementById('sign-out-btn').style.display = 'inline-block';
-                fetchAndDisplayData(session);
             }
+            fetchAndDisplayData();
         });
 
         // Sign out button handler

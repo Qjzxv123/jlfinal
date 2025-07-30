@@ -482,9 +482,7 @@
         <a href="privacy.html" class="nav-item" style="width:90%;margin:0 auto;justify-content:left;align-items:center;">
           <i class="cil-lock-locked"></i><span>Privacy Policy</span>
         </a>
-        <a id="sign-out-btn" class="nav-item" style="width:90%;margin:0 auto;display:none;justify-content:center;align-items:center;cursor:pointer;">
-          <i class="cil-account-logout"></i><span>Sign Out</span>
-        </a>
+        <a id="sign-out-btn" class="nav-item" style="width:90%;margin:0 auto;display:none;justify-content:center;align-items:center;cursor:pointer;"><i class="cil-account-logout"></i><span>Sign Out</span></a>
       </div>
     </div>
     
@@ -1116,10 +1114,13 @@ Notes: ${data.Notes || 'None'}
             if (currentUser && currentUser.user_metadata && currentUser.user_metadata.role) {
                 role = currentUser.user_metadata.role;
             }
-            if (role === 'NewUser') {
+            if (role === 'newuser') {
                 window.location.href = 'PendingApproval.html';
                 return;
-            }
+            }else if (role==="employee"){
+        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins and Clients only</div>';
+        throw new Error('Not admin or client');
+      }
             document.getElementById('order-interface').style.display = 'block';
             document.getElementById('message').style.display = 'none';
             fetchActiveOrders();

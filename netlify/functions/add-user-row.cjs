@@ -35,7 +35,7 @@ exports.handler = async (event) => {
   const { error } = await client.from('Users').upsert({
     id,
     display_name: display_name || '',
-    Role: role || 'NewUser',
+    Role: role,
   });
 
   if (error) {

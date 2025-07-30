@@ -79,12 +79,9 @@
     <div class="desc">Welcome! Choose a tool or section below:</div>
     <div class="nav">
       <a href="AddProduct.html"><i class="cil-note-add"></i>Add/Update Product</a>
-      <a href="CustomerChecklist.html"><i class="cil-check"></i>Customer Checklist</a>
+      <a href="CustomerChecklist.html"><i class="cil-check"></i>Checklist</a>
       <a href="CustomerOrders.html"><i class="cil-list"></i>Customer Orders</a>
-      <a href="CustomerOrderView.html"><i class="cil-3d"></i>Order View</a>
-      <a href="ecommerce-oauth.html"><i class="cil-lock-unlocked"></i>Ecommerce OAuth</a>
-      <a href="InventoryViewer.html"><i class="cil-columns"></i>Inventory Viewer</a>
-      <a href="Login.html"><i class="cil-account-login"></i>Login</a>
+      <a href="CustomerOrderView.html"><i class="cil-3d"></i>Employees</a>
       <a href="privacy.html"><i class="cil-shield-alt"></i>Privacy Policy</a>
     </div>
     <div class="footer">&copy; 2025 J&L Tools</div>
@@ -106,8 +103,8 @@ async function checkLoginAndShowUI() {
     window.location.href = 'Login.html?redirect=index.html';
     return;
   }
-  const role = user?.user_metadata?.role || 'NewUser';
-  if (role === 'NewUser') {
+  const role = user?.user_metadata?.role;
+  if (role === 'newuser') {
     window.location.href = 'PendingApproval.html';
     return;
   }

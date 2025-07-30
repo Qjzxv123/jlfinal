@@ -247,12 +247,31 @@
       if (user && user.user_metadata && user.user_metadata.role) {
         role = user.user_metadata.role;
       }
-      if (role === 'NewUser') {
+      if (role === 'newuser') {
         window.location.href = 'PendingApproval.html';
         return false;
+      }else if (role==="employee"){
+        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins and Clients only</div>';
+        throw new Error('Not admin or client');
       }
       return true;
     }
+      // Sign out button handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            supabase.auth.getSession().then(({ data: { session } }) => {
+                if (session) {
+                    document.getElementById('sign-out-btn').style.display = 'inline-block';
+                } else {
+                    document.getElementById('sign-out-btn').style.display = 'none';
+                }
+            });
+            document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
+                e.preventDefault();
+                await supabase.auth.signOut();
+                window.location.reload();
+            });
+        });
     async function getCurrentUserID() {
       const { data: { session } } = await supabase.auth.getSession();
       return session.user.id;

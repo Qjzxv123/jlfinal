@@ -117,7 +117,7 @@
         // Get redirect param if present
         function getRedirectUrl() {
             const params = new URLSearchParams(window.location.search);
-            return params.get('redirect') || 'InventoryViewer.html';
+            return params.get('redirect') || 'index.html';
         }
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -138,7 +138,7 @@
                             body: JSON.stringify({
                                 id: user.id,
                                 display_name: user.user_metadata?.display_name || '',
-                                role: user.user_metadata?.role || 'NewUser'
+                                role: user.user_metadata?.role
                             })
                         });
                         const result = await response.json();

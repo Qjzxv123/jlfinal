@@ -372,10 +372,13 @@
         window.location.href = 'Login.html?redirect=AddProduct.html';
         return;
       }
-      const role = user?.user_metadata?.role || 'NewUser';
-      if (role === 'NewUser') {
+      const role = user?.user_metadata?.role;
+      if (role === 'newuser') {
         window.location.href = 'PendingApproval.html';
         return;
+      }else if (role==="employee"){
+        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins and Clients only</div>';
+        throw new Error('Not admin or client');
       }
       // Show add product UI
       document.querySelector('.main-content').style.display = 'block';

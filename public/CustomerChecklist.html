@@ -237,8 +237,8 @@
         window.location.href = 'Login.html?redirect=CustomerChecklist.html';
         return;
       }
-      const role = user?.user_metadata?.role || 'NewUser';
-      if (role === 'NewUser') {
+      const role = user?.user_metadata?.role;
+      if (role === 'newuser') {
         window.location.href = 'PendingApproval.html';
         return;
       }
@@ -246,7 +246,22 @@
       document.querySelector('.main-content').style.display = 'block';
       loadChecklist();
     }
-
+  // Sign out button handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            supabase.auth.getSession().then(({ data: { session } }) => {
+                if (session) {
+                    document.getElementById('sign-out-btn').style.display = 'inline-block';
+                } else {
+                    document.getElementById('sign-out-btn').style.display = 'none';
+                }
+            });
+            document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
+                e.preventDefault();
+                await supabase.auth.signOut();
+                window.location.reload();
+            });
+        });
     async function getCurrentUserID() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return null;

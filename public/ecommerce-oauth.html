@@ -208,14 +208,17 @@ const platformOAuthDiv = document.getElementById('platform-oauth');
 async function checkLoginAndShowUI() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
+    window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
     return;
   }else{
-    const role = user?.user_metadata?.role || 'NewUser';
-        if (role === 'NewUser') {
+    const role = user?.user_metadata?.role;
+        if (role === 'newuser') {
             window.location.href = 'PendingApproval.html';
               return;
-                    }
+      }else if (role==="employee"){
+        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins and Clients only</div>';
+        throw new Error('Not admin or client');
+      }
   }
   // Only show platform OAuth buttons if logged in
   platformOAuthDiv.style.display = '';
