@@ -46,6 +46,22 @@
       You will receive an email once your account is approved and your access level is set.<br>
       If you believe this is an error, please contact support.
     </div>
+    <button id="try-again-btn" style="background:#228B22;color:#fff;border:none;border-radius:6px;padding:0.7rem 1.5rem;font-size:1rem;font-weight:600;cursor:pointer;margin-top:1.5rem;">Try Again / Login</button>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      document.getElementById('try-again-btn').onclick = async function() {
+        // Remove Supabase session data if present
+        if (window.supabase) {
+          try {
+            const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
+            const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            await client.auth.signOut();
+          } catch (e) {}
+        }
+        window.location.href = 'Login.html';
+      };
+    </script>
   </div>
 </body>
 </html>
