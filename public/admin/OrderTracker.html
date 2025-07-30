@@ -739,9 +739,13 @@
           <h3 style="margin-top:0;">Schedule Order</h3>
           <label for="modalScheduleDate" style="font-weight:600;">Planned Manufacture Date</label>
           <input type="date" id="modalScheduleDate" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;" />
-          <label for="modalVesselSelect" style="font-weight:600;">Available Vessel</label>
+          <label for="modalVesselSelect" style="font-weight:600;">Available Vessel(s)</label>
           <select id="modalVesselSelect" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;">
-            <option value="">Loading vessels...</option>
+            <option value="">-- Select Vessel --</option>
+          </select>
+          <label for="modalVesselSelect2" style="font-weight:600;">Second Vessel (optional)</label>
+          <select id="modalVesselSelect2" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;">
+            <option value="">-- None --</option>
           </select>
           <div style="display:flex; gap:1em; justify-content:flex-end;">
             <button id="modalScheduleCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
@@ -757,6 +761,7 @@
       const modal = document.getElementById('scheduleModal');
       const dateInput = document.getElementById('modalScheduleDate');
       const vesselSelect = document.getElementById('modalVesselSelect');
+      const vesselSelect2 = document.getElementById('modalVesselSelect2');
       // Default to today
       const today = new Date();
       dateInput.value = today.toISOString().split('T')[0];
@@ -809,9 +814,11 @@
       async function updateScheduleVesselOptions() {
         const date = dateInput.value;
         vesselSelect.innerHTML = '<option value="">-- Select Vessel --</option>';
+        vesselSelect2.innerHTML = '<option value="">-- None --</option>';
         if (!date) {
           ALL_VESSELS.forEach(v => {
             vesselSelect.innerHTML += `<option value="${v}">${v}</option>`;
+            vesselSelect2.innerHTML += `<option value="${v}">${v}</option>`;
           });
           return;
         }
@@ -819,6 +826,7 @@
         const available = ALL_VESSELS.filter(v => !unavailable.includes(v));
         available.forEach(v => {
           vesselSelect.innerHTML += `<option value="${v}">${v}</option>`;
+          vesselSelect2.innerHTML += `<option value="${v}">${v}</option>`;
         });
       }
 
@@ -839,12 +847,17 @@
       newSaveBtn.onclick = async function() {
         const plannedDate = dateInput.value;
         const Vessel = vesselSelect.value;
+        const Vessel2 = vesselSelect2.value;
         if (!plannedDate) {
           alert('Please select a date.');
           return;
         }
         if (!Vessel) {
-          alert('Please select a vessel.');
+          alert('Please select at least one vessel.');
+          return;
+        }
+        if (Vessel2 && Vessel2 === Vessel) {
+          alert('Please select two different vessels.');
           return;
         }
         // Fetch order details
@@ -899,7 +912,7 @@
         // Schedule the first batch (update current order)
         const { error } = await client
           .from('ManufacturingTasks')
-          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, Vessel: Vessel, Quantity: batches[0] })
+          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, Vessel: vessels[0], Quantity: batches[0] })
           .eq('OrderNumber', orderId);
         let modalResults = [];
         if (error) {
@@ -1088,7 +1101,7 @@
               Quantity: batches[i],
               Progress: 'scheduled',
               PlannedManufactureDate: plannedDate,
-              Vessel: Vessel,
+              Vessel: vessels[i],
               Customer: customerValue,
               UserID: userIdValue
             }]);
