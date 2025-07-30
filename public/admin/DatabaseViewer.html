@@ -313,7 +313,14 @@
                     if (typeof val === 'object' && val !== null) {
                         val = JSON.stringify(val);
                     }
-                    html += `<td>${val === null ? '' : val}</td>`;
+                    // Make SKU columns clickable links
+                    if (col === 'ProductSKU' && val) {
+                        html += `<td><a href="ProductInfo.html?sku=${encodeURIComponent(val)}" style="color:#3498db;text-decoration:underline;">${val}</a></td>`;
+                    } else if (col === 'IngredientSKU' && val) {
+                        html += `<td><a href="IngredientInfo.html?sku=${encodeURIComponent(val)}" style="color:#3498db;text-decoration:underline;">${val}</a></td>`;
+                    } else {
+                        html += `<td>${val === null ? '' : val}</td>`;
+                    }
                 });
                 html += '</tr>';
             });

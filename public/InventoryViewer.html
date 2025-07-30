@@ -332,7 +332,8 @@
                     etsySkuMap[row.Retailer].push(row.ProductSKU);
                 }
                 html += `<tr>`;
-                html += `<td style='padding:4px;'>${row.ProductSKU ?? ''}</td>`;
+                // Make ProductSKU a clickable link to ProductInfo.html
+                html += `<td style='padding:4px;'><a href="admin/ProductInfo.html?sku=${encodeURIComponent(row.ProductSKU ?? '')}" style="color:#3498db;text-decoration:underline;">${row.ProductSKU ?? ''}</a></td>`;
                 html += `<td style='padding:4px;'>${row.Name ?? ''}</td>`;
                 html += `<td style='padding:4px;' class='${quantityClass}'>${row.Quantity ?? ''}</td>`;
                 html += `<td style='padding:4px;' id='faire-inv-${row.ProductSKU}'>Loading...</td>`;
