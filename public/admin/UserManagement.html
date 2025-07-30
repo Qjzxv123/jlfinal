@@ -227,15 +227,17 @@
       tbody.innerHTML = '';
       (data || []).forEach(user => {
         const tr = document.createElement('tr');
+        // Map service_role to Admin for display and selection
+        const displayRole = user.Role === 'service_role' ? 'Admin' : user.Role;
         tr.innerHTML = `
           <td>${user.id}</td>
           <td>${user.display_name || ''}</td>
           <td>
             <select id="role-select-${user.id}" onchange="changeUserRoleDropdown('${user.id}', this.value)" class="btn">
-              <option value="Customer" ${user.Role === 'Customer' ? 'selected' : ''}>Customer</option>
-              <option value="Employee" ${user.Role === 'Employee' ? 'selected' : ''}>Employee</option>
-              <option value="NewUser" ${user.Role === 'NewUser' ? 'selected' : ''}>NewUser</option>
-              <option value="service_role" ${user.Role === 'Admin' ? 'selected' : ''}>Admin</option>
+              <option value="Customer" ${displayRole === 'Customer' ? 'selected' : ''}>Client</option>
+              <option value="Employee" ${displayRole === 'Employee' ? 'selected' : ''}>Employee</option>
+              <option value="NewUser" ${displayRole === 'NewUser' ? 'selected' : ''}>NewUser</option>
+              <option value="Admin" ${displayRole === 'Admin' ? 'selected' : ''}>Admin</option>
             </select>
           </td>
           <td class="actions">

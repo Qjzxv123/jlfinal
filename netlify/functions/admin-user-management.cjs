@@ -61,6 +61,35 @@ exports.handler = async function(event, context) {
           body: JSON.stringify({ error: 'Role updated in Users table, but error updating in Auth', details: authError.message })
         };
       }
+
+      // Update the role column in auth.users
+      // Use an RPC for security (requires a function in your DB)
+      const { error: roleColError } = await supabase.rpc('set_auth_user_role', { user_id: userId, new_role: newRole });
+      if (roleColError) {
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: 'Role updated in Users table and user_metadata, but error updating role column in auth.users', details: roleColError.message })
+        };
+      }
+
+      // If making Admin, also set is_super_admin in auth.users
+      if (newRole === 'service_role') {
+        // Use RPC to update is_super_admin (requires RLS off or service role)
+        const { error: superAdminError } = await supabase.rpc('set_is_super_admin', { user_id: userId, is_super: true });
+        if (superAdminError) {
+          return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Role updated, but error setting is_super_admin', details: superAdminError.message })
+          };
+        }
+      } else {
+        // If demoting from Admin, unset is_super_admin
+        const { error: superAdminError } = await supabase.rpc('set_is_super_admin', { user_id: userId, is_super: false });
+        if (superAdminError) {
+          // Not fatal, but log
+          console.error('Error unsetting is_super_admin:', superAdminError.message);
+        }
+      }
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'Role updated successfully' })
