@@ -267,7 +267,6 @@ exports.handler = async function(event) {
         const putUrl = `https://openapi.etsy.com/v3/application/listings/${listing.listing_id}/inventory`;
         let putBody = inventory ? JSON.parse(JSON.stringify(inventory)) : { products };
         if (putBody && Array.isArray(putBody.products)) {
-          console.log(`[Etsy Sync] PUT payload for listing ${listing.listing_id}:`, JSON.stringify(putBody));
           putBody.products = putBody.products.map(product => {
             let newProduct = { ...product };
             if (listingSkus.includes(product.sku)) {
