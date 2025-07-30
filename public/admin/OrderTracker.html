@@ -317,7 +317,7 @@
     });
     // Check login and redirect to Login.html if not authenticated, with redirect param
     async function checkLoginAndRedirect() {
-      const { data: { session } } = await client.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         // Redirect to Login.html, with redirect back to this page after login
         const currentPath = window.location.pathname.replace(/^\//, '');
@@ -330,7 +330,7 @@
     // Fetch display names and subs from auth.users
     // Fetch user_keys from oauth_tokens table
     async function fetchUserKeys() {
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('oauth_tokens')
         .select('user_key, UserID')
         .order('user_key', { ascending: true });
@@ -361,7 +361,7 @@
     }
 // Fetch product SKUs from Products table
     async function fetchProductSKUs() {
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('Products')
         .select('ProductSKU,Name')
         .order('Name', { ascending: true });
@@ -384,7 +384,7 @@
       });
     }
     async function fetchOrders() {
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('ManufacturingTasks')
         .select('*')
         .order('PlannedManufactureDate', { ascending: false });
@@ -396,7 +396,7 @@
     }
 
     async function addOrder(order) {
-      const { error } = await client
+      const { error } = await supabase
         .from('ManufacturingTasks')
         .insert([order]);
       if (error) {
@@ -413,13 +413,13 @@
         updateObj.Vessel = null;
       }
       // Fetch order data
-      const { data: orderData, error: orderError } = await client
+      const { data: orderData, error: orderError } = await supabase
         .from('ManufacturingTasks')
         .select('ProductSKU, Quantity')
         .eq('OrderNumber', orderNumber)
         .maybeSingle();
       // Update order progress
-      const { error } = await client
+      const { error } = await supabase
         .from('ManufacturingTasks')
         .update(updateObj)
         .eq('OrderNumber', orderNumber);
@@ -430,7 +430,7 @@
       // If progress is completed, add product to inventory and log in inventoryupdatelogs
       if (progress.toLowerCase() === 'completed' && orderData && orderData.ProductSKU && orderData.Quantity) {
         // Fetch current product quantity
-        const { data: productData, error: productError } = await client
+        const { data: productData, error: productError } = await supabase
           .from('Products')
           .select('Quantity')
           .eq('ProductSKU', orderData.ProductSKU)
@@ -438,7 +438,7 @@
         if (!productError && productData) {
           const currentQty = productData.Quantity || 0;
           const newQty = currentQty + orderData.Quantity;
-          const { error: updateProductError } = await client
+          const { error: updateProductError } = await supabase
             .from('Products')
             .update({ Quantity: newQty })
             .eq('ProductSKU', orderData.ProductSKU);
@@ -447,7 +447,7 @@
             return;
           }
           // Get current user's display_name for updated_by using session data
-          const { data: { session } } = await client.auth.getSession();
+          const { data: { session } } = await supabase.auth.getSession();
           const displayName = (session && session.user && session.user.user_metadata && session.user.user_metadata.display_name) ? session.user.user_metadata.display_name : 'Unknown User';
           // Log the addition in inventoryupdatelogs
           const logEntry = {
@@ -456,7 +456,7 @@
             log: `Added ${orderData.Quantity} of ${orderData.ProductSKU} to inventory`,
             updated_by: displayName
           };
-          await client.from('inventoryupdatelogs').insert([logEntry]);
+          await supabase.from('inventoryupdatelogs').insert([logEntry]);
           alert('Product inventory updated and logged successfully.');
         }
       }
@@ -471,7 +471,7 @@
       // Now use newTbody for all further operations
       (async () => {
         // Batch fetch user_keys for display
-        const { data: userRows } = await client
+        const { data: userRows } = await supabase
           .from('oauth_tokens')
           .select('UserID, user_key');
         const userIDtoKey = {};
@@ -484,7 +484,7 @@
         const productSKUs = [...new Set(requestedOrders.map(task => task.ProductSKU))];
         let productDataMap = {};
         if (productSKUs.length > 0) {
-          const { data: products } = await client
+          const { data: products } = await supabase
             .from('Products')
             .select('ProductSKU, Process, "Product Weight(oz)"')
             .in('ProductSKU', productSKUs);
@@ -529,7 +529,7 @@
         // Batch fetch ingredient inventory
         let ingredientInventoryMap = {};
         if (allIngredientSKUs.length > 0) {
-          const { data: invData } = await client
+          const { data: invData } = await supabase
             .from('Ingredients')
             .select('IngredientSKU, "Quantity(Lbs/Units)"')
             .in('IngredientSKU', allIngredientSKUs);
@@ -618,7 +618,7 @@
           if (removeBtn) {
             const orderId = removeBtn.getAttribute('data-order-id');
             if (confirm('Are you sure you want to remove this order?')) {
-              const { error } = await client
+              const { error } = await supabase
                 .from('ManufacturingTasks')
                 .delete()
                 .eq('OrderNumber', orderId);
@@ -640,7 +640,7 @@
               const day = now.getDate();
               let shelfLifeYears = 3;
               try {
-                const { data: productShelfData, error: shelfError } = await client
+                const { data: productShelfData, error: shelfError } = await supabase
                   .from('Products')
                   .select('ShelfLife')
                   .eq('ProductSKU', productSKU)
@@ -701,7 +701,7 @@
               // Fetch vessel from Supabase for this order
               let vessel = '';
               try {
-                const { data: orderData, error: vesselError } = await client
+                const { data: orderData, error: vesselError } = await supabase
                   .from('ManufacturingTasks')
                   .select('Vessel')
                   .eq('OrderNumber', orderNumber)
@@ -776,7 +776,7 @@
       // Fetch order details to get ProductSKU and Quantity
       let order;
       {
-        const { data, error } = await client
+        const { data, error } = await supabase
           .from('ManufacturingTasks')
           .select('ProductSKU, Quantity')
           .eq('OrderNumber', orderId)
@@ -804,7 +804,7 @@
       async function getUnavailableVesselsForDate(date) {
         if (!date) return [];
         try {
-          const { data, error } = await client
+          const { data, error } = await supabase
             .from('ManufacturingTasks')
             .select('Vessel')
             .eq('PlannedManufactureDate', date);
@@ -868,7 +868,7 @@
         // Fetch order details
         let orderDetails = order;
         if (!orderDetails) {
-          const { data } = await client
+          const { data } = await supabase
             .from('ManufacturingTasks')
             .select('ProductSKU, Quantity, OrderNumber, Customer, Progress, UserID')
             .eq('OrderNumber', orderId)
@@ -882,7 +882,7 @@
         // --- Calculate max batch size (BatchMaker logic) ---
         let maxBatch = 0;
         // Fetch product size
-        const { data: productData, error: productError } = await client
+        const { data: productData, error: productError } = await supabase
           .from('Products')
           .select('"Product Weight(oz)"')
           .eq('ProductSKU', orderDetails.ProductSKU)
@@ -915,7 +915,7 @@
         }
 
         // Schedule the first batch (update current order)
-        const { error } = await client
+        const { error } = await supabase
           .from('ManufacturingTasks')
           .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, Vessel: vessels[0], Quantity: batches[0] })
           .eq('OrderNumber', orderId);
@@ -926,7 +926,7 @@
           // Subtract ingredients from inventory for the first batch
           try {
             // Fetch product process and weight
-            const { data: productData, error: productError } = await client
+            const { data: productData, error: productError } = await supabase
               .from('Products')
               .select('Process, "Product Weight(oz)"')
               .eq('ProductSKU', orderDetails.ProductSKU)
@@ -957,13 +957,13 @@
               // Get current user's display_name for Updated_By
               let updatedBy = 'Unknown User';
               try {
-                const { data: { session } } = await client.auth.getSession();
+                const { data: { session } } = await supabase.auth.getSession();
                 updatedBy = (session && session.user && session.user.user_metadata && session.user.user_metadata.display_name) ? session.user.user_metadata.display_name : 'Unknown User';
               } catch (e) {}
               for (const ing of ingredients) {
                 let rowStatus = { sku: ing.sku, status: '', message: '' };
                 try {
-                  const { data: invData, error: invError } = await client
+                  const { data: invData, error: invError } = await supabase
                     .from('Ingredients')
                     .select('"Quantity(Lbs/Units)"')
                     .eq('IngredientSKU', ing.sku)
@@ -972,7 +972,7 @@
                     const currentQty = Number(invData["Quantity(Lbs/Units)"]);
                     const removalAmount = Math.round(ing.totalAmount * 1000) / 1000;
                     const newQty = Math.max(0, Math.round((currentQty - removalAmount) * 1000) / 1000);
-                    const { error: updateError } = await client
+                    const { error: updateError } = await supabase
                       .from('Ingredients')
                       .update({ "Quantity(Lbs/Units)": newQty })
                       .eq('IngredientSKU', ing.sku);
@@ -984,7 +984,7 @@
                       Updated_By: updatedBy,
                       Log: `Removed ${removalAmount} from ${ing.sku} for scheduled order ${orderDetails.OrderNumber}`
                     };
-                    await client.from('IngredientLog').insert([logEntry]);
+                    await supabase.from('IngredientLog').insert([logEntry]);
                     if (!updateError) {
                       rowStatus.status = 'success';
                       rowStatus.message = `Updated ${ing.sku}: ${currentQty} → ${newQty}`;
@@ -1006,7 +1006,7 @@
               if (productData && productData.ContainerSKUs && Array.isArray(productData.ContainerSKUs)) {
                 for (const containerSKU of productData.ContainerSKUs) {
                   try {
-                    const { data: containerInv, error: containerErr } = await client
+                    const { data: containerInv, error: containerErr } = await supabase
                       .from('Ingredients')
                       .select('"Quantity(Lbs/Units)"')
                       .eq('IngredientSKU', containerSKU)
@@ -1014,7 +1014,7 @@
                     if (!containerErr && containerInv && containerInv["Quantity(Lbs/Units)"] !== undefined) {
                       const currentQty = Number(containerInv["Quantity(Lbs/Units)"]);
                       const newQty = Math.max(0, currentQty - 1);
-                      const { error: updateError } = await client
+                      const { error: updateError } = await supabase
                         .from('Ingredients')
                         .update({ "Quantity(Lbs/Units)": newQty })
                         .eq('IngredientSKU', containerSKU);
@@ -1086,7 +1086,7 @@
         let customerValue = orderDetails.Customer;
         let userIdValue = orderDetails.UserID;
         if (!customerValue || !userIdValue) {
-          const { data: origOrder } = await client
+          const { data: origOrder } = await supabase
             .from('ManufacturingTasks')
             .select('Customer, UserID')
             .eq('OrderNumber', orderId)
@@ -1098,7 +1098,7 @@
         }
         for (let i = 1; i < batches.length; ++i) {
           const newOrderNumber = `${baseOrderNumber}-${i+1}`;
-          await client
+          await supabase
             .from('ManufacturingTasks')
             .insert([{
               ...orderDetails,

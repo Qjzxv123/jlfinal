@@ -569,7 +569,7 @@
 
     <script>
 // checkLoginAndShowUI and Supabase client already declared above, do not redeclare
-        // Replace with your Supabase project URL and anon key
+        // Replace with your Supabase project URL and  key
        const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -1129,7 +1129,7 @@ Notes: ${data.Notes || 'None'}
 
         // Sign out button handler
         document.addEventListener('DOMContentLoaded', function() {
-            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             supabase.auth.getSession().then(({ data: { session } }) => {
                 if (session) {
                     document.getElementById('sign-out-btn').style.display = 'inline-block';

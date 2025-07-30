@@ -248,10 +248,10 @@
     }
 
     async function getCurrentUserID() {
-      const { data: { session } } = await client.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) return null;
       // Try to get the user's UserID from oauth_tokens (if available)
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('oauth_tokens')
         .select('UserID')
         .eq('user_key', session.user.id)
@@ -264,7 +264,7 @@
     async function fetchChecklistForUser(userID) {
       if (!userID) return [];
       // Find checklist items where UserID array contains this userID
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('Checklist')
         .select('*')
         .contains('UserID', [userID]);
@@ -276,7 +276,7 @@
     }
 
     async function addTask(task) {
-      const { error } = await client
+      const { error } = await supabase
         .from('Checklist')
         .insert([task]);
       if (error) {
@@ -287,7 +287,7 @@
     }
 
     async function updateTaskStatus(id, status) {
-      const { error } = await client
+      const { error } = await supabase
         .from('Checklist')
         .update({ Status: status })
         .eq('id', id);
@@ -297,7 +297,7 @@
     }
 
     async function removeTask(id) {
-      const { error } = await client
+      const { error } = await supabase
         .from('Checklist')
         .delete()
         .eq('id', id);
@@ -399,7 +399,7 @@
     document.getElementById('addTaskForm').onsubmit = async function(e) {
       e.preventDefault();
       // Get session and userID
-      const { data: { session } } = await client.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       const userID = await getCurrentUserID();
       if (!userID || !session) {
         alert('You must be logged in to add a task.');
