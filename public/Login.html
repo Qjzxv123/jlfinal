@@ -121,6 +121,31 @@
                 message.textContent = 'Login failed: ' + error.message;
                 message.style.color = 'red';
             } else {
+                // After login, call serverless function to add user row securely
+                try {
+                    const { data: { user } } = await client.auth.getUser();
+                    if (user) {
+                        const response = await fetch('/.netlify/functions/add-user-row', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                id: user.id,
+                                display_name: user.user_metadata?.display_name || '',
+                                role: user.user_metadata?.role || 'NewUser'
+                            })
+                        });
+                        const result = await response.json();
+                        if (!response.ok || !result.success) {
+                            message.textContent = 'Login succeeded, but failed to update user profile. Please try again.';
+                            message.style.color = 'red';
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    message.textContent = 'Login succeeded, but failed to update user profile. Please try again.';
+                    message.style.color = 'red';
+                    return;
+                }
                 message.textContent = 'Login successful! Redirecting...';
                 message.style.color = 'green';
                 setTimeout(() => {
@@ -137,7 +162,7 @@
                 email,
                 password,
                 options: {
-                    data: { display_name: company }
+                    data: { display_name: company, role: 'NewUser'}
                 }
             });
             if (error) {

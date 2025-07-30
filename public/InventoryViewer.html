@@ -490,6 +490,17 @@
                 document.getElementById('login-redirect').style.display = 'block';
                 document.getElementById('sign-out-btn').style.display = 'none';
             } else {
+                // Check user role and redirect if NewUser
+                try {
+                    const { data: { user } } = await client.auth.getUser();
+                    const role = user?.user_metadata?.role || 'NewUser';
+                    if (role === 'NewUser') {
+                        window.location.href = 'PendingApproval.html';
+                        return;
+                    }
+                } catch (e) {
+                    // If error, default to showing data
+                }
                 // Logged in, show data
                 document.getElementById('login-redirect').style.display = 'none';
                 document.getElementById('sign-out-btn').style.display = 'inline-block';
