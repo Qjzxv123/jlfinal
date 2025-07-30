@@ -177,6 +177,7 @@
       <a href="InventoryScanner.html" class="nav-item active"><i class="cil-center-focus"></i><span>Scanner</span></a>
       <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
       <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
+      <a href="UserManagement.html" class="nav-item"><i class="cil-user"></i><span>User Management</span></a>
       <a href="/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
       </nav>
     </div>
@@ -198,7 +199,7 @@ const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
 async function checkAdmin() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        window.location.href = 'login.html';
+        window.location.href = '/Login.html';
         return;
       }
       const { data: { user } } = await supabase.auth.getUser();
@@ -319,15 +320,6 @@ async function checkAdmin() {
             skuInput.focus();
         }
 
-        // On load, check for session and redirect to login if not logged in
-        window.addEventListener('DOMContentLoaded', async () => {
-            const session = supabase.auth.getSession && (await supabase.auth.getSession()).data.session;
-            if (!session) {
-                window.location.href = 'Login.html';
-            } else {
-                addSkuDecrementForm();
-            }
-        });
     </script>
 </body>
 </html>
