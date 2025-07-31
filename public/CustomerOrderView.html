@@ -223,6 +223,7 @@
         <!-- Orders will be loaded here -->
       </tbody>
     </table>
+    <div id="completedOrdersSection" style="margin-top:2.5em;"></div>
   </div>
   <script>
     const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
@@ -303,7 +304,7 @@
     }
 
     async function fetchOrdersForUser(userID) {
-      if (!userID) return [];
+      if (!userID) return { active: [], completed: [] };
       // Find tasks where UserID array contains this userID
       const { data, error } = await supabase
         .from('ManufacturingTasks')
@@ -311,12 +312,16 @@
         .contains('UserID', [userID]);
       if (error) {
         alert('Failed to fetch orders: ' + error.message);
-        return [];
+        return { active: [], completed: [] };
       }
-      return data || [];
+      const all = data || [];
+      const active = all.filter(task => (task.Progress || '').toLowerCase() !== 'completed');
+      const completed = all.filter(task => (task.Progress || '').toLowerCase() === 'completed');
+      return { active, completed };
     }
 
-    function renderOrders(orders) {
+    function renderOrders(orders, completedOrders) {
+      // Render active orders
       const tbody = document.getElementById('orderTableBody');
       tbody.innerHTML = '';
       for (const task of orders) {
@@ -340,6 +345,75 @@
         `;
         tbody.appendChild(tr);
       }
+
+      // Render completed orders in collapsible table
+      let completedSection = document.getElementById('completedOrdersSection');
+      if (!completedSection) {
+        completedSection = document.createElement('div');
+        completedSection.id = 'completedOrdersSection';
+        completedSection.style = 'margin-top:2.5em;';
+        document.body.appendChild(completedSection);
+      }
+      completedSection.innerHTML = '';
+      if (completedOrders.length === 0) return;
+      // Collapsible toggle button
+      let toggleBtn = document.createElement('button');
+      toggleBtn.id = 'toggleCompletedOrdersBtn';
+      toggleBtn.textContent = 'Show Completed Orders';
+      toggleBtn.style = 'background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer; margin-bottom:0.7em;';
+      completedSection.appendChild(toggleBtn);
+      let completedTable = document.createElement('table');
+      completedTable.id = 'completedOrdersTable';
+      completedTable.className = 'order-table';
+      completedTable.style.display = 'none';
+      completedTable.innerHTML = `
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Product SKU</th>
+            <th>Quantity</th>
+            <th>Progress</th>
+            <th>Completion Date</th>
+          </tr>
+        </thead>
+        <tbody id='completedOrderTableBody'></tbody>
+      `;
+      completedSection.appendChild(completedTable);
+      // Toggle logic
+      toggleBtn.onclick = function() {
+        if (completedTable.style.display === 'none') {
+          completedTable.style.display = '';
+          toggleBtn.textContent = 'Hide Completed Orders';
+        } else {
+          completedTable.style.display = 'none';
+          toggleBtn.textContent = 'Show Completed Orders';
+        }
+      };
+      // Render completed orders
+      const completedTbody = completedTable.querySelector('#completedOrderTableBody');
+      completedTbody.innerHTML = '';
+      for (const task of completedOrders) {
+        const tr = document.createElement('tr');
+        const progress = task.Progress || '';
+        const progressClass = progress ? `status-${progress.replace(/ /g, '-')}` : '';
+        const progressDisplay = progress ? progress.charAt(0).toUpperCase() + progress.slice(1) : '';
+        let completionDate = '';
+        if (task.CompletionDate) {
+          try {
+            completionDate = new Date(task.CompletionDate).toLocaleDateString();
+          } catch (e) {
+            completionDate = task.CompletionDate;
+          }
+        }
+        tr.innerHTML = `
+          <td>${task.OrderNumber || ''}</td>
+          <td>${task.ProductSKU || ''}</td>
+          <td>${task.Quantity || ''}</td>
+          <td class="${progressClass}">${progressDisplay}</td>
+          <td>${completionDate}</td>
+        `;
+        completedTbody.appendChild(tr);
+      }
     }
 
     async function addOrder(order) {
@@ -357,14 +431,14 @@
       const userID = await getCurrentUserID();
       if (!userID) {
         document.getElementById('orderTableBody').innerHTML = '<tr><td colspan="4">Please log in to view your orders.</td></tr>';
+        document.getElementById('completedOrdersSection').innerHTML = '';
         return;
       }
-      const orders = await fetchOrdersForUser(userID);
-      if (orders.length === 0) {
+      const { active, completed } = await fetchOrdersForUser(userID);
+      if (active.length === 0) {
         document.getElementById('orderTableBody').innerHTML = '<tr><td colspan="4">No orders found for your account.</td></tr>';
-      } else {
-        renderOrders(orders);
       }
+      renderOrders(active, completed);
     }
 
     document.getElementById('requestOrderForm').onsubmit = async function(e) {

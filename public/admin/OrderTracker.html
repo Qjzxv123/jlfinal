@@ -414,6 +414,10 @@
       if (progress.toLowerCase() !== 'scheduled') {
         updateObj.Vessel = null;
       }
+      // If marking as completed, set CompletionDate
+      if (progress.toLowerCase() === 'completed') {
+        updateObj.CompletionDate = new Date().toISOString();
+      }
       // Fetch order data
       const { data: orderData, error: orderError } = await supabase
         .from('ManufacturingTasks')
@@ -835,7 +839,7 @@
           completedTable.className = 'order-table';
           completedTable.style.display = 'none';
           completedTable.innerHTML = `
-            <thead>\n<tr>\n<th></th>\n<th id='sortCompletedOrderNumber'>Order # <span id='sortCompletedOrderNumberIcon'>⇅</span></th>\n<th>Customer/Product</th>\n<th>Progress</th>\n<th>Schedule</th>\n<th>Instructions</th>\n<th>Deadline</th>\n</tr>\n</thead>
+            <thead>\n<tr>\n<th></th>\n<th id='sortCompletedOrderNumber'>Order # <span id='sortCompletedOrderNumberIcon'>⇅</span></th>\n<th>Customer/Product</th>\n<th>Progress</th>\n<th>Completion Date</th>\n</tr>\n</thead>
             <tbody id='completedOrderTableBody'></tbody>
           `;
           completedSection.appendChild(completedTable);
@@ -903,14 +907,20 @@
           } else {
             instructionsBtn = `<span style=\"color:#888;\"></span>`;
           }
+          let completionDate = '';
+          if (task.CompletionDate) {
+            try {
+              completionDate = new Date(task.CompletionDate).toLocaleDateString();
+            } catch (e) {
+              completionDate = task.CompletionDate;
+            }
+          }
           tr.innerHTML = `
             <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
             <td>${task.OrderNumber || ''}<br><span style="display:block;opacity:0.45;font-size:0.95em;line-height:1.1;">Batch: ${batchNum}</span></td>
             <td><span style="font-weight:600; color:#E2DB53;">${customerDisplay}</span><br><span style="color:#374151;">${task.ProductSKU || ''} × <span style='opacity:0.65;'>${task.Quantity || ''}</span></span></td>
             <td class="${progressClass}">${progressDisplay}</td>
-            <td>${scheduleColHtml}</td>
-            <td>${instructionsBtn}</td>
-            <td>${task.Deadline ? new Date(task.Deadline).toLocaleDateString() : ''}</td>
+            <td>${completionDate}</td>
           `;
           completedTbody.appendChild(tr);
         }
