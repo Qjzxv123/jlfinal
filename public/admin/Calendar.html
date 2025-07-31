@@ -377,15 +377,27 @@ async function checkAdmin() {
         const date = task.PlannedManufactureDate;
         if (!date) continue;
         if (!eventsByDate[date]) eventsByDate[date] = [];
-        // Add a link to BatchMaker with query params for auto-population
+        // Handle Vessel as text[] (array)
+        let vesselList = '';
+        let vesselParam = '';
+        if (Array.isArray(task.Vessel)) {
+          vesselList = task.Vessel.filter(Boolean).join(', ');
+          vesselParam = task.Vessel.filter(Boolean).join(',');
+        } else if (typeof task.Vessel === 'string') {
+          vesselList = task.Vessel;
+          vesselParam = task.Vessel;
+        } else {
+          vesselList = '';
+          vesselParam = '';
+        }
         const params = new URLSearchParams({
           ProductSKU: task.ProductSKU || '',
           Quantity: task.Quantity || '',
-          Vessel: task.Vessel || ''
+          Vessel: vesselParam
         }).toString();
         eventsByDate[date].push({
           type: 'manufacturing',
-          label: `Manufacture ${task.Quantity}x ${task.ProductSKU}`,
+          label: `Manufacture ${task.Quantity}x ${task.ProductSKU}${vesselList ? ' (' + vesselList + ')' : ''}`,
           link: `BatchMaker.html?${params}`
         });
       }
