@@ -273,7 +273,12 @@
                 selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Supplier,LowInvThreshold';
             }
             try {
-                const { data, error } = await supabase.from(tableName).select(selectString);
+                // Exclude archived=true rows if the table has an archived column
+                let query = supabase.from(tableName).select(selectString);
+                if (tableName === 'Products') {
+                    query = query.neq('Archived', true);
+                }
+                const { data, error } = await query;
                 if (error) throw error;
                 if (!data || data.length === 0) {
                     container.innerHTML = '<div class="error">No data found.</div>';
