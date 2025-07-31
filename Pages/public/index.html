@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>J&L Tools Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      min-height: 100vh;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.12);
+      padding: 2.5rem 2rem 2rem 2rem;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      color: #2d3748;
+      margin-bottom: 0.5em;
+      font-size: 2.1rem;
+    }
+    .desc {
+      color: #4dba93;
+      margin-bottom: 2em;
+      font-size: 1.1rem;
+    }
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 1.1em;
+      margin-bottom: 1.5em;
+    }
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 0.7em;
+      background: #4dba93;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1.1rem;
+      border-radius: 8px;
+      padding: 0.85em 1.2em;
+      transition: background 0.18s;
+      box-shadow: 0 2px 8px rgba(77,186,147,0.08);
+      justify-content: center;
+    }
+    .nav a:hover {
+      background: #379c7a;
+    }
+    .footer {
+      margin-top: 2em;
+      color: #888;
+      font-size: 0.98em;
+    }
+    @media (max-width: 600px) {
+      .container { max-width: 98vw; padding: 1.2rem 0.5rem; }
+      h1 { font-size: 1.3rem; }
+      .nav a { font-size: 1em; padding: 0.7em 0.7em; }
+    }
+  </style>
+</head>
+  <body>
+    <div class="container">
+      <div id="login-bar" style="display: flex; justify-content: flex-end; margin-bottom: 0.5em; min-height: 1.5em;">
+        <!-- Login or welcome message will be injected here -->
+      </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+  <script>
+      async function showLoginOrWelcome() {
+        const { data: { user } } = await supabase.auth.getUser();
+        const loginBar = document.getElementById('login-bar');
+        if (user) {
+          let displayName = (user.user_metadata && user.user_metadata.display_name) ? user.user_metadata.display_name : user.email;
+          loginBar.innerHTML = `<span style=\"color:#4dba93;font-weight:600;font-size:1.05em;\">Welcome, ${displayName}!<\/span>`;
+        } else {
+          loginBar.innerHTML = `<a href=\"Login.html\" style=\"color: #4dba93; font-weight: 600; text-decoration: none; font-size: 1.05em;\">Login<\/a>`;
+        }
+      }
+      showLoginOrWelcome();
+  </script>
+      <h1 style="margin-bottom: 0.2em;">J&amp;L Naturals System</h1>
+      <div class="desc" style="margin-bottom: 1.5em; color: #2d3748; font-size: 1.15rem;">
+        Your all-in-one portal for managing products, orders, and more.<br>
+        Please log in to access your tools, or explore the sections below.
+      </div>
+      <div style="margin-bottom: 2.2em;">
+        <img src="/favicon.ico" alt="J&L Naturals Logo" style="width: 64px; height: 64px; border-radius: 12px; box-shadow: 0 2px 8px rgba(77,186,147,0.12); margin-bottom: 1em;">
+      </div>
+      <div class="nav">
+        <a href="AddProduct.html"><i class="cil-note-add"></i>Add/Update Product</a>
+        <a href="CustomerChecklist.html"><i class="cil-check"></i>Checklist</a>
+        <a href="CustomerOrders.html"><i class="cil-list"></i>Customer Orders</a>
+        <a href="CustomerOrderView.html"><i class="cil-3d"></i>Employees</a>
+      </div>
+      <div class="footer">
+        <a href="privacy.html" style="color: #888; text-decoration: underline; font-size: 0.98em;">Privacy Policy</a><br>
+        &copy; 2025 J&L Tools
+      </div>
+    </div>
+  </body>
+</html>
