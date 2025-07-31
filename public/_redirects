@@ -1,0 +1,35 @@
+## Redirect root-level paths to public/
+
+/AddProduct.html    /public/AddProduct.html   200
+/CustomerChecklist.html    /public/CustomerChecklist.html   200
+/CustomerOrders.html    /public/CustomerOrders.html   200
+/CustomerOrderView.html    /public/CustomerOrderView.html   200
+/privacy.html    /public/privacy.html   200
+/ecommerce-oauth.html    /public/ecommerce-oauth.html   200
+/InventoryViewer.html    /public/InventoryViewer.html   200
+/Login.html    /public/Login.html   200
+/index.html    /public/index.html   200
+
+# Admin pages
+/admin/AddIngredient.html    /public/admin/AddIngredient.html   200
+/admin/AddProductAdmin.html    /public/admin/AddProductAdmin.html   200
+/admin/BatchMaker.html    /public/admin/BatchMaker.html   200
+/admin/Calendar.html    /public/admin/Calendar.html   200
+/admin/Checklist.html    /public/admin/Checklist.html   200
+/admin/DatabaseViewer.html    /public/admin/DatabaseViewer.html   200
+/admin/IncomingIngredients.html    /public/admin/IncomingIngredients.html   200
+/admin/IngredientInfo.html    /public/admin/IngredientInfo.html   200
+/admin/InventoryScanner.html    /public/admin/InventoryScanner.html   200
+/admin/InventoryUpdater.html    /public/admin/InventoryUpdater.html   200
+/admin/Invoice.html    /public/admin/Invoice.html   200
+/admin/ManufacturingInstructions.html    /public/admin/ManufacturingInstructions.html   200
+/admin/OrderTracker.html    /public/admin/OrderTracker.html   200
+/admin/OrderViewer.html    /public/admin/OrderViewer.html   200
+/admin/ProductInfo.html    /public/admin/ProductInfo.html   200
+/admin/ProductIngredientViewer.html    /public/admin/ProductIngredientViewer.html   200
+/admin/Qrcode.html    /public/admin/Qrcode.html   200
+/admin/Quoting.html    /public/admin/Quoting.html   200
+
+## Redirect admin/ paths to public/admin/
+/admin/*    /public/admin/:splat   200
+
