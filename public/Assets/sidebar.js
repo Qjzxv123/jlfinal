@@ -35,7 +35,8 @@ function renderAdminSidebar() {
       <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
       <a href="UserManagement.html" class="nav-item"><i class="cil-user"></i><span>User Management</span></a>
       <a href="/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
-    </nav>
+      <a class="nav-item" id="sidebar-signout-btn"><i class="cil-account-logout"></i><span>Sign Out</span></a>
+    </div>
   `;
   const sidebar = document.getElementById('sidebar');
   if (sidebar) {
@@ -53,6 +54,15 @@ function renderAdminSidebar() {
         link.classList.add('active');
       }
     });
+    // Add sign out button handler
+    const signOutBtn = document.getElementById('sidebar-signout-btn');
+    if (signOutBtn) {
+      signOutBtn.addEventListener('click', function() {
+        // Remove Supabase auth token and redirect
+        localStorage.removeItem('sb-ypvyrophqkfqwpefuigi-auth-token');
+        window.location.href = '/Login.html';
+      });
+    }
   }
 }
 

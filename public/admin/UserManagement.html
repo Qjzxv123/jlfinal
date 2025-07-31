@@ -76,7 +76,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-  <script src="Assets/CheckAccess.js"></script>
+  <script src="/Assets/CheckAccess.js"></script>
   <link rel="icon" type="image/x-icon" href="Assets/favicon.ico">
 </head>
 <body>
@@ -103,8 +103,6 @@
     // Access control and inactivity timeout (shared logic)
     checkPermissions(['service_role', 'employee']);
     setupInactivityTimeout(5);
-
-    const supabase = window.supabase;
     // Load users from Users table
     async function loadUsers() {
       const statusDiv = document.getElementById('status');

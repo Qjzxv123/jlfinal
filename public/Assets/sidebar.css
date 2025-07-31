@@ -35,9 +35,6 @@
 .sidebar:hover .sidebar-header h2 {
   font-size: 1.3rem;
 }
-.sidebar-nav {
-  padding: 0.5rem 0;
-}
 .nav-item {
   display: flex;
   align-items: center;
