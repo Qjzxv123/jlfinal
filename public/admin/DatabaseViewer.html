@@ -273,11 +273,7 @@
                 selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Supplier,LowInvThreshold';
             }
             try {
-                // Exclude archived=true rows if the table has an archived column
                 let query = supabase.from(tableName).select(selectString);
-                if (tableName === 'Products') {
-                    query = query.neq('Archived', true);
-                }
                 const { data, error } = await query;
                 if (error) throw error;
                 if (!data || data.length === 0) {

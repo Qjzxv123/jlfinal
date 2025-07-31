@@ -518,8 +518,14 @@
 
      function renderOrders(orders) {
       // Split orders into completed and non-completed
-      const completedOrders = orders.filter(task => (task.Progress || '').toLowerCase() === 'completed');
+      let completedOrders = orders.filter(task => (task.Progress || '').toLowerCase() === 'completed');
       const activeOrders = orders.filter(task => (task.Progress || '').toLowerCase() !== 'completed');
+      // Sort completed orders by CompletionDate descending (most recent first)
+      completedOrders = completedOrders.slice().sort((a, b) => {
+        const dateA = a.CompletionDate ? new Date(a.CompletionDate) : new Date(0);
+        const dateB = b.CompletionDate ? new Date(b.CompletionDate) : new Date(0);
+        return dateB - dateA;
+      });
 
       // Render main (active) table
       const tbody = document.getElementById('orderTableBody');
@@ -839,7 +845,7 @@
           completedTable.className = 'order-table';
           completedTable.style.display = 'none';
           completedTable.innerHTML = `
-            <thead>\n<tr>\n<th></th>\n<th id='sortCompletedOrderNumber'>Order # <span id='sortCompletedOrderNumberIcon'>⇅</span></th>\n<th>Customer/Product</th>\n<th>Progress</th>\n<th>Completion Date</th>\n</tr>\n</thead>
+            <thead>\n<tr>\n<th></th>\n<th id='sortCompletedOrderNumber'>Order #</th>\n<th>Customer/Product</th>\n<th>Progress</th>\n<th>Completion Date</th>\n</tr>\n</thead>
             <tbody id='completedOrderTableBody'></tbody>
           `;
           completedSection.appendChild(completedTable);
