@@ -4,113 +4,8 @@
   <meta charset="UTF-8">
   <title>Order Tracker</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <link rel="stylesheet" href="/Assets/sidebar.css">
   <style>
-    /* Sidebar Styles */
-    .sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 60px;
-      height: 100vh;
-      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
-      color: white;
-      z-index: 1000;
-      transition: width 0.3s ease;
-      overflow-x: hidden;
-      overflow-y: hidden;
-      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-    }
-    
-    .sidebar:hover {
-      width: 250px;
-    }
-    
-    .sidebar-header {
-      padding-top: 0.75rem;
-      border-bottom: 1px solid #34495e;
-      text-align: center;
-      white-space: nowrap;
-    }
-    
-    .sidebar-header h2 {
-      margin: 0;
-      font-size: 1rem;
-      color: #ecf0f1;
-      opacity: 1;
-      transition: opacity 0.3s ease;
-    }
-    
-    .sidebar:not(:hover) .sidebar-header h2 {
-      opacity: 0;
-    }
-    
-    .sidebar:hover .sidebar-header h2 {
-      font-size: 1.3rem;
-    }
-    
-    .sidebar-nav {
-      padding: 0.5rem 0;
-    }
-    
-    .nav-item {
-      display: flex;
-      align-items: center;
-      padding: 0.5rem;
-      color: #ecf0f1;
-      text-decoration: none;
-      transition: all 0.3s ease;
-      border-left: 3px solid transparent;
-      white-space: nowrap;
-    }
-    
-    .nav-item:hover {
-      background: rgba(255,255,255,0.1);
-      border-left-color: #4DBA93;
-      color: white;
-    }
-    
-    .nav-item.active {
-      background: rgba(77,186,147,0.2);
-      border-left-color: #4DBA93;
-      color: white;
-    }
-    
-    .nav-item i {
-      margin-right: 0.5rem;
-      width: 20px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-    
-    .nav-item span {
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    
-    .sidebar:hover .nav-item span {
-      opacity: 1;
-    }
-    
-    .sidebar:hover .nav-item {
-      padding: 0.5rem 1.5rem;
-    }
-    @media (max-width: 600px) {
-      .sidebar {
-        width: 0;
-        overflow: hidden;
-      }
-      
-      .sidebar:hover {
-        width: 250px;
-      }
-      
-      .container {
-        margin-left: 0;
-        margin: 20px 10px;
-        padding: 1rem;
-      }
-    }
-    /* End Sidebar Styles */
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
       background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
@@ -209,30 +104,8 @@
   <link rel="icon" type="image/x-icon" href="Assets/favicon.ico">
 </head>
 <body>
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <h2>J&L Tools</h2>
-    </div>
-    <nav class="sidebar-nav">
-      <a href="BatchMaker.html" class="nav-item"><i class="cil-factory"></i><span>Batch Maker</span></a>
-      <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
-      <a href="OrderTracker.html" class="nav-item active"><i class="cil-list"></i><span>Order Tracker</span></a>
-      <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
-      <a href="ProductIngredientViewer.html" class="nav-item"><i class="cil-columns"></i><span>Product Ingredients</span></a>
-      <a href="AddProductAdmin.html" class="nav-item"><i class="cil-note-add"></i><span>Add/Update Product</span></a>
-      <a href="AddIngredient.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Ingredient</span></a>
-      <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
-      <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
-      <a href="Quoting.html" class="nav-item"><i class="cil-money"></i><span>Product Quoting</span></a>
-      <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
-      <a href="DatabaseViewer.html" class="nav-item"><i class="cil-find-in-page"></i><span>Database Viewer</span></a>
-      <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
-      <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
-      <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-      <a href="UserManagement.html" class="nav-item"><i class="cil-user"></i><span>User Management</span></a>
-      <a href="/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
-    </nav>
-  </div>
+  <div id="sidebar"></div>
+  <script src="/Assets/sidebar.js"></script>
   <div class="main-content">
     <h1>Wholesale Order Tracker</h1>
     <button id="openAddOrderModalBtn" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-size:1.1rem; font-weight:600; cursor:pointer; margin-bottom:2rem;">Add New Order</button>
