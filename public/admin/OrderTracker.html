@@ -386,7 +386,7 @@
     async function fetchOrders() {
       const { data, error } = await supabase
         .from('ManufacturingTasks')
-        .select('*')
+        .select('*,Vessel')
         .order('PlannedManufactureDate', { ascending: false });
       if (error) {
         alert('Failed to fetch tasks: ' + error.message);
@@ -591,8 +591,23 @@
           }
           const batchNum = hashOrderNumber(task.OrderNumber || '');
           const instructionsBtnStyle = 'background:#9B41E5; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.4em;';
+          let vesselDataAttr = '';
+          if (task.Vessel !== undefined && task.Vessel !== null) {
+            let vesselArr = [];
+            if (Array.isArray(task.Vessel)) {
+              vesselArr = task.Vessel.filter(Boolean).map(String);
+            } else if (typeof task.Vessel === 'string') {
+              const pgArrayMatch = task.Vessel.match(/^\{(.+)\}$/);
+              if (pgArrayMatch) {
+                vesselArr = pgArrayMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+              } else {
+                vesselArr = [task.Vessel];
+              }
+            }
+            vesselDataAttr = ` data-vessel='${JSON.stringify(vesselArr)}'`;
+          }
           if (task.Progress && task.Progress.toLowerCase() === 'scheduled' && task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
-            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}" style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
+            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
           } else {
             instructionsBtn = `<span style=\"color:#888;\"></span>`;
           }
@@ -673,6 +688,15 @@
             const productSKU = btn.getAttribute('data-productsku');
             const batchtime = btn.getAttribute('data-batchtime');
             const batchSize = btn.getAttribute('data-batchsize');
+            let vesselArr = [];
+            try {
+              const vesselAttr = btn.getAttribute('data-vessel');
+              if (vesselAttr) {
+                vesselArr = JSON.parse(vesselAttr);
+              }
+            } catch (e) {
+              vesselArr = [];
+            }
             if (productSKU && batchtime && batchSize) {
               const lot = await generatelotNumber(productSKU);
               // Deterministic batch number based on order number
@@ -698,22 +722,9 @@
               if (!orderNumber) {
                 orderNumber = `${productSKU}-${batchtime}-${batchSize}`;
               }
-              // Fetch vessel from Supabase for this order
-              let vessel = '';
-              try {
-                const { data: orderData, error: vesselError } = await supabase
-                  .from('ManufacturingTasks')
-                  .select('Vessel')
-                  .eq('OrderNumber', orderNumber)
-                  .maybeSingle();
-                if (!vesselError && orderData && orderData.Vessel) {
-                  vessel = orderData.Vessel;
-                }
-              } catch (err) {
-                console.warn('Failed to fetch vessel from Supabase:', err);
-              }
               const batchNum = hashOrderNumber(orderNumber);
-              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(vessel)}`;
+              // Pass vessel as a JSON stringified array in the URL
+              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
               window.open(url, '_blank');
             }
           }
@@ -914,10 +925,20 @@
           remaining -= thisBatch;
         }
 
+        // Always store Vessel as a text[] (array) for Supabase
+        let vessels = [];
+        if (Vessel2 && Vessel2 !== '') {
+          vessels = [Vessel, Vessel2];
+        } else {
+          vessels = [Vessel];
+        }
+        // Ensure vessels is always an array of strings
+        vessels = vessels.filter(Boolean).map(String);
+
         // Schedule the first batch (update current order)
         const { error } = await supabase
           .from('ManufacturingTasks')
-          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, Vessel: vessels[0], Quantity: batches[0] })
+          .update({ Progress: 'scheduled', PlannedManufactureDate: plannedDate, Vessel: vessels, Quantity: batches[0] })
           .eq('OrderNumber', orderId);
         let modalResults = [];
         if (error) {
@@ -1098,6 +1119,9 @@
         }
         for (let i = 1; i < batches.length; ++i) {
           const newOrderNumber = `${baseOrderNumber}-${i+1}`;
+          // For each batch, assign the corresponding vessel as a single-element array
+          let vesselArr = [vessels[i] || vessels[0]];
+          vesselArr = vesselArr.filter(Boolean).map(String);
           await supabase
             .from('ManufacturingTasks')
             .insert([{
@@ -1106,7 +1130,7 @@
               Quantity: batches[i],
               Progress: 'scheduled',
               PlannedManufactureDate: plannedDate,
-              Vessel: vessels[i],
+              Vessel: vesselArr,
               Customer: customerValue,
               UserID: userIdValue
             }]);
