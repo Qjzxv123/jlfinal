@@ -4,87 +4,8 @@
   <meta charset="UTF-8">
   <title>Order Progress Tracker</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <link rel="stylesheet" href="/Assets/sidebar.css">
   <style>
-            /* Sidebar Styles */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 60px;
-            height: 100vh;
-            background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
-            color: white;
-            z-index: 1000;
-            transition: width 0.3s ease;
-            overflow-x: hidden;
-            overflow-y: hidden;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-        }
-        .sidebar:hover {
-            width: 250px;
-        }
-        .sidebar-header {
-            padding: 0.75rem;
-            border-bottom: 1px solid #34495e;
-            text-align: center;
-            white-space: nowrap;
-        }
-        .sidebar-header h2 {
-            margin: 0;
-            font-size: 1rem;
-            color: #ecf0f1;
-            opacity: 1;
-            transition: opacity 0.3s ease;
-        }
-        .sidebar:not(:hover) .sidebar-header h2 {
-            opacity: 0;
-        }
-        .sidebar:hover .sidebar-header h2 {
-            font-size: 1.3rem;
-        }
-        .sidebar-nav {
-            padding: 0.5rem 0;
-        }
-        .nav-item {
-            display: flex;
-            align-items: center;
-            padding: 0.75rem;
-            color: #ecf0f1;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            border-left: 3px solid transparent;
-            white-space: nowrap;
-        }
-        .nav-item:hover {
-            background: rgba(255,255,255,0.1);
-            border-left-color: #4DBA93;
-            color: white;
-        }
-        .nav-item.active {
-            background: rgba(77,186,147,0.2);
-            border-left-color: #4DBA93;
-            color: white;
-        }
-        .nav-item i {
-            margin-right: 0.5rem;
-            width: 20px;
-            text-align: center;
-            flex-shrink: 0;
-        }
-        .nav-item span {
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        .nav-item i {
-            opacity: 1 !important;
-            transition: opacity 0.3s ease;
-        }
-        .sidebar:hover .nav-item span {
-            opacity: 1;
-        }
-        .sidebar:hover .nav-item {
-            padding: 0.75rem 1.5rem;
-        }
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
       background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
@@ -175,24 +96,8 @@
 </head>
 <body>
     <!-- Sidebar -->
-    <div id="sidebar">
-      <div class="sidebar-header">
-        <h2>J&L Tools</h2>
-    </div>
-      <nav class="sidebar-nav">
-        <a href="ecommerce-oauth.html" class="nav-item"><i class="cil-basket"></i><span>Onboard Stores</span></a>
-        <a href="InventoryViewer.html" class="nav-item"><i class="cil-storage"></i><span>Inventory Viewer</span></a>
-        <a href="CustomerOrders.html" class="nav-item"><i class="cil-user"></i><span>Customer Orders</span></a>
-        <a href="AddProduct.html" class="nav-item"><i class="cil-plus"></i><span>Add Product</span></a>
-        <a href="CustomerOrderView.html" class="nav-item active"><i class="cil-bullhorn"></i><span>Order Requester</span></a>
-        <a href="CustomerChecklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-        <a href="admin/OrderViewer.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>
-      </nav>
-      <div id="sidebar-signout" style="position: absolute; bottom: 24px; left: 0; width: 100%; text-align: left;">
-        <a href="privacy.html" class="nav-item" style="width:90%;margin:0 auto;justify-content:left;align-items:center;"><i class="cil-lock-locked"></i><span>Privacy Policy</span></a>
-        <a id="sign-out-btn" class="nav-item" style="width:90%;margin:0 auto;display:none;justify-content:center;align-items:center;cursor:pointer;"><i class="cil-account-logout"></i><span>Sign Out</span></a>
-      </div>
-    </div>
+    <div id="sidebar"></div></div>
+  <script src="/Assets/customer-sidebar.js"></script>
   <div class="main-content">
     <h1>Your Order Progress</h1>
     <form id="requestOrderForm" class="styled-request-form">
