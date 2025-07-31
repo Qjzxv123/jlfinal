@@ -74,14 +74,3 @@
 .sidebar:hover .nav-item {
   padding: 0.5rem 1.5rem;
 }
-@media (max-width: 800px) {
-  .sidebar {
-    width: 60px;
-    min-width: 60px;
-    overflow-x: visible;
-    overflow-y: auto;
-  }
-  .sidebar:hover {
-    width: 250px;
-  }
-}
