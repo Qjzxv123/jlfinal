@@ -1290,7 +1290,7 @@
                 }
                 modalResults.push(rowStatus);
               }
-              // Also decrement 1 from each IngredientSKU in ContainerSKUs
+              // Also decrement 1 from each IngredientSKU in ContainerSKUs and log to IngredientLog
               if (productData && productData.ContainerSKUs && Array.isArray(productData.ContainerSKUs)) {
                 for (const containerSKU of productData.ContainerSKUs) {
                   try {
@@ -1306,6 +1306,15 @@
                         .from('Ingredients')
                         .update({ "Quantity(Lbs/Units)": newQty })
                         .eq('IngredientSKU', containerSKU);
+                      // Log to IngredientLog
+                      const logEntry = {
+                        ChangeTime: new Date().toISOString(),
+                        IngredientSKU: containerSKU,
+                        QuantityChanged: -1,
+                        Updated_By: updatedBy,
+                        Log: `Removed 1 from ${containerSKU} (container) for scheduled order ${orderDetails.OrderNumber}`
+                      };
+                      await supabase.from('IngredientLog').insert([logEntry]);
                       if (!updateError) {
                         modalResults.push({ sku: containerSKU, status: 'success', message: `Container ${containerSKU}: ${currentQty} → ${newQty}` });
                       } else {
