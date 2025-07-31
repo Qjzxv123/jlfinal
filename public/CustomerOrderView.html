@@ -170,6 +170,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/Assets/CheckAccess.js"></script>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
@@ -226,53 +227,25 @@
     <div id="completedOrdersSection" style="margin-top:2.5em;"></div>
   </div>
   <script>
-    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        session: { maxAge: 600 }
-      }
+      checkPermissions(['customer', 'service_role']);
+      setupInactivityTimeout(10);
+      populateProductDropdown();
+      loadOrders();
+    // Sign out button handler (use shared supabase instance)
+    document.addEventListener('DOMContentLoaded', function() {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          document.getElementById('sign-out-btn').style.display = 'inline-block';
+        } else {
+          document.getElementById('sign-out-btn').style.display = 'none';
+        }
+      });
+      document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
+        e.preventDefault();
+        await supabase.auth.signOut();
+        window.location.reload();
+      });
     });
-    // Check login and user role, redirect NewUser to PendingApproval.html
-    async function checkLoginAndShowUI() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = 'Login.html?redirect=CustomerOrderView.html';
-        return false;
-      }
-      const user = session.user;
-      let role = null;
-      if (user && user.user_metadata && user.user_metadata.role) {
-        role = user.user_metadata.role;
-      }
-      if (role === 'newuser') {
-        window.location.href = 'PendingApproval.html';
-        return false;
-      }else if (role==="employee"){
-        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins and Clients only</div>';
-        throw new Error('Not admin or client');
-      }
-      return true;
-    }
-      // Sign out button handler
-        document.addEventListener('DOMContentLoaded', function() {
-            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            supabase.auth.getSession().then(({ data: { session } }) => {
-                if (session) {
-                    document.getElementById('sign-out-btn').style.display = 'inline-block';
-                } else {
-                    document.getElementById('sign-out-btn').style.display = 'none';
-                }
-            });
-            document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
-                e.preventDefault();
-                await supabase.auth.signOut();
-                window.location.reload();
-            });
-        });
     async function getCurrentUserID() {
       const { data: { session } } = await supabase.auth.getSession();
       return session.user.id;
@@ -480,15 +453,6 @@
         alert('Order request submitted!');
       }
     };
-
-    // Initial load with login check
-    (async () => {
-      const ok = await checkLoginAndShowUI();
-      if (ok) {
-        populateProductDropdown();
-        loadOrders();
-      }
-    })();
   </script>
 </body>
 </html>

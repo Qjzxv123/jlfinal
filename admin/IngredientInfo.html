@@ -51,6 +51,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <!-- Chart.js for cost graph -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 </head>
 <body>
   <div class="Ingredient-container" id="IngredientContainer">
@@ -58,38 +59,11 @@
     <div class="Ingredient-sku" id="skuDisplay"></div>
     <div class="Ingredient-details" id="IngredientDetails">Loading...</div>
   </div>
+      // Inactivity timeout and access control via CheckAccess.js
+  <script src="/Assets/CheckAccess.js"></script>
   <script>
-    // Supabase config
-    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        session: { maxAge: 600 }
-      }
-    });
-        // Inactivity timeout: sign out and redirect after 10 minutes of inactivity
-        (function setupInactivityTimeout() {
-            const TIMEOUT_MINUTES = 10;
-            const TIMEOUT_MS = TIMEOUT_MINUTES * 60 * 1000;
-            let inactivityTimer = null;
-            function resetInactivityTimer() {
-                if (inactivityTimer) clearTimeout(inactivityTimer);
-                inactivityTimer = setTimeout(async () => {
-                    // Sign out and redirect to login
-                    await supabase.auth.signOut();
-                    alert('You have been signed out due to inactivity.');
-                    window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
-                }, TIMEOUT_MS);
-            }
-            // Reset timer on user activity
-            ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(evt => {
-                window.addEventListener(evt, resetInactivityTimer, true);
-            });
-            resetInactivityTimer();
-        })();
+    checkPermissions(['service_role','client','employee']);
+    setupInactivityTimeout(10);
     // Get SKU from URL
     function getSKUFromURL() {
       const params = new URLSearchParams(window.location.search);

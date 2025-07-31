@@ -181,7 +181,7 @@
     <div class="container">
       <h1>Onboard Your Store</h1>
       <div id="user-info" style="margin-bottom: 1rem; display:none;"></div>
-      <div id="platform-oauth" style="display:none;">
+      <div id="platform-oauth">
         <button id="faire-btn">Connect Faire</button>
         <div style="margin: 24px 0;">
           <input id="shopify-domain" type="text" placeholder="your-store.myshopify.com" />
@@ -191,71 +191,30 @@
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-  <script type="module">
-const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        session: { maxAge: 600 }
-      }
-    });
-const userInfoDiv = document.getElementById('user-info');
-const platformOAuthDiv = document.getElementById('platform-oauth');
+  <script src="/Assets/CheckAccess.js"></script>
+  <script>
 
-async function checkLoginAndShowUI() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
-    return;
-  }else{
-    const role = user?.user_metadata?.role;
-        if (role === 'newuser') {
-            window.location.href = 'PendingApproval.html';
-              return;
-      }else if (role==="employee"){
-        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins and Clients only</div>';
-        throw new Error('Not admin or client');
-      }
-  }
-  // Only show platform OAuth buttons if logged in
-  platformOAuthDiv.style.display = '';
-}
+checkPermissions(['customer', 'service_role']);
+setupInactivityTimeout(10);
 
-checkLoginAndShowUI();
-
-function requireLogin(action) {
-  return async function(...args) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
-      return;
-    }
-    action(...args);
-  };
-}
-
-// Only support Faire and Shopify OAuth
+// Only support Faire, Etsy, and Shopify OAuth
 async function startOAuth(provider) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    alert('You must be logged in.');
+    window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
     return;
   }
   // Use display_name from user_metadata
-  console.log(user.user_metadata);
   const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
   const stateObj = { user_id: user.id, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
   const state = btoa(JSON.stringify(stateObj));
   window.location.href = `/.netlify/functions/${provider}-oauth-start?state=${encodeURIComponent(state)}`;
 }
 
-document.getElementById('faire-btn').onclick = requireLogin(() => startOAuth('faire'));
-document.getElementById('etsy-btn').onclick = requireLogin(() => startOAuth('etsy'));
+document.getElementById('faire-btn').onclick = () => startOAuth('faire');
+document.getElementById('etsy-btn').onclick = () => startOAuth('etsy');
 // Shopify: Use input value for domain
-document.getElementById('shopify-btn').onclick = requireLogin(async () => {
+document.getElementById('shopify-btn').onclick = async () => {
   let domain = document.getElementById('shopify-domain').value.trim();
   if (!domain) {
     alert('Please enter your Shopify domain.');
@@ -269,15 +228,14 @@ document.getElementById('shopify-btn').onclick = requireLogin(async () => {
   }
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    alert('You must be logged in.');
+    window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
     return;
   }
-  // Use display_name from user_metadata
-  const displayName = user.user_metadata.display_name || user.email;
+  const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
   const stateObj = { user_id: user.id, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
   const state = btoa(JSON.stringify(stateObj));
   window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(domain)}&state=${encodeURIComponent(state)}`;
-});
+};
 
 // Sign out button handler
 supabase.auth.getSession().then(({ data: { session } }) => {

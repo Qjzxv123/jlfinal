@@ -182,14 +182,7 @@
         .btn-danger:hover {
             background: #c82333;
         }
-        
-        #message {
-            margin: 1rem 0 0.5rem 0;
-            min-height: 1.5rem;
-            font-size: 1rem;
-            text-align: center;
-        }
-        
+
         #data-viewer {
             margin-top: 1.5rem;
             background: #f8fafc;
@@ -461,6 +454,7 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/Assets/CheckAccess.js"></script>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
@@ -490,9 +484,7 @@
     <div class="main-content" id="mainContent">
         <div id="main-container">
             <h2>Customer Order Management</h2>
-            <div id="message"></div>
-            <!-- Order Management Interface (hidden until authenticated) -->
-            <div id="order-interface" style="display:none;">
+            <div id="order-interface">
                 <h3>Your Active Orders</h3>
                 <div id="active-orders-viewer"></div>
                 <h3 style="margin-top:2.5rem;">Order History</h3>
@@ -566,22 +558,10 @@
     </div>
 
     <script>
-// checkLoginAndShowUI and Supabase client already declared above, do not redeclare
-        // Replace with your Supabase project URL and  key
-       const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        session: { maxAge: 600 }
-      }
-    });
-        const message = document.getElementById('message');
-        const orderInterface = document.getElementById('order-interface');
-        let currentUser = null;
-
+// Access control and inactivity timeout (shared logic)
+    checkPermissions(['service_role', 'client']);
+    setupInactivityTimeout(10);
+    fetchActiveOrders();
         // Format date for display
         function formatDate(dateString) {
             if (!dateString) return 'N/A';
@@ -785,7 +765,6 @@
                         console.warn('Failed to parse Customer for order', data.OrderID, '- Error:', e.message, '- Raw value:', data.Customer);
                         customer = {};
                     }
-                    
                     let items = [];
                     try {
                         if (Array.isArray(data.Items)) {
@@ -1071,7 +1050,7 @@ Notes: ${data.Notes || 'None'}
                         (currentOrderItems[existingItemIndex].Quantity || currentOrderItems[existingItemIndex].quantity || 0) + itemQuantity;
                 }
             } else {
-                // Add new i`tem
+                // Add new item
                 const newItem = {
                     SKU: productData.SKU,
                     Name: productData.Name,
@@ -1101,36 +1080,8 @@ Notes: ${data.Notes || 'None'}
             closeAddNoteModal();
         });
 
-        // Check login and user role, redirect NewUser to PendingApproval.html
-        async function checkLoginAndShowUI() {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                window.location.href = 'Login.html?redirect=CustomerOrders.html';
-                return;
-            }
-            currentUser = session.user;
-            // Check user role in metadata
-            let role = null;
-            if (currentUser && currentUser.user_metadata && currentUser.user_metadata.role) {
-                role = currentUser.user_metadata.role;
-            }
-            if (role === 'newuser') {
-                window.location.href = 'PendingApproval.html';
-                return;
-            }else if (role==="employee"){
-        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins and Clients only</div>';
-        throw new Error('Not admin or client');
-      }
-            document.getElementById('order-interface').style.display = 'block';
-            document.getElementById('message').style.display = 'none';
-            fetchActiveOrders();
-        }
-
-        window.addEventListener('DOMContentLoaded', checkLoginAndShowUI);
-
-        // Sign out button handler
+        // Sign out button handler (use shared supabase instance)
         document.addEventListener('DOMContentLoaded', function() {
-            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             supabase.auth.getSession().then(({ data: { session } }) => {
                 if (session) {
                     document.getElementById('sign-out-btn').style.display = 'inline-block';

@@ -136,6 +136,7 @@
     .checklist-table td.incomplete { background: #fee2e2; color: #b91c1c; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/Assets/CheckAccess.js"></script>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
   <body>
@@ -221,67 +222,26 @@
     </div>
   </div>
   <script>
-    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        session: { maxAge: 600 }
-      }
+    // Access control and inactivity timeout (shared logic)
+    checkPermissions(['service_role', 'client']);
+    setupInactivityTimeout(10);
+    loadChecklist();
+    
+    // Sign out button handler (use shared supabase instance)
+    document.addEventListener('DOMContentLoaded', function() {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          document.getElementById('sign-out-btn').style.display = 'inline-block';
+        } else {
+          document.getElementById('sign-out-btn').style.display = 'none';
+        }
+      });
+      document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
+        e.preventDefault();
+        await supabase.auth.signOut();
+        window.location.reload();
+      });
     });
-    async function checkLoginAndShowUI() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        window.location.href = 'Login.html?redirect=CustomerChecklist.html';
-        return;
-      }
-      const role = user?.user_metadata?.role;
-      if (role === 'newuser') {
-        window.location.href = 'PendingApproval.html';
-        return;
-      }
-      // Show checklist UI
-      document.querySelector('.main-content').style.display = 'block';
-      loadChecklist();
-    }
-            // Inactivity timeout: sign out and redirect after 10 minutes of inactivity
-        (function setupInactivityTimeout() {
-            const TIMEOUT_MINUTES = 10;
-            const TIMEOUT_MS = TIMEOUT_MINUTES * 60 * 1000;
-            let inactivityTimer = null;
-            function resetInactivityTimer() {
-                if (inactivityTimer) clearTimeout(inactivityTimer);
-                inactivityTimer = setTimeout(async () => {
-                    // Sign out and redirect to login
-                    await supabase.auth.signOut();
-                    alert('You have been signed out due to inactivity.');
-                    window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
-                }, TIMEOUT_MS);
-            }
-            // Reset timer on user activity
-            ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(evt => {
-                window.addEventListener(evt, resetInactivityTimer, true);
-            });
-            resetInactivityTimer();
-        })();
-  // Sign out button handler
-        document.addEventListener('DOMContentLoaded', function() {
-            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            supabase.auth.getSession().then(({ data: { session } }) => {
-                if (session) {
-                    document.getElementById('sign-out-btn').style.display = 'inline-block';
-                } else {
-                    document.getElementById('sign-out-btn').style.display = 'none';
-                }
-            });
-            document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
-                e.preventDefault();
-                await supabase.auth.signOut();
-                window.location.reload();
-            });
-        });
     async function getCurrentUserID() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return null;
@@ -459,9 +419,6 @@
         loadChecklist();
       }
     };
-
-    // Initial load
-    window.addEventListener('DOMContentLoaded', checkLoginAndShowUI);
-  </script>
+</script>
 </body>
 </html>

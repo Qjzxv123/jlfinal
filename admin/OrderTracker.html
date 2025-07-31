@@ -205,6 +205,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/Assets/CheckAccess.js"></script>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
@@ -303,47 +304,9 @@
     <!-- Customer View Link removed -->
   </div>
   <script>
-    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        session: { maxAge: 600 }
-      }
-    });
-    // Check login and redirect to Login.html if not authenticated, with redirect param
-    async function checkLoginAndRedirect() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // Redirect to Login.html, with redirect back to this page after login
-        const currentPath = window.location.pathname.replace(/^\//, '');
-        window.location.href = `Login.html?redirect=${encodeURIComponent(currentPath)}`;
-        return false;
-      }
-      return true;
-    }
-        // Inactivity timeout: sign out and redirect after 10 minutes of inactivity
-        (function setupInactivityTimeout() {
-            const TIMEOUT_MINUTES = 10;
-            const TIMEOUT_MS = TIMEOUT_MINUTES * 60 * 1000;
-            let inactivityTimer = null;
-            function resetInactivityTimer() {
-                if (inactivityTimer) clearTimeout(inactivityTimer);
-                inactivityTimer = setTimeout(async () => {
-                    // Sign out and redirect to login
-                    await supabase.auth.signOut();
-                    alert('You have been signed out due to inactivity.');
-                    window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
-                }, TIMEOUT_MS);
-            }
-            // Reset timer on user activity
-            ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(evt => {
-                window.addEventListener(evt, resetInactivityTimer, true);
-            });
-            resetInactivityTimer();
-        })();
+    // Access control and inactivity timeout
+    checkPermissions(['service_role', 'employee']);
+    setupInactivityTimeout(10);
     // Fetch display names and subs from auth.users
     // Fetch user_keys from oauth_tokens table
     async function fetchUserKeys() {
@@ -1671,16 +1634,10 @@
     document.getElementById('sortInstructions').onclick = () => sortOrdersBy('Instructions');
     document.getElementById('sortDeadline').onclick = () => sortOrdersBy('Deadline');
 
-    // Initial load: check login first
-    (async () => {
-      const loggedIn = await checkLoginAndRedirect();
-      if (!loggedIn) return;
-      await Promise.all([
-        populateCustomerDropdown(),
-        populateProductDropdown()
-      ]);
-      await loadOrders();
-    })();
+// Initial load
+populateCustomerDropdown();
+populateProductDropdown();
+loadOrders();
   </script>
 </body>
 </html>

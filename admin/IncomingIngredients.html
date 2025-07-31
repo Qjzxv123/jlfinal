@@ -571,7 +571,12 @@
       }
     }
   </style>
-  <script type="module">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+  <script>
+    // Use shared admin check and inactivity timeout
+      checkPermissions(['service_role']);
+      setupInactivityTimeout(10);
     // Print a 3x5 label with SKU, expiry, and lot number
     function printLabel(sku, expiry, lot) {
       let labelContainer = document.getElementById('labelContainer');
@@ -604,7 +609,7 @@
       skuDiv.style.fontWeight = 'bold';
       skuDiv.style.marginTop = '1rem';
       skuDiv.style.marginBottom = '1.2rem';
-      skuDiv.textContent = `${sku}`;
+      skuDiv.textContent = sku;
       leftDiv.appendChild(skuDiv);
       const rightDiv = document.createElement('div');
       rightDiv.style.flex = '2';
@@ -615,69 +620,23 @@
       const expiryDiv = document.createElement('div');
       expiryDiv.style.fontSize = '2.2rem';
       expiryDiv.style.marginBottom = '1.2rem';
-      expiryDiv.textContent = `Expiry: ${expiry}`;
+      expiryDiv.textContent = 'Expiry: ' + expiry;
       rightDiv.appendChild(expiryDiv);
       const lotDiv = document.createElement('div');
       lotDiv.style.fontSize = '2.2rem';
-      lotDiv.textContent = `Lot: ${lot}`;
+      lotDiv.textContent = 'Lot: ' + lot;
       rightDiv.appendChild(lotDiv);
       labelDiv.appendChild(leftDiv);
       labelDiv.appendChild(rightDiv);
       labelContainer.appendChild(labelDiv);
-      setTimeout(() => {
+      setTimeout(function() {
         window.print();
         labelContainer.innerHTML = '';
       }, 500);
     }
     // Expose printLabel globally for inline onclick usage
     window.printLabel = printLabel;
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-    
-  const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        session: { maxAge: 600 }
-      }
-    });
-            // Inactivity timeout: sign out and redirect after 10 minutes of inactivity
-        (function setupInactivityTimeout() {
-            const TIMEOUT_MINUTES = 10;
-            const TIMEOUT_MS = TIMEOUT_MINUTES * 60 * 1000;
-            let inactivityTimer = null;
-            function resetInactivityTimer() {
-                if (inactivityTimer) clearTimeout(inactivityTimer);
-                inactivityTimer = setTimeout(async () => {
-                    // Sign out and redirect to login
-                    await supabase.auth.signOut();
-                    alert('You have been signed out due to inactivity.');
-                    window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
-                }, TIMEOUT_MS);
-            }
-            // Reset timer on user activity
-            ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(evt => {
-                window.addEventListener(evt, resetInactivityTimer, true);
-            });
-            resetInactivityTimer();
-        })();
-    async function checkAdmin() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
-        return;
-      }
-      const { data: { user } } = await supabase.auth.getUser();
-      // Adjust this check to match your Supabase user admin logic
-      if (!user || !user.user_metadata || user.user_metadata.role !== 'service_role') {
-        console.log(user.user_metadata);
-        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins only</div>';
-        throw new Error('Not admin');
-      }
-    }
-    checkAdmin();
+
     let allIngredients = [];
     let orderRows = [];
     let pendingOrders = [];

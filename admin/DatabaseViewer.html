@@ -179,6 +179,7 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+    <script src="/Assets/CheckAccess.js"></script>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
@@ -222,70 +223,28 @@
             <div style="margin-bottom: 12px;">
                 <label style="font-weight:500;">
                     <input type="checkbox" id="lowInvFilter" style="margin-right:6px;vertical-align:middle;" />
-                    Show only low inventory (Quantity < LowInvThreshold)
+                    Show only low inventory
                 </label>
             </div>
             <div id="ingredientsTable"></div>
         </div>
     </div>
     <script>
-        const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        session: { maxAge: 600 }
-      }
-    });
-            // Inactivity timeout: sign out and redirect after 10 minutes of inactivity
-        (function setupInactivityTimeout() {
-            const TIMEOUT_MINUTES = 10;
-            const TIMEOUT_MS = TIMEOUT_MINUTES * 60 * 1000;
-            let inactivityTimer = null;
-            function resetInactivityTimer() {
-                if (inactivityTimer) clearTimeout(inactivityTimer);
-                inactivityTimer = setTimeout(async () => {
-                    // Sign out and redirect to login
-                    await supabase.auth.signOut();
-                    alert('You have been signed out due to inactivity.');
-                    window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
-                }, TIMEOUT_MS);
-            }
-            // Reset timer on user activity
-            ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(evt => {
-                window.addEventListener(evt, resetInactivityTimer, true);
-            });
-            resetInactivityTimer();
-        })();
-    async function checkAdmin() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
-        return;
-      }
-      const { data: { user } } = await supabase.auth.getUser();
-      // Adjust this check to match your Supabase user admin logic
-      if (!user || !user.user_metadata || user.user_metadata.role !== 'service_role') {
-        console.log(user.user_metadata);
-        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins only</div>';
-        throw new Error('Not admin');
-      }
-    }
-    checkAdmin();
+    // Use shared admin check and inactivity timeout
+    checkPermissions(['service_role', 'employee']);
+    setupInactivityTimeout(10);
 
-        // Store all data for filtering
-        let allProductsData = [];
-        let allIngredientsData = [];
+    // Store all data for filtering
+    let allProductsData = [];
+    let allIngredientsData = [];
 
-        async function fetchAndDisplayTable(tableName, containerId, searchTerm = '', ingredientLowInvOnly = false) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '<div class="loading">Loading...</div>';
-            // Define columns to request and display for each table
-            let columns = [];
-            let selectString = '*';
-            if (tableName === 'Products') {
+    async function fetchAndDisplayTable(tableName, containerId, searchTerm = '', ingredientLowInvOnly = false) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '<div class="loading">Loading...</div>';
+        // Define columns to request and display for each table
+        let columns = [];
+        let selectString = '*';
+        if (tableName === 'Products') {
                 columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'Pack Size', 'Quantity'];
                 selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)","Pack Size",Quantity';
             } else if (tableName === 'Ingredients') {

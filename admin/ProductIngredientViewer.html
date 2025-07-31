@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR Code Generator</title>
+  <title>Product Ingredients</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
@@ -36,7 +34,7 @@
     }
     textarea {
       width: 100%;
-      min-height: 100px;
+      min-height: 60px;
       border-radius: 6px;
       border: 1px solid #cbd5e1;
       padding: 0.5rem;
@@ -201,6 +199,22 @@
       font-style: italic;
       padding: 2rem;
     }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1.5rem;
+      background: #f8fafc;
+    }
+    th, td {
+      border: 1px solid #e2e8f0;
+      padding: 8px 10px;
+      text-align: left;
+      font-size: 15px;
+    }
+    th {
+      background: #e9ecef;
+      font-weight: bold;
+    }
     .error {
       color: #b91c1c;
       font-weight: 500;
@@ -210,60 +224,6 @@
       color: #228B22;
       font-weight: 500;
       margin-bottom: 1rem;
-    }
-    /* Styles for printable labels */
-    .label-container {
-      display: none; /* Hide by default */
-      width: 100%;
-      padding: 10mm; /* Adjust padding for label size */
-      box-sizing: border-box;
-    }
-    .label {
-      width: 100mm; /* Adjust label width */
-      height: 50mm; /* Adjust label height */
-      border: 1px solid #000; /* Optional: border for visual separation */
-      padding: 5mm; /* Padding inside the label */
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      page-break-after: always; /* Ensure each label is on a new page */
-    }
-    .label-top {
-      display: flex;
-      align-items: flex-start;
-    }
-    .qrcode {
-      width: 40mm; /* Adjust QR code size */
-      height: 40mm; /* Adjust QR code size */
-      margin-right: 5mm;
-    }
-    .product-details {
-      flex-grow: 1;
-      border-left: 1px solid #000; /* Line separator */
-      padding-left: 5mm;
-      font-size: 12px;
-    }
-    .product-details div {
-      margin-bottom: 3px;
-    }
-    .sku-bottom {
-      text-align: center;
-      font-size: 50px;
-      font-weight: bold;
-      margin-top: 5mm;
-    }
-    /* Print styles */
-    @media print {
-      body > *:not(.label-container) { /* Hide everything except the label container */
-        display: none !important;
-      }
-      .label-container {
-        display: block; /* Show the label container for printing */
-      }
-      .label {
-        border: none; /* Remove border for printing if not needed */
-      }
     }
     /* Sidebar Styles */
     .sidebar {
@@ -370,8 +330,75 @@
         padding: 1rem;
       }
     }
+    /* End Sidebar Styles */
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0;
+      top: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.4);
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 2rem 2.5rem;
+      border-radius: 12px;
+      max-width: 350px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      position: relative;
+    }
+    .modal-header {
+      margin-top: 0;
+      margin-bottom: 1.2rem;
+      color: #2c3e50;
+      font-size: 1.2rem;
+      font-weight: 500;
+    }
+    .modal-label {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    .modal-input {
+      width: 100%;
+      margin-top: 6px;
+      margin-bottom: 14px;
+      padding: 0.5rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    .modal-button {
+      background: #4DBA93;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-top: 10px;
+    }
+    .modal-button:hover {
+      background: #388e6c;
+    }
+    .modal-status {
+      font-size: 0.98rem;
+      margin-bottom: 10px;
+    }
+    /* End Modal Styles */
   </style>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
   <!-- Sidebar -->
@@ -384,11 +411,11 @@
       <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
       <a href="OrderTracker.html" class="nav-item"><i class="cil-list"></i><span>Order Tracker</span></a>
       <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
-      <a href="ProductIngredientViewer.html" class="nav-item"><i class="cil-columns"></i><span>Product Ingredients</span></a>
+      <a href="ProductIngredientViewer.html" class="nav-item active"><i class="cil-columns"></i><span>Product Ingredients</span></a>
       <a href="AddProductAdmin.html" class="nav-item"><i class="cil-note-add"></i><span>Add/Update Product</span></a>
       <a href="AddIngredient.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Ingredient</span></a>
       <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
-      <a href="Qrcode.html" class="nav-item active"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
+      <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
       <a href="Quoting.html" class="nav-item"><i class="cil-money"></i><span>Product Quoting</span></a>
       <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
       <a href="DatabaseViewer.html" class="nav-item"><i class="cil-find-in-page"></i><span>Database Viewer</span></a>
@@ -399,9 +426,8 @@
       <a href="/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
     </nav>
   </div>
-
   <div class="container">
-    <h1>QR Code Generator</h1>
+    <h1>Product Ingredients</h1>
     
     <div class="product-selection-container">
       <label for="productSearch">Search and Select Products:</label>
@@ -411,67 +437,20 @@
       </div>
       
       <div class="selected-products">
-        <h3>Selected Products for QR Code Generation:</h3>
+        <h3>Selected Products for Ingredient Analysis:</h3>
         <div id="selectedProductsList">
           <div class="empty-selection">No products selected. Search and select products above.</div>
         </div>
       </div>
     </div>
     
-    <button onclick="generateQRCodes()">Generate & Print QR Codes</button>
+    <button onclick="fetchIngredients()">Compile Ingredient Table</button>
     <div id="output"></div>
   </div>
-
-  <!-- Hidden container for labels to be printed -->
-  <div id="labelContainer" class="label-container"></div>
-
   <script>
-    // Supabase config (replace with your own if needed)
-    const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        session: { maxAge: 600 }
-      }
-    });
-    async function checkAdmin() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
-        return;
-      }
-      const { data: { user } } = await supabase.auth.getUser();
-      // Adjust this check to match your Supabase user admin logic
-       if (!user || !user.user_metadata || (user.user_metadata.role !== 'service_role' && user.user_metadata.role !== 'employee')) {
-        console.log(user.user_metadata);
-        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins and Employees only</div>';
-        throw new Error('Not admin or employee');
-      }
-    }
-    checkAdmin();
-            // Inactivity timeout: sign out and redirect after 10 minutes of inactivity
-        (function setupInactivityTimeout() {
-            const TIMEOUT_MINUTES = 10;
-            const TIMEOUT_MS = TIMEOUT_MINUTES * 60 * 1000;
-            let inactivityTimer = null;
-            function resetInactivityTimer() {
-                if (inactivityTimer) clearTimeout(inactivityTimer);
-                inactivityTimer = setTimeout(async () => {
-                    // Sign out and redirect to login
-                    await supabase.auth.signOut();
-                    alert('You have been signed out due to inactivity.');
-                    window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
-                }, TIMEOUT_MS);
-            }
-            // Reset timer on user activity
-            ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(evt => {
-                window.addEventListener(evt, resetInactivityTimer, true);
-            });
-            resetInactivityTimer();
-        })();
+    // Access control and inactivity timeout (shared logic)
+    checkPermissions(['service_role', 'employee']);
+    setupInactivityTimeout(10);
     let allProducts = [];
     let selectedProducts = new Map(); // SKU -> {product, quantity}
 
@@ -621,85 +600,103 @@
       listContainer.innerHTML = listHTML;
     }
 
-    async function generateQRCodes() {
+    async function fetchIngredients() {
       const output = document.getElementById('output');
-      const labelContainer = document.getElementById('labelContainer');
       output.innerHTML = '';
-      labelContainer.innerHTML = ''; // Clear previous labels
-
+      
       if (selectedProducts.size === 0) {
-        output.innerHTML = '<div class="error">Please select at least one product to generate QR codes.</div>';
+        output.innerHTML = '<div class="error">Please select at least one product to analyze ingredients.</div>';
         return;
       }
 
-      output.innerHTML = '<div class="info">Generating QR codes...</div>';
+      // Convert selected products to the format expected by the original function
+      const skuQtyList = Array.from(selectedProducts.entries()).map(([sku, {product, quantity}]) => ({
+        sku: sku,
+        qty: quantity
+      }));
 
-      let generatedCount = 0;
-
-      for (const [sku, {product, quantity}] of selectedProducts.entries()) {
-        const productName = product.Name || 'N/A';
-        const Retailer = product.Retailer || 'N/A';
-        const packSize = product['Pack Size'] ? `Pack Size: ${product['Pack Size']}` : '';
-
-        for (let i = 0; i < quantity; i++) {
-          const labelDiv = document.createElement('div');
-          labelDiv.classList.add('label');
-
-          const topDiv = document.createElement('div');
-          topDiv.classList.add('label-top');
-
-          const qrcodeDiv = document.createElement('div');
-          qrcodeDiv.classList.add('qrcode');
-          topDiv.appendChild(qrcodeDiv);
-
-          const detailsDiv = document.createElement('div');
-          detailsDiv.classList.add('product-details');
-          detailsDiv.innerHTML = `
-            <div><strong>Name:</strong> ${productName}</div>
-            <div><strong>Retailer:</strong> ${Retailer}</div>
-            ${packSize ? `<div><strong>${packSize}</strong></div>` : ''}
-          `;
-          topDiv.appendChild(detailsDiv);
-
-          labelDiv.appendChild(topDiv);
-
-          const skuBottomDiv = document.createElement('div');
-          skuBottomDiv.classList.add('sku-bottom');
-          skuBottomDiv.textContent = sku;
-          labelDiv.appendChild(skuBottomDiv);
-
-          labelContainer.appendChild(labelDiv);
-
-          // Generate QR code after appending to DOM
-          new QRCode(qrcodeDiv, {
-            text: sku,
-            width: 150, // Adjust size as needed
-            height: 150,
-            colorDark : "#000000",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.H
-          });
-
-          generatedCount++;
+      // Fetch product formulas from Supabase
+      let ingredientMap = new Map();
+      let ingredientDetails = new Map();
+      for (const { sku, qty } of skuQtyList) {
+        // Get process JSON for this SKU
+        const { data: formulaRows, error: formulaError } = await supabase
+          .from('Products')
+          .select('Process, "Product Weight(oz)"')
+          .eq('ProductSKU', sku)
+          .maybeSingle();
+        if (formulaError || !formulaRows || !formulaRows.Process) {
+          output.innerHTML = `<div class="error">No formula (Process) found for SKU: ${sku}</div>`;
+          return;
+        }
+        // Parse Process JSON and extract all phase ingredients
+        let processObj = {};
+        try {
+          processObj = typeof formulaRows.Process === 'object' ? formulaRows.Process : JSON.parse(formulaRows.Process);
+        } catch (e) {
+          output.innerHTML = `<div class='error'>Invalid Process JSON for SKU: ${sku}</div>`;
+          return;
+        }
+        const productSizeOz = Number(formulaRows['Product Weight(oz)']) || 0;
+        const productSizeLbs = productSizeOz / 16;
+        // Collect all phase ingredients
+        for (const key of Object.keys(processObj)) {
+          if (/Phase \d+ Ingredients/i.test(key)) continue;
+          if (/Phase \d+/i.test(key) && processObj[key] && Array.isArray(processObj[key][`${key} Ingredients`])) {
+            const phaseIngredients = processObj[key][`${key} Ingredients`];
+            for (const ing of phaseIngredients) {
+              const ingSku = ing['IngredientSKU'];
+              const ingName = ing['IngredientName'] || '';
+              const percent = Number(ing['Ingredient Quantity(%)']) || 0;
+              // Required in lbs = 1.1 * (percent / 100) * productSizeLbs * qty
+              const amountNeeded = 1.1 * (percent / 100) * productSizeLbs * qty;
+              if (!ingredientMap.has(ingSku)) {
+                ingredientMap.set(ingSku, 0);
+                ingredientDetails.set(ingSku, { name: ingName });
+              }
+              ingredientMap.set(ingSku, ingredientMap.get(ingSku) + amountNeeded);
+            }
+          }
         }
       }
-
-      if (generatedCount > 0) {
-        output.innerHTML = `<div class="success">Generated ${generatedCount} QR code labels. Opening print dialog...</div>`;
-        // Use a small timeout to ensure QR codes are rendered before printing
-        setTimeout(() => {
-          window.print();
-          // Clear labels after printing (optional, but good practice)
-          labelContainer.innerHTML = '';
-          output.innerHTML += '<div class="info">Print dialog closed. Labels cleared.</div>';
-        }, 500);
-      } else {
-        output.innerHTML = '<div class="info">No QR codes generated.</div>';
+      // Fetch ingredient details (current quantity, link, supplier)
+      const allIngSkus = Array.from(ingredientMap.keys());
+      let ingredientInfo = {};
+      if (allIngSkus.length > 0) {
+        const { data: ingRows, error: ingError } = await supabase
+          .from('Ingredients')
+          .select('IngredientSKU,Name,"Quantity(Lbs/Units)",Link,Supplier')
+          .in('IngredientSKU', allIngSkus);
+        if (!ingError && ingRows) {
+          for (const row of ingRows) {
+            ingredientInfo[row.IngredientSKU] = row;
+          }
+        }
       }
+      // Build table
+      let table = `<table><thead><tr><th>Ingredient Name</th><th>SKU</th><th>Required</th><th>Current Qty</th><th>Link</th><th>Supplier</th></tr></thead><tbody>`;
+      for (const ingSku of allIngSkus) {
+        const det = ingredientDetails.get(ingSku) || {};
+        const info = ingredientInfo[ingSku] || {};
+        const required = ingredientMap.get(ingSku).toFixed(2);
+        const current = info["Quantity(Lbs/Units)"] !== undefined ? info["Quantity(Lbs/Units)"] : '';
+        const requiredStyle = (typeof current === 'number' && required > current) ? 'color: #b91c1c; font-weight: bold;' : '';
+        table += `<tr>
+          <td>${info.Name || det.name || ''}</td>
+          <td>${ingSku}</td>
+          <td style="${requiredStyle}">${required}</td>
+          <td>${current}</td>
+          <td>${info.Link ? `<a href="${info.Link}" target="_blank">Link</a>` : ''}</td>
+          <td>${info.Supplier || ''}</td>
+        </tr>`;
+      }
+      table += '</tbody></table>';
+      output.innerHTML = table;
     }
 
     // Initialize the page when it loads
     document.addEventListener('DOMContentLoaded', initializePage);
+
   </script>
 </body>
 </html>
