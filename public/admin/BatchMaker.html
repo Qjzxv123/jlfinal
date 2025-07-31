@@ -564,6 +564,26 @@
         session: { maxAge: 3600 }
       }
     });
+            // Inactivity timeout: sign out and redirect after 15 minutes of inactivity
+        (function setupInactivityTimeout() {
+            const TIMEOUT_MINUTES = 15;
+            const TIMEOUT_MS = TIMEOUT_MINUTES * 60 * 1000;
+            let inactivityTimer = null;
+            function resetInactivityTimer() {
+                if (inactivityTimer) clearTimeout(inactivityTimer);
+                inactivityTimer = setTimeout(async () => {
+                    // Sign out and redirect to login
+                    await supabase.auth.signOut();
+                    alert('You have been signed out due to inactivity.');
+                    window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
+                }, TIMEOUT_MS);
+            }
+            // Reset timer on user activity
+            ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(evt => {
+                window.addEventListener(evt, resetInactivityTimer, true);
+            });
+            resetInactivityTimer();
+        })();
     async function checkAdmin() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
