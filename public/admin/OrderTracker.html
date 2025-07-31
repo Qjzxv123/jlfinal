@@ -150,7 +150,6 @@
     .order-table td.status-scheduled { background: #e0f7fa; color: #1976d2; }
     .order-table td.status-in-production { background: #fff3cd; color: #b8860b; }
     .order-table td.status-completed { background: #d1fae5; color: #065f46; }
-    .order-table td.status-cancelled { background: #fee2e2; color: #b91c1c; }
     .order-table td button {
       padding: 0.5rem 1rem;
       border-radius: 6px;
@@ -266,9 +265,8 @@
               <option value="requested">Requested</option>
               <option value="scheduled">Scheduled</option>
               <option value="in production">In Production</option>
-              <option value="completed">Completed</option>
               <option value="Quality Checks">Quality Checks</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="completed">Completed</option>
             </select>
           </div>
           <div>
@@ -400,7 +398,11 @@
         .from('ManufacturingTasks')
         .insert([order]);
       if (error) {
-        alert('Failed to add task: ' + error.message);
+        if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+          alert('OrderID must be unique.');
+        } else {
+          alert('Failed to add task: ' + error.message);
+        }
         return false;
       }
       return true;
@@ -511,6 +513,11 @@
     }
 
      function renderOrders(orders) {
+      // Split orders into completed and non-completed
+      const completedOrders = orders.filter(task => (task.Progress || '').toLowerCase() === 'completed');
+      const activeOrders = orders.filter(task => (task.Progress || '').toLowerCase() !== 'completed');
+
+      // Render main (active) table
       const tbody = document.getElementById('orderTableBody');
       tbody.innerHTML = '';
       // Remove any previous event listeners by cloning tbody
@@ -586,20 +593,20 @@
           });
         }
 
-        for (const task of orders) {
+        for (const task of activeOrders) {
           const tr = document.createElement('tr');
           // Defensive: handle missing/null progress and customer
           const customerDisplay = userIDtoKey[task.Customer] || task.Customer || '';
           const progress = task.Progress || '';
           const progressClass = progress ? `status-${progress.replace(/ /g, '-')}` : '';
           const progressDisplay = progress ? progress.charAt(0).toUpperCase() + progress.slice(1) : '';
-          // Schedule column: show date if scheduled, N/A if completed/cancelled/in production, else button
+          // Schedule column: show date if scheduled, N/A if completed/in production, else button
           let scheduleColHtml = '';
           const progressLower = progress.toLowerCase();
           if (progressLower === 'scheduled') {
             let dateStr = task.PlannedManufactureDate ? new Date(task.PlannedManufactureDate).toLocaleDateString() : '<span style="color:#888;">(not set)</span>';
             scheduleColHtml = `<span style="font-weight:500; color:#1976d2;">${dateStr}</span>`;
-          } else if (['completed', 'cancelled', 'in production', 'quality checks'].includes(progressLower)) {
+          } else if (['completed', 'in production', 'quality checks'].includes(progressLower)) {
             scheduleColHtml = '<span style="color:#888;"></span>';
           } else {
             scheduleColHtml = `<button class="schedule-btn" data-order-id="${task.OrderNumber}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-calendar"></i></button>`;
@@ -791,6 +798,218 @@
             const orderId = this.getAttribute('data-order-id');
             openScheduleModal(orderId);
           });
+        });
+
+        // --- COMPLETED ORDERS COLLAPSIBLE TABLE ---
+        let completedSection = document.getElementById('completedOrdersSection');
+        if (!completedSection) {
+          completedSection = document.createElement('div');
+          completedSection.id = 'completedOrdersSection';
+          completedSection.style = 'margin-top:2.5em;';
+          // Insert after the main order table
+          const mainTable = document.getElementById('orderTable');
+          if (mainTable && mainTable.parentNode) {
+            if (mainTable.nextSibling) {
+              mainTable.parentNode.insertBefore(completedSection, mainTable.nextSibling);
+            } else {
+              mainTable.parentNode.appendChild(completedSection);
+            }
+          } else {
+            // fallback: append to body
+            document.body.appendChild(completedSection);
+          }
+        }
+        // Collapsible toggle button
+        let toggleBtn = document.getElementById('toggleCompletedOrdersBtn');
+        if (!toggleBtn) {
+          toggleBtn = document.createElement('button');
+          toggleBtn.id = 'toggleCompletedOrdersBtn';
+          toggleBtn.textContent = 'Show Completed Orders';
+          toggleBtn.style = 'background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer; margin-bottom:0.7em;';
+          completedSection.appendChild(toggleBtn);
+        }
+        let completedTable = document.getElementById('completedOrdersTable');
+        if (!completedTable) {
+          completedTable = document.createElement('table');
+          completedTable.id = 'completedOrdersTable';
+          completedTable.className = 'order-table';
+          completedTable.style.display = 'none';
+          completedTable.innerHTML = `
+            <thead>\n<tr>\n<th></th>\n<th id='sortCompletedOrderNumber'>Order # <span id='sortCompletedOrderNumberIcon'>⇅</span></th>\n<th>Customer/Product</th>\n<th>Progress</th>\n<th>Schedule</th>\n<th>Instructions</th>\n<th>Deadline</th>\n</tr>\n</thead>
+            <tbody id='completedOrderTableBody'></tbody>
+          `;
+          completedSection.appendChild(completedTable);
+        }
+        // Toggle logic
+        toggleBtn.onclick = function() {
+          if (completedTable.style.display === 'none') {
+            completedTable.style.display = '';
+            toggleBtn.textContent = 'Hide Completed Orders';
+          } else {
+            completedTable.style.display = 'none';
+            toggleBtn.textContent = 'Show Completed Orders';
+          }
+        };
+        // Render completed orders
+        const completedTbody = completedTable.querySelector('#completedOrderTableBody');
+        completedTbody.innerHTML = '';
+        for (const task of completedOrders) {
+          const tr = document.createElement('tr');
+          // Defensive: handle missing/null progress and customer
+          const customerDisplay = userIDtoKey[task.Customer] || task.Customer || '';
+          const progress = task.Progress || '';
+          const progressClass = progress ? `status-${progress.replace(/ /g, '-')}` : '';
+          const progressDisplay = progress ? progress.charAt(0).toUpperCase() + progress.slice(1) : '';
+          // Schedule column: show date if scheduled, N/A if completed/in production, else button
+          let scheduleColHtml = '';
+          const progressLower = progress.toLowerCase();
+          if (progressLower === 'scheduled') {
+            let dateStr = task.PlannedManufactureDate ? new Date(task.PlannedManufactureDate).toLocaleDateString() : '<span style="color:#888;">(not set)</span>';
+            scheduleColHtml = `<span style="font-weight:500; color:#1976d2;">${dateStr}</span>`;
+          } else if (["completed", "in production", "quality checks"].includes(progressLower)) {
+            scheduleColHtml = '<span style="color:#888;"></span>';
+          } else {
+            scheduleColHtml = `<button class="schedule-btn" data-order-id="${task.OrderNumber}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-calendar"></i></button>`;
+          }
+          // --- Batch number logic ---
+          function hashOrderNumber(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+              hash = ((hash << 5) - hash) + str.charCodeAt(i);
+              hash |= 0;
+            }
+            return Math.abs(hash % 1000000).toString().padStart(6, '0');
+          }
+          const batchNum = hashOrderNumber(task.OrderNumber || '');
+          const instructionsBtnStyle = 'background:#9B41E5; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.4em;';
+          let vesselDataAttr = '';
+          if (task.Vessel !== undefined && task.Vessel !== null) {
+            let vesselArr = [];
+            if (Array.isArray(task.Vessel)) {
+              vesselArr = task.Vessel.filter(Boolean).map(String);
+            } else if (typeof task.Vessel === 'string') {
+              const pgArrayMatch = task.Vessel.match(/^\{(.+)\}$/);
+              if (pgArrayMatch) {
+                vesselArr = pgArrayMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+              } else {
+                vesselArr = [task.Vessel];
+              }
+            }
+            vesselDataAttr = ` data-vessel='${JSON.stringify(vesselArr)}'`;
+          }
+          let instructionsBtn = '';
+          if (task.Progress && task.Progress.toLowerCase() === 'scheduled' && task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
+            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
+          } else {
+            instructionsBtn = `<span style=\"color:#888;\"></span>`;
+          }
+          tr.innerHTML = `
+            <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
+            <td>${task.OrderNumber || ''}<br><span style="display:block;opacity:0.45;font-size:0.95em;line-height:1.1;">Batch: ${batchNum}</span></td>
+            <td><span style="font-weight:600; color:#E2DB53;">${customerDisplay}</span><br><span style="color:#374151;">${task.ProductSKU || ''} × <span style='opacity:0.65;'>${task.Quantity || ''}</span></span></td>
+            <td class="${progressClass}">${progressDisplay}</td>
+            <td>${scheduleColHtml}</td>
+            <td>${instructionsBtn}</td>
+            <td>${task.Deadline ? new Date(task.Deadline).toLocaleDateString() : ''}</td>
+          `;
+          completedTbody.appendChild(tr);
+        }
+        // Add event listeners for remove and instructions buttons in completed table
+        completedTbody.addEventListener('click', async function(e) {
+          const removeBtn = e.target.closest('.remove-order-btn');
+          if (removeBtn) {
+            const orderId = removeBtn.getAttribute('data-order-id');
+            if (confirm('Are you sure you want to remove this order?')) {
+              const { error } = await supabase
+                .from('ManufacturingTasks')
+                .delete()
+                .eq('OrderNumber', orderId);
+              if (error) {
+                alert('Failed to remove order: ' + error.message);
+              } else {
+                loadOrders();
+              }
+            }
+          }
+          // Instructions button click
+          const btn = e.target.closest('.instructions-btn');
+          if (btn) {
+            async function generatelotNumber(productSKU) {
+              const now = new Date();
+              const year = now.getFullYear();
+              const month = now.getMonth() + 1;
+              const day = now.getDate();
+              let shelfLifeYears = 3;
+              try {
+                const { data: productShelfData, error: shelfError } = await supabase
+                  .from('Products')
+                  .select('ShelfLife')
+                  .eq('ProductSKU', productSKU)
+                  .maybeSingle();
+                if (!shelfError && productShelfData && productShelfData.ShelfLife) {
+                  shelfLifeYears = productShelfData.ShelfLife;
+                }
+              } catch (error) {
+                console.warn('Failed to fetch shelf life, using default of 3 years:', error);
+              }
+              const monthLetters = 'abcdefghijkl';
+              const monthLetter = monthLetters[month - 1];
+              const thirdDigitYear = Math.floor((year % 100) / 10);
+              const lastDigitYear = year % 10;
+              let expirationMonth = month;
+              let expirationYear = year + shelfLifeYears;
+              if (day >= 15) {
+                expirationMonth = month + 1;
+                if (expirationMonth > 12) {
+                  expirationMonth = 1;
+                  expirationYear = year + shelfLifeYears + 1;
+                }
+              }
+              const formattedExpMonth = expirationMonth.toString().padStart(2, '0');
+              const expYearLastTwo = (expirationYear % 100).toString().padStart(2, '0');
+              const lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
+              return lot;
+            }
+            const productSKU = btn.getAttribute('data-productsku');
+            const batchtime = btn.getAttribute('data-batchtime');
+            const batchSize = btn.getAttribute('data-batchsize');
+            let vesselArr = [];
+            try {
+              const vesselAttr = btn.getAttribute('data-vessel');
+              if (vesselAttr) {
+                vesselArr = JSON.parse(vesselAttr);
+              }
+            } catch (e) {
+              vesselArr = [];
+            }
+            if (productSKU && batchtime && batchSize) {
+              const lot = await generatelotNumber(productSKU);
+              function hashOrderNumber(str) {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                  hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                  hash |= 0;
+                }
+                return Math.abs(hash % 1000000).toString().padStart(6, '0');
+              }
+              let orderNumber = null;
+              let row = btn.closest('tr');
+              if (row) {
+                let td = row.querySelector('td:nth-child(2)');
+                if (td) {
+                  let text = td.textContent.trim();
+                  let parts = text.split(' ');
+                  orderNumber = parts[parts.length - 1];
+                }
+              }
+              if (!orderNumber) {
+                orderNumber = `${productSKU}-${batchtime}-${batchSize}`;
+              }
+              const batchNum = hashOrderNumber(orderNumber);
+              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
+              window.open(url, '_blank');
+            }
+          }
         });
     // Modal for scheduling (set PlannedManufactureDate)
     function createScheduleModal() {
@@ -1211,9 +1430,8 @@
             <option value="requested">Requested</option>
             <option value="scheduled">Scheduled</option>
             <option value="in production">In Production</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
             <option value="Quality Checks">Quality Checks</option>
+            <option value="completed">Completed</option>
           </select>
           <div style="display:flex; gap:1em; justify-content:flex-end;">
             <button id="modalCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
