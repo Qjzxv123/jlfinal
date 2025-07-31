@@ -201,7 +201,7 @@
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
-        session: { maxAge: 3600 }
+        session: { maxAge: 600 }
       }
     });
  async function checkAdmin() {
@@ -219,9 +219,9 @@
       }
     }
     checkAdmin();
-        // Inactivity timeout: sign out and redirect after 15 minutes of inactivity
+        // Inactivity timeout: sign out and redirect after 10 minutes of inactivity
         (function setupInactivityTimeout() {
-            const TIMEOUT_MINUTES = 15;
+            const TIMEOUT_MINUTES = 10;
             const TIMEOUT_MS = TIMEOUT_MINUTES * 60 * 1000;
             let inactivityTimer = null;
             function resetInactivityTimer() {
