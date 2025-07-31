@@ -1,0 +1,59 @@
+// Injects the admin sidebar into the element with id 'sidebar'.
+function renderAdminSidebar() {
+  // Get user display name from correct localStorage key or fallback
+  let displayName = 'User';
+  try {
+    const userStr = localStorage.getItem('sb-ypvyrophqkfqwpefuigi-auth-token');
+    if (userStr) {
+      const userObj = JSON.parse(userStr);
+      if (userObj && userObj.user && userObj.user.user_metadata && userObj.user.user_metadata.display_name) {
+        displayName = userObj.user.user_metadata.display_name;
+      }
+    }
+  } catch (e) {
+    // fallback to 'User'
+  }
+  const sidebarHTML = `
+    <div class="sidebar-header">
+      <h2>${displayName}</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="BatchMaker.html" class="nav-item"><i class="cil-factory"></i><span>Batch Maker</span></a>
+      <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
+      <a href="OrderTracker.html" class="nav-item"><i class="cil-list"></i><span>Order Tracker</span></a>
+      <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
+      <a href="ProductIngredientViewer.html" class="nav-item"><i class="cil-columns"></i><span>Product Ingredients</span></a>
+      <a href="AddProductAdmin.html" class="nav-item"><i class="cil-note-add"></i><span>Add/Update Product</span></a>
+      <a href="AddIngredient.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Ingredient</span></a>
+      <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
+      <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
+      <a href="Quoting.html" class="nav-item" id="sidebar-quoting"><i class="cil-money"></i><span>Product Quoting</span></a>
+      <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
+      <a href="DatabaseViewer.html" class="nav-item"><i class="cil-find-in-page"></i><span>Database Viewer</span></a>
+      <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
+      <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
+      <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
+      <a href="UserManagement.html" class="nav-item"><i class="cil-user"></i><span>User Management</span></a>
+      <a href="/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
+    </nav>
+  `;
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) {
+    sidebar.className = 'sidebar';
+    sidebar.innerHTML = sidebarHTML;
+    // Highlight current page
+    let page = window.location.pathname.split('/').pop() || 'index.html';
+    // Also handle root path ("/" or "")
+    if (page === '' || page === '/') page = 'index.html';
+    const links = sidebar.querySelectorAll('.nav-item');
+    links.forEach(link => {
+      // Compare only the last part of the href (filename)
+      const href = link.getAttribute('href');
+      if (href && href.split('/').pop() === page) {
+        link.classList.add('active');
+      }
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', renderAdminSidebar);
