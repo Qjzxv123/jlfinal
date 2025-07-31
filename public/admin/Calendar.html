@@ -351,6 +351,7 @@ async function checkAdmin() {
       const { data: tasks, error: taskError } = await supabase
         .from('ManufacturingTasks')
         .select('*')
+        .eq('Progress', 'scheduled')
         .gte('PlannedManufactureDate', startDate)
         .lte('PlannedManufactureDate', endDate);
       // Get all IngredientOrders for the month
