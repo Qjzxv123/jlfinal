@@ -49,6 +49,11 @@
     <button id="try-again-btn" style="background:#228B22;color:#fff;border:none;border-radius:6px;padding:0.7rem 1.5rem;font-size:1rem;font-weight:600;cursor:pointer;margin-top:1.5rem;">Try Again / Login</button>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+      if (JSON.parse(localStorage.getItem('sb-ypvyrophqkfqwpefuigi-auth-token')).user.role!="newuser") {
+        // Redirect to the main page if the user is not a new user
+        window.location.href = 'index.html';
+      }
+
       document.getElementById('try-again-btn').onclick = async function() {
         // Remove Supabase session data if present
         if (window.supabase) {
@@ -59,7 +64,7 @@
             await client.auth.signOut();
           } catch (e) {}
         }
-        window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
+        window.location.href = 'Login.html';
       };
     </script>
   </div>
