@@ -195,7 +195,7 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
-  <link rel="icon" type="image/x-icon" href="Assets/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
 </head>
 <body>
   <!-- Sidebar (injected by sidebar.js) -->
@@ -277,6 +277,7 @@
         <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
         <label>Pack Size<input type="number" id="PackSize" min="0" step="1"></label>
         <label>Quantity<input type="number" id="Quantity" step="1"></label>
+        <label>Quantity Per Bin<input type="number" id="QuantityPerBin" step="1" min="0" placeholder="e.g., 12"></label>
         <label>MSRP<input type="number" id="MSRP" min="0" step="any"></label>
         <label>Pour Temperature (°C)<input type="number" id="PourTemperature" min="0" step="any" placeholder="e.g., 45, 60, 80"></label>
         <label>Pour Consistency<input type="text" id="PourConsistency" placeholder="e.g., Thick, Thin, Viscous"></label>
@@ -995,6 +996,7 @@
         ShelfLife: form.ShelfLife.value ? parseFloat(form.ShelfLife.value) : null,
         'Pack Size': form.PackSize.value ? parseInt(form.PackSize.value) : null,
         Quantity: form.Quantity.value ? parseInt(form.Quantity.value) : null,
+        QuantityPerBin: form.QuantityPerBin.value ? parseInt(form.QuantityPerBin.value) : null,
         MSRP: form.MSRP.value ? parseFloat(form.MSRP.value) : null,
         'Pour Temperature': form.PourTemperature.value ? parseFloat(form.PourTemperature.value) : null,
         'Pour Consistency': document.getElementById('PourConsistency').value.trim(),
