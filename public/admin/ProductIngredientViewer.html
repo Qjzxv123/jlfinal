@@ -323,7 +323,7 @@
   </div>
   <script>
     // Access control and inactivity timeout (shared logic)
-    checkPermissions(['service_role', 'employee']);
+    checkPermissions(['service_role']);
     setupInactivityTimeout(10);
     let allProducts = [];
     let selectedProducts = new Map(); // SKU -> {product, quantity}
