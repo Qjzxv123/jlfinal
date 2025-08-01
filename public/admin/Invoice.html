@@ -299,6 +299,10 @@
                         <label for="receivingHoursInput">Receiving Hours:</label>
                         <input type="number" id="receivingHoursInput" min="1" value="1" required>
                     </div>
+                    <div class="form-group">
+                        <label for="binsInput">Number of Storage Bins:</label>
+                        <input type="number" id="binsInput" min="0" value="0" required>
+                    </div>
                     <div class="form-group" style="grid-column: 1 / -1;">
                         <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; cursor: pointer;">
                             <input type="checkbox" id="insertsCheckbox" style="width: 18px; height: 18px;">
@@ -427,8 +431,9 @@
                 const startDateStr = startDate.toISOString().split('T')[0];
                 const endDateStr = endDate.toISOString().split('T')[0];
 
-                // Get receiving hours from input
+                // Get receiving hours and bins from input
                 const receivingHours = parseInt(document.getElementById('receivingHoursInput').value) || 1;
+                const bins = parseInt(document.getElementById('binsInput').value) || 0;
 
                 // Query orders from Order History for the specific retailer and month
                 const { data: orders, error } = await supabase
@@ -443,8 +448,9 @@
                 if (!orders || orders.length === 0) {
                     // Check if inserts are enabled for empty case too
                     const hasInserts = document.getElementById('insertsCheckbox').checked;
-                    // Receiving hours cost for empty case
+                    // Receiving hours and storage fee for empty case
                     const receivingCost = (receivingHours - 1) * 25;
+                    const storageFee = bins * 7.5;
                     hideStatus();
                     showInvoiceResults(retailer, month, [], {
                         shippingCosts: 0,
@@ -454,7 +460,8 @@
                         noteFees: 0,
                         insertsFees: 0,
                         receivingCost: receivingCost,
-                        total: receivingCost
+                        storageFee: storageFee,
+                        total: receivingCost + storageFee
                     }, hasInserts);
                     return;
                 }
@@ -572,9 +579,10 @@
                     });
                 });
 
-                // Receiving hours cost
+                // Receiving hours and storage fee
                 const receivingCost = (receivingHours - 1) * 25;
-                const total = shippingCosts + boxCosts + baseFees + extraItemFees + noteFees + insertsFees + receivingCost;
+                const storageFee = bins * 7.5;
+                const total = shippingCosts + boxCosts + baseFees + extraItemFees + noteFees + insertsFees + receivingCost + storageFee;
 
                 const breakdown = {
                     shippingCosts: shippingCosts,
@@ -584,6 +592,7 @@
                     noteFees: noteFees,
                     insertsFees: insertsFees,
                     receivingCost: receivingCost,
+                    storageFee: storageFee,
                     total: total
                 };
 
@@ -623,6 +632,19 @@
                 breakdownSection.appendChild(receivingCostRow);
             }
             document.getElementById('receivingCost').textContent = `$${(breakdown.receivingCost || 0).toFixed(2)}`;
+            // Storage fee
+            let storageFeeRow = document.getElementById('storageFeeRow');
+            if (!storageFeeRow) {
+                const breakdownSection = document.querySelector('.breakdown-section');
+                storageFeeRow = document.createElement('div');
+                storageFeeRow.className = 'breakdown-item';
+                storageFeeRow.id = 'storageFeeRow';
+                storageFeeRow.innerHTML = `<span class="breakdown-label">Storage Fee (${document.getElementById('binsInput').value} bins × $7.50):</span><span class="breakdown-value" id="storageFee">$0.00</span>`;
+                breakdownSection.appendChild(storageFeeRow);
+            } else {
+                storageFeeRow.querySelector('.breakdown-label').innerHTML = `Storage Fee (${document.getElementById('binsInput').value} bins × $7.50):`;
+            }
+            document.getElementById('storageFee').textContent = `$${(breakdown.storageFee || 0).toFixed(2)}`;
             // Handle inserts fee display
             const insertsFeeRow = document.getElementById('insertsFeeRow');
             if (hasInserts && breakdown.insertsFees > 0) {

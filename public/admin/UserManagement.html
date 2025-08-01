@@ -86,6 +86,48 @@
     <div class="container">
       <h1>User Management</h1>
       <div id="status" class="status"></div>
+      <div style="margin-bottom:32px;">
+        <button id="toggleRoleTableBtn" class="btn" style="margin-bottom:8px;">Show Role Access Table ▼</button>
+        <div id="roleAccessTableContainer" style="display:none;">
+          <h2>Role Access Table</h2>
+          <table id="roleAccessTable">
+            <thead>
+              <tr>
+                <th>Page</th>
+                <th>Roles Allowed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>admin/Invoice.html</td><td>service_role</td></tr>
+              <tr><td>CustomerOrders.html</td><td>service_role, client</td></tr>
+              <tr><td>InventoryViewer.html</td><td>client, service_role</td></tr>
+              <tr><td>index.html</td><td>service_role, client, employee</td></tr>
+              <tr><td>ecommerce-oauth.html</td><td>customer, service_role</td></tr>
+              <tr><td>CustomerOrderView.html</td><td>customer, service_role</td></tr>
+              <tr><td>CustomerChecklist.html</td><td>service_role, client</td></tr>
+              <tr><td>admin/UserManagement.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/Quoting.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/Qrcode.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/ProductIngredientViewer.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/ProductInfo.html</td><td>service_role, employee, client</td></tr>
+              <tr><td>admin/OrderViewer.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/OrderTracker.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/ManufacturingInstructions.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/InventoryUpdater.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/InventoryScanner.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/IngredientInfo.html</td><td>service_role, client, employee</td></tr>
+              <tr><td>admin/IncomingIngredients.html</td><td>service_role</td></tr>
+              <tr><td>admin/DatabaseViewer.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/Checklist.html</td><td>service_role</td></tr>
+              <tr><td>admin/Calendar.html</td><td>service_role, employee</td></tr>
+              <tr><td>admin/BatchMaker.html</td><td>service_role</td></tr>
+              <tr><td>admin/AddProductAdmin.html</td><td>service_role</td></tr>
+              <tr><td>admin/AddIngredient.html</td><td>service_role</td></tr>
+              <tr><td>AddProduct.html</td><td>service_role, client</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <table id="usersTable">
         <thead>
           <tr>
@@ -103,6 +145,19 @@
     // Access control and inactivity timeout (shared logic)
     checkPermissions(['service_role', 'employee']);
     setupInactivityTimeout(5);
+
+    // Collapsible Role Access Table logic
+    document.getElementById('toggleRoleTableBtn').addEventListener('click', function() {
+      const container = document.getElementById('roleAccessTableContainer');
+      if (container.style.display === 'none') {
+        container.style.display = '';
+        this.textContent = 'Hide Role Access Table ▲';
+      } else {
+        container.style.display = 'none';
+        this.textContent = 'Show Role Access Table ▼';
+      }
+    });
+
     // Load users from Users table
     async function loadUsers() {
       const statusDiv = document.getElementById('status');
