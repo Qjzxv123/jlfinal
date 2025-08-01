@@ -34,6 +34,9 @@ async function checkPermissions(allowedRoles) {
   }
   if (!user || !userRole || !allowedRoles.includes(userRole)) {
     document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied</div>';
+    setTimeout(() => {
+      window.location.href = '/index.html';
+    }, 3000);
     throw new Error('Access denied');
   }
   return user;
