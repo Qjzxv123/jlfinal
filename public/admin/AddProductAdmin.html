@@ -272,6 +272,16 @@
             <input type="hidden" id="ContainerSKUs" />
           </div>
         </label>
+        <label>Amazon Packages
+          <div id="amazonPackagesContainer" style="margin-top: 0.5rem;">
+            <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+              <div id="amazonDropdown" style="flex: 1;"></div>
+              <button type="button" class="btn" style="background: #f59e42; width: auto; padding: 0.5rem 1rem; margin: 0;" onclick="addSelectedAmazonPackage()">Add Amazon Package</button>
+            </div>
+            <div id="selectedAmazonPackages" style="margin-top: 0.5rem;"></div>
+            <input type="hidden" id="AmazonPackages" />
+          </div>
+        </label>
         <label>Archived <input type="checkbox" id="Archived"></label>
         <label>Retailer<input type="text" id="Customer"></label>
         <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
@@ -315,6 +325,7 @@
 
     // Container management
     let selectedContainerSKUs = [];
+    let selectedAmazonPackages = [];
 
     // Fetch all products for dropdown
     async function fetchAllProducts() {
@@ -446,6 +457,7 @@
         document.getElementById('ProductType').value = product['Product Type'] || '';
         document.getElementById('MicrobialTesting').checked = product['Microbial Testing'] || false;
         loadContainersFromString(product.ContainerSKUs);
+        loadAmazonPackagesFromString(product.AmazonPackages);
         document.getElementById('Archived').checked = product.Archived || false;
         document.getElementById('Customer').value = product.Retailer || '';
         document.getElementById('ShelfLife').value = product.ShelfLife || '';
@@ -661,9 +673,14 @@
     // Create container dropdown
     async function createContainerDropdown() {
       const containerIngredients = await fetchContainerIngredients();
+      // Container SKUs dropdown
       const container = document.getElementById('containerDropdown');
-      if (!container) return;
-
+      if (container) createGenericDropdown(container, selectedContainerSKUs, 'addSelectedContainer');
+      // Amazon Packages dropdown
+      const amazonContainer = document.getElementById('amazonDropdown');
+      if (amazonContainer) createGenericDropdown(amazonContainer, selectedAmazonPackages, 'addSelectedAmazonPackage');
+    }
+    function createGenericDropdown(container, selectedList, addFnName) {
       const dropdownHTML = `
         <div class="ingredient-dropdown-container">
           <input type="text" class="ingredient-search" placeholder="Type to search containers..." />
@@ -671,22 +688,16 @@
           <input type="hidden" class="selected-sku" value="" />
         </div>
       `;
-
       container.innerHTML = dropdownHTML;
-
       const searchInput = container.querySelector('.ingredient-search');
       const dropdown = container.querySelector('.ingredient-dropdown');
       const hiddenSKU = container.querySelector('.selected-sku');
-
-      // Filter and display containers based on search
       function updateDropdown(searchTerm = '') {
-        const filtered = containerIngredients.filter(ingredient => {
+        const filtered = allIngredients.filter(ingredient => {
           const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
           return searchText.includes(searchTerm.toLowerCase());
         });
-
         dropdown.innerHTML = '';
-        
         filtered.slice(0, 10).forEach(ingredient => {
           const option = document.createElement('div');
           option.className = 'ingredient-option';
@@ -696,41 +707,31 @@
               SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'}
             </div>
           `;
-          
           option.addEventListener('click', () => {
             searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
             hiddenSKU.value = ingredient.IngredientSKU;
             dropdown.style.display = 'none';
           });
-          
           dropdown.appendChild(option);
         });
-
         if (filtered.length === 0) {
           dropdown.innerHTML = '<div class="ingredient-option" style="color: #6b7280; font-style: italic;">No containers found</div>';
         }
       }
-
-      // Show dropdown when input is focused
       searchInput.addEventListener('focus', () => {
         updateDropdown(searchInput.value);
         dropdown.style.display = 'block';
       });
-
-      // Update dropdown as user types
       searchInput.addEventListener('input', (e) => {
         updateDropdown(e.target.value);
         dropdown.style.display = 'block';
-        hiddenSKU.value = ''; // Clear selection when typing
+        hiddenSKU.value = '';
       });
-
-      // Hide dropdown when clicking outside
       document.addEventListener('click', (e) => {
         if (!container.contains(e.target)) {
           dropdown.style.display = 'none';
         }
       });
-
       return {
         getSKU: () => hiddenSKU.value,
         getName: () => searchInput.value,
@@ -767,6 +768,32 @@
       document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
     };
 
+    // Add selected Amazon package to the list
+    window.addSelectedAmazonPackage = function() {
+      const amazonDropdown = document.querySelector('#amazonDropdown .selected-sku');
+      const amazonSearch = document.querySelector('#amazonDropdown .ingredient-search');
+      
+      if (!amazonDropdown || !amazonSearch) return;
+
+      const sku = amazonDropdown.value;
+      const name = amazonSearch.value;
+
+      if (!sku) {
+        alert('Please select an Amazon package from the dropdown');
+        return;
+      }
+
+      selectedAmazonPackages.push(sku);
+      updateSelectedAmazonPackagesDisplay();
+      
+      // Clear the dropdown
+      amazonSearch.value = '';
+      amazonDropdown.value = '';
+      
+      // Update hidden input
+      document.getElementById('AmazonPackages').value = selectedAmazonPackages.join(',');
+    };
+
     // Update the display of selected containers
     function updateSelectedContainersDisplay() {
       const container = document.getElementById('selectedContainers');
@@ -792,11 +819,43 @@
       container.innerHTML = containersHTML;
     }
 
+    // Update the display of selected Amazon packages
+    function updateSelectedAmazonPackagesDisplay() {
+      const container = document.getElementById('selectedAmazonPackages');
+      if (!container) return;
+
+      if (selectedAmazonPackages.length === 0) {
+        container.innerHTML = '<div style="color: #6b7280; font-style: italic; padding: 0.5rem;">No Amazon packages selected</div>';
+        return;
+      }
+
+      const packagesHTML = selectedAmazonPackages.map((sku, index) => {
+        const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
+        const name = ingredient ? ingredient.Name : sku;
+        
+        return `
+          <div style="display: flex; align-items: center; justify-content: space-between; background: #f3f4f6; padding: 0.5rem; border-radius: 6px; margin-bottom: 0.25rem;">
+            <span style="font-weight: 500;">${name} (${sku})</span>
+            <button type="button" onclick="removeAmazonPackageAtIndex(${index})" style="background: #ef4444; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">Remove</button>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = packagesHTML;
+    }
+
     // Remove container from selected list by index
     window.removeContainerAtIndex = function(index) {
       selectedContainerSKUs.splice(index, 1);
       updateSelectedContainersDisplay();
       document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
+    };
+
+    // Remove Amazon package from selected list by index
+    window.removeAmazonPackageAtIndex = function(index) {
+      selectedAmazonPackages.splice(index, 1);
+      updateSelectedAmazonPackagesDisplay();
+      document.getElementById('AmazonPackages').value = selectedAmazonPackages.join(',');
     };
 
     // Remove container from selected list (legacy function - removes first occurrence)
@@ -806,6 +865,16 @@
         selectedContainerSKUs.splice(index, 1);
         updateSelectedContainersDisplay();
         document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
+      }
+    };
+
+    // Remove Amazon package from selected list (legacy function - removes first occurrence)
+    window.removeAmazonPackage = function(sku) {
+      const index = selectedAmazonPackages.indexOf(sku);
+      if (index > -1) {
+        selectedAmazonPackages.splice(index, 1);
+        updateSelectedAmazonPackagesDisplay();
+        document.getElementById('AmazonPackages').value = selectedAmazonPackages.join(',');
       }
     };
 
@@ -820,6 +889,19 @@
       }
       updateSelectedContainersDisplay();
       document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
+    }
+
+    // Load Amazon packages from comma-separated string (for editing existing products)
+    function loadAmazonPackagesFromString(packageString) {
+      if (!packageString) {
+        selectedAmazonPackages = [];
+      } else if (Array.isArray(packageString)) {
+        selectedAmazonPackages = [...packageString];
+      } else {
+        selectedAmazonPackages = packageString.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      }
+      updateSelectedAmazonPackagesDisplay();
+      document.getElementById('AmazonPackages').value = selectedAmazonPackages.join(',');
     }
 
     function renderProcessTableEditor() {
@@ -992,6 +1074,7 @@
         'Product Type': document.getElementById('ProductType').value.trim(),
         'Microbial Testing': document.getElementById('MicrobialTesting').checked,
         ContainerSKUs: selectedContainerSKUs.length > 0 ? selectedContainerSKUs : null,
+        AmazonPackages: selectedAmazonPackages.length > 0 ? selectedAmazonPackages : null,
         Retailer: document.getElementById('Customer').value.trim(),
         ShelfLife: form.ShelfLife.value ? parseFloat(form.ShelfLife.value) : null,
         'Pack Size': form.PackSize.value ? parseInt(form.PackSize.value) : null,
@@ -1079,8 +1162,10 @@
         form.reset();
         processTableData = [];
         selectedContainerSKUs = [];
+        selectedAmazonPackages = [];
         renderProcessTableEditor();
         updateSelectedContainersDisplay();
+        updateSelectedAmazonPackagesDisplay();
         // Hide MI textarea after save
         document.getElementById('manufacturingInstructionsContainer').style.display = 'none';
         document.getElementById('useCustomInstructions').checked = false;
