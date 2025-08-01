@@ -96,7 +96,7 @@
         <form id="signup-form">
             <input type="email" id="signup-email" placeholder="Email" required style="width:90%;padding:0.7rem;margin:0.5rem 0;border-radius:6px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:1rem;"><br>
             <input type="password" id="signup-password" placeholder="Password" required style="width:90%;padding:0.7rem;margin:0.5rem 0;border-radius:6px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:1rem;"><br>
-            <input type="text" id="signup-company" placeholder="Company Name" required style="width:90%;padding:0.7rem;margin:0.5rem 0;border-radius:6px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:1rem;"><br>
+            <input type="text" id="signup-company" placeholder="Company/Employee Name" required style="width:90%;padding:0.7rem;margin:0.5rem 0;border-radius:6px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:1rem;"><br>
             <button type="submit">Sign Up</button>
         </form>
     </div>
@@ -159,8 +159,9 @@
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
+                role: 'newuser',
                 options: {
-                    data: { display_name: company, role: 'NewUser'}
+                    data: { display_name: company, role: 'newuser'}
                 }
             });
             if (error) {

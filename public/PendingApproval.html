@@ -49,7 +49,7 @@
     <button id="try-again-btn" style="background:#228B22;color:#fff;border:none;border-radius:6px;padding:0.7rem 1.5rem;font-size:1rem;font-weight:600;cursor:pointer;margin-top:1.5rem;">Try Again / Login</button>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-      if (JSON.parse(localStorage.getItem('sb-ypvyrophqkfqwpefuigi-auth-token')).user.role!="newuser") {
+      if (JSON.parse(localStorage.getItem('sb-ypvyrophqkfqwpefuigi-auth-token')).user.user_metadata.role!="newuser") {
         // Redirect to the main page if the user is not a new user
         window.location.href = 'index.html';
       }

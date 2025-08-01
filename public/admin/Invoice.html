@@ -291,12 +291,14 @@
                             <option value="">Select a retailer...</option>
                         </select>
                     </div>
-                    
                     <div class="form-group">
                         <label for="monthInput">Month & Year:</label>
                         <input type="month" id="monthInput" required>
                     </div>
-                    
+                    <div class="form-group">
+                        <label for="receivingHoursInput">Receiving Hours:</label>
+                        <input type="number" id="receivingHoursInput" min="1" value="1" required>
+                    </div>
                     <div class="form-group" style="grid-column: 1 / -1;">
                         <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; cursor: pointer;">
                             <input type="checkbox" id="insertsCheckbox" style="width: 18px; height: 18px;">
@@ -425,6 +427,9 @@
                 const startDateStr = startDate.toISOString().split('T')[0];
                 const endDateStr = endDate.toISOString().split('T')[0];
 
+                // Get receiving hours from input
+                const receivingHours = parseInt(document.getElementById('receivingHoursInput').value) || 1;
+
                 // Query orders from Order History for the specific retailer and month
                 const { data: orders, error } = await supabase
                     .from('Order History')
@@ -438,6 +443,8 @@
                 if (!orders || orders.length === 0) {
                     // Check if inserts are enabled for empty case too
                     const hasInserts = document.getElementById('insertsCheckbox').checked;
+                    // Receiving hours cost for empty case
+                    const receivingCost = (receivingHours - 1) * 25;
                     hideStatus();
                     showInvoiceResults(retailer, month, [], {
                         shippingCosts: 0,
@@ -446,7 +453,8 @@
                         extraItemFees: 0,
                         noteFees: 0,
                         insertsFees: 0,
-                        total: 0
+                        receivingCost: receivingCost,
+                        total: receivingCost
                     }, hasInserts);
                     return;
                 }
@@ -457,7 +465,6 @@
                 let baseFees = orders.length * 2.5; // $2.5 per order
                 let extraItemFees = 0; // Will be calculated per order
                 let noteFees = 0; // Will be calculated per order
-                
                 // Check if inserts are enabled
                 const hasInserts = document.getElementById('insertsCheckbox').checked;
                 let insertsFees = hasInserts ? orders.length * 0.20 : 0; // $0.20 per order if inserts enabled
@@ -472,7 +479,6 @@
                             const boxSkus = typeof order.BoxSkus === 'string' 
                                 ? JSON.parse(order.BoxSkus) 
                                 : order.BoxSkus;
-                            
                             if (Array.isArray(boxSkus)) {
                                 boxSkus.forEach(sku => {
                                     if (sku && typeof sku === 'string') {
@@ -493,7 +499,6 @@
                         .from('Boxes')
                         .select('SKU, Cost')
                         .in('SKU', Array.from(allBoxSkus));
-                    
                     if (boxError) {
                         console.warn('Error fetching box costs:', boxError);
                     } else {
@@ -509,7 +514,6 @@
                     if (order.ShippingCost) {
                         shippingCosts += parseFloat(order.ShippingCost) || 0;
                     }
-
                     // Calculate box costs from BoxSkus and track boxes used
                     let orderBoxes = [];
                     let orderBoxCost = 0;
@@ -518,7 +522,6 @@
                             const boxSkus = typeof order.BoxSkus === 'string' 
                                 ? JSON.parse(order.BoxSkus) 
                                 : order.BoxSkus;
-                            
                             if (Array.isArray(boxSkus)) {
                                 boxSkus.forEach(sku => {
                                     if (sku && typeof sku === 'string' && boxCostMap.has(sku)) {
@@ -536,7 +539,6 @@
                             console.warn('Error parsing BoxSkus for order', order.OrderID, ':', e);
                         }
                     }
-
                     // Count items and calculate extra item fees
                     let itemCount = 0;
                     if (order.Items) {
@@ -544,7 +546,6 @@
                             const items = typeof order.Items === 'string' 
                                 ? JSON.parse(order.Items) 
                                 : order.Items;
-                            
                             if (Array.isArray(items)) {
                                 itemCount = items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
                             }
@@ -552,17 +553,14 @@
                             console.warn('Error parsing Items:', e);
                         }
                     }
-
                     // Extra item fees: $0.20 for each item over 5
                     if (itemCount > 5) {
                         extraItemFees += (itemCount - 5) * 0.20;
                     }
-
                     // Note processing fees: $2 if order has notes
                     if (order.Notes && order.Notes.trim()) {
                         noteFees += 2;
                     }
-
                     processedOrders.push({
                         orderId: order.OrderID,
                         itemCount: itemCount,
@@ -574,7 +572,9 @@
                     });
                 });
 
-                const total = shippingCosts + boxCosts + baseFees + extraItemFees + noteFees + insertsFees;
+                // Receiving hours cost
+                const receivingCost = (receivingHours - 1) * 25;
+                const total = shippingCosts + boxCosts + baseFees + extraItemFees + noteFees + insertsFees + receivingCost;
 
                 const breakdown = {
                     shippingCosts: shippingCosts,
@@ -583,6 +583,7 @@
                     extraItemFees: extraItemFees,
                     noteFees: noteFees,
                     insertsFees: insertsFees,
+                    receivingCost: receivingCost,
                     total: total
                 };
 
@@ -610,7 +611,18 @@
             document.getElementById('baseFees').textContent = `$${breakdown.baseFees.toFixed(2)}`;
             document.getElementById('extraItemFees').textContent = `$${breakdown.extraItemFees.toFixed(2)}`;
             document.getElementById('noteFees').textContent = `$${breakdown.noteFees.toFixed(2)}`;
-            
+            // Receiving hours cost
+            let receivingCostRow = document.getElementById('receivingCostRow');
+            if (!receivingCostRow) {
+                // Add receiving cost row if not present
+                const breakdownSection = document.querySelector('.breakdown-section');
+                receivingCostRow = document.createElement('div');
+                receivingCostRow.className = 'breakdown-item';
+                receivingCostRow.id = 'receivingCostRow';
+                receivingCostRow.innerHTML = `<span class="breakdown-label">Receiving Hours Fee:</span><span class="breakdown-value" id="receivingCost">$0.00</span>`;
+                breakdownSection.appendChild(receivingCostRow);
+            }
+            document.getElementById('receivingCost').textContent = `$${(breakdown.receivingCost || 0).toFixed(2)}`;
             // Handle inserts fee display
             const insertsFeeRow = document.getElementById('insertsFeeRow');
             if (hasInserts && breakdown.insertsFees > 0) {
@@ -620,7 +632,6 @@
             } else {
                 insertsFeeRow.style.display = 'none';
             }
-            
             document.getElementById('totalAmount').textContent = `$${breakdown.total.toFixed(2)}`;
 
             // Update counts

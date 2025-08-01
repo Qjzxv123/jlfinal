@@ -81,6 +81,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/Assets/CheckAccess.js"></script>
   <script>
+    checkPermissions("service_role","client","employee");
       async function showLoginOrWelcome() {
         const { data: { user } } = await supabase.auth.getUser();
         const loginBar = document.getElementById('login-bar');
