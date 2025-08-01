@@ -198,6 +198,7 @@
         <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
         <label>Pack Size<input type="number" id="PackSize" min="0" step="1"></label>
         <label>Quantity<input type="number" id="Quantity" step="1"></label>
+        <label>Reserved Quantity<input type="number" id="ReservedQuantity" min="0" step="1" placeholder="Units to reserve"></label>
         <label>MSRP<input type="number" id="MSRP" min="0" step="any"></label>
         
         <button type="submit" class="btn">Add/Update Product</button>
@@ -364,6 +365,7 @@
         document.getElementById('ShelfLife').value = product.ShelfLife || '';
         document.getElementById('PackSize').value = product['Pack Size'] || '';
         document.getElementById('Quantity').value = product.Quantity || '';
+        document.getElementById('ReservedQuantity').value = product.ReserveQuantity || '';
         document.getElementById('MSRP').value = product.MSRP || '';
 
         statusMsg.textContent = 'Product data loaded successfully! You can now modify and save as a new product.';
@@ -424,6 +426,7 @@
         ShelfLife: form.ShelfLife.value ? parseFloat(form.ShelfLife.value) : null,
         'Pack Size': form.PackSize.value ? parseInt(form.PackSize.value) : null,
         Quantity: form.Quantity.value ? parseInt(form.Quantity.value) : null,
+        ReserveQuantity: form.ReservedQuantity.value ? parseInt(form.ReservedQuantity.value) : 0,
         MSRP: form.MSRP.value ? parseFloat(form.MSRP.value) : null,
       };
       Object.keys(data).forEach(k => { if (data[k] === '') data[k] = null; });

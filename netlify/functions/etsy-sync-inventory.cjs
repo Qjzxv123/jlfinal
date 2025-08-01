@@ -18,7 +18,6 @@ exports.handler = async function(event) {
   let body = {};
   try { body = JSON.parse(event.body); } catch (e) { body = {}; }
   const selectedSkus = Array.isArray(body.skus) ? body.skus : [];
-  const quantities = typeof body.quantities === 'object' && body.quantities !== null ? body.quantities : {};
   if (!etsyToken || selectedSkus.length === 0) {
     return {
       statusCode: 400,
@@ -135,7 +134,7 @@ exports.handler = async function(event) {
   try {
     const { data: products, error: prodErr } = await supabase
       .from('Products')
-      .select('ProductSKU,Quantity,Retailer')
+      .select('ProductSKU,Quantity,ReserveQuantity,Retailer')
       .eq('Retailer', retailer);
     if (prodErr) throw prodErr;
     supaProducts = products || [];
@@ -147,7 +146,9 @@ exports.handler = async function(event) {
   }
   const skuToQty = {};
   for (const p of supaProducts) {
-    skuToQty[p.ProductSKU] = parseInt(p.Quantity) || 0;
+    const qty = parseInt(p.Quantity) || 0;
+    const reserve = parseInt(p.ReserveQuantity) || 0;
+    skuToQty[p.ProductSKU] = Math.max(0, qty - reserve);
   }
   // Gather all SKUs from Etsy listings
   let allSkus = [];
@@ -196,37 +197,33 @@ exports.handler = async function(event) {
       products = inventory.products.map(product => {
         let newProduct = JSON.parse(JSON.stringify(product));
         if (listingSkus.includes(product.sku)) {
-          let syncQty = quantities[product.sku];
-          if (typeof syncQty !== 'number' || isNaN(syncQty)) {
-            let bundleQty = null;
-            let parts = null;
-            if (product.sku && product.sku.includes('+')) {
-              parts = product.sku.split('+').map(p => p.trim());
-            }
-            if (parts && parts.length > 1) {
-              if (parts.every(p => p === parts[0])) {
-                const baseSku = parts[0];
-                const baseQty = skuToQty[baseSku];
-                if (typeof baseQty === 'number' && !isNaN(baseQty)) {
-                  bundleQty = Math.floor(baseQty / parts.length);
-                }
-              } else {
-                let minQty = null;
-                for (const part of parts) {
-                  const q = skuToQty[part];
-                  if (typeof q === 'number' && !isNaN(q)) {
-                    if (minQty === null || q < minQty) minQty = q;
-                  }
-                }
-                if (minQty !== null) bundleQty = minQty;
+          let syncQty = null;
+          let parts = null;
+          if (product.sku && product.sku.includes('+')) {
+            parts = product.sku.split('+').map(p => p.trim());
+          }
+          if (parts && parts.length > 1) {
+            if (parts.every(p => p === parts[0])) {
+              const baseSku = parts[0];
+              const baseQty = skuToQty[baseSku];
+              if (typeof baseQty === 'number' && !isNaN(baseQty)) {
+                syncQty = Math.floor(baseQty / parts.length);
               }
             } else {
-              const qty = skuToQty[product.sku];
-              if (typeof qty === 'number' && !isNaN(qty)) {
-                bundleQty = qty;
+              let minQty = null;
+              for (const part of parts) {
+                const q = skuToQty[part];
+                if (typeof q === 'number' && !isNaN(q)) {
+                  if (minQty === null || q < minQty) minQty = q;
+                }
               }
+              if (minQty !== null) syncQty = minQty;
             }
-            syncQty = bundleQty;
+          } else {
+            const qty = skuToQty[product.sku];
+            if (typeof qty === 'number' && !isNaN(qty)) {
+              syncQty = qty;
+            }
           }
           if (typeof syncQty === 'number' && !isNaN(syncQty)) {
             if (Array.isArray(newProduct.offerings)) {
@@ -267,37 +264,33 @@ exports.handler = async function(event) {
         putBody.products = putBody.products.map(product => {
           let newProduct = { ...product };
           if (listingSkus.includes(product.sku)) {
-            let syncQty = quantities[product.sku];
-            if (typeof syncQty !== 'number' || isNaN(syncQty)) {
-              let bundleQty = null;
-              let parts = null;
-              if (product.sku && product.sku.includes('+')) {
-                parts = product.sku.split('+').map(p => p.trim());
-              }
-              if (parts && parts.length > 1) {
-                if (parts.every(p => p === parts[0])) {
-                  const baseSku = parts[0];
-                  const baseQty = skuToQty[baseSku];
-                  if (typeof baseQty === 'number' && !isNaN(baseQty)) {
-                    bundleQty = Math.floor(baseQty / parts.length);
-                  }
-                } else {
-                  let minQty = null;
-                  for (const part of parts) {
-                    const q = skuToQty[part];
-                    if (typeof q === 'number' && !isNaN(q)) {
-                      if (minQty === null || q < minQty) minQty = q;
-                    }
-                  }
-                  if (minQty !== null) bundleQty = minQty;
+            let syncQty = null;
+            let parts = null;
+            if (product.sku && product.sku.includes('+')) {
+              parts = product.sku.split('+').map(p => p.trim());
+            }
+            if (parts && parts.length > 1) {
+              if (parts.every(p => p === parts[0])) {
+                const baseSku = parts[0];
+                const baseQty = skuToQty[baseSku];
+                if (typeof baseQty === 'number' && !isNaN(baseQty)) {
+                  syncQty = Math.floor(baseQty / parts.length);
                 }
               } else {
-                const qty = skuToQty[product.sku];
-                if (typeof qty === 'number' && !isNaN(qty)) {
-                  bundleQty = qty;
+                let minQty = null;
+                for (const part of parts) {
+                  const q = skuToQty[part];
+                  if (typeof q === 'number' && !isNaN(q)) {
+                    if (minQty === null || q < minQty) minQty = q;
+                  }
                 }
+                if (minQty !== null) syncQty = minQty;
               }
-              syncQty = bundleQty;
+            } else {
+              const qty = skuToQty[product.sku];
+              if (typeof qty === 'number' && !isNaN(qty)) {
+                syncQty = qty;
+              }
             }
             if (typeof syncQty === 'number' && !isNaN(syncQty)) {
               if (Array.isArray(newProduct.offerings)) {

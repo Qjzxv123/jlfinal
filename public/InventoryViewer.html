@@ -166,7 +166,7 @@
             // Fetch ProductSKU, Name, Quantity, Retailer columns
             const { data, error } = await supabase
                 .from('Products')
-                .select('ProductSKU,Name,Quantity,Retailer', { head: false })
+                .select('ProductSKU,Name,Quantity,Retailer,ReserveQuantity', { head: false })
                 .throwOnError();
             if (error) {
                 dataViewer.innerHTML = `<div class='error'>Error loading data: ${error.message}<br>Check your Supabase RLS policies and make sure your anon key is correct.</div>`;
@@ -176,9 +176,9 @@
                 dataViewer.innerHTML = '<div>No inventory data found for your account.</div>';
                 return;
             }
-            // Render as table with quantity input fields for sync selection
+            // Render as table with ReserveQuantity column for each SKU
             let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-            html += '<tr>' + ['Sync Qty', 'ProductSKU', 'Name', 'Quantity', 'Faire Inventory', 'Etsy Inventory'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
+            html += '<tr>' + ['ReserveQuantity', 'ProductSKU', 'Name', 'Quantity', 'Faire Inventory', 'Etsy Inventory'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
             data.sort((a, b) => {
                 if (a.ProductSKU < b.ProductSKU) return -1;
                 if (a.ProductSKU > b.ProductSKU) return 1;
@@ -188,6 +188,7 @@
             const etsySkuMap = {};
             for (const row of data) {
                 const quantity = parseInt(row.Quantity) || 0;
+                const reserve = parseInt(row.ReserveQuantity) || 0;
                 let quantityClass = '';
                 if (quantity <= 0) {
                     quantityClass = 'quantity-critical';
@@ -200,7 +201,7 @@
                     etsySkuMap[row.Retailer].push(row.ProductSKU);
                 }
                 html += `<tr>`;
-                html += `<td style='padding:4px;'><input type='number' min='0' max='${quantity}' class='sync-sku-qty' data-sku='${row.ProductSKU}' value='0' style='width:60px;'></td>`;
+                html += `<td style='padding:4px;'>${reserve}</td>`;
                 html += `<td style='padding:4px;'><a href="admin/ProductInfo.html?sku=${encodeURIComponent(row.ProductSKU ?? '')}" style="color:#3498db;text-decoration:underline;">${row.ProductSKU ?? ''}</a></td>`;
                 html += `<td style='padding:4px;'>${row.Name ?? ''}</td>`;
                 html += `<td style='padding:4px;' class='${quantityClass}'>${row.Quantity ?? ''}</td>`;
@@ -432,13 +433,6 @@
         // On load, fetch and display data after access check
         window.addEventListener('DOMContentLoaded', async () => {
             fetchAndDisplayData();
-        });
-
-        // Sign out button handler
-        document.getElementById('sign-out-btn').addEventListener('click', async (e) => {
-            e.preventDefault();
-            await supabase.auth.signOut();
-            window.location.reload();
         });
     </script>
         </div> <!-- Close main-container -->
