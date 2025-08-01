@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
+  <script src="/Assets/createSearchBarDropdown.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <link rel="stylesheet" href="/Assets/sidebar.css">
   <style>
@@ -279,10 +280,7 @@
     
     <div class="product-selection-container">
       <label for="productSearch">Search and Select Products:</label>
-      <div class="product-dropdown-container">
-        <input type="text" id="productSearch" class="product-search" placeholder="Type to search products..." />
-        <div id="productDropdown" class="product-dropdown" style="display: none;"></div>
-      </div>
+      <div id="productDropdownContainer"></div>
       
       <div class="selected-products">
         <h3>Selected Products for QR Code Generation:</h3>
@@ -333,62 +331,13 @@
       }
     }
 
+    // ...removed local createSearchBarDropdown, now loaded from /Assets/createSearchBarDropdown.js...
+
     // Setup product dropdown functionality
     function setupProductDropdown() {
-      const searchInput = document.getElementById('productSearch');
-      const dropdown = document.getElementById('productDropdown');
-
-      // Filter and display products based on search
-      function updateDropdown(searchTerm = '') {
-        const filtered = allProducts.filter(product => {
-          const searchText = `${product.ProductSKU} ${product.Name || ''}`.toLowerCase();
-          return searchText.includes(searchTerm.toLowerCase());
-        });
-
-        dropdown.innerHTML = '';
-        
-        filtered.slice(0, 20).forEach(product => {
-          const option = document.createElement('div');
-          option.className = 'product-option';
-          option.innerHTML = `
-            <div class="product-name">${product.ProductSKU} - ${product.Name || 'No Name'}</div>
-            <div class="product-details">
-              Retailer: ${product.Retailer || 'N/A'}${product['Pack Size'] ? ` | Pack Size: ${product['Pack Size']}` : ''}
-            </div>
-          `;
-          
-          option.addEventListener('click', () => {
-            addProductToSelection(product);
-            searchInput.value = '';
-            dropdown.style.display = 'none';
-          });
-          
-          dropdown.appendChild(option);
-        });
-
-        if (filtered.length === 0) {
-          dropdown.innerHTML = '<div class="product-option" style="color: #6b7280; font-style: italic;">No products found</div>';
-        }
-      }
-
-      // Show dropdown when input is focused
-      searchInput.addEventListener('focus', () => {
-        updateDropdown(searchInput.value);
-        dropdown.style.display = 'block';
-      });
-
-      // Update dropdown as user types
-      searchInput.addEventListener('input', (e) => {
-        updateDropdown(e.target.value);
-        dropdown.style.display = 'block';
-      });
-
-      // Hide dropdown when clicking outside
-      document.addEventListener('click', (e) => {
-        if (!document.querySelector('.product-dropdown-container').contains(e.target)) {
-          dropdown.style.display = 'none';
-        }
-      });
+      const containerId = 'productDropdownContainer';
+      // Create dropdown using the DRY function
+      window.createSearchBarDropdown('Products', ['ProductSKU', 'Name', 'Retailer', '"Pack Size"'], [], containerId, addProductToSelection);
     }
 
     // Add a product to the selection
