@@ -176,16 +176,14 @@
                 dataViewer.innerHTML = '<div>No inventory data found for your account.</div>';
                 return;
             }
-            // Render as table with Faire Inventory column
+            // Render as table with quantity input fields for sync selection
             let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-            html += '<tr>' + ['ProductSKU', 'Name', 'Quantity', 'Faire Inventory', 'Etsy Inventory'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
-            // Sort data by ProductSKU (A-Z)
+            html += '<tr>' + ['Sync Qty', 'ProductSKU', 'Name', 'Quantity', 'Faire Inventory', 'Etsy Inventory'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
             data.sort((a, b) => {
                 if (a.ProductSKU < b.ProductSKU) return -1;
                 if (a.ProductSKU > b.ProductSKU) return 1;
                 return 0;
             });
-            // Build rows and collect SKUs for batch fetch, and group by Retailer
             const skuList = [];
             const etsySkuMap = {};
             for (const row of data) {
@@ -197,13 +195,12 @@
                     quantityClass = 'quantity-low';
                 }
                 skuList.push(row.ProductSKU);
-                // Group SKUs by Retailer for Etsy
                 if (row.Retailer) {
                     if (!etsySkuMap[row.Retailer]) etsySkuMap[row.Retailer] = [];
                     etsySkuMap[row.Retailer].push(row.ProductSKU);
                 }
                 html += `<tr>`;
-                // Make ProductSKU a clickable link to ProductInfo.html
+                html += `<td style='padding:4px;'><input type='number' min='0' max='${quantity}' class='sync-sku-qty' data-sku='${row.ProductSKU}' value='0' style='width:60px;'></td>`;
                 html += `<td style='padding:4px;'><a href="admin/ProductInfo.html?sku=${encodeURIComponent(row.ProductSKU ?? '')}" style="color:#3498db;text-decoration:underline;">${row.ProductSKU ?? ''}</a></td>`;
                 html += `<td style='padding:4px;'>${row.Name ?? ''}</td>`;
                 html += `<td style='padding:4px;' class='${quantityClass}'>${row.Quantity ?? ''}</td>`;
@@ -310,12 +307,52 @@
             const statusDiv = document.getElementById('sync-faire-status');
             statusDiv.textContent = 'Syncing Faire inventory...';
             statusDiv.style.color = '#333';
+            // Get selected SKUs and quantities
+            const qtyInputs = document.querySelectorAll('.sync-sku-qty');
+            const selectedSkus = [];
+            const skuQtys = {};
+            qtyInputs.forEach(input => {
+                const sku = input.getAttribute('data-sku');
+                const qty = parseInt(input.value);
+                if (sku && qty > 0) {
+                    selectedSkus.push(sku);
+                    skuQtys[sku] = qty;
+                }
+            });
+            // Get current user's UserID and Faire token
+            let userID = null;
+            let faireToken = null;
             try {
-                const res = await fetch('/.netlify/functions/faire-sync-inventory', { method: 'POST' });
+                const { data: { session } } = await supabase.auth.getSession();
+                userID = session?.user?.id;
+                // Query oauth_tokens for faire token for this user
+                if (userID) {
+                    const { data: tokenRows } = await supabase
+                        .from('oauth_tokens')
+                        .select('access_token, platform')
+                        .eq('user_key', userID)
+                        .eq('platform', 'faire')
+                        .maybeSingle();
+                    faireToken = tokenRows?.access_token || null;
+                }
+            } catch (e) {}
+            if (!faireToken) {
+                statusDiv.textContent = 'No Faire token found for your account.';
+                statusDiv.style.color = '#b91c1c';
+                return;
+            }
+            try {
+                const res = await fetch('/.netlify/functions/faire-sync-inventory', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${faireToken}`
+                    },
+                    body: JSON.stringify({ skus: selectedSkus, quantities: skuQtys })
+                });
                 if (res.ok) {
                     statusDiv.textContent = 'Faire inventory sync complete!';
                     statusDiv.style.color = '#228B22';
-                    // Optionally, refresh the table after sync
                     fetchAndDisplayData();
                 } else {
                     const err = await res.text();
@@ -333,12 +370,52 @@
             const statusDiv = document.getElementById('sync-etsy-status');
             statusDiv.textContent = 'Syncing Etsy inventory...';
             statusDiv.style.color = '#333';
+            // Get selected SKUs and quantities
+            const qtyInputs = document.querySelectorAll('.sync-sku-qty');
+            const selectedSkus = [];
+            const skuQtys = {};
+            qtyInputs.forEach(input => {
+                const sku = input.getAttribute('data-sku');
+                const qty = parseInt(input.value);
+                if (sku && qty > 0) {
+                    selectedSkus.push(sku);
+                    skuQtys[sku] = qty;
+                }
+            });
+            // Get current user's UserID and Etsy token
+            let userID = null;
+            let etsyToken = null;
             try {
-                const res = await fetch('/.netlify/functions/etsy-sync-inventory', { method: 'POST' });
+                const { data: { session } } = await supabase.auth.getSession();
+                userID = session?.user?.id;
+                // Query oauth_tokens for etsy token for this user
+                if (userID) {
+                    const { data: tokenRows } = await supabase
+                        .from('oauth_tokens')
+                        .select('access_token, platform')
+                        .eq('user_key', userID)
+                        .eq('platform', 'etsy')
+                        .maybeSingle();
+                    etsyToken = tokenRows?.access_token || null;
+                }
+            } catch (e) {}
+            if (!etsyToken) {
+                statusDiv.textContent = 'No Etsy token found for your account.';
+                statusDiv.style.color = '#b91c1c';
+                return;
+            }
+            try {
+                const res = await fetch('/.netlify/functions/etsy-sync-inventory', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${etsyToken}`
+                    },
+                    body: JSON.stringify({ skus: selectedSkus, quantities: skuQtys })
+                });
                 if (res.ok) {
                     statusDiv.textContent = 'Etsy inventory sync complete!';
                     statusDiv.style.color = '#228B22';
-                    // Optionally, refresh the table after sync
                     fetchAndDisplayData();
                 } else {
                     const err = await res.text();

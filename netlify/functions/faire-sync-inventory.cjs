@@ -15,134 +15,118 @@ exports.handler = async function(event, context) {
     };
   }
 
-  // Get all oauth tokens from Supabase
-  let tokenRows = [];
+  // Get Authorization header and SKUs from POST body
+  const authHeader = event.headers['authorization'] || event.headers['Authorization'] || '';
+  let faireToken = null;
+  if (authHeader.startsWith('Bearer ')) faireToken = authHeader.slice(7);
+  let body = {};
+  try { body = JSON.parse(event.body); } catch (e) { body = {}; }
+  const selectedSkus = Array.isArray(body.skus) ? body.skus : [];
+  const quantities = typeof body.quantities === 'object' && body.quantities !== null ? body.quantities : {};
+  if (!faireToken || selectedSkus.length === 0) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Missing Faire token or SKUs to sync.' }),
+    };
+  }
+  // Find the user_key for this token
+  let retailer = null;
   try {
     const { data, error } = await supabase
       .from('oauth_tokens')
-      .select('user_key,access_token')
-      .eq('platform', 'faire');
+      .select('user_key')
+      .eq('platform', 'faire')
+      .eq('access_token', faireToken)
+      .maybeSingle();
     if (error) throw error;
-    tokenRows = data || [];
+    retailer = data?.user_key || null;
+  } catch (e) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({ error: 'Invalid Faire token.' }),
+    };
+  }
+  if (!retailer) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({ error: 'Faire token not associated with any user.' }),
+    };
+  }
+  // Get all products for this retailer
+  let supaProducts = [];
+  try {
+    const { data: products, error: prodErr } = await supabase
+      .from('Products')
+      .select('ProductSKU,Quantity,Retailer')
+      .eq('Retailer', retailer);
+    if (prodErr) throw prodErr;
+    supaProducts = products || [];
   } catch (e) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to fetch tokens', details: e.message || e.toString() }),
+      body: JSON.stringify({ error: 'Failed to fetch products', details: e.message || e.toString() }),
     };
   }
-
-  // Build a set of retailers with tokens for quick lookup
-  const retailersWithToken = new Set(tokenRows.map(row => row.user_key));
-
-  // For each token, fetch all inventory from Faire, calculate bundle logic, then PATCH updates
-  const results = {};
-  for (const row of tokenRows) {
-    const retailer = row.user_key;
-    const token = row.access_token;
-    const credentials = Buffer.from(`${process.env.FAIRE_CLIENT_ID}:${process.env.FAIRE_CLIENT_SECRET}`).toString('base64');
-    try {
-      // 1. Get all products (and variants) for this retailer
-      let allSkus = [];
-      let cursor = null;
-      do {
-        let url = 'https://www.faire.com/external-api/v2/products?limit=250';
-        if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
-        const prodRes = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'X-FAIRE-APP-CREDENTIALS': credentials,
-            'X-FAIRE-OAUTH-ACCESS-TOKEN': token,
-          },
-        });
-        if (!prodRes.ok) {
-          console.error(`Faire products API error for retailer ${retailer}:`, prodRes.status, await prodRes.text());
-          break;
-        }
-        const prodData = await prodRes.json();
-        if (Array.isArray(prodData.products)) {
-          for (const product of prodData.products) {
-            if (Array.isArray(product.variants)) {
-              for (const variant of product.variants) {
-                if (variant.sku) allSkus.push(variant.sku);
-              }
-            }
-          }
-        }
-        cursor = prodData.cursor || null;
-      } while (cursor);
-
-      // 2. Get all SKUs from Supabase for this retailer ONLY if retailer has a token
-      let supaProducts = [];
-      try {
-        const { data: products, error: prodErr } = await supabase
-          .from('Products')
-          .select('ProductSKU,Quantity,Retailer')
-          .eq('Retailer', retailer);
-        if (prodErr) throw prodErr;
-        supaProducts = (products || []).filter(p => retailersWithToken.has(p.Retailer));
-      } catch (e) {
-        console.error(`Supabase error for retailer ${retailer}:`, e);
-        continue;
-      }
-      const skuToQty = {};
-      for (const p of supaProducts) {
-        skuToQty[p.ProductSKU] = parseInt(p.Quantity) || 0;
-      }
-      // 3. For each Faire SKU, determine bundle logic and build update payload (deduplicate SKUs)
-      const uniqueSkus = Array.from(new Set(allSkus));
-      const patchPayload = { inventories: [] };
-      for (const sku of uniqueSkus) {
-        let bundleQty = null;
-        if (sku.includes('+')) {
-          const parts = sku.split('+');
-          if (parts.every(p => p === parts[0])) {
-            const baseSku = parts[0];
-            const baseQty = skuToQty[baseSku];
-            if (typeof baseQty === 'number' && !isNaN(baseQty)) {
-              bundleQty = Math.floor(baseQty / parts.length);
-            }
-          } else {
-            let minQty = null;
-            for (const part of parts) {
-              const q = skuToQty[part];
-              if (typeof q === 'number' && !isNaN(q)) {
-                if (minQty === null || q < minQty) minQty = q;
-              }
-            }
-            if (minQty !== null) bundleQty = minQty;
+  const skuToQty = {};
+  for (const p of supaProducts) {
+    skuToQty[p.ProductSKU] = parseInt(p.Quantity) || 0;
+  }
+  // PATCH only selected SKUs
+  const patchPayload = { inventories: [] };
+  for (const sku of selectedSkus) {
+    // Use the quantity provided by the user, fallback to calculated bundle logic if not provided
+    let syncQty = quantities[sku];
+    if (typeof syncQty !== 'number' || isNaN(syncQty)) {
+      let bundleQty = null;
+      if (sku.includes('+')) {
+        const parts = sku.split('+');
+        if (parts.every(p => p === parts[0])) {
+          const baseSku = parts[0];
+          const baseQty = skuToQty[baseSku];
+          if (typeof baseQty === 'number' && !isNaN(baseQty)) {
+            bundleQty = Math.floor(baseQty / parts.length);
           }
         } else {
-          const qty = skuToQty[sku];
-          if (typeof qty === 'number' && !isNaN(qty)) bundleQty = qty;
+          let minQty = null;
+          for (const part of parts) {
+            const q = skuToQty[part];
+            if (typeof q === 'number' && !isNaN(q)) {
+              if (minQty === null || q < minQty) minQty = q;
+            }
+          }
+          if (minQty !== null) bundleQty = minQty;
         }
-        results[`${retailer}:${sku}`] = bundleQty;
-        if (typeof bundleQty === 'number' && !isNaN(bundleQty)) {
-          patchPayload.inventories.push({ sku, on_hand_quantity: bundleQty });
-        }
+      } else {
+        const qty = skuToQty[sku];
+        if (typeof qty === 'number' && !isNaN(qty)) bundleQty = qty;
       }
-      // 4. PATCH update to Faire
-      const patchUrl = 'https://www.faire.com/external-api/v2/product-inventory/by-skus';
-      const patchRes = await fetch(patchUrl, {
-        method: 'PATCH',
-        headers: {
-          'X-FAIRE-APP-CREDENTIALS': credentials,
-          'X-FAIRE-OAUTH-ACCESS-TOKEN': token,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(patchPayload),
-      });
-      if (!patchRes.ok) {
-        console.error(`Faire PATCH error for retailer ${retailer}:`, patchRes.status, await patchRes.text());
-      }
-    } catch (e) {
-      console.error(`Faire API exception for retailer ${retailer}:`, e);
-      continue;
+      syncQty = bundleQty;
+    }
+    if (typeof syncQty === 'number' && !isNaN(syncQty)) {
+      patchPayload.inventories.push({ sku, on_hand_quantity: syncQty });
     }
   }
-  console.log('Faire sync results:', results);
+  // PATCH update to Faire
+  const credentials = Buffer.from(`${process.env.FAIRE_CLIENT_ID}:${process.env.FAIRE_CLIENT_SECRET}`).toString('base64');
+  const patchUrl = 'https://www.faire.com/external-api/v2/product-inventory/by-skus';
+  const patchRes = await fetch(patchUrl, {
+    method: 'PATCH',
+    headers: {
+      'X-FAIRE-APP-CREDENTIALS': credentials,
+      'X-FAIRE-OAUTH-ACCESS-TOKEN': faireToken,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(patchPayload),
+  });
+  if (!patchRes.ok) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Faire PATCH error', details: await patchRes.text() }),
+    };
+  }
   return {
     statusCode: 200,
-    body: JSON.stringify(results),
+    body: JSON.stringify({ success: true }),
     headers: { 'Content-Type': 'application/json' },
   };
 };
