@@ -300,9 +300,22 @@
         document.getElementById('Supplier').value = ingredient.Supplier || '';
         document.getElementById('Quantity').value = ingredient['Quantity(Lbs/Units)'] || '';
         document.getElementById('Location').value = ingredient.Location || '';
-        document.getElementById('Cost').value = ingredient.Cost || '';
         document.getElementById('LowInvThreshold').value = ingredient.LowInvThreshold || '';
         document.getElementById('Link').value = ingredient.Link || '';
+
+        // Load the most recent cost from CostLog
+        const { data: costData, error: costError } = await supabase
+          .from('CostLog')
+          .select('Cost')
+          .eq('SKU', ingredient.IngredientSKU)
+          .order('Date', { ascending: false })
+          .limit(1);
+
+        if (costData && costData.length > 0) {
+          document.getElementById('Cost').value = costData[0].Cost || '';
+        } else {
+          document.getElementById('Cost').value = '';
+        }
 
         statusMsg.textContent = 'Ingredient data loaded successfully! You can now modify and save.';
         statusMsg.className = 'status success';
@@ -325,10 +338,12 @@
         Supplier: document.getElementById('Supplier').value.trim(),
         'Quantity(Lbs/Units)': document.getElementById('Quantity').value ? parseFloat(document.getElementById('Quantity').value) : null,
         Location: document.getElementById('Location').value.trim(),
-        Cost: document.getElementById('Cost').value ? parseFloat(document.getElementById('Cost').value) : null,
         LowInvThreshold: document.getElementById('LowInvThreshold').value ? parseFloat(document.getElementById('LowInvThreshold').value) : null,
         Link: document.getElementById('Link').value.trim()
       };
+
+      // Handle cost separately for CostLog table
+      const costValue = document.getElementById('Cost').value ? parseFloat(document.getElementById('Cost').value) : null;
 
       // Remove empty string values
       Object.keys(data).forEach(k => { 
@@ -353,10 +368,30 @@
           if (updateError) {
             statusMsg.textContent = 'Error updating ingredient: ' + updateError.message;
             statusMsg.className = 'status error';
-          } else {
-            statusMsg.textContent = 'Ingredient updated successfully!';
-            statusMsg.className = 'status success';
+            return;
           }
+
+          // Add cost to CostLog if provided
+          if (costValue !== null) {
+            const { data: userData } = await supabase.auth.getUser();
+            const { error: costError } = await supabase
+              .from('CostLog')
+              .insert([{
+                Date: new Date().toISOString().split('T')[0], // Today's date
+                SKU: data.IngredientSKU,
+                Cost: costValue,
+                UserID: userData?.user?.id ? [userData.user.id] : null
+              }]);
+
+            if (costError) {
+              statusMsg.textContent = 'Ingredient updated but error adding cost: ' + costError.message;
+              statusMsg.className = 'status error';
+              return;
+            }
+          }
+
+          statusMsg.textContent = 'Ingredient updated successfully!';
+          statusMsg.className = 'status success';
         } else {
           // Insert new ingredient
           const { error: insertError } = await supabase
@@ -366,11 +401,31 @@
           if (insertError) {
             statusMsg.textContent = 'Error adding ingredient: ' + insertError.message;
             statusMsg.className = 'status error';
-          } else {
-            statusMsg.textContent = 'Ingredient added successfully!';
-            statusMsg.className = 'status success';
-            form.reset();
+            return;
           }
+
+          // Add cost to CostLog if provided
+          if (costValue !== null) {
+            const { data: userData } = await supabase.auth.getUser();
+            const { error: costError } = await supabase
+              .from('CostLog')
+              .insert([{
+                Date: new Date().toISOString().split('T')[0], // Today's date
+                SKU: data.IngredientSKU,
+                Cost: costValue,
+                UserID: userData?.user?.id ? [userData.user.id] : null
+              }]);
+
+            if (costError) {
+              statusMsg.textContent = 'Ingredient added but error adding cost: ' + costError.message;
+              statusMsg.className = 'status error';
+              return;
+            }
+          }
+
+          statusMsg.textContent = 'Ingredient added successfully!';
+          statusMsg.className = 'status success';
+          form.reset();
         }
       } catch (error) {
         statusMsg.textContent = 'Error: ' + error.message;
