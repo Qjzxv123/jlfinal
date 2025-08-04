@@ -64,6 +64,67 @@ console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
         };
       }
       
+      // Process line items with SKU separation logic (same as Faire)
+      let itemMap = {};
+      for (const item of (order.line_items || [])) {
+        if (item.sku && item.sku.includes('GIFT-BOX')) {
+          // If SKU contains GIFT-BOX, keep the whole SKU string as a single item
+          const key = item.sku.trim();
+          let itemQty = item.quantity || 0;
+          if (!itemMap[key]) {
+            itemMap[key] = {
+              SKU: key,
+              Name: item.title || '',
+              Quantity: itemQty
+            };
+          } else {
+            itemMap[key].Quantity += itemQty;
+          }
+        } else if (item.sku && item.sku.includes('+')) {
+          // Bundle SKU, split and aggregate
+          const skus = item.sku.split('+').map(s => s.trim());
+          const uniqueSKUs = Array.from(new Set(skus));
+          if (uniqueSKUs.length === 1) {
+            const key = uniqueSKUs[0];
+            let totalQty = skus.length * (item.quantity || 0);
+            if (!itemMap[key]) {
+              itemMap[key] = {
+                SKU: key,
+                Name: item.title || '',
+                Quantity: totalQty
+              };
+            } else {
+              itemMap[key].Quantity += totalQty;
+            }
+          } else {
+            for (const key of skus) {
+              if (!itemMap[key]) {
+                itemMap[key] = {
+                  SKU: key,
+                  Name: item.title || '',
+                  Quantity: item.quantity || 0
+                };
+              } else {
+                itemMap[key].Quantity += (item.quantity || 0);
+              }
+            }
+          }
+        } else {
+          const key = item.sku || '';
+          let itemQty = item.quantity || 0;
+          if (!itemMap[key]) {
+            itemMap[key] = {
+              SKU: item.sku || '',
+              Name: item.title || '',
+              Quantity: itemQty
+            };
+          } else {
+            itemMap[key].Quantity += itemQty;
+          }
+        }
+      }
+      let parsedItems = Object.values(itemMap);
+      
       // Determine platform - check for TikTok anywhere in the order data
       let platformValue = order.shop_app;
       const orderDataString = JSON.stringify(order).toLowerCase();
@@ -74,7 +135,7 @@ console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
       await supabase.from('Orders').upsert({
         OrderID: order.order_number.replace("#",""),
         Retailer: retailerValue,
-        Items: order.line_items || null,
+        Items: JSON.stringify(parsedItems),
         Customer: customerObj ? JSON.stringify(customerObj) : null,
         Platform: platformValue,
         Link: getPlatformOrderUrl(platformValue, order.order_number, order.shopify_id, retailerValue),
