@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Send Order To Amazon</title>
+  <title>Amazon Shipments</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
   <link rel="stylesheet" href="/Assets/sidebar.css">
   <style>
@@ -167,7 +167,7 @@
   <!-- Main Content -->
   <div class="main-content" id="mainContent">
     <div class="container">
-      <h2>Send Order To Amazon</h2>
+      <h2>Amazon Shipments</h2>
       <form id="orderForm">
         <div class="items-container">
           <div class="items-header">Order Items</div>
@@ -339,10 +339,8 @@
           const quantityInput = row.querySelector('.quantity-input');
           
           if (select.value && quantityInput.value) {
-            const product = allProducts.find(p => p.ProductSKU === select.value);
             items.push({
-              productSKU: select.value,
-              productName: product ? product.Name : select.value,
+              sku: select.value,
               quantity: parseInt(quantityInput.value)
             });
           }
@@ -354,35 +352,31 @@
           return;
         }
 
-        // Generate unique OrderID
-        const timestamp = Date.now();
-        const randomNum = Math.floor(Math.random() * 1000);
-        const orderID = `AMZ-${timestamp}-${randomNum}`;
+        // Get notes
+        const notes = document.getElementById('Notes').value.trim() || null;
 
-        const orderData = {
-          OrderID: orderID,
-          Retailer: displayName,
-          Items: items,
-          Customer: displayName ? { name: displayName } : null,
-          Platform: "Send To Amazon",
-          Notes: document.getElementById('Notes').value.trim() || null
-        };
-
-        // Remove empty string values
-        Object.keys(orderData).forEach(k => { 
-          if (orderData[k] === '') orderData[k] = null; 
+        // Insert each item as a separate row in AmazonShipments table
+        const insertPromises = items.map(item => {
+          return supabase
+            .from('AmazonShipments')
+            .insert({
+              SKU: item.sku,
+              Quantity: item.quantity,
+              Notes: notes,
+              display_name: displayName
+            });
         });
 
-        // Insert the order
-        const { error } = await supabase
-          .from('Orders')
-          .insert([orderData]);
-
-        if (error) {
-          statusMsg.textContent = 'Error creating order: ' + error.message;
+        // Wait for all inserts to complete
+        const results = await Promise.all(insertPromises);
+        
+        // Check for errors
+        const errors = results.filter(result => result.error);
+        if (errors.length > 0) {
+          statusMsg.textContent = 'Error creating shipment entries: ' + errors[0].error.message;
           statusMsg.className = 'status error';
         } else {
-          statusMsg.textContent = 'Order created successfully!';
+          statusMsg.textContent = `Successfully created ${items.length} shipment entries!`;
           statusMsg.className = 'status success';
           form.reset();
           
