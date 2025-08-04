@@ -299,6 +299,117 @@
     .selected-row {
       background: #e8f5e8 !important;
     }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+
+    .modal-content {
+      background-color: white;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 12px;
+      width: 80%;
+      max-width: 800px;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e1e5e9;
+      padding-bottom: 15px;
+    }
+
+    .modal-header h2 {
+      color: #2c3e50;
+      margin: 0;
+    }
+
+    .close {
+      color: #aaa;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .close:hover {
+      color: #000;
+    }
+
+    .box-selection {
+      margin-bottom: 20px;
+    }
+
+    .box-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      border: 2px solid #e1e5e9;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      background: #f8f9fa;
+    }
+
+    .box-item.selected {
+      border-color: #4DBA93;
+      background: #e8f5e8;
+    }
+
+    .box-info {
+      flex: 1;
+    }
+
+    .box-sku {
+      font-weight: 600;
+      color: #2c3e50;
+      font-family: 'Courier New', monospace;
+    }
+
+    .box-dimensions {
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    .box-quantity {
+      color: #4DBA93;
+      font-weight: 600;
+    }
+
+    .quantity-input {
+      width: 80px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .process-summary {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
@@ -320,6 +431,10 @@
       <div class="controls">
         <button class="btn" onclick="loadShipments()" id="refreshBtn">
           🔄 Refresh Shipments
+        </button>
+        
+        <button class="btn" onclick="processAmazonShipments()" id="processBtn" style="background: #BA4D74;">
+          📦 Process Shipments
         </button>
         
         <div class="search-box">
@@ -367,6 +482,33 @@
     </div>
   </div>
 
+  <!-- Box Selection Modal -->
+  <div id="boxModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Select Boxes for Amazon Shipments</h2>
+        <span class="close" onclick="closeBoxModal()">&times;</span>
+      </div>
+      
+      <div class="process-summary" id="processSummary">
+        <!-- Summary will be populated by JavaScript -->
+      </div>
+      
+      <div class="box-selection" id="boxSelection">
+        <!-- Box options will be populated by JavaScript -->
+      </div>
+      
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="btn" onclick="submitProcessing()" id="submitProcessBtn">
+          📋 Send to Inventory Updater
+        </button>
+        <button class="btn" onclick="closeBoxModal()" style="background: #666; margin-left: 10px;">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Access control and inactivity timeout
     checkPermissions(['service_role']);
@@ -375,12 +517,249 @@
     let allShipments = [];
     let filteredShipments = [];
     let selectedShipments = new Set();
+    let availableBoxes = [];
+    let selectedBoxes = {};
 
     function showStatus(message, type = 'loading') {
       const statusDiv = document.getElementById('statusDiv');
       statusDiv.style.display = 'block';
       statusDiv.className = `status ${type}`;
       statusDiv.textContent = message;
+    }
+
+    function hideStatus() {
+      document.getElementById('statusDiv').style.display = 'none';
+    }
+
+    async function processAmazonShipments() {
+      if (selectedShipments.size === 0) {
+        alert('Please select at least one shipment to process.');
+        return;
+      }
+
+      showStatus('Loading available boxes...', 'loading');
+      
+      try {
+        // Load available boxes from Boxes table
+        const { data: boxes, error } = await supabase
+          .from('Boxes')
+          .select('*')
+          .order('SKU');
+
+        if (error) {
+          throw error;
+        }
+
+        availableBoxes = boxes || [];
+        hideStatus();
+        showBoxSelectionModal();
+
+      } catch (error) {
+        console.error('Error loading boxes:', error);
+        showStatus(`Error loading boxes: ${error.message}`, 'error');
+      }
+    }
+
+    function showBoxSelectionModal() {
+      const modal = document.getElementById('boxModal');
+      const summaryDiv = document.getElementById('processSummary');
+      const boxSelectionDiv = document.getElementById('boxSelection');
+
+      // Get selected shipments data
+      const selectedShipmentsData = getSelectedShipmentsData();
+
+      // Create summary
+      const totalShipments = selectedShipmentsData.length;
+      const totalQuantity = selectedShipmentsData.reduce((sum, shipment) => sum + (shipment.Quantity || 0), 0);
+      const uniqueSKUs = new Set(selectedShipmentsData.map(shipment => shipment.SKU)).size;
+
+      summaryDiv.innerHTML = `
+        <h3>Processing Summary</h3>
+        <div class="summary-row">
+          <span>Total Shipments:</span>
+          <strong>${totalShipments}</strong>
+        </div>
+        <div class="summary-row">
+          <span>Total Quantity:</span>
+          <strong>${totalQuantity}</strong>
+        </div>
+        <div class="summary-row">
+          <span>Unique SKUs:</span>
+          <strong>${uniqueSKUs}</strong>
+        </div>
+      `;
+
+      // Create box selection
+      boxSelectionDiv.innerHTML = `
+        <h3>Select Boxes and Quantities</h3>
+        <p style="margin-bottom: 15px; color: #666;">Choose which boxes to include and specify quantities for each:</p>
+        ${availableBoxes.map(box => `
+          <div class="box-item" id="box-${box.SKU}" onclick="toggleBoxSelection('${box.SKU}')">
+            <div class="box-info">
+              <div class="box-sku">${box.SKU}</div>
+              <div class="box-dimensions">${box.Dimensions || 'No dimensions'}</div>
+              <div class="box-quantity">Available: ${box.Quantity || 0}</div>
+            </div>
+            <div>
+              <input type="number" 
+                     class="quantity-input" 
+                     id="qty-${box.SKU}" 
+                     placeholder="Qty"
+                     onclick="event.stopPropagation()"
+                     onchange="updateBoxQuantity('${box.SKU}', this.value)">
+            </div>
+          </div>
+        `).join('')}
+      `;
+
+      modal.style.display = 'block';
+      selectedBoxes = {};
+    }
+
+    function toggleBoxSelection(boxSKU) {
+      const boxElement = document.getElementById(`box-${boxSKU}`);
+      const qtyInput = document.getElementById(`qty-${boxSKU}`);
+      
+      if (selectedBoxes[boxSKU]) {
+        delete selectedBoxes[boxSKU];
+        boxElement.classList.remove('selected');
+        qtyInput.value = '';
+      } else {
+        selectedBoxes[boxSKU] = 1;
+        boxElement.classList.add('selected');
+        qtyInput.value = '1';
+      }
+    }
+
+    function updateBoxQuantity(boxSKU, quantity) {
+      const qty = parseInt(quantity);
+      if (qty > 0) {
+        selectedBoxes[boxSKU] = qty;
+        document.getElementById(`box-${boxSKU}`).classList.add('selected');
+      } else {
+        delete selectedBoxes[boxSKU];
+        document.getElementById(`box-${boxSKU}`).classList.remove('selected');
+      }
+    }
+
+    function closeBoxModal() {
+      document.getElementById('boxModal').style.display = 'none';
+      selectedBoxes = {};
+    }
+
+    async function submitProcessing() {
+      if (Object.keys(selectedBoxes).length === 0) {
+        alert('Please select at least one box with a quantity.');
+        return;
+      }
+
+      const submitBtn = document.getElementById('submitProcessBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳ Processing...';
+
+      try {
+        // Create CSV data for shipments only
+        const shipmentCSV = generateShipmentCSV();
+        
+        // Update box quantities directly in the database
+        await updateBoxQuantities();
+
+        // Send only shipment data to inventory updater
+        await sendToInventoryUpdater(shipmentCSV);
+
+        // Close modal
+        closeBoxModal();
+        
+        // Clear selected shipments since they've been processed
+        const processedShipmentIds = Array.from(selectedShipments);
+        allShipments = allShipments.filter(shipment => !processedShipmentIds.includes(shipment.id));
+        filteredShipments = filteredShipments.filter(shipment => !processedShipmentIds.includes(shipment.id));
+        selectedShipments.clear();
+        
+        // Update display
+        displayShipments();
+        updateSummary();
+        populateUserFilter();
+
+        showStatus('Shipments processed and boxes updated!', 'success');
+        setTimeout(hideStatus, 3000);
+
+      } catch (error) {
+        console.error('Error processing shipments:', error);
+        showStatus(`Error processing shipments: ${error.message}`, 'error');
+        
+        submitBtn.disabled = false;
+        submitBtn.textContent = '📋 Send to Inventory Updater';
+      }
+    }
+
+    function generateShipmentCSV() {
+      // Generate CSV content for selected shipments only
+      const selectedShipmentsData = getSelectedShipmentsData();
+      const skuMap = new Map();
+      
+      // Aggregate quantities by SKU for selected shipments
+      selectedShipmentsData.forEach(shipment => {
+        if (shipment.SKU) {
+          const currentQty = skuMap.get(shipment.SKU) || 0;
+          skuMap.set(shipment.SKU, currentQty + (shipment.Quantity || 0));
+        }
+      });
+      
+      // Create CSV lines
+      const csvLines = ['SKU,Product Name,Quantity'];
+      skuMap.forEach((quantity, sku) => {
+        // For Amazon shipments, we might not have product names, so use SKU as name
+        const productName = sku; // You could enhance this by looking up product names from a Products table
+        const escapedName = productName.includes(',') || productName.includes('"') 
+          ? `"${productName.replace(/"/g, '""')}"` 
+          : productName;
+        csvLines.push(`${sku},${escapedName},${quantity}`);
+      });
+      
+      return csvLines.join('\n');
+    }
+
+    function generateBoxCSV() {
+      // Generate box CSV in similar format (SKU, Product Name, Quantity)
+      const csvLines = ['SKU,Product Name,Quantity'];
+      Object.entries(selectedBoxes).forEach(([boxSKU, quantity]) => {
+        const box = availableBoxes.find(b => b.SKU === boxSKU);
+        const productName = box?.Dimensions ? `Box ${box.Dimensions}` : `Box ${boxSKU}`;
+        const escapedName = productName.includes(',') || productName.includes('"') 
+          ? `"${productName.replace(/"/g, '""')}"` 
+          : productName;
+        csvLines.push(`${boxSKU},${escapedName},${quantity}`);
+      });
+      
+      return csvLines.join('\n');
+    }
+
+    async function updateBoxQuantities() {
+      // Update box quantities directly in the Boxes table
+      for (const [boxSKU, quantityUsed] of Object.entries(selectedBoxes)) {
+        const box = availableBoxes.find(b => b.SKU === boxSKU);
+        if (box) {
+          const newQuantity = (box.Quantity || 0) - quantityUsed;
+          
+          const { error } = await supabase
+            .from('Boxes')
+            .update({ Quantity: newQuantity }) // Allow negative quantities
+            .eq('SKU', boxSKU);
+            
+          if (error) {
+            throw new Error(`Failed to update box ${boxSKU}: ${error.message}`);
+          }
+        }
+      }
+    }
+
+    async function sendToInventoryUpdater(shipmentCSV) {
+      // Store only shipment CSV in sessionStorage and navigate to InventoryUpdater.html
+      sessionStorage.setItem('inventoryCSV', shipmentCSV);
+      
+      // Navigate to InventoryUpdater.html
+      window.location.href = 'InventoryUpdater.html';
     }
 
     function hideStatus() {
@@ -673,10 +1052,23 @@
     window.toggleShipmentSelection = toggleShipmentSelection;
     window.toggleSelectAll = toggleSelectAll;
     window.deleteSelectedShipments = deleteSelectedShipments;
+    window.processAmazonShipments = processAmazonShipments;
+    window.closeBoxModal = closeBoxModal;
+    window.toggleBoxSelection = toggleBoxSelection;
+    window.updateBoxQuantity = updateBoxQuantity;
+    window.submitProcessing = submitProcessing;
 
     // Initialize the page
     window.addEventListener('DOMContentLoaded', () => {
       loadShipments();
+    });
+
+    // Close modal when clicking outside of it
+    window.addEventListener('click', (event) => {
+      const modal = document.getElementById('boxModal');
+      if (event.target === modal) {
+        closeBoxModal();
+      }
     });
   </script>
 </body>
