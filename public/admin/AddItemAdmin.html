@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add/Update Items - Admin</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <link rel="stylesheet" href="/Assets/sidebar.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      color: #333;
+    }
+    
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+      width: calc(100% - 60px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+    }
+    
+    .container {
+      background: white;
+      padding: 32px 28px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+      max-width: 900px;
+      width: 100%;
+      margin-top: 40px;
+    }
+    
+    h2 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 18px;
+    }
+    
+    /* Tab Styles */
+    .tab-container {
+      display: flex;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      padding: 4px;
+    }
+    
+    .tab-button {
+      flex: 1;
+      padding: 12px 20px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.3s ease;
+    }
+    
+    .tab-button.active {
+      background: #4DBA93;
+      color: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .tab-button:hover:not(.active) {
+      background: #e9ecef;
+    }
+    
+    /* Tab Content */
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    /* Form Styles */
+    form label {
+      display: block;
+      margin-top: 14px;
+      font-weight: 600;
+      color: #34495e;
+    }
+    
+    form input, form select, form textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      border: 1.5px solid #e1e5e9;
+      border-radius: 7px;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background-color: #fff;
+    }
+    
+    form input:focus, form select:focus, form textarea:focus {
+      outline: none;
+      border-color: #4DBA93;
+      box-shadow: 0 0 0 3px rgba(77, 186, 147, 0.1);
+    }
+    
+    form select {
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 8px center;
+      background-repeat: no-repeat;
+      background-size: 16px;
+      padding-right: 40px;
+    }
+    
+    form input[type="checkbox"] {
+      width: auto;
+      margin-right: 8px;
+    }
+    
+    .btn {
+      background: #4DBA93;
+      color: white;
+      border: none;
+      padding: 12px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: 600;
+      width: 100%;
+      margin-top: 18px;
+      transition: background 0.2s;
+    }
+    
+    .btn:hover {
+      background: #379c7a;
+    }
+    
+    .status {
+      text-align: center;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+    
+    .status.success { color: #27ae60; }
+    .status.error { color: #e74c3c; }
+    
+    /* Dropdown Styles */
+    .dropdown-container {
+      position: relative;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+      margin: 0;
+    }
+    
+    .dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 9999;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: none;
+    }
+    
+    .dropdown-option {
+      padding: 0.75rem;
+      cursor: pointer;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .dropdown-option:hover {
+      background: #f3f4f6;
+    }
+    
+    .dropdown-option:last-child {
+      border-bottom: none;
+    }
+    
+    .dropdown-option .item-name {
+      font-weight: 500;
+      color: #1f2937;
+    }
+    
+    .dropdown-option .item-details {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 0.25rem;
+    }
+    
+    /* Load Section */
+    .load-section {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background: #f0f9ff;
+      border-radius: 8px;
+      border: 1px solid #bae6fd;
+    }
+    
+    .load-section label {
+      font-weight: 600;
+      color: #1e40af;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    
+    .load-section .description {
+      font-size: 0.85rem;
+      color: #6b7280;
+      margin-top: 0.5rem;
+    }
+    
+    /* Process Editor Styles */
+    .process-editor {
+      margin-top: 18px;
+    }
+    
+    .phase-container {
+      border: 1px solid #e1e5e9;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      background: #f8f9fa;
+    }
+    
+    .phase-header {
+      background: #e9ecef;
+      padding: 10px 15px;
+      border-radius: 8px 8px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .phase-content {
+      padding: 15px;
+    }
+    
+    .ingredient-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .ingredient-row input {
+      margin: 0;
+    }
+    
+    .ingredient-dropdown-container {
+      position: relative;
+      flex: 2;
+    }
+    
+    .ingredient-search {
+      width: 100%;
+      padding: 0.3rem 0.5rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+    
+    .ingredient-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #cbd5e1;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      max-height: 150px;
+      overflow-y: auto;
+      z-index: 1000;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      display: none;
+    }
+    
+    .ingredient-option {
+      padding: 0.5rem;
+      cursor: pointer;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.85rem;
+    }
+    
+    .ingredient-option:hover {
+      background: #f3f4f6;
+    }
+    
+    .ingredient-option:last-child {
+      border-bottom: none;
+    }
+    
+    .remove-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    
+    .add-btn {
+      background: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-top: 10px;
+    }
+    
+    /* Manufacturing Instructions */
+    .manufacturing-instructions-container {
+      display: none;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
+</head>
+<body>
+  <!-- Sidebar -->
+  <div id="sidebar"></div>
+  <script src="/Assets/sidebar.js"></script>
+  
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+    <div class="container">
+      <h2>Add/Update Items - Admin</h2>
+      
+      <!-- Tab Navigation -->
+      <div class="tab-container">
+        <button class="tab-button active" onclick="switchTab('product')">Product</button>
+        <button class="tab-button" onclick="switchTab('ingredient')">Ingredient</button>
+        <button class="tab-button" onclick="switchTab('box')">Box</button>
+      </div>
+      
+      <!-- Product Tab -->
+      <div id="product-tab" class="tab-content active">
+        <div class="load-section">
+          <label>Load from Existing Product:</label>
+          <div id="loadFromProductDropdown"></div>
+          <div class="description">This will populate all fields with data from an existing product for easy duplication or modification.</div>
+        </div>
+        
+        <form id="productForm">
+          <label>Product SKU*<input type="text" id="ProductSKU" required></label>
+          <label>Name<input type="text" id="Name"></label>
+          <label>Product Weight(oz)<input type="text" id="ProductSize" placeholder="e.g., 4, 8, 16, etc."></label>
+          <label>Product Type<select id="ProductType">
+            <option value="">Select Product Type</option>
+            <option value="Balm 0.5">Balm 0.5</option>
+            <option value="Deodorant">Deodorant</option>
+            <option value="Serum">Serum</option>
+            <option value="Oil">Oil</option>
+            <option value="Balm 1.5">Balm 1.5</option>
+            <option value="Rub">Rub</option>
+            <option value="Mask">Mask</option>
+            <option value="Powder">Powder</option>
+            <option value="Scrub">Scrub</option>
+            <option value="Soak">Soak</option>
+            <option value="Conditioner">Conditioner</option>
+            <option value="Soap Cube">Soap Cube</option>
+            <option value="Soap Bar">Soap Bar</option>
+            <option value="Soap Hotel">Soap Hotel</option>
+            <option value="Shave Cube">Shave Cube</option>
+            <option value="Shave Bar">Shave Bar</option>
+            <option value="Shave Hotel">Shave Hotel</option>
+            <option value="Shampoo Bar">Shampoo Bar</option>
+            <option value="Balm 2.2">Balm 2.2</option>
+            <option value="Butter">Butter</option>
+            <option value="Infusion Oil">Infusion Oil</option>
+            <option value="Cream">Cream</option>
+            <option value="Skin Toner">Skin Toner</option>
+            <option value="Water Mixture">Water Mixture</option>
+            <option value="Shampoo bar machine">Shampoo bar machine</option>
+            <option value="Conditioner molds">Conditioner molds</option>
+            <option value="Conditioner Small">Conditioner Small</option>
+            <option value="Balm">Balm</option>
+            <option value="Infusion Oil + Seal">Infusion Oil + Seal</option>
+            <option value="Premixed">Premixed</option>
+            <option value="Oil with Machine">Oil with Machine</option>
+            <option value="Oily Gel">Oily Gel</option>
+            <option value="Oil with machine and box">Oil with machine and box</option>
+            <option value="Shower Steamer">Shower Steamer</option>
+            <option value="Candle">Candle</option>
+            <option value="Emulsion">Emulsion</option>
+            <option value="Balm with tube machine">Balm with tube machine</option>
+            <option value="Balm 2oz+">Balm 2oz+</option>
+            <option value="Serum Hotana">Serum Hotana</option>
+            <option value="Hotana Unrefined Machine">Hotana Unrefined Machine</option>
+            <option value="Specialized Emulsion">Specialized Emulsion</option>
+            <option value="Makeup">Makeup</option>
+          </select></label>
+          <label>Microbial Testing <input type="checkbox" id="MicrobialTesting"></label>
+          <label>Container SKUs
+            <input type="hidden" id="ContainerSKUs">
+            <div id="containerDropdown"></div>
+            <div id="selectedContainers"></div>
+          </label>
+          <label>Archived <input type="checkbox" id="Archived"></label>
+          <label>Retailer<input type="text" id="Customer"></label>
+          <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
+          <label>Pack Size<input type="number" id="PackSize" min="0" step="1"></label>
+          <label>Quantity<input type="number" id="Quantity" step="1"></label>
+          <label>Quantity Per Bin<input type="number" id="QuantityPerBin" step="1" min="0" placeholder="e.g., 12"></label>
+          <label>MSRP<input type="number" id="MSRP" min="0" step="any"></label>
+          <label>Pour Temperature (°C)<input type="number" id="PourTemperature" min="0" step="any" placeholder="e.g., 45, 60, 80"></label>
+          <label>Pour Consistency<input type="text" id="PourConsistency" placeholder="e.g., Thick, Thin, Viscous"></label>
+          <label>Aroma<input type="text" id="Aroma" placeholder="e.g., Floral, Citrus, Earthy, Minty"></label>
+          <label>ASIN<input type="text" id="ASIN" placeholder="Amazon Standard Identification Number"></label>
+          <label>FNSKU<input type="text" id="FNSKU" placeholder="Fulfillment Network Stock Keeping Unit"></label>
+          
+          <label style="display:flex;align-items:center;gap:0.5em;margin-top:1em;">
+            <input type="checkbox" id="useCustomInstructions" style="width:auto;"> Use Custom Manufacturing Instructions
+          </label>
+          <div id="manufacturingInstructionsContainer" class="manufacturing-instructions-container">
+            <label>Manufacturing Instructions
+              <textarea id="ManufacturingInstructions" rows="6" placeholder="Enter detailed manufacturing instructions here..."></textarea>
+            </label>
+          </div>
+          
+          <div class="process-editor">
+            <label style="font-weight:600; color:#34495e;">Process Editor:</label>
+            <div id="processTableEditor"></div>
+            <button type="button" class="add-btn" onclick="addPhaseRow()">Add Phase</button>
+            <div style="font-size:0.9rem;color:#6b7280;margin-top:0.25rem;">Edit phases and ingredients below. All changes will be saved as process JSON.</div>
+          </div>
+          
+          <button type="submit" class="btn">Add/Update Product</button>
+        </form>
+        <div class="status" id="productStatusMsg"></div>
+      </div>
+      
+      <!-- Ingredient Tab -->
+      <div id="ingredient-tab" class="tab-content">
+        <div class="load-section">
+          <label>Load from Existing Ingredient:</label>
+          <div id="loadFromIngredientDropdown"></div>
+          <div class="description">This will populate all fields with data from an existing ingredient for easy duplication or modification.</div>
+        </div>
+        
+        <form id="ingredientForm">
+          <label>Ingredient SKU*<input type="text" id="IngredientSKU" required></label>
+          <label>Name<input type="text" id="IngredientName"></label>
+          <label>Supplier<input type="text" id="Supplier" placeholder="e.g., ACME Corp, Local Supplier, etc."></label>
+          <label>Quantity (Lbs/Units)<input type="number" id="IngredientQuantity" min="0" step="any" placeholder="Current quantity in stock"></label>
+          <label>Location<input type="text" id="Location" placeholder="e.g., Warehouse A, Shelf B-3, etc."></label>
+          <label>Cost ($/unit)<input type="number" id="Cost" min="0" step="any" placeholder="Cost per unit or lb"></label>
+          <label>Low Inventory Threshold<input type="number" id="LowInvThreshold" min="0" step="any" placeholder="Alert when quantity falls below this level"></label>
+          <label>Link<input type="url" id="Link" placeholder="https://supplier-website.com/product-page"></label>
+          <button type="submit" class="btn">Add/Update Ingredient</button>
+        </form>
+        <div class="status" id="ingredientStatusMsg"></div>
+      </div>
+      
+      <!-- Box Tab -->
+      <div id="box-tab" class="tab-content">
+        <div class="load-section">
+          <label>Load from Existing Box:</label>
+          <div id="loadFromBoxDropdown"></div>
+          <div class="description">This will populate all fields with data from an existing box for easy duplication or modification.</div>
+        </div>
+        
+        <form id="boxForm">
+          <label>Box SKU*<input type="text" id="BoxSKU" required></label>
+          <label>Weight (Lbs)*<input type="number" id="BoxWeight" min="0" step="any" placeholder="Weight in pounds" required></label>
+          <label>Dimensions<input type="text" id="Dimensions" placeholder="e.g., 12x8x4, Large, Medium, etc."></label>
+          <label>Quantity<input type="number" id="BoxQuantity" min="0" step="1" placeholder="Number of boxes in stock"></label>
+          <label>Cost ($/unit)<input type="number" id="BoxCost" min="0" step="any" placeholder="Cost per box"></label>
+          <label>Price ($/unit)<input type="number" id="BoxPrice" min="0" step="any" placeholder="Selling price per box"></label>
+          <label>Link<input type="url" id="BoxLink" placeholder="https://supplier-website.com/product-page"></label>
+          <button type="submit" class="btn">Add/Update Box</button>
+        </form>
+        <div class="status" id="boxStatusMsg"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Access control and inactivity timeout
+    checkPermissions(['service_role']);
+    setupInactivityTimeout(10);
+
+    // Global variables
+    let allProducts = [];
+    let allIngredients = [];
+    let allBoxes = [];
+    let processTableData = [];
+    let selectedContainerSKUs = [];
+
+    // Tab switching
+    function switchTab(tabName) {
+      // Hide all tab contents
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Remove active class from all tab buttons
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      // Show selected tab content
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+      
+      // Add active class to clicked button
+      document.querySelector(`.tab-button[onclick="switchTab('${tabName}')"]`).classList.add('active');
+      
+      // Load data for the selected tab if not already loaded
+      if (tabName === 'product' && allProducts.length === 0) {
+        fetchAllProducts();
+      } else if (tabName === 'ingredient' && allIngredients.length === 0) {
+        fetchAllIngredients();
+      } else if (tabName === 'box' && allBoxes.length === 0) {
+        fetchAllBoxes();
+      }
+    }
+
+    // Generic dropdown creator
+    function createDropdown(containerId, data, labelField, searchFields, loadFunction) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const dropdownHTML = `
+        <div class="dropdown-container">
+          <input type="text" class="search-input" placeholder="Type to search..." />
+          <div class="dropdown"></div>
+          <input type="hidden" class="selected-sku" value="" />
+        </div>
+      `;
+
+      container.innerHTML = dropdownHTML;
+
+      const searchInput = container.querySelector('.search-input');
+      const dropdown = container.querySelector('.dropdown');
+      const hiddenSKU = container.querySelector('.selected-sku');
+
+      function updateDropdown(searchTerm = '') {
+        const filtered = data.filter(item => {
+          const searchText = searchFields.map(field => item[field] || '').join(' ').toLowerCase();
+          return searchText.includes(searchTerm.toLowerCase());
+        });
+
+        dropdown.innerHTML = '';
+        
+        filtered.slice(0, 20).forEach(item => {
+          const option = document.createElement('div');
+          option.className = 'dropdown-option';
+          option.innerHTML = `
+            <div class="item-name">${item[labelField]}</div>
+            <div class="item-details">${searchFields.slice(1).map(field => item[field] || '').filter(Boolean).join(' • ')}</div>
+          `;
+          
+          option.addEventListener('click', async () => {
+            searchInput.value = item[labelField];
+            hiddenSKU.value = item[Object.keys(item)[0]]; // Use first field as key
+            dropdown.style.display = 'none';
+            
+            // Load the selected item
+            await loadFunction(item[Object.keys(item)[0]]);
+          });
+          
+          dropdown.appendChild(option);
+        });
+
+        if (filtered.length === 0) {
+          dropdown.innerHTML = '<div class="dropdown-option" style="color: #6b7280; font-style: italic;">No items found</div>';
+        }
+      }
+
+      searchInput.addEventListener('focus', () => {
+        updateDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+      });
+
+      searchInput.addEventListener('input', (e) => {
+        updateDropdown(e.target.value);
+        dropdown.style.display = 'block';
+        hiddenSKU.value = '';
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+    }
+
+    // Product functions
+    async function fetchAllProducts() {
+      try {
+        const { data: products, error } = await supabase
+          .from('Products')
+          .select('ProductSKU, Name, Retailer')
+          .order('ProductSKU');
+
+        if (error) throw error;
+
+        allProducts = products || [];
+        console.log(`Loaded ${allProducts.length} products`);
+        createDropdown('loadFromProductDropdown', allProducts, 'ProductSKU', ['ProductSKU', 'Name', 'Retailer'], loadProductData);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      }
+    }
+
+    async function loadProductData(sku) {
+      if (!sku) return;
+
+      try {
+        showStatus('productStatusMsg', 'Loading product data...', '');
+        
+        const { data: product, error } = await supabase
+          .from('Products')
+          .select('*')
+          .eq('ProductSKU', sku)
+          .single();
+
+        if (error) throw error;
+        if (!product) throw new Error('Product not found');
+
+        // Populate form fields
+        document.getElementById('ProductSKU').value = product.ProductSKU || '';
+        document.getElementById('Name').value = product.Name || '';
+        document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
+        document.getElementById('ProductType').value = product['Product Type'] || '';
+        document.getElementById('MicrobialTesting').checked = product['Microbial Testing'] || false;
+        loadContainersFromString(product.ContainerSKUs);
+        document.getElementById('Archived').checked = product.Archived || false;
+        document.getElementById('Customer').value = product.Retailer || '';
+        document.getElementById('ShelfLife').value = product.ShelfLife || '';
+        document.getElementById('PackSize').value = product['Pack Size'] || '';
+        document.getElementById('Quantity').value = product.Quantity || '';
+        document.getElementById('QuantityPerBin').value = product.QuantityPerBin || '';
+        document.getElementById('MSRP').value = product.MSRP || '';
+        document.getElementById('PourTemperature').value = product['Pour Temperature'] || '';
+        document.getElementById('PourConsistency').value = product['Pour Consistency'] || '';
+        document.getElementById('Aroma').value = product.Aroma || '';
+        document.getElementById('ASIN').value = product.ASIN || '';
+        document.getElementById('FNSKU').value = product.FNSKU || '';
+
+        // Manufacturing Instructions
+        const miCheckbox = document.getElementById('useCustomInstructions');
+        const miContainer = document.getElementById('manufacturingInstructionsContainer');
+        if (product.ManufacturingInstructions && String(product.ManufacturingInstructions).trim() !== "") {
+          miCheckbox.checked = true;
+          miContainer.style.display = 'block';
+          document.getElementById('ManufacturingInstructions').value = product.ManufacturingInstructions;
+        } else {
+          miCheckbox.checked = false;
+          miContainer.style.display = 'none';
+        }
+
+        // Load process data - using exact same logic as original AddProductAdmin.html
+        if (product.Process && typeof product.Process === 'object') {
+          processTableData = [];
+          
+          Object.keys(product.Process)
+            .filter(phaseName => phaseName.toLowerCase().includes('phase'))
+            .forEach(phaseName => {
+            const phaseData = product.Process[phaseName];
+            const phase = {
+              name: phaseName,
+              temp: '',
+              timeType: 'Mix',
+              mixTime: '',
+              consistency: '',
+              ingredients: []
+            };
+
+            // Extract temperature
+            const tempKey = Object.keys(phaseData).find(key => key.includes('Temperature'));
+            if (tempKey) {
+              phase.temp = phaseData[tempKey];
+            }
+
+            // Extract time and time type
+            const timeKey = Object.keys(phaseData).find(key => key.includes('Time'));
+            if (timeKey) {
+              phase.mixTime = phaseData[timeKey];
+              if (timeKey.includes('Melt')) {
+                phase.timeType = 'Melt';
+              } else if (timeKey.includes('Mix')) {
+                phase.timeType = 'Mix';
+              }
+            }
+
+            // Extract consistency
+            const consistencyKey = Object.keys(phaseData).find(key => key.includes('Consistency'));
+            if (consistencyKey) {
+              phase.consistency = phaseData[consistencyKey];
+            }
+
+            // Extract ingredients
+            const ingredientsKey = Object.keys(phaseData).find(key => key.includes('Ingredients'));
+            if (ingredientsKey && Array.isArray(phaseData[ingredientsKey])) {
+              phase.ingredients = phaseData[ingredientsKey].map(ing => {
+                // Find ingredient name from SKU
+                const ingredientData = allIngredients.find(ai => ai.IngredientSKU === ing.IngredientSKU);
+                return {
+                  name: ingredientData ? ingredientData.Name : ing.IngredientSKU,
+                  sku: ing.IngredientSKU,
+                  percent: ing['Ingredient Quantity(%)']
+                };
+              });
+            }
+
+            processTableData.push(phase);
+          });
+
+          // Render the process table editor immediately after setting up the data
+          renderProcessTableEditor();
+        } else {
+          processTableData = [];
+          renderProcessTableEditor();
+        }
+
+        showStatus('productStatusMsg', 'Product data loaded successfully!', 'success');
+
+      } catch (error) {
+        showStatus('productStatusMsg', 'Error loading product: ' + error.message, 'error');
+      }
+    }
+
+    // Ingredient functions
+    async function fetchAllIngredients() {
+      try {
+        const { data: ingredients, error } = await supabase
+          .from('Ingredients')
+          .select('IngredientSKU, Name, Supplier')
+          .order('IngredientSKU');
+
+        if (error) throw error;
+
+        allIngredients = ingredients || [];
+        console.log(`Loaded ${allIngredients.length} ingredients`);
+        createDropdown('loadFromIngredientDropdown', allIngredients, 'IngredientSKU', ['IngredientSKU', 'Name', 'Supplier'], loadIngredientData);
+        
+        // Also create container dropdown for products
+        createContainerDropdown();
+      } catch (error) {
+        console.error('Error fetching ingredients:', error);
+      }
+    }
+
+    async function loadIngredientData(sku) {
+      if (!sku) return;
+
+      try {
+        showStatus('ingredientStatusMsg', 'Loading ingredient data...', '');
+        
+        const { data: ingredient, error } = await supabase
+          .from('Ingredients')
+          .select('*')
+          .eq('IngredientSKU', sku)
+          .single();
+
+        if (error) throw error;
+        if (!ingredient) throw new Error('Ingredient not found');
+
+        // Populate form fields
+        document.getElementById('IngredientSKU').value = ingredient.IngredientSKU || '';
+        document.getElementById('IngredientName').value = ingredient.Name || '';
+        document.getElementById('Supplier').value = ingredient.Supplier || '';
+        document.getElementById('IngredientQuantity').value = ingredient['Quantity(Lbs/Units)'] || '';
+        document.getElementById('Location').value = ingredient.Location || '';
+        document.getElementById('LowInvThreshold').value = ingredient.LowInvThreshold || '';
+        document.getElementById('Link').value = ingredient.Link || '';
+
+        // Load cost from CostLog
+        const { data: costData } = await supabase
+          .from('CostLog')
+          .select('Cost')
+          .eq('SKU', ingredient.IngredientSKU)
+          .order('Date', { ascending: false })
+          .limit(1);
+
+        if (costData && costData.length > 0) {
+          document.getElementById('Cost').value = costData[0].Cost || '';
+        } else {
+          document.getElementById('Cost').value = '';
+        }
+
+        showStatus('ingredientStatusMsg', 'Ingredient data loaded successfully!', 'success');
+
+      } catch (error) {
+        showStatus('ingredientStatusMsg', 'Error loading ingredient: ' + error.message, 'error');
+      }
+    }
+
+    // Box functions
+    async function fetchAllBoxes() {
+      try {
+        const { data: boxes, error } = await supabase
+          .from('Boxes')
+          .select('*')
+          .order('SKU');
+
+        if (error) throw error;
+
+        allBoxes = boxes || [];
+        console.log(`Loaded ${allBoxes.length} boxes`);
+        createDropdown('loadFromBoxDropdown', allBoxes, 'SKU', ['SKU', 'Dimensions', 'Weight(Lbs)'], loadBoxData);
+      } catch (error) {
+        console.error('Error fetching boxes:', error);
+      }
+    }
+
+    async function loadBoxData(sku) {
+      if (!sku) return;
+
+      try {
+        showStatus('boxStatusMsg', 'Loading box data...', '');
+        
+        const { data: box, error } = await supabase
+          .from('Boxes')
+          .select('*')
+          .eq('SKU', sku)
+          .single();
+
+        if (error) throw error;
+        if (!box) throw new Error('Box not found');
+
+        // Populate form fields
+        document.getElementById('BoxSKU').value = box.SKU || '';
+        document.getElementById('BoxWeight').value = box['Weight(Lbs)'] || '';
+        document.getElementById('Dimensions').value = box.Dimensions || '';
+        document.getElementById('BoxQuantity').value = box.Quantity || '';
+        document.getElementById('BoxCost').value = box.Cost || '';
+        document.getElementById('BoxPrice').value = box.Price || '';
+        document.getElementById('BoxLink').value = box.Link || '';
+
+        showStatus('boxStatusMsg', 'Box data loaded successfully!', 'success');
+
+      } catch (error) {
+        showStatus('boxStatusMsg', 'Error loading box: ' + error.message, 'error');
+      }
+    }
+
+    // Status message helper
+    function showStatus(elementId, message, type) {
+      const statusElement = document.getElementById(elementId);
+      statusElement.textContent = message;
+      statusElement.className = `status ${type}`;
+    }
+
+    // Container management functions
+    async function createContainerDropdown() {
+      const container = document.getElementById('containerDropdown');
+      if (!container || allIngredients.length === 0) return;
+
+      const dropdownHTML = `
+        <div class="dropdown-container">
+          <input type="text" class="search-input" placeholder="Type to search containers..." />
+          <div class="dropdown"></div>
+          <input type="hidden" class="selected-sku" value="" />
+        </div>
+        <button type="button" onclick="addSelectedContainer()" style="margin-top: 5px; padding: 5px 10px; background: #4DBA93; color: white; border: none; border-radius: 4px; cursor: pointer;">Add Container</button>
+      `;
+
+      container.innerHTML = dropdownHTML;
+
+      const searchInput = container.querySelector('.search-input');
+      const dropdown = container.querySelector('.dropdown');
+      const hiddenSKU = container.querySelector('.selected-sku');
+
+      function updateDropdown(searchTerm = '') {
+        const filtered = allIngredients.filter(ingredient => {
+          const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
+          return searchText.includes(searchTerm.toLowerCase());
+        });
+
+        dropdown.innerHTML = '';
+        
+        filtered.slice(0, 10).forEach(ingredient => {
+          const option = document.createElement('div');
+          option.className = 'dropdown-option';
+          option.innerHTML = `
+            <div class="item-name">${ingredient.Name}</div>
+            <div class="item-details">SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'}</div>
+          `;
+          
+          option.addEventListener('click', () => {
+            searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
+            hiddenSKU.value = ingredient.IngredientSKU;
+            dropdown.style.display = 'none';
+          });
+          
+          dropdown.appendChild(option);
+        });
+
+        if (filtered.length === 0) {
+          dropdown.innerHTML = '<div class="dropdown-option" style="color: #6b7280; font-style: italic;">No ingredients found</div>';
+        }
+      }
+
+      searchInput.addEventListener('focus', () => {
+        updateDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+      });
+
+      searchInput.addEventListener('input', (e) => {
+        updateDropdown(e.target.value);
+        dropdown.style.display = 'block';
+        hiddenSKU.value = '';
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+    }
+
+    function addSelectedContainer() {
+      const containerDropdown = document.querySelector('#containerDropdown .selected-sku');
+      const containerSearch = document.querySelector('#containerDropdown .search-input');
+      
+      if (!containerDropdown || !containerSearch) return;
+
+      const sku = containerDropdown.value;
+      const name = containerSearch.value;
+
+      if (!sku) {
+        alert('Please select a container from the dropdown');
+        return;
+      }
+
+      if (selectedContainerSKUs.includes(sku)) {
+        alert('This container is already added');
+        return;
+      }
+
+      selectedContainerSKUs.push(sku);
+      updateSelectedContainersDisplay();
+      
+      // Clear the dropdown
+      containerSearch.value = '';
+      containerDropdown.value = '';
+      
+      // Update hidden input
+      document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
+    }
+
+    function updateSelectedContainersDisplay() {
+      const container = document.getElementById('selectedContainers');
+      if (!container) return;
+
+      if (selectedContainerSKUs.length === 0) {
+        container.innerHTML = '<div style="color: #666; font-style: italic;">No containers selected</div>';
+        return;
+      }
+
+      const containersHTML = selectedContainerSKUs.map((sku, index) => {
+        return `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 4px; margin-bottom: 5px;">
+            <span>${sku}</span>
+            <button type="button" onclick="removeContainerAtIndex(${index})" style="background: #e74c3c; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 0.8rem;">Remove</button>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = containersHTML;
+    }
+
+    function removeContainerAtIndex(index) {
+      selectedContainerSKUs.splice(index, 1);
+      updateSelectedContainersDisplay();
+      document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
+    }
+
+    function loadContainersFromString(containerString) {
+      if (!containerString) {
+        selectedContainerSKUs = [];
+      } else if (Array.isArray(containerString)) {
+        selectedContainerSKUs = [...containerString];
+      } else {
+        selectedContainerSKUs = containerString.split(',').map(s => s.trim()).filter(s => s);
+      }
+      updateSelectedContainersDisplay();
+      document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
+    }
+
+    // Process editor functions
+    function renderProcessTableEditor() {
+      const container = document.getElementById('processTableEditor');
+      if (!container) return;
+      
+      container.innerHTML = '';
+      
+      if (!processTableData.length) {
+        container.innerHTML = '<div style="color:#888;">No phases. Click "Add Phase" to begin.</div>';
+        return;
+      }
+
+      // Calculate total percent across all phases
+      let totalPercent = 0;
+      processTableData.forEach(phase => {
+        if (Array.isArray(phase.ingredients)) {
+          totalPercent += phase.ingredients.reduce((sum, ing) => {
+            const val = parseFloat(ing.percent);
+            return sum + (!isNaN(val) ? val : 0);
+          }, 0);
+        }
+      });
+
+      processTableData.forEach((phase, phaseIdx) => {
+        const phaseDiv = document.createElement('div');
+        phaseDiv.style = 'border:1px solid #cbd5e1; border-radius:8px; margin-bottom:1.5rem; background:#f8fafc; padding:1rem;';
+
+        phaseDiv.innerHTML = `
+          <div style="display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:0.5rem;align-items:center;margin-bottom:1rem;">
+            <input type="text" value="${phase.name}" style="font-weight:600;font-size:1.1rem;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseName(${phaseIdx}, this.value)">
+            <input type="number" value="${phase.temp || ''}" placeholder="Temp (°C)" style="width:100px;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseField(${phaseIdx},'temp',this.value)">
+            <select onchange="updatePhaseField(${phaseIdx},'timeType',this.value)" style="padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;">
+              <option value="Melt" ${phase.timeType==="Melt"?"selected":""}>Melt Time</option>
+              <option value="Mix" ${phase.timeType==="Mix"?"selected":""}>Mix Time</option>
+            </select>
+            <input type="text" value="${phase.mixTime || ''}" placeholder="Time (Minutes)" style="width:110px;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseField(${phaseIdx},'mixTime',this.value)">
+            <button type="button" class="remove-btn" onclick="removePhaseRow(${phaseIdx})">Remove Phase</button>
+          </div>
+          <div style="margin-bottom:1rem;">
+            <label style="display:block;font-weight:600;margin-bottom:0.25rem;">Consistency:</label>
+            <input type="text" value="${phase.consistency || ''}" placeholder="Enter consistency details..." style="width:100%;padding:0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseField(${phaseIdx},'consistency',this.value)">
+          </div>
+          <table style="width:100%;margin-top:1rem;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#e2e8f0;">
+                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;">Ingredient Name</th>
+                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Percentage %</th>
+                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="phase-ingredients-${phaseIdx}"></tbody>
+          </table>
+          <button type="button" class="add-btn" onclick="addIngredientRow(${phaseIdx})">Add Ingredient</button>
+        `;
+        
+        container.appendChild(phaseDiv);
+        
+        // Render ingredient rows
+        const tbody = phaseDiv.querySelector(`#phase-ingredients-${phaseIdx}`);
+        phase.ingredients.forEach((ing, ingIdx) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="padding:0.5rem;border:1px solid #cbd5e1;position:relative;">
+              <div id="ingredient-dropdown-${phaseIdx}-${ingIdx}"></div>
+            </td>
+            <td style="padding:0.5rem;border:1px solid #cbd5e1;">
+              <input type="number" value="${ing.percent || ''}" min="0" step="0.01" oninput="updateIngredientField(${phaseIdx},${ingIdx},'percent',this.value);" style="width:100%;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;">
+            </td>
+            <td style="padding:0.5rem;border:1px solid #cbd5e1;">
+              <button type="button" class="remove-btn" onclick="removeIngredientRow(${phaseIdx},${ingIdx})">Remove</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+          
+          // Create ingredient dropdown for this row - use setTimeout to ensure DOM is ready
+          setTimeout(() => {
+            createIngredientDropdown(`ingredient-dropdown-${phaseIdx}-${ingIdx}`, ing.name || '', ing.sku || '');
+          }, 50 * (phaseIdx + ingIdx + 1)); // Stagger the creation slightly
+        });
+      });
+    }
+
+    function createIngredientDropdown(containerId, currentName = '', currentSku = '') {
+      const container = document.getElementById(containerId);
+      if (!container) return null;
+
+      const dropdownHTML = `
+        <div class="ingredient-dropdown-container">
+          <input type="text" class="ingredient-search" value="${currentName}" placeholder="Search ingredients..." />
+          <div class="ingredient-dropdown"></div>
+          <input type="hidden" class="selected-sku" value="${currentSku}" />
+        </div>
+      `;
+
+      container.innerHTML = dropdownHTML;
+
+      const searchInput = container.querySelector('.ingredient-search');
+      const dropdown = container.querySelector('.ingredient-dropdown');
+      const hiddenSKU = container.querySelector('.selected-sku');
+
+      function updateDropdown(searchTerm = '') {
+        // If ingredients aren't loaded yet, show loading message
+        if (allIngredients.length === 0) {
+          dropdown.innerHTML = '<div class="ingredient-option" style="color: #6b7280; font-style: italic;">Loading ingredients...</div>';
+          return;
+        }
+
+        const filtered = allIngredients.filter(ingredient => {
+          const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
+          return searchText.includes(searchTerm.toLowerCase());
+        });
+
+        dropdown.innerHTML = '';
+        
+        filtered.slice(0, 10).forEach(ingredient => {
+          const option = document.createElement('div');
+          option.className = 'ingredient-option';
+          option.innerHTML = `
+            <div style="font-weight: 500;">${ingredient.Name}</div>
+            <div style="font-size: 0.8rem; color: #6b7280;">
+              SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'}
+            </div>
+          `;
+          
+          option.addEventListener('click', () => {
+            searchInput.value = ingredient.Name;
+            hiddenSKU.value = ingredient.IngredientSKU;
+            dropdown.style.display = 'none';
+            
+            // Update the ingredient in processTableData
+            const phaseIdx = parseInt(containerId.split('-')[2]);
+            const ingIdx = parseInt(containerId.split('-')[3]);
+            if (!isNaN(phaseIdx) && !isNaN(ingIdx)) {
+              processTableData[phaseIdx].ingredients[ingIdx].name = ingredient.Name;
+              processTableData[phaseIdx].ingredients[ingIdx].sku = ingredient.IngredientSKU;
+            }
+          });
+          
+          dropdown.appendChild(option);
+        });
+
+        if (filtered.length === 0) {
+          dropdown.innerHTML = '<div class="ingredient-option" style="color: #6b7280; font-style: italic;">No ingredients found</div>';
+        }
+      }
+
+      searchInput.addEventListener('focus', () => {
+        updateDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+      });
+
+      searchInput.addEventListener('input', (e) => {
+        updateDropdown(e.target.value);
+        dropdown.style.display = 'block';
+        hiddenSKU.value = '';
+        
+        // Update the ingredient name in processTableData
+        const phaseIdx = parseInt(containerId.split('-')[2]);
+        const ingIdx = parseInt(containerId.split('-')[3]);
+        if (!isNaN(phaseIdx) && !isNaN(ingIdx) && processTableData[phaseIdx] && processTableData[phaseIdx].ingredients[ingIdx]) {
+          processTableData[phaseIdx].ingredients[ingIdx].name = e.target.value;
+          processTableData[phaseIdx].ingredients[ingIdx].sku = '';
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+
+      return {
+        getSKU: () => hiddenSKU.value,
+        getName: () => searchInput.value
+      };
+    }
+
+    function addPhaseRow() {
+      processTableData.push({ 
+        name: `Phase ${processTableData.length + 1}`, 
+        ingredients: [],
+        temp: '',
+        timeType: 'Melt',
+        mixTime: '',
+        consistency: ''
+      });
+      renderProcessTableEditor();
+    }
+
+    function removePhaseRow(idx) {
+      processTableData.splice(idx, 1);
+      renderProcessTableEditor();
+    }
+
+    function addIngredientRow(phaseIdx) {
+      processTableData[phaseIdx].ingredients.push({ name: '', sku: '', percent: '' });
+      renderProcessTableEditor();
+    }
+
+    function removeIngredientRow(phaseIdx, ingIdx) {
+      processTableData[phaseIdx].ingredients.splice(ingIdx, 1);
+      renderProcessTableEditor();
+    }
+
+    function updatePhaseName(idx, val) {
+      processTableData[idx].name = val;
+    }
+
+    function updatePhaseField(idx, field, val) {
+      processTableData[idx][field] = val;
+    }
+
+    function updateIngredientField(phaseIdx, ingIdx, field, val) {
+      processTableData[phaseIdx].ingredients[ingIdx][field] = val;
+    }
+
+    function getProcessFromTableEditor() {
+      const process = {};
+      processTableData.forEach(phase => {
+        if (phase.name && phase.ingredients.length > 0) {
+          process[phase.name] = {
+            ingredients: phase.ingredients.filter(ing => ing.name || ing.sku),
+            temp: phase.temp || null,
+            timeType: phase.timeType || 'Melt',
+            mixTime: phase.mixTime || null,
+            consistency: phase.consistency || null
+          };
+        }
+      });
+      return Object.keys(process).length > 0 ? process : null;
+    }
+
+    // Form submission handlers
+    document.getElementById('productForm').onsubmit = async function(e) {
+      e.preventDefault();
+      
+      const useCustom = document.getElementById('useCustomInstructions').checked;
+      const miValue = document.getElementById('ManufacturingInstructions').value.trim();
+      
+      const data = {
+        ProductSKU: document.getElementById('ProductSKU').value.trim(),
+        Name: document.getElementById('Name').value.trim(),
+        'Product Weight(oz)': document.getElementById('ProductSize').value.trim(),
+        'Product Type': document.getElementById('ProductType').value,
+        'Microbial Testing': document.getElementById('MicrobialTesting').checked,
+        ContainerSKUs: selectedContainerSKUs.join(','),
+        Archived: document.getElementById('Archived').checked,
+        Retailer: document.getElementById('Customer').value.trim(),
+        ShelfLife: document.getElementById('ShelfLife').value ? parseFloat(document.getElementById('ShelfLife').value) : null,
+        'Pack Size': document.getElementById('PackSize').value ? parseInt(document.getElementById('PackSize').value) : null,
+        Quantity: document.getElementById('Quantity').value ? parseInt(document.getElementById('Quantity').value) : null,
+        QuantityPerBin: document.getElementById('QuantityPerBin').value ? parseInt(document.getElementById('QuantityPerBin').value) : null,
+        MSRP: document.getElementById('MSRP').value ? parseFloat(document.getElementById('MSRP').value) : null,
+        'Pour Temperature': document.getElementById('PourTemperature').value ? parseFloat(document.getElementById('PourTemperature').value) : null,
+        'Pour Consistency': document.getElementById('PourConsistency').value.trim(),
+        Aroma: document.getElementById('Aroma').value.trim(),
+        ASIN: document.getElementById('ASIN').value.trim(),
+        FNSKU: document.getElementById('FNSKU').value.trim(),
+        ManufacturingInstructions: useCustom && miValue ? miValue : null,
+        Process: getProcessFromTableEditor()
+      };
+
+      // Remove empty string values
+      Object.keys(data).forEach(k => { if (data[k] === '') data[k] = null; });
+
+      // Calculate total percent across all phases for validation
+      let totalPercent = 0;
+      processTableData.forEach(phase => {
+        if (Array.isArray(phase.ingredients)) {
+          totalPercent += phase.ingredients.reduce((sum, ing) => {
+            const val = parseFloat(ing.percent);
+            return sum + (!isNaN(val) ? val : 0);
+          }, 0);
+        }
+      });
+
+      // Validate percentage if there are ingredients
+      if (Math.abs(totalPercent - 100) > 0.01 && totalPercent > 0) {
+        showPercentModal(totalPercent, () => saveProduct(data));
+        return;
+      } else {
+        await saveProduct(data);
+      }
+    };
+
+    // Modal for percent warning
+    function showPercentModal(totalPercent, callback) {
+      let modal = document.getElementById('percentModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'percentModal';
+        modal.style.cssText = `
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+          background: rgba(0,0,0,0.5); display: flex; align-items: center; 
+          justify-content: center; z-index: 10000;
+        `;
+        modal.innerHTML = `
+          <div style="background: white; padding: 2rem; border-radius: 8px; max-width: 400px; text-align: center;">
+            <h3 style="color: #e74c3c; margin-bottom: 1rem;">⚠️ Percentage Warning</h3>
+            <p style="margin-bottom: 1.5rem;">
+              Total ingredient percentages add up to <strong>${totalPercent.toFixed(2)}%</strong> instead of 100%.
+              <br><br>
+              Do you want to continue anyway?
+            </p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+              <button id="percentModalContinue" style="background: #4DBA93; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Continue</button>
+              <button id="percentModalCancel" style="background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Cancel</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      } else {
+        modal.querySelector('p').innerHTML = `
+          Total ingredient percentages add up to <strong>${totalPercent.toFixed(2)}%</strong> instead of 100%.
+          <br><br>
+          Do you want to continue anyway?
+        `;
+        modal.style.display = 'flex';
+      }
+      
+      // Button listeners
+      modal.querySelector('#percentModalContinue').onclick = function() {
+        modal.style.display = 'none';
+        callback();
+      };
+      modal.querySelector('#percentModalCancel').onclick = function() {
+        modal.style.display = 'none';
+      };
+    }
+
+    async function saveProduct(data) {
+      try {
+        const { error } = await supabase.from('Products').upsert([data], { onConflict: 'ProductSKU' });
+        if (error) throw error;
+
+        showStatus('productStatusMsg', 'Product saved successfully!', 'success');
+        
+        // Refresh products list
+        await fetchAllProducts();
+      } catch (error) {
+        showStatus('productStatusMsg', 'Error saving product: ' + error.message, 'error');
+      }
+    }
+
+    document.getElementById('ingredientForm').onsubmit = async function(e) {
+      e.preventDefault();
+      
+      const data = {
+        IngredientSKU: document.getElementById('IngredientSKU').value.trim(),
+        Name: document.getElementById('IngredientName').value.trim(),
+        Supplier: document.getElementById('Supplier').value.trim(),
+        'Quantity(Lbs/Units)': document.getElementById('IngredientQuantity').value ? parseFloat(document.getElementById('IngredientQuantity').value) : null,
+        Location: document.getElementById('Location').value.trim(),
+        LowInvThreshold: document.getElementById('LowInvThreshold').value ? parseFloat(document.getElementById('LowInvThreshold').value) : null,
+        Link: document.getElementById('Link').value.trim()
+      };
+
+      const costValue = document.getElementById('Cost').value ? parseFloat(document.getElementById('Cost').value) : null;
+
+      // Remove empty string values
+      Object.keys(data).forEach(k => { if (data[k] === '') data[k] = null; });
+
+      try {
+        // Check if ingredient already exists
+        const { data: existingIngredient, error: checkError } = await supabase
+          .from('Ingredients')
+          .select('IngredientSKU')
+          .eq('IngredientSKU', data.IngredientSKU)
+          .single();
+
+        if (existingIngredient) {
+          // Update existing ingredient
+          const { error: updateError } = await supabase
+            .from('Ingredients')
+            .update(data)
+            .eq('IngredientSKU', data.IngredientSKU);
+
+          if (updateError) throw updateError;
+
+          // Add cost to CostLog if provided
+          if (costValue !== null) {
+            const { data: userData } = await supabase.auth.getUser();
+            const { error: costError } = await supabase
+              .from('CostLog')
+              .insert([{
+                Date: new Date().toISOString().split('T')[0],
+                SKU: data.IngredientSKU,
+                Cost: costValue,
+                UserID: userData?.user?.id ? [userData.user.id] : null
+              }]);
+
+            if (costError) throw costError;
+          }
+
+          showStatus('ingredientStatusMsg', 'Ingredient updated successfully!', 'success');
+        } else {
+          // Insert new ingredient
+          const { error: insertError } = await supabase
+            .from('Ingredients')
+            .insert([data]);
+
+          if (insertError) throw insertError;
+
+          // Add cost to CostLog if provided
+          if (costValue !== null) {
+            const { data: userData } = await supabase.auth.getUser();
+            const { error: costError } = await supabase
+              .from('CostLog')
+              .insert([{
+                Date: new Date().toISOString().split('T')[0],
+                SKU: data.IngredientSKU,
+                Cost: costValue,
+                UserID: userData?.user?.id ? [userData.user.id] : null
+              }]);
+
+            if (costError) throw costError;
+          }
+
+          showStatus('ingredientStatusMsg', 'Ingredient added successfully!', 'success');
+          document.getElementById('ingredientForm').reset();
+        }
+
+        // Refresh ingredients list
+        await fetchAllIngredients();
+      } catch (error) {
+        showStatus('ingredientStatusMsg', 'Error saving ingredient: ' + error.message, 'error');
+      }
+    };
+
+    document.getElementById('boxForm').onsubmit = async function(e) {
+      e.preventDefault();
+      
+      const data = {
+        SKU: document.getElementById('BoxSKU').value.trim(),
+        'Weight(Lbs)': document.getElementById('BoxWeight').value ? parseFloat(document.getElementById('BoxWeight').value) : null,
+        Dimensions: document.getElementById('Dimensions').value.trim(),
+        Quantity: document.getElementById('BoxQuantity').value ? parseInt(document.getElementById('BoxQuantity').value) : null,
+        Cost: document.getElementById('BoxCost').value ? parseFloat(document.getElementById('BoxCost').value) : null,
+        Price: document.getElementById('BoxPrice').value ? parseFloat(document.getElementById('BoxPrice').value) : null,
+        Link: document.getElementById('BoxLink').value.trim()
+      };
+
+      // Remove empty string values
+      Object.keys(data).forEach(k => { if (data[k] === '') data[k] = null; });
+
+      // Validate required fields
+      if (!data.SKU) {
+        showStatus('boxStatusMsg', 'Box SKU is required', 'error');
+        return;
+      }
+      
+      if (!data['Weight(Lbs)']) {
+        showStatus('boxStatusMsg', 'Weight (Lbs) is required', 'error');
+        return;
+      }
+
+      try {
+        const { error } = await supabase.from('Boxes').upsert([data], { onConflict: 'SKU' });
+        if (error) throw error;
+
+        showStatus('boxStatusMsg', 'Box saved successfully!', 'success');
+        
+        // Refresh boxes list
+        await fetchAllBoxes();
+      } catch (error) {
+        showStatus('boxStatusMsg', 'Error saving box: ' + error.message, 'error');
+      }
+    };
+
+    // Manufacturing instructions toggle
+    document.getElementById('useCustomInstructions').addEventListener('change', function() {
+      const container = document.getElementById('manufacturingInstructionsContainer');
+      container.style.display = this.checked ? 'block' : 'none';
+    });
+
+    // Make functions globally available
+    window.switchTab = switchTab;
+    window.addSelectedContainer = addSelectedContainer;
+    window.removeContainerAtIndex = removeContainerAtIndex;
+    window.addPhaseRow = addPhaseRow;
+    window.removePhaseRow = removePhaseRow;
+    window.addIngredientRow = addIngredientRow;
+    window.removeIngredientRow = removeIngredientRow;
+    window.updatePhaseName = updatePhaseName;
+    window.updatePhaseField = updatePhaseField;
+    window.updateIngredientField = updateIngredientField;
+    window.showPercentModal = showPercentModal;
+    window.saveProduct = saveProduct;
+
+    // Initialize the page
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Start by loading products and ingredients
+      await fetchAllProducts();
+      await fetchAllIngredients();
+      
+      // Initialize product tab components
+      renderProcessTableEditor();
+      updateSelectedContainersDisplay();
+    });
+  </script>
+</body>
+</html>

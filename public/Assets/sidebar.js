@@ -23,8 +23,7 @@ function renderAdminSidebar() {
       <a href="AmazonShipments.html" class="nav-item"><i class="cib-amazon"></i><span>Amazon Shipments</span></a>
       <a href="OrderTracker.html" class="nav-item"><i class="cil-list"></i><span>Order Tracker</span></a>
       <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
-      <a href="AddProductAdmin.html" class="nav-item"><i class="cil-note-add"></i><span>Add/Update Product</span></a>
-      <a href="AddIngredient.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Ingredient</span></a>
+      <a href="AddItemAdmin.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update</span></a>
       <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
       <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
       <a href="Quoting.html" class="nav-item" id="sidebar-quoting"><i class="cil-money"></i><span>Product Quoting</span></a>
