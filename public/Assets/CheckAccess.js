@@ -54,7 +54,7 @@ function setupInactivityTimeout(timeoutMinutes = 10) {
     inactivityTimer = setTimeout(async () => {
       await supabase.auth.signOut();
       alert('You have been signed out due to inactivity.');
-      window.location.href = 'Login.html?redirect=' + encodeURIComponent(window.location.pathname);
+      window.location.href = '/Login.html?redirect=' + encodeURIComponent(window.location.pathname);
     }, TIMEOUT_MS);
   }
   ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(evt => {
