@@ -24,7 +24,7 @@ exports.handler = async (event) => {
     };
   }
 
-  const { id, display_name, role } = body;
+  const { id, display_name, role, email } = body;
   if (!id) {
     return {
       statusCode: 400,
@@ -36,6 +36,7 @@ exports.handler = async (event) => {
     id,
     display_name: display_name || '',
     Role: role,
+    email: email || '',
   });
 
   if (error) {

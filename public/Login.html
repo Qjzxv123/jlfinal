@@ -129,7 +129,8 @@
                             body: JSON.stringify({
                                 id: user.id,
                                 display_name: user.user_metadata?.display_name || '',
-                                role: user.user_metadata?.role
+                                role: user.user_metadata?.role,
+                                email: user.user_metadata?.email || ''
                             })
                         });
                         const result = await response.json();
