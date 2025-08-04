@@ -272,16 +272,6 @@
             <input type="hidden" id="ContainerSKUs" />
           </div>
         </label>
-        <label>Amazon Packages
-          <div id="amazonPackagesContainer" style="margin-top: 0.5rem;">
-            <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
-              <div id="amazonDropdown" style="flex: 1;"></div>
-              <button type="button" class="btn" style="background: #f59e42; width: auto; padding: 0.5rem 1rem; margin: 0;" onclick="addSelectedAmazonPackage()">Add Amazon Package</button>
-            </div>
-            <div id="selectedAmazonPackages" style="margin-top: 0.5rem;"></div>
-            <input type="hidden" id="AmazonPackages" />
-          </div>
-        </label>
         <label>Archived <input type="checkbox" id="Archived"></label>
         <label>Retailer<input type="text" id="Customer"></label>
         <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
@@ -292,6 +282,8 @@
         <label>Pour Temperature (°C)<input type="number" id="PourTemperature" min="0" step="any" placeholder="e.g., 45, 60, 80"></label>
         <label>Pour Consistency<input type="text" id="PourConsistency" placeholder="e.g., Thick, Thin, Viscous"></label>
         <label>Aroma<input type="text" id="Aroma" placeholder="e.g., Floral, Citrus, Earthy, Minty"></label>
+        <label>ASIN<input type="text" id="ASIN" placeholder="Amazon Standard Identification Number"></label>
+        <label>FNSKU<input type="text" id="FNSKU" placeholder="Fulfillment Network Stock Keeping Unit"></label>
     <label style="display:flex;align-items:center;gap:0.5em;margin-top:1em;">
       <input type="checkbox" id="useCustomInstructions" style="width:auto;"> Use Custom Manufacturing Instructions
     </label>
@@ -325,7 +317,6 @@
 
     // Container management
     let selectedContainerSKUs = [];
-    let selectedAmazonPackages = [];
 
     // Fetch all products for dropdown
     async function fetchAllProducts() {
@@ -457,7 +448,6 @@
         document.getElementById('ProductType').value = product['Product Type'] || '';
         document.getElementById('MicrobialTesting').checked = product['Microbial Testing'] || false;
         loadContainersFromString(product.ContainerSKUs);
-        loadAmazonPackagesFromString(product.AmazonPackages);
         document.getElementById('Archived').checked = product.Archived || false;
         document.getElementById('Customer').value = product.Retailer || '';
         document.getElementById('ShelfLife').value = product.ShelfLife || '';
@@ -467,6 +457,8 @@
         document.getElementById('PourTemperature').value = product['Pour Temperature'] || '';
         document.getElementById('PourConsistency').value = product['Pour Consistency'] || '';
         document.getElementById('Aroma').value = product.Aroma || '';
+        document.getElementById('ASIN').value = product.ASIN || '';
+        document.getElementById('FNSKU').value = product.FNSKU || '';
 
         // Manufacturing Instructions logic
         const miCheckbox = document.getElementById('useCustomInstructions');
@@ -676,9 +668,6 @@
       // Container SKUs dropdown
       const container = document.getElementById('containerDropdown');
       if (container) createGenericDropdown(container, selectedContainerSKUs, 'addSelectedContainer');
-      // Amazon Packages dropdown
-      const amazonContainer = document.getElementById('amazonDropdown');
-      if (amazonContainer) createGenericDropdown(amazonContainer, selectedAmazonPackages, 'addSelectedAmazonPackage');
     }
     function createGenericDropdown(container, selectedList, addFnName) {
       const dropdownHTML = `
@@ -767,33 +756,6 @@
       // Update hidden input
       document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
     };
-
-    // Add selected Amazon package to the list
-    window.addSelectedAmazonPackage = function() {
-      const amazonDropdown = document.querySelector('#amazonDropdown .selected-sku');
-      const amazonSearch = document.querySelector('#amazonDropdown .ingredient-search');
-      
-      if (!amazonDropdown || !amazonSearch) return;
-
-      const sku = amazonDropdown.value;
-      const name = amazonSearch.value;
-
-      if (!sku) {
-        alert('Please select an Amazon package from the dropdown');
-        return;
-      }
-
-      selectedAmazonPackages.push(sku);
-      updateSelectedAmazonPackagesDisplay();
-      
-      // Clear the dropdown
-      amazonSearch.value = '';
-      amazonDropdown.value = '';
-      
-      // Update hidden input
-      document.getElementById('AmazonPackages').value = selectedAmazonPackages.join(',');
-    };
-
     // Update the display of selected containers
     function updateSelectedContainersDisplay() {
       const container = document.getElementById('selectedContainers');
@@ -819,43 +781,11 @@
       container.innerHTML = containersHTML;
     }
 
-    // Update the display of selected Amazon packages
-    function updateSelectedAmazonPackagesDisplay() {
-      const container = document.getElementById('selectedAmazonPackages');
-      if (!container) return;
-
-      if (selectedAmazonPackages.length === 0) {
-        container.innerHTML = '<div style="color: #6b7280; font-style: italic; padding: 0.5rem;">No Amazon packages selected</div>';
-        return;
-      }
-
-      const packagesHTML = selectedAmazonPackages.map((sku, index) => {
-        const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
-        const name = ingredient ? ingredient.Name : sku;
-        
-        return `
-          <div style="display: flex; align-items: center; justify-content: space-between; background: #f3f4f6; padding: 0.5rem; border-radius: 6px; margin-bottom: 0.25rem;">
-            <span style="font-weight: 500;">${name} (${sku})</span>
-            <button type="button" onclick="removeAmazonPackageAtIndex(${index})" style="background: #ef4444; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">Remove</button>
-          </div>
-        `;
-      }).join('');
-
-      container.innerHTML = packagesHTML;
-    }
-
     // Remove container from selected list by index
     window.removeContainerAtIndex = function(index) {
       selectedContainerSKUs.splice(index, 1);
       updateSelectedContainersDisplay();
       document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
-    };
-
-    // Remove Amazon package from selected list by index
-    window.removeAmazonPackageAtIndex = function(index) {
-      selectedAmazonPackages.splice(index, 1);
-      updateSelectedAmazonPackagesDisplay();
-      document.getElementById('AmazonPackages').value = selectedAmazonPackages.join(',');
     };
 
     // Remove container from selected list (legacy function - removes first occurrence)
@@ -865,16 +795,6 @@
         selectedContainerSKUs.splice(index, 1);
         updateSelectedContainersDisplay();
         document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
-      }
-    };
-
-    // Remove Amazon package from selected list (legacy function - removes first occurrence)
-    window.removeAmazonPackage = function(sku) {
-      const index = selectedAmazonPackages.indexOf(sku);
-      if (index > -1) {
-        selectedAmazonPackages.splice(index, 1);
-        updateSelectedAmazonPackagesDisplay();
-        document.getElementById('AmazonPackages').value = selectedAmazonPackages.join(',');
       }
     };
 
@@ -889,19 +809,6 @@
       }
       updateSelectedContainersDisplay();
       document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
-    }
-
-    // Load Amazon packages from comma-separated string (for editing existing products)
-    function loadAmazonPackagesFromString(packageString) {
-      if (!packageString) {
-        selectedAmazonPackages = [];
-      } else if (Array.isArray(packageString)) {
-        selectedAmazonPackages = [...packageString];
-      } else {
-        selectedAmazonPackages = packageString.split(',').map(s => s.trim()).filter(s => s.length > 0);
-      }
-      updateSelectedAmazonPackagesDisplay();
-      document.getElementById('AmazonPackages').value = selectedAmazonPackages.join(',');
     }
 
     function renderProcessTableEditor() {
@@ -1074,7 +981,6 @@
         'Product Type': document.getElementById('ProductType').value.trim(),
         'Microbial Testing': document.getElementById('MicrobialTesting').checked,
         ContainerSKUs: selectedContainerSKUs.length > 0 ? selectedContainerSKUs : null,
-        AmazonPackages: selectedAmazonPackages.length > 0 ? selectedAmazonPackages : null,
         Retailer: document.getElementById('Customer').value.trim(),
         ShelfLife: form.ShelfLife.value ? parseFloat(form.ShelfLife.value) : null,
         'Pack Size': form.PackSize.value ? parseInt(form.PackSize.value) : null,
@@ -1084,6 +990,8 @@
         'Pour Temperature': form.PourTemperature.value ? parseFloat(form.PourTemperature.value) : null,
         'Pour Consistency': document.getElementById('PourConsistency').value.trim(),
         Aroma: document.getElementById('Aroma').value.trim(),
+        ASIN: document.getElementById('ASIN').value.trim(),
+        FNSKU: document.getElementById('FNSKU').value.trim(),
         Process: getProcessFromTableEditor(),
         ManufacturingInstructions: useCustom && miValue !== '' ? miValue : null
       };
@@ -1162,10 +1070,8 @@
         form.reset();
         processTableData = [];
         selectedContainerSKUs = [];
-        selectedAmazonPackages = [];
         renderProcessTableEditor();
         updateSelectedContainersDisplay();
-        updateSelectedAmazonPackagesDisplay();
         // Hide MI textarea after save
         document.getElementById('manufacturingInstructionsContainer').style.display = 'none';
         document.getElementById('useCustomInstructions').checked = false;
