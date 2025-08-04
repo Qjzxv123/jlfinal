@@ -205,6 +205,7 @@
         .platform-etsy { background: #f56500; }
         .platform-faire { background: #2c5aa0; }
         .platform-shopify { background: #95bf47; }
+        .platform-shopify-tiktok { background: #ff0050; }
         .platform-amazon { background: #ff9900; }
 
         .orders-grid {
@@ -460,6 +461,7 @@
                     <option value="etsy">Etsy</option>
                     <option value="faire">Faire</option>
                     <option value="shopify">Shopify</option>
+                    <option value="shopify(tiktok)">Shopify(TikTok)</option>
                     <option value="amazon">Amazon</option>
                 </select>
                 <select id="retailerFilter" onchange="filterOrders()">
@@ -505,6 +507,10 @@
                 <div class="summary-item">
                     <span class="platform-badge platform-shopify">Shopify</span>
                     <span id="shopifyCount">0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="platform-badge platform-shopify-tiktok">Shopify(TikTok)</span>
+                    <span id="shopifyTiktokCount">0</span>
                 </div>
                 <div class="summary-item">
                     <span class="platform-badge platform-amazon">Amazon</span>
@@ -792,7 +798,8 @@ function populateRetailerDropdown() {
             actionButtons.style.display = 'flex';
 
             ordersGrid.innerHTML = filteredOrders.map(order => {
-                const platformBadge = `platform-${(order.platform || 'unknown').toLowerCase()}`;
+                const platform = (order.platform || 'unknown').toLowerCase();
+                const platformBadge = platform === 'shopify(tiktok)' ? 'platform-shopify-tiktok' : `platform-${platform}`;
                 const customerAddress = [
                     order.customer.address1,
                     order.customer.address2,
@@ -863,6 +870,7 @@ function populateRetailerDropdown() {
                 etsy: filteredOrders.filter(o => o.platform === 'etsy').length,
                 faire: filteredOrders.filter(o => o.platform === 'faire').length,
                 shopify: filteredOrders.filter(o => o.platform === 'shopify').length,
+                shopifyTiktok: filteredOrders.filter(o => o.platform === 'shopify(tiktok)').length,
                 amazon: filteredOrders.filter(o => o.platform === 'amazon').length
             };
 
@@ -870,6 +878,7 @@ function populateRetailerDropdown() {
             document.getElementById('etsyCount').textContent = counts.etsy;
             document.getElementById('faireCount').textContent = counts.faire;
             document.getElementById('shopifyCount').textContent = counts.shopify;
+            document.getElementById('shopifyTiktokCount').textContent = counts.shopifyTiktok;
             document.getElementById('amazonCount').textContent = counts.amazon;
         }        function toggleProducts(orderNumber) {
             const productsList = document.getElementById(`products-${orderNumber}`);
