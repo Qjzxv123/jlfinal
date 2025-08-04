@@ -431,7 +431,7 @@
     // Use shared admin check and inactivity timeout
       checkPermissions(['service_role']);
       setupInactivityTimeout(10);
-    // Print a 3x5 label with ingredient name, SKU, expiry, and lot number
+    // Print a 3x5 label with ingredient name, SKU, expiry, lot number, and location
     function printLabel(sku, expiry, lot) {
       let labelContainer = document.getElementById('labelContainer');
       if (!labelContainer) {
@@ -441,9 +441,10 @@
       }
       labelContainer.innerHTML = '';
       
-      // Find ingredient name from SKU
+      // Find ingredient name and location from SKU
       const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
       const ingredientName = ingredient ? ingredient.Name : 'Unknown Ingredient';
+      const location = ingredient && ingredient.Location ? ingredient.Location : 'No Location';
       
       const labelDiv = document.createElement('div');
       labelDiv.style.width = '5in';
@@ -459,13 +460,23 @@
       
       // Ingredient name at the top
       const nameDiv = document.createElement('div');
-      nameDiv.style.fontSize = '1.8rem';
+      nameDiv.style.fontSize = '1.6rem';
       nameDiv.style.fontWeight = 'bold';
-      nameDiv.style.marginBottom = '0.8rem';
+      nameDiv.style.marginBottom = '0.6rem';
       nameDiv.style.textAlign = 'center';
       nameDiv.style.color = '#333';
       nameDiv.textContent = ingredientName;
       labelDiv.appendChild(nameDiv);
+      
+      // Location below name
+      const locationDiv = document.createElement('div');
+      locationDiv.style.fontSize = '1.2rem';
+      locationDiv.style.marginBottom = '0.6rem';
+      locationDiv.style.textAlign = 'center';
+      locationDiv.style.color = '#666';
+      locationDiv.style.fontWeight = '500';
+      locationDiv.textContent = location;
+      labelDiv.appendChild(locationDiv);
       
       // Layout: SKU on left, Expiry and Lot stacked on right
       const contentDiv = document.createElement('div');
@@ -483,7 +494,7 @@
       leftDiv.style.alignItems = 'flex-end';
       
       const skuDiv = document.createElement('div');
-      skuDiv.style.fontSize = '2.2rem';
+      skuDiv.style.fontSize = '1.8rem';
       skuDiv.style.fontWeight = 'bold';
       skuDiv.textContent = sku;
       leftDiv.appendChild(skuDiv);
@@ -496,13 +507,13 @@
       rightDiv.style.alignItems = 'flex-start';
       
       const expiryDiv = document.createElement('div');
-      expiryDiv.style.fontSize = '1.8rem';
-      expiryDiv.style.marginBottom = '0.8rem';
+      expiryDiv.style.fontSize = '1.4rem';
+      expiryDiv.style.marginBottom = '0.6rem';
       expiryDiv.textContent = 'Expiry: ' + expiry;
       rightDiv.appendChild(expiryDiv);
       
       const lotDiv = document.createElement('div');
-      lotDiv.style.fontSize = '1.8rem';
+      lotDiv.style.fontSize = '1.4rem';
       lotDiv.textContent = 'Lot: ' + lot;
       rightDiv.appendChild(lotDiv);
       
@@ -528,7 +539,7 @@
       try {
         const { data: ingredients, error } = await supabase
           .from('Ingredients')
-          .select('IngredientSKU, Name, Supplier, "Quantity(Lbs/Units)", ActiveLotNumbers')
+          .select('IngredientSKU, Name, Supplier, "Quantity(Lbs/Units)", ActiveLotNumbers, Location')
           .order('Name');
 
         if (error) {
