@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Send Order To Amazon</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <link rel="stylesheet" href="/Assets/sidebar.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      color: #333;
+    }
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+      width: calc(100% - 60px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 32px 28px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+      max-width: 800px;
+      width: 100%;
+      margin-top: 0;
+      margin-bottom: 0;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    h2 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 18px;
+    }
+    form label {
+      display: block;
+      margin-top: 14px;
+      font-weight: 600;
+      color: #34495e;
+    }
+    form input, form select, form textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      border: 1.5px solid #e1e5e9;
+      border-radius: 7px;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background-color: #fff;
+    }
+    form input:hover, form select:hover, form textarea:hover {
+      outline: none;
+      border-color: #4DBA93;
+      box-shadow: 0 0 0 3px rgba(77, 186, 147, 0.1);
+    }
+    form select {
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 8px center;
+      background-repeat: no-repeat;
+      background-size: 16px;
+      padding-right: 40px;
+    }
+    form select:hover {
+      border-color: #4DBA93;
+    }
+    form select option {
+      padding: 8px 12px;
+      background-color: #fff;
+      color: #333;
+    }
+    form select option:hover {
+      background-color: #f0f9ff;
+    }
+    .btn {
+      background: #4DBA93;
+      color: white;
+      border: none;
+      padding: 12px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: 600;
+      width: 100%;
+      margin-top: 18px;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #379c7a;
+    }
+    .btn.add-item {
+      background: #10b981;
+      margin-top: 8px;
+    }
+    .btn.add-item:hover {
+      background: #059669;
+    }
+    .btn.remove-item {
+      background: #ef4444;
+      width: auto;
+      padding: 6px 12px;
+      font-size: 0.9rem;
+      margin-top: 0;
+      margin-left: 8px;
+    }
+    .btn.remove-item:hover {
+      background: #dc2626;
+    }
+    .status {
+      text-align: center;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+    .status.success { color: #27ae60; }
+    .status.error { color: #e74c3c; }
+    .item-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .item-row select {
+      flex: 2;
+      margin: 0;
+    }
+    .item-row input {
+      flex: 1;
+      margin: 0;
+    }
+    .items-container {
+      border: 1px solid #e1e5e9;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 8px;
+      background: #fafbfc;
+    }
+    .items-header {
+      font-weight: 600;
+      color: #34495e;
+      margin-bottom: 10px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+  <link rel="icon" type="image/x-icon" href="Assets/favicon.ico">
+</head>
+<body>
+  <!-- Sidebar -->
+  <div id="sidebar"></div>
+  <script src="/Assets/customer-sidebar.js"></script>
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+    <div class="container">
+      <h2>Send Order To Amazon</h2>
+      <form id="orderForm">
+        <div class="items-container">
+          <div class="items-header">Order Items</div>
+          <div id="itemsContainer">
+            <div class="item-row">
+              <select class="product-select" required>
+                <option value="">Select a product...</option>
+              </select>
+              <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
+              <button type="button" class="btn remove-item" onclick="removeItemRow(this)" style="display: none;">Remove</button>
+            </div>
+          </div>
+          <button type="button" class="btn add-item" onclick="addItemRow()">Add Another Item</button>
+        </div>
+        
+        <label>Notes
+          <textarea id="Notes" rows="4" placeholder="Enter any instructions like PackSize"></textarea>
+        </label>
+        
+        <button type="submit" class="btn">Submit Order</button>
+      </form>
+      <div class="status" id="statusMsg"></div>
+    </div>
+  </div>
+  <script>
+    // Access control and inactivity timeout
+    checkPermissions(['service_role', 'client']);
+    setupInactivityTimeout(10);
+
+    // Sign out button handler
+    document.addEventListener('DOMContentLoaded', function() {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          document.getElementById('sign-out-btn').style.display = 'inline-block';
+        } else {
+          document.getElementById('sign-out-btn').style.display = 'none';
+        }
+      });
+      document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
+        e.preventDefault();
+        await supabase.auth.signOut();
+        window.location.reload();
+      });
+    });
+
+    const form = document.getElementById('orderForm');
+    const statusMsg = document.getElementById('statusMsg');
+    let allProducts = [];
+
+    // Fetch all products for dropdown
+    async function fetchAllProducts() {
+      try {
+        const { data: products, error } = await supabase
+          .from('Products')
+          .select('ProductSKU, Name, "Product Weight(oz)"')
+          .order('ProductSKU');
+
+        if (error) {
+          console.error('Error fetching products:', error);
+          return;
+        }
+
+        allProducts = products || [];
+        console.log(`Loaded ${allProducts.length} products`);
+        populateProductDropdowns();
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      }
+    }
+
+    // Populate all product dropdowns
+    function populateProductDropdowns() {
+      const selects = document.querySelectorAll('.product-select');
+      selects.forEach(select => {
+        // Clear existing options except the first
+        select.innerHTML = '<option value="">Select a product...</option>';
+        
+        // Add products
+        allProducts.forEach(product => {
+          const option = document.createElement('option');
+          option.value = product.ProductSKU;
+          option.textContent = `${product.ProductSKU} - ${product.Name || 'No Name'}${product['Product Weight(oz)'] ? ` (${product['Product Weight(oz)']}oz)` : ''}`;
+          select.appendChild(option);
+        });
+      });
+    }
+
+    // Add new item row
+    function addItemRow() {
+      const container = document.getElementById('itemsContainer');
+      const newRow = document.createElement('div');
+      newRow.className = 'item-row';
+      newRow.innerHTML = `
+        <select class="product-select" required>
+          <option value="">Select a product...</option>
+        </select>
+        <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
+        <button type="button" class="btn remove-item" onclick="removeItemRow(this)">Remove</button>
+      `;
+      container.appendChild(newRow);
+      
+      // Populate the new dropdown
+      const newSelect = newRow.querySelector('.product-select');
+      allProducts.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.ProductSKU;
+        option.textContent = `${product.ProductSKU} - ${product.Name || 'No Name'}${product['Product Weight(oz)'] ? ` (${product['Product Weight(oz)']}oz)` : ''}`;
+        newSelect.appendChild(option);
+      });
+
+      // Show remove buttons for all rows if more than one
+      updateRemoveButtons();
+    }
+
+    // Remove item row
+    function removeItemRow(button) {
+      const container = document.getElementById('itemsContainer');
+      const rows = container.querySelectorAll('.item-row');
+      
+      if (rows.length > 1) {
+        button.closest('.item-row').remove();
+        updateRemoveButtons();
+      }
+    }
+
+    // Update visibility of remove buttons
+    function updateRemoveButtons() {
+      const container = document.getElementById('itemsContainer');
+      const rows = container.querySelectorAll('.item-row');
+      const removeButtons = container.querySelectorAll('.remove-item');
+      
+      removeButtons.forEach(button => {
+        button.style.display = rows.length > 1 ? 'inline-block' : 'none';
+      });
+    }
+
+    // Make functions globally available
+    window.addItemRow = addItemRow;
+    window.removeItemRow = removeItemRow;
+
+    // Initialize the page
+    window.addEventListener('DOMContentLoaded', async () => {
+      await fetchAllProducts();
+    });
+
+    form.onsubmit = async function(e) {
+      e.preventDefault();
+      statusMsg.textContent = '';
+      statusMsg.className = 'status';
+      
+      try {
+        // Get user data for retailer name
+        let displayName = '';
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData && userData.user && userData.user.user_metadata && userData.user.user_metadata.display_name) {
+            displayName = userData.user.user_metadata.display_name;
+          }
+        } catch (e) {
+          console.error('Error getting user data:', e);
+        }
+
+        // Collect items data
+        const itemRows = document.querySelectorAll('.item-row');
+        const items = [];
+        
+        for (let row of itemRows) {
+          const select = row.querySelector('.product-select');
+          const quantityInput = row.querySelector('.quantity-input');
+          
+          if (select.value && quantityInput.value) {
+            const product = allProducts.find(p => p.ProductSKU === select.value);
+            items.push({
+              productSKU: select.value,
+              productName: product ? product.Name : select.value,
+              quantity: parseInt(quantityInput.value)
+            });
+          }
+        }
+
+        if (items.length === 0) {
+          statusMsg.textContent = 'Please add at least one item to the order.';
+          statusMsg.className = 'status error';
+          return;
+        }
+
+        // Generate unique OrderID
+        const timestamp = Date.now();
+        const randomNum = Math.floor(Math.random() * 1000);
+        const orderID = `AMZ-${timestamp}-${randomNum}`;
+
+        const orderData = {
+          OrderID: orderID,
+          Retailer: displayName,
+          Items: items,
+          Customer: displayName ? { name: displayName } : null,
+          Platform: "Send To Amazon",
+          Notes: document.getElementById('Notes').value.trim() || null
+        };
+
+        // Remove empty string values
+        Object.keys(orderData).forEach(k => { 
+          if (orderData[k] === '') orderData[k] = null; 
+        });
+
+        // Insert the order
+        const { error } = await supabase
+          .from('Orders')
+          .insert([orderData]);
+
+        if (error) {
+          statusMsg.textContent = 'Error creating order: ' + error.message;
+          statusMsg.className = 'status error';
+        } else {
+          statusMsg.textContent = 'Order created successfully!';
+          statusMsg.className = 'status success';
+          form.reset();
+          
+          // Reset items container to single row
+          const container = document.getElementById('itemsContainer');
+          container.innerHTML = `
+            <div class="item-row">
+              <select class="product-select" required>
+                <option value="">Select a product...</option>
+              </select>
+              <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
+              <button type="button" class="btn remove-item" onclick="removeItemRow(this)" style="display: none;">Remove</button>
+            </div>
+          `;
+          populateProductDropdowns();
+        }
+      } catch (error) {
+        statusMsg.textContent = 'Error: ' + error.message;
+        statusMsg.className = 'status error';
+      }
+    };
+  </script>
+</body>
+</html>
