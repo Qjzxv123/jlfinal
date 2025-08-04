@@ -132,17 +132,34 @@
                 skuInput.focus();
                 return;
             }
-            // Fetch current quantity
-            const { data: prod, error: fetchErr } = await supabase
+            // Fetch current quantity - first try Products table, then Boxes table
+            let prod = null;
+            let isBoxesSku = false;
+            
+            const { data: prodData, error: fetchErr } = await supabase
                 .from('Products')
                 .select('Quantity')
                 .eq('ProductSKU', sku)
                 .single();
-            if (fetchErr || !prod) {
-                skuMsg.textContent = `SKU ${sku} not found.`;
-                skuMsg.style.color = 'red';
-                skuInput.focus();
-                return;
+            
+            if (fetchErr || !prodData) {
+                // Try Boxes table
+                const { data: boxData, error: boxErr } = await supabase
+                    .from('Boxes')
+                    .select('Quantity')
+                    .eq('SKU', sku)
+                    .single();
+                
+                if (boxErr || !boxData) {
+                    skuMsg.textContent = `SKU ${sku} not found in Products or Boxes.`;
+                    skuMsg.style.color = 'red';
+                    skuInput.focus();
+                    return;
+                }
+                prod = boxData;
+                isBoxesSku = true;
+            } else {
+                prod = prodData;
             }
 
             let logMessage = '';
@@ -157,15 +174,18 @@
 
             if (setCheckbox.checked) {
                 // Set quantity directly
+                const tableName = isBoxesSku ? 'Boxes' : 'Products';
+                const skuColumn = isBoxesSku ? 'SKU' : 'ProductSKU';
+                
                 const { error: setErr } = await supabase
-                    .from('Products')
+                    .from(tableName)
                     .update({ Quantity: qtyValue })
-                    .eq('ProductSKU', sku);
+                    .eq(skuColumn, sku);
                 if (setErr) {
                     skuMsg.textContent = `Error setting quantity for ${sku}: ${setErr.message}`;
                     skuMsg.style.color = 'red';
                 } else {
-                    logMessage = `Set ${sku} quantity to ${qtyValue}`;
+                    logMessage = `Set ${sku} quantity to ${qtyValue} (${tableName})`;
                     quantityChanged = qtyValue - prod.Quantity;
                     skuMsg.textContent = `Set ${sku} to ${qtyValue}`;
                     skuMsg.style.color = 'green';
@@ -175,17 +195,20 @@
             } else {
                 // Decrement quantity
                 const newQty = prod.Quantity - qtyValue;
+                const tableName = isBoxesSku ? 'Boxes' : 'Products';
+                const skuColumn = isBoxesSku ? 'SKU' : 'ProductSKU';
+                
                 const { error: updateErr } = await supabase
-                    .from('Products')
+                    .from(tableName)
                     .update({ Quantity: newQty })
-                    .eq('ProductSKU', sku);
+                    .eq(skuColumn, sku);
                 if (updateErr) {
                     skuMsg.textContent = `Error updating ${sku}: ${updateErr.message}`;
                     skuMsg.style.color = 'red';
                 } else {
                     logMessage = qtyValue < 0
-                        ? `Updated ${sku} +${Math.abs(qtyValue)}. New quantity: ${newQty}`
-                        : `Updated ${sku} -${qtyValue}. New quantity: ${newQty}`;
+                        ? `Updated ${sku} +${Math.abs(qtyValue)}. New quantity: ${newQty} (${tableName})`
+                        : `Updated ${sku} -${qtyValue}. New quantity: ${newQty} (${tableName})`;
                     quantityChanged = -qtyValue;
                     skuMsg.style.color = 'green';
                     skuMsg.textContent = logMessage;
