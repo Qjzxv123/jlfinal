@@ -300,8 +300,16 @@
                         <input type="number" id="receivingHoursInput" min="1" value="1" required>
                     </div>
                     <div class="form-group">
-                        <label for="binsInput">Number of Storage Bins:</label>
+                        <label for="binsInput">Number of Storage Bins ($7.50 each):</label>
                         <input type="number" id="binsInput" min="0" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="shelvesInput">Number of Shelves ($12.50 each):</label>
+                        <input type="number" id="shelvesInput" min="0" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="palletsInput">Number of Pallets ($40.00 each):</label>
+                        <input type="number" id="palletsInput" min="0" value="0" required>
                     </div>
                     <div class="form-group" style="grid-column: 1 / -1;">
                         <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; cursor: pointer;">
@@ -434,6 +442,8 @@
                 // Get receiving hours and bins from input
                 const receivingHours = parseInt(document.getElementById('receivingHoursInput').value) || 1;
                 const bins = parseInt(document.getElementById('binsInput').value) || 0;
+                const shelves = parseInt(document.getElementById('shelvesInput').value) || 0;
+                const pallets = parseInt(document.getElementById('palletsInput').value) || 0;
 
                 // Query orders from Order History for the specific retailer and month
                 const { data: orders, error } = await supabase
@@ -450,7 +460,7 @@
                     const hasInserts = document.getElementById('insertsCheckbox').checked;
                     // Receiving hours and storage fee for empty case
                     const receivingCost = (receivingHours - 1) * 25;
-                    const storageFee = bins * 7.5;
+                    const storageFee = (bins * 7.5) + (shelves * 12.5) + (pallets * 40);
                     hideStatus();
                     showInvoiceResults(retailer, month, [], {
                         shippingCosts: 0,
@@ -581,7 +591,7 @@
 
                 // Receiving hours and storage fee
                 const receivingCost = (receivingHours - 1) * 25;
-                const storageFee = bins * 7.5;
+                const storageFee = (bins * 7.5) + (shelves * 12.5) + (pallets * 40);
                 const total = shippingCosts + boxCosts + baseFees + extraItemFees + noteFees + insertsFees + receivingCost + storageFee;
 
                 const breakdown = {
@@ -634,15 +644,27 @@
             document.getElementById('receivingCost').textContent = `$${(breakdown.receivingCost || 0).toFixed(2)}`;
             // Storage fee
             let storageFeeRow = document.getElementById('storageFeeRow');
+            const binsValue = document.getElementById('binsInput').value;
+            const shelvesValue = document.getElementById('shelvesInput').value;
+            const palletsValue = document.getElementById('palletsInput').value;
+            
+            // Build storage fee label dynamically
+            let storageParts = [];
+            if (parseInt(binsValue) > 0) storageParts.push(`${binsValue} bins × $7.50`);
+            if (parseInt(shelvesValue) > 0) storageParts.push(`${shelvesValue} shelves × $12.50`);
+            if (parseInt(palletsValue) > 0) storageParts.push(`${palletsValue} pallets × $40.00`);
+            
+            const storageLabel = storageParts.length > 0 ? `Storage Fee (${storageParts.join(', ')})` : 'Storage Fee';
+            
             if (!storageFeeRow) {
                 const breakdownSection = document.querySelector('.breakdown-section');
                 storageFeeRow = document.createElement('div');
                 storageFeeRow.className = 'breakdown-item';
                 storageFeeRow.id = 'storageFeeRow';
-                storageFeeRow.innerHTML = `<span class="breakdown-label">Storage Fee (${document.getElementById('binsInput').value} bins × $7.50):</span><span class="breakdown-value" id="storageFee">$0.00</span>`;
+                storageFeeRow.innerHTML = `<span class="breakdown-label">${storageLabel}:</span><span class="breakdown-value" id="storageFee">$0.00</span>`;
                 breakdownSection.appendChild(storageFeeRow);
             } else {
-                storageFeeRow.querySelector('.breakdown-label').innerHTML = `Storage Fee (${document.getElementById('binsInput').value} bins × $7.50):`;
+                storageFeeRow.querySelector('.breakdown-label').innerHTML = `${storageLabel}:`;
             }
             document.getElementById('storageFee').textContent = `$${(breakdown.storageFee || 0).toFixed(2)}`;
             // Handle inserts fee display
