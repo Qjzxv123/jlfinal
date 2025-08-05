@@ -193,20 +193,24 @@
                             console.error('Error creating user:', userErr);
                         }
                         
-                        console.log('Saving OAuth token to Supabase...');
-                        const { error } = await supabase
-                            .from('oauth_tokens')
-                            .upsert({
+                        console.log('Saving OAuth token to Supabase via serverless function...');
+                        const saveTokenResponse = await fetch('/.netlify/functions/save-oauth-token', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
                                 user_key: tokenInfo.shop,
                                 platform: tokenInfo.platform,
                                 access_token: tokenInfo.access_token,
-                                UserID: user.id
-                            }, { onConflict: ['user_key', 'platform'] });
+                                UserID: user.id,
+                                expires_at: tokenInfo.expires_at || null
+                            })
+                        });
                         
-                        if (error) {
-                            console.error('Error saving Shopify token:', error);
+                        const saveResult = await saveTokenResponse.json();
+                        if (!saveTokenResponse.ok) {
+                            console.error('Error saving Shopify token via serverless function:', saveResult);
                         } else {
-                            console.log('Shopify token saved successfully for user:', user.id);
+                            console.log('Shopify token saved successfully via serverless function:', saveResult);
                         }
                         
                         console.log('Waiting 3 seconds before redirect...');
@@ -293,20 +297,24 @@
                             console.error('Error creating user for already logged-in user:', userErr);
                         }
                         
-                        console.log('Saving OAuth token for already logged-in user...');
-                        const { error } = await supabase
-                            .from('oauth_tokens')
-                            .upsert({
+                        console.log('Saving OAuth token for already logged-in user via serverless function...');
+                        const saveTokenResponse = await fetch('/.netlify/functions/save-oauth-token', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
                                 user_key: tokenInfo.shop,
                                 platform: tokenInfo.platform,
                                 access_token: tokenInfo.access_token,
-                                UserID: user.id
-                            }, { onConflict: ['user_key', 'platform'] });
+                                UserID: user.id,
+                                expires_at: tokenInfo.expires_at || null
+                            })
+                        });
                         
-                        if (error) {
-                            console.error('Error saving Shopify token for already logged-in user:', error);
+                        const saveResult = await saveTokenResponse.json();
+                        if (!saveTokenResponse.ok) {
+                            console.error('Error saving Shopify token for already logged-in user via serverless function:', saveResult);
                         } else {
-                            console.log('Shopify token saved successfully for already logged-in user:', user.id);
+                            console.log('Shopify token saved successfully for already logged-in user via serverless function:', saveResult);
                         }
                         
                         console.log('Waiting 3 seconds before redirect...');

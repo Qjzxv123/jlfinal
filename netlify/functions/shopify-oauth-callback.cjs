@@ -73,14 +73,6 @@ exports.handler = async (event) => {
   const redirectUrl = `${baseUrl}/Login.html?shopify_token=${encodeURIComponent(encodedTokenInfo)}&returnTo=${encodeURIComponent('/ecommerce-oauth.html?shopify_oauth_complete=true&shop=' + encodeURIComponent(shop))}${hostParam}`;
   
   console.log(`Redirecting to login with token info for shop: ${shop}`);
-  console.log(`Token info:`, tokenInfo);
-  console.log(`Encoded token:`, encodedTokenInfo);
-  console.log(`Full redirect URL:`, redirectUrl);
-  console.log(`Waiting 3 seconds before redirect...`);
-  
-  // Add a delay so you can see the console logs
-  await new Promise(resolve => setTimeout(resolve, 3000));
-  
   return {
     statusCode: 302,
     headers: {
