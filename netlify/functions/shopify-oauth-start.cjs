@@ -2,7 +2,7 @@
 exports.handler = async (event) => {
   const clientId = process.env.SHOPIFY_API_KEY;
   let shop;
-  const redirectUri = 'https://jlfinal.netlify.app';
+  const redirectUri = 'https://jlfinal.netlify.app/.netlify/functions/shopify-oauth-callback';
   if (event.httpMethod === 'POST') {
     try {
       const body = JSON.parse(event.body);

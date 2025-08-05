@@ -78,7 +78,7 @@ exports.handler = async (event) => {
   // Redirect to Shopify embedded app URL after authentication
   if (shop) {
     // Use the expected Shopify admin URL for embedded app (Shopify expects /apps/{app-slug})
-    let redirectUrl = `https://admin.shopify.com/apps/j-l-connect`;
+    let redirectUrl = `https://jlfinal.netlify.app`;
     return {
       statusCode: 302,
       headers: {
