@@ -1090,22 +1090,36 @@ async function removeSelectedOrders() {
                                 ${customerAddress ? `<p style="margin: 0 0 5px 0; font-size: 12px;">${customerAddress}</p>` : '<p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">Address not provided</p>'}
                             </div>
                         </div>
+                        ${order.notes ? `
+                        <div style="margin-bottom: 25px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; background-color: #fff3cd; padding: 8px; border-left: 4px solid #ffc107;">SPECIAL NOTE:</h3>
+                            <div style="padding: 10px; border: 1px solid #ffc107; background-color: #fff3cd;">
+                                <p style="margin: 0; font-size: 14px; font-weight: 600; color: #856404;">${order.notes}</p>
+                            </div>
+                        </div>
+                        ` : ''}
                         <div>
                             <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; background-color: #e9ecef; padding: 8px;">ITEMS:</h3>
                             <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
                                 <thead>
                                     <tr style="background-color: #e9ecef;">
                                         <th style="border: 2px solid #000; padding: 8px; text-align: left; font-weight: bold;">SKU</th>
+                                        <th style="border: 2px solid #000; padding: 8px; text-align: left; font-weight: bold;">PRODUCT NAME</th>
                                         <th style="border: 2px solid #000; padding: 8px; text-align: center; font-weight: bold;">QTY</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${Array.from(orderSkuMap.entries()).map(([sku, qty]) => `
+                                    ${Array.from(orderSkuMap.entries()).map(([sku, qty]) => {
+                                        const product = order.products.find(p => p.sku && p.sku.split('+').map(s => s.trim()).includes(sku));
+                                        const productName = product ? product.name : 'Unknown Product';
+                                        return `
                                         <tr>
                                             <td style="border: 1px solid #000; padding: 6px; font-weight: bold;">${sku}</td>
+                                            <td style="border: 1px solid #000; padding: 6px;">${productName}</td>
                                             <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold; font-size: 14px;">${qty}</td>
                                         </tr>
-                                    `).join('')}
+                                        `;
+                                    }).join('')}
                                 </tbody>
                             </table>
                             <p style="margin: 10px 0 0 0; font-size: 14px; font-weight: bold;">Total Items: ${Array.from(orderSkuMap.values()).reduce((sum, qty) => sum + qty, 0)}</p>
