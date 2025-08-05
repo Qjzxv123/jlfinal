@@ -1545,7 +1545,7 @@ async function processShippingLabelsWithBoxData(orderParcels) {
             ShippingCost: selectedRate && selectedRate.amount ? parseFloat(selectedRate.amount) : null,
             BoxSkus: parcel.boxes ? parcel.boxes.map(b => b.sku) : null,
             Items: JSON.stringify(order.products),
-            Link: getPlatformOrderUrl(order.platform, order.orderNumber, order.shopifyId, order.shop),
+            Link: order.Link || null,
             UserID: order.UserID
           });
           // Remove from Orders table
