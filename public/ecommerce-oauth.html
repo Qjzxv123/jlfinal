@@ -120,7 +120,7 @@ function checkShopifyParams() {
   // If shopify_oauth_complete is true, handle OAuth completion
   if (shopifyOauthComplete === 'true' && shop) {
     console.log('Shopify OAuth completion detected for shop:', shop);
-    linkShopifyUser(shop);
+    // OAuth completion is now handled by the separate code block above
     return true;
   }
   
