@@ -81,6 +81,19 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/Assets/CheckAccess.js"></script>
   <script>
+      // Check for Shopify parameters and redirect to ecommerce-oauth page
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get('shop');
+      const shopifyOauthComplete = urlParams.get('shopify_oauth_complete');
+      const hmac = urlParams.get('hmac');
+      const host = urlParams.get('host');
+      
+      // If we have Shopify parameters, redirect to ecommerce-oauth page
+      if (shop && (shopifyOauthComplete || hmac || host)) {
+        console.log('Shopify parameters detected, redirecting to ecommerce-oauth page');
+        window.location.href = '/ecommerce-oauth.html' + window.location.search;
+      }
+      
       async function showLoginOrWelcome() {
         const { data: { user } } = await supabase.auth.getUser();
         const loginBar = document.getElementById('login-bar');
