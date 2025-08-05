@@ -109,35 +109,56 @@ function checkShopifyParams() {
   const hmac = urlParams.get('hmac');
   const host = urlParams.get('host');
   
+  console.log('Checking Shopify parameters:', { shop, hmac, host });
+  console.log('Current URL:', window.location.href);
+  
   // If we have Shopify parameters, immediately start OAuth
   if (shop && hmac) {
     console.log('Shopify app access detected, starting OAuth immediately for shop:', shop);
     startShopifyOAuth(shop);
     return true;
+  } else {
+    console.log('No Shopify parameters found, showing normal UI');
   }
   return false;
 }
 
 // Shopify-specific OAuth start
 async function startShopifyOAuth(shopDomain) {
+  console.log('Starting Shopify OAuth for domain:', shopDomain);
+  
   // Show loading state and hide normal UI
   document.getElementById('platform-oauth').style.display = 'none';
   document.getElementById('shopify-loading').style.display = 'block';
   
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    // If no user, redirect to login but preserve Shopify params
-    const currentParams = window.location.search;
-    window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname + currentParams);
-    return;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log('Current user:', user ? user.id : 'No user');
+    
+    if (!user) {
+      // If no user, redirect to login but preserve Shopify params
+      const currentParams = window.location.search;
+      console.log('No user found, redirecting to login with params:', currentParams);
+      window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname + currentParams);
+      return;
+    }
+    
+    const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
+    const stateObj = { user_id: user.id, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
+    const state = btoa(JSON.stringify(stateObj));
+    
+    const oauthUrl = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(shopDomain)}&state=${encodeURIComponent(state)}`;
+    console.log('Redirecting to OAuth URL:', oauthUrl);
+    
+    // Redirect to Shopify OAuth with the shop parameter
+    window.location.href = oauthUrl;
+  } catch (error) {
+    console.error('Error in startShopifyOAuth:', error);
+    // Show error and fallback to normal UI
+    document.getElementById('shopify-loading').style.display = 'none';
+    document.getElementById('platform-oauth').style.display = 'block';
+    alert('Error starting Shopify OAuth: ' + error.message);
   }
-  
-  const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
-  const stateObj = { user_id: user.id, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
-  const state = btoa(JSON.stringify(stateObj));
-  
-  // Redirect to Shopify OAuth with the shop parameter
-  window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(shopDomain)}&state=${encodeURIComponent(state)}`;
 }
 
 // Only support Faire, Etsy, and Shopify OAuth
@@ -195,7 +216,13 @@ document.getElementById('sign-out-btn').addEventListener('click', async function
 });
 
 // Initialize and check for Shopify parameters immediately
+console.log('Script loaded, checking for Shopify parameters...');
+
+// Check immediately when script loads
+checkShopifyParams();
+
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM loaded, checking Shopify parameters again...');
   if (!checkShopifyParams()) {
     // Only show the UI if this is not a Shopify app access
     console.log('Normal page access - showing OAuth options');
@@ -204,9 +231,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Also check immediately in case DOMContentLoaded already fired
 if (document.readyState === 'loading') {
-  // Document still loading
+  console.log('Document still loading...');
 } else {
-  // Document already loaded
+  console.log('Document already loaded, checking Shopify parameters...');
   if (!checkShopifyParams()) {
     console.log('Normal page access - showing OAuth options');
   }
