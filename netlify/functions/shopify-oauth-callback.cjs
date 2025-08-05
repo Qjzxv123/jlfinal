@@ -78,11 +78,12 @@ exports.handler = async (event) => {
       body: `Error exchanging code for token: ${err.message}`
     };
   }
-  // Redirect back to ecommerce-oauth page with success message and shop parameter
+  // Redirect back to ecommerce-oauth page with shop parameter preserved
+  // This will allow the frontend to handle user linking when they log in
   return {
     statusCode: 302,
     headers: {
-      Location: `https://jlfinal.netlify.app/ecommerce-oauth.html?shopify=success&shop=${encodeURIComponent(shop)}`,
+      Location: `https://jlfinal.netlify.app/ecommerce-oauth.html?shop=${encodeURIComponent(shop)}&shopify_oauth_complete=true`,
       'Cache-Control': 'no-store'
     },
     body: ''
