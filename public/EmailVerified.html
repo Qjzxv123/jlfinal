@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Verified - J&L Naturals</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+            padding: 3rem 2rem;
+            max-width: 500px;
+            text-align: center;
+            margin: 2rem;
+        }
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: #228B22;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem auto;
+            font-size: 40px;
+            color: white;
+        }
+        h1 {
+            color: #2d3748;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+        p {
+            color: #4a5568;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+        .close-button {
+            background: #228B22;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .close-button:hover {
+            background: #176317;
+        }
+        .login-link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: #228B22;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .login-link:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 2rem 1.5rem;
+                margin: 1rem;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">
+            ✓
+        </div>
+        <h1>Account Verified!</h1>
+        <p>
+            Your email has been successfully verified. Your account is now active and ready to use.
+        </p>
+        <button class="close-button" onclick="closeWindow()">
+            Close This Page
+        </button>
+        <br>
+    </div>
+
+    <script>
+        function closeWindow() {
+            // Try to close the window/tab
+            if (window.opener) {
+                // If opened by another window, close this one
+                window.close();
+            } else {
+                // If not, try to close anyway (works in some browsers)
+                window.close();
+                
+                // If close doesn't work, show alternative message
+                setTimeout(() => {
+                    document.querySelector('.close-button').textContent = 'You can now close this tab';
+                    document.querySelector('.close-button').disabled = true;
+                    document.querySelector('.close-button').style.background = '#gray';
+                }, 100);
+            }
+        }
+
+        // Auto-close after 5 seconds if user doesn't interact
+        setTimeout(() => {
+            const button = document.querySelector('.close-button');
+            if (button && !button.disabled) {
+                button.textContent = 'Auto-closing in 3...';
+                setTimeout(() => {
+                    button.textContent = 'Auto-closing in 2...';
+                    setTimeout(() => {
+                        button.textContent = 'Auto-closing in 1...';
+                        setTimeout(() => {
+                            closeWindow();
+                        }, 1000);
+                    }, 1000);
+                }, 1000);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
