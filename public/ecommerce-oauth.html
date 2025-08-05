@@ -107,18 +107,31 @@ function checkShopifyParams() {
   const shop = urlParams.get('shop');
   const hmac = urlParams.get('hmac');
   const host = urlParams.get('host');
+  const timestamp = urlParams.get('timestamp');
+  const embedded = urlParams.get('embedded');
+  const shopifyOauthComplete = urlParams.get('shopify_oauth_complete');
   
-  console.log('Checking Shopify parameters:', { shop, hmac, host });
-  console.log('Current URL:', window.location.href);
+  console.log('Ecommerce-oauth - Checking Shopify parameters:', { 
+    shop, hmac, host, timestamp, embedded, shopifyOauthComplete,
+    allParams: Object.fromEntries(urlParams.entries())
+  });
+  console.log('Ecommerce-oauth - Current URL:', window.location.href);
   
-  // If we have Shopify parameters, immediately start OAuth
-  if (shop && hmac) {
+  // If shopify_oauth_complete is true, handle OAuth completion
+  if (shopifyOauthComplete === 'true' && shop) {
+    console.log('Shopify OAuth completion detected for shop:', shop);
+    linkShopifyUser(shop);
+    return true;
+  }
+  
+  // If we have Shopify app installation parameters (hmac indicates Shopify app access)
+  if (shop && (hmac || host || embedded)) {
     console.log('Shopify app access detected, starting OAuth immediately for shop:', shop);
     startShopifyOAuth(shop);
     return true;
-  } else {
-    console.log('No Shopify parameters found, showing normal UI');
   }
+  
+  console.log('No Shopify parameters found or insufficient params, showing normal UI');
   return false;
 }
 
