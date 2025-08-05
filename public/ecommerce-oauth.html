@@ -198,17 +198,27 @@ console.log('Script loaded, checking for Shopify parameters...');
 // Check for shopify_oauth_complete parameter (OAuth just finished)
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('shopify_oauth_complete') === 'true') {
-  console.log('Shopify OAuth completed, checking if user is logged in...');
+  const shop = urlParams.get('shop');
+  console.log('Shopify OAuth completed, checking if user is logged in...', { shop });
   
   // Check if user is logged in
   supabase.auth.getUser().then(({ data: { user } }) => {
     if (user) {
       console.log('User is logged in after Shopify OAuth completion');
-      alert('Shopify store connected successfully to your account!');
+      if (shop) {
+        alert(`Shopify store "${shop}" connected successfully to your account!`);
+      } else {
+        alert('Shopify store connected successfully to your account!');
+      }
       // Clean up URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      console.log('User not logged in after Shopify OAuth, something went wrong');
+      console.log('User not logged in after Shopify OAuth, redirecting to login');
+      // Redirect to login with the return URL including shop parameter
+      const returnUrl = shop 
+        ? `/ecommerce-oauth.html?shopify_oauth_complete=true&shop=${encodeURIComponent(shop)}`
+        : '/ecommerce-oauth.html?shopify_oauth_complete=true';
+      window.location.href = 'Login.html?returnTo=' + encodeURIComponent(returnUrl);
     }
   });
 }

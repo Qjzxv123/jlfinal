@@ -70,7 +70,7 @@ exports.handler = async (event) => {
   // Base64 encode the token info to pass it securely
   const encodedTokenInfo = Buffer.from(JSON.stringify(tokenInfo)).toString('base64');
   const hostParam = host ? `&host=${encodeURIComponent(host)}` : '';
-  const redirectUrl = `${baseUrl}/Login.html?shopify_token=${encodeURIComponent(encodedTokenInfo)}&returnTo=${encodeURIComponent('/ecommerce-oauth.html?shopify_oauth_complete=true')}${hostParam}`;
+  const redirectUrl = `${baseUrl}/Login.html?shopify_token=${encodeURIComponent(encodedTokenInfo)}&returnTo=${encodeURIComponent('/ecommerce-oauth.html?shopify_oauth_complete=true&shop=' + encodeURIComponent(shop))}${hostParam}`;
   
   console.log(`Redirecting to login with token info for shop: ${shop}`);
   return {
