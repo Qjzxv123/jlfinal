@@ -151,18 +151,33 @@
                 // Check if there's a Shopify token to save after login
                 const urlParams = new URLSearchParams(window.location.search);
                 const shopifyToken = urlParams.get('shopify_token');
+                console.log('Checking for Shopify token in URL params...');
+                console.log('shopifyToken parameter:', shopifyToken);
+                
                 if (shopifyToken) {
+                    console.log('Found Shopify token, processing...');
+                    console.log('Waiting 2 seconds before processing token...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
                     try {
                         // Decode the token info
+                        console.log('Decoding token info...');
                         const tokenInfo = JSON.parse(atob(shopifyToken));
-                        console.log('Saving Shopify token after login:', tokenInfo.shop);
+                        console.log('Decoded token info:', tokenInfo);
+                        console.log('Shop:', tokenInfo.shop);
+                        console.log('Platform:', tokenInfo.platform);
+                        console.log('Access token (first 20 chars):', tokenInfo.access_token?.substring(0, 20) + '...');
                         
                         // Save the token to Supabase linked to the logged-in user
                         const { data: { user } } = await supabase.auth.getUser();
+                        console.log('Current user:', user?.id);
                         
                         // Create user record if it doesn't exist
                         try {
+                            console.log('Creating/updating user record...');
                             const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
+                            console.log('Display name:', displayName);
+                            
                             const addUserResponse = await fetch('/.netlify/functions/add-user-row', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -173,11 +188,12 @@
                                     email: displayName
                                 })
                             });
-                            console.log('Add user response:', addUserResponse.status);
+                            console.log('Add user response status:', addUserResponse.status);
                         } catch (userErr) {
                             console.error('Error creating user:', userErr);
                         }
                         
+                        console.log('Saving OAuth token to Supabase...');
                         const { error } = await supabase
                             .from('oauth_tokens')
                             .upsert({
@@ -192,9 +208,17 @@
                         } else {
                             console.log('Shopify token saved successfully for user:', user.id);
                         }
+                        
+                        console.log('Waiting 3 seconds before redirect...');
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                        
                     } catch (tokenErr) {
                         console.error('Error processing Shopify token:', tokenErr);
+                        console.log('Waiting 2 seconds before continuing...');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
                     }
+                } else {
+                    console.log('No Shopify token found in URL params');
                 }
                 
                 setTimeout(() => {
@@ -225,22 +249,34 @@
         });
         // If already logged in, redirect immediately (but first check for Shopify token)
         window.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOMContentLoaded - checking if user is already logged in...');
             const session = supabase.auth.getSession && (await supabase.auth.getSession()).data.session;
+            console.log('Session exists:', !!session);
+            
             if (session) {
                 // Check if there's a Shopify token to save before redirecting
                 const urlParams = new URLSearchParams(window.location.search);
                 const shopifyToken = urlParams.get('shopify_token');
+                console.log('Found shopifyToken in URL for already logged-in user:', !!shopifyToken);
+                
                 if (shopifyToken) {
+                    console.log('Processing Shopify token for already logged-in user...');
+                    console.log('Waiting 2 seconds before processing...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
                     try {
                         // Decode the token info
+                        console.log('Decoding token...');
                         const tokenInfo = JSON.parse(atob(shopifyToken));
-                        console.log('Processing Shopify token for already logged-in user:', tokenInfo.shop);
+                        console.log('Decoded token info for already logged-in user:', tokenInfo);
                         
                         // Save the token to Supabase linked to the logged-in user
                         const { data: { user } } = await supabase.auth.getUser();
+                        console.log('Already logged-in user ID:', user?.id);
                         
                         // Create user record if it doesn't exist
                         try {
+                            console.log('Creating/updating user record for already logged-in user...');
                             const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
                             const addUserResponse = await fetch('/.netlify/functions/add-user-row', {
                                 method: 'POST',
@@ -252,11 +288,12 @@
                                     email: displayName
                                 })
                             });
-                            console.log('Add user response:', addUserResponse.status);
+                            console.log('Add user response for already logged-in user:', addUserResponse.status);
                         } catch (userErr) {
-                            console.error('Error creating user:', userErr);
+                            console.error('Error creating user for already logged-in user:', userErr);
                         }
                         
+                        console.log('Saving OAuth token for already logged-in user...');
                         const { error } = await supabase
                             .from('oauth_tokens')
                             .upsert({
@@ -267,16 +304,23 @@
                             }, { onConflict: ['user_key', 'platform'] });
                         
                         if (error) {
-                            console.error('Error saving Shopify token:', error);
+                            console.error('Error saving Shopify token for already logged-in user:', error);
                         } else {
-                            console.log('Shopify token saved successfully for user:', user.id);
+                            console.log('Shopify token saved successfully for already logged-in user:', user.id);
                         }
+                        
+                        console.log('Waiting 3 seconds before redirect...');
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                        
                     } catch (tokenErr) {
-                        console.error('Error processing Shopify token:', tokenErr);
+                        console.error('Error processing Shopify token for already logged-in user:', tokenErr);
                     }
                 }
                 
+                console.log('Redirecting already logged-in user to:', getRedirectUrl());
                 window.location.href = getRedirectUrl();
+            } else {
+                console.log('User not logged in, staying on login page');
             }
         });
     </script>
