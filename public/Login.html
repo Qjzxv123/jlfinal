@@ -203,7 +203,7 @@
                                 body: JSON.stringify({
                                     id: user.id,
                                     display_name: displayName,
-                                    role: 'client',
+                                    role: user.user_metadata?.role,
                                     email: displayName
                                 })
                             });
@@ -217,7 +217,7 @@
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                user_key: tokenInfo.shop,
+                                user_key: displayName,
                                 platform: tokenInfo.platform,
                                 access_token: tokenInfo.access_token,
                                 UserID: user.id,
@@ -319,7 +319,7 @@
                                 body: JSON.stringify({
                                     id: user.id,
                                     display_name: displayName,
-                                    role: 'customer',
+                                    role: user.user_metadata?.role,
                                     email: displayName
                                 })
                             });
@@ -333,7 +333,7 @@
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                user_key: tokenInfo.shop,
+                                user_key: displayName,
                                 platform: tokenInfo.platform,
                                 access_token: tokenInfo.access_token,
                                 UserID: user.id,
