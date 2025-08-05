@@ -99,17 +99,27 @@
   <script src="/Assets/CheckAccess.js"></script>
   <script>
 
+// Parse URL parameters once at the top
+const urlParams = new URLSearchParams(window.location.search);
+const shop = urlParams.get('shop');
+const hmac = urlParams.get('hmac');
+const host = urlParams.get('host');
+const embedded = urlParams.get('embedded');
+const shopifyOauthComplete = urlParams.get('shopify_oauth_complete');
+
+// If this is a Shopify app installation or OAuth completion, allow it to proceed
+const isShopifyFlow = shop && (hmac || host || embedded || shopifyOauthComplete === 'true');
+
+if (!isShopifyFlow) {
+  // For non-Shopify flows, require authentication
+  checkPermissions(['service_role', 'client']);
+}
+
 setupInactivityTimeout(10);
 
 // Check if this is a Shopify callback/embedded app access
 function checkShopifyParams() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const shop = urlParams.get('shop');
-  const hmac = urlParams.get('hmac');
-  const host = urlParams.get('host');
-  const timestamp = urlParams.get('timestamp');
-  const embedded = urlParams.get('embedded');
-  const shopifyOauthComplete = urlParams.get('shopify_oauth_complete');
+  // Use the already declared variables from the top
   
   // If shopify_oauth_complete is true, handle OAuth completion
   if (shopifyOauthComplete === 'true' && shop) {
@@ -183,9 +193,7 @@ document.getElementById('shopify-btn').onclick = async () => {
 // Initialize and check for Shopify parameters immediately
 
 // Check for shopify_oauth_complete parameter (OAuth just finished)
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('shopify_oauth_complete') === 'true') {
-  const shop = urlParams.get('shop');
+if (shopifyOauthComplete === 'true') {
   
   // Check if user is logged in
   supabase.auth.getUser().then(({ data: { user } }) => {

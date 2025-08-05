@@ -136,21 +136,7 @@
       setupInactivityTimeout(10);
       populateProductDropdown();
       loadOrders();
-    // Sign out button handler (use shared supabase instance)
-    document.addEventListener('DOMContentLoaded', function() {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          document.getElementById('sign-out-btn').style.display = 'inline-block';
-        } else {
-          document.getElementById('sign-out-btn').style.display = 'none';
-        }
-      });
-      document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
-        e.preventDefault();
-        await supabase.auth.signOut();
-        window.location.reload();
-      });
-    });
+      
     async function getCurrentUserID() {
       const { data: { session } } = await supabase.auth.getSession();
       return session.user.id;

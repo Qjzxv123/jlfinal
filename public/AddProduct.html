@@ -214,22 +214,6 @@
     checkPermissions(['service_role', 'client']);
     setupInactivityTimeout(10);
 
-    // Sign out button handler
-    document.addEventListener('DOMContentLoaded', function() {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          document.getElementById('sign-out-btn').style.display = 'inline-block';
-        } else {
-          document.getElementById('sign-out-btn').style.display = 'none';
-        }
-      });
-      document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
-        e.preventDefault();
-        await supabase.auth.signOut();
-        window.location.reload();
-      });
-    });
-
     const form = document.getElementById('productForm');
     const statusMsg = document.getElementById('statusMsg');
 

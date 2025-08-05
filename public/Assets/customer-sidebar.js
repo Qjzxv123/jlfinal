@@ -28,8 +28,8 @@ function renderCustomerSidebar() {
       <a href="admin/OrderViewer.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>
     </nav>
     <div id="sidebar-signout" style="position: absolute; bottom: 24px; left: 0; width: 100%; text-align: left;">
-      <a href="privacy.html" class="nav-item" style="width:90%;margin:0 auto;justify-content:left;align-items:center;"><i class="cil-lock-locked"></i><span>Privacy Policy</span></a>
-      <a id="sign-out-btn" class="nav-item" style="width:90%;margin:0 auto;display:none;justify-content:center;align-items:center;cursor:pointer;"><i class="cil-account-logout"></i><span>Sign Out</span></a>
+      <a href="privacy.html" class="nav-item" style="width:90%;margin:0 auto;"><i class="cil-lock-locked"></i><span>Privacy Policy</span></a>
+      <a id="sign-out-btn" class="nav-item" style="width:90%;margin:0 auto;display:none;cursor:pointer;"><i class="cil-account-logout"></i><span>Sign Out</span></a>
     </div>
   `;
   const sidebar = document.getElementById('sidebar');
@@ -48,4 +48,32 @@ function renderCustomerSidebar() {
     });
   }
 }
-document.addEventListener('DOMContentLoaded', renderCustomerSidebar);
+
+// Initialize sidebar and sign-out functionality
+document.addEventListener('DOMContentLoaded', function() {
+  renderCustomerSidebar();
+  
+  // Set up sign-out button functionality
+  setTimeout(() => {
+    // Check if user is logged in by checking localStorage
+    const userToken = localStorage.getItem('sb-ypvyrophqkfqwpefuigi-auth-token');
+    const signOutBtn = document.getElementById('sign-out-btn');
+    
+    if (signOutBtn) {
+      if (userToken) {
+        signOutBtn.style.display = 'flex';
+      } else {
+        signOutBtn.style.display = 'none';
+      }
+      
+      // Add click handler to clear localStorage and reload
+      signOutBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        // Clear all auth-related localStorage items
+        localStorage.removeItem('sb-ypvyrophqkfqwpefuigi-auth-token');
+        // Reload page to reflect logged out state
+        window.location.reload();
+      });
+    }
+  }, 100);
+});
