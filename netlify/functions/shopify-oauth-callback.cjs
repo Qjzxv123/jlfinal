@@ -56,14 +56,17 @@ exports.handler = async (event) => {
       });
       throw new Error(tokenData.error_description || rawResponse || 'Failed to get access token');
     }
-    // Save shop and access token to Supabase (same table as Faire)
+    // Save shop and access token to Supabase
     try {
       const supabase = require('./supabase-client.cjs');
-      // Upsert to oauth_tokens table, platform: 'shopify', user_key: shop
+      
+      // For Shopify, we save the token with the shop as user_key
+      // The UserID will be linked later when the user logs in and connects
       await supabase.from('oauth_tokens').upsert({
         user_key: shop,
         platform: 'shopify',
-        access_token: tokenData.access_token
+        access_token: tokenData.access_token,
+        UserID: null // Will be updated when user logs in and links account
       }, { onConflict: ['user_key', 'platform'] });
       console.log(`Saved Shopify token for shop: ${shop}`);
     } catch (err) {
@@ -75,24 +78,11 @@ exports.handler = async (event) => {
       body: `Error exchanging code for token: ${err.message}`
     };
   }
-  // Redirect to Shopify embedded app URL after authentication
-  if (shop) {
-    // Use the expected Shopify admin URL for embedded app (Shopify expects /apps/{app-slug})
-    let redirectUrl = `https://jlfinal.netlify.app`;
-    return {
-      statusCode: 302,
-      headers: {
-        Location: redirectUrl,
-        'Cache-Control': 'no-store'
-      },
-      body: ''
-    };
-  }
-  // Fallback: redirect to Shopify admin apps page
+  // Redirect back to ecommerce-oauth page with success message and shop parameter
   return {
     statusCode: 302,
     headers: {
-      Location: 'https://admin.shopify.com/store',
+      Location: `https://jlfinal.netlify.app/ecommerce-oauth.html?shopify=success&shop=${encodeURIComponent(shop)}`,
       'Cache-Control': 'no-store'
     },
     body: ''
