@@ -107,18 +107,31 @@ function checkShopifyParams() {
   const shop = urlParams.get('shop');
   const hmac = urlParams.get('hmac');
   const host = urlParams.get('host');
+  const timestamp = urlParams.get('timestamp');
+  const embedded = urlParams.get('embedded');
+  const shopifyOauthComplete = urlParams.get('shopify_oauth_complete');
   
-  console.log('Checking Shopify parameters:', { shop, hmac, host });
-  console.log('Current URL:', window.location.href);
+  console.log('Ecommerce-oauth - Checking Shopify parameters:', { 
+    shop, hmac, host, timestamp, embedded, shopifyOauthComplete,
+    allParams: Object.fromEntries(urlParams.entries())
+  });
+  console.log('Ecommerce-oauth - Current URL:', window.location.href);
   
-  // If we have Shopify parameters, immediately start OAuth
-  if (shop && hmac) {
+  // If shopify_oauth_complete is true, handle OAuth completion
+  if (shopifyOauthComplete === 'true' && shop) {
+    console.log('Shopify OAuth completion detected for shop:', shop);
+    linkShopifyUser(shop);
+    return true;
+  }
+  
+  // If we have Shopify app installation parameters (hmac indicates Shopify app access)
+  if (shop && (hmac || host || embedded)) {
     console.log('Shopify app access detected, starting OAuth immediately for shop:', shop);
     startShopifyOAuth(shop);
     return true;
-  } else {
-    console.log('No Shopify parameters found, showing normal UI');
   }
+  
+  console.log('No Shopify parameters found or insufficient params, showing normal UI');
   return false;
 }
 
@@ -134,17 +147,16 @@ async function startShopifyOAuth(shopDomain) {
     const { data: { user } } = await supabase.auth.getUser();
     console.log('Current user:', user ? user.id : 'No user');
     
-    // For Shopify OAuth callback, we don't need a logged-in user
-    // The OAuth process will create/link the user account
-    let displayName = 'Shopify User';
-    let userId = null;
-    
-    if (user) {
-      displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
-      userId = user.id;
+    if (!user) {
+      // For Shopify app access, redirect to login but preserve Shopify params
+      const currentParams = window.location.search;
+      console.log('No user found, redirecting to login with params:', currentParams);
+      window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname + currentParams);
+      return;
     }
     
-    const stateObj = { user_id: userId, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
+    const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
+    const stateObj = { user_id: user.id, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
     const state = btoa(JSON.stringify(stateObj));
     
     const oauthUrl = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(shopDomain)}&state=${encodeURIComponent(state)}`;
@@ -158,6 +170,68 @@ async function startShopifyOAuth(shopDomain) {
     document.getElementById('shopify-loading').style.display = 'none';
     document.getElementById('platform-oauth').style.display = 'block';
     alert('Error starting Shopify OAuth: ' + error.message);
+  }
+}
+
+// Simple function to link Shopify user after OAuth completion
+async function linkShopifyUser(shop) {
+  console.log('linkShopifyUser called with shop:', shop);
+  
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log('Current user:', user ? user.id : 'No user');
+    
+    if (!user) {
+      // If no user is logged in, redirect to login with shop parameter preserved
+      console.log('No user logged in, redirecting to login');
+      window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return;
+    }
+
+    // User is logged in, update the token with their UserID
+    console.log(`Linking Shopify store ${shop} to user ${user.id}`);
+    
+    const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
+    
+    // Create user first
+    try {
+      const addUserResponse = await fetch('/.netlify/functions/add-user-row', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user.id,
+          display_name: displayName,
+          role: 'customer',
+          email: displayName
+        })
+      });
+      console.log('Add user response:', addUserResponse.status);
+    } catch (userErr) {
+      console.error('Error creating user:', userErr);
+    }
+    
+    // Update the oauth token with the user ID
+    const { error } = await supabase
+      .from('oauth_tokens')
+      .update({ UserID: user.id })
+      .eq('user_key', shop)
+      .eq('platform', 'shopify');
+
+    if (error) {
+      console.error('Error linking Shopify store:', error);
+      alert('Failed to link Shopify store to your account.');
+      return;
+    }
+
+    console.log('Shopify store linked successfully!');
+    alert('Shopify store connected successfully to your account!');
+    
+    // Clean up URL parameters
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
+  } catch (error) {
+    console.error('Error linking Shopify user:', error);
+    alert('Error linking Shopify store. Please try again.');
   }
 }
 
@@ -203,6 +277,14 @@ document.getElementById('shopify-btn').onclick = async () => {
 
 // Initialize and check for Shopify parameters immediately
 console.log('Script loaded, checking for Shopify parameters...');
+
+// Check for shopify_oauth_complete parameter (OAuth just finished)
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('shopify_oauth_complete') === 'true') {
+  const shop = urlParams.get('shop');
+  console.log('Shopify OAuth completed for shop:', shop);
+  linkShopifyUser(shop);
+}
 
 // Check immediately when script loads
 checkShopifyParams();
