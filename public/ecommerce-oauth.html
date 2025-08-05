@@ -201,20 +201,6 @@ document.getElementById('shopify-btn').onclick = async () => {
   window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(domain)}&state=${encodeURIComponent(state)}`;
 };
 
-// Sign out button handler
-supabase.auth.getSession().then(({ data: { session } }) => {
-  if (session) {
-    document.getElementById('sign-out-btn').style.display = 'inline-block';
-  } else {
-    document.getElementById('sign-out-btn').style.display = 'none';
-  }
-});
-document.getElementById('sign-out-btn').addEventListener('click', async function(e) {
-  e.preventDefault();
-  await supabase.auth.signOut();
-  window.location.reload();
-});
-
 // Initialize and check for Shopify parameters immediately
 console.log('Script loaded, checking for Shopify parameters...');
 
