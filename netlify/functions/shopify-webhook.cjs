@@ -79,31 +79,21 @@ exports.handler = async (event) => {
 
     // Handle mandatory compliance webhooks
     if (topic === 'app/uninstalled') {
-      // Clean up shop data, tokens, etc.
+      // Clean up shop data and tokens
       console.log(`App uninstalled for shop: ${shopDomain}`);
-      // Delete shop token from Supabase
       try {
-        await supabase.from('shopify_tokens').delete().eq('shop', shopDomain);
-        console.log(`Deleted token for shop: ${shopDomain}`);
+        await supabase.from('oauth_tokens').delete()
+          .eq('user_key', shopDomain)
+          .eq('platform', 'shopify');
+        console.log(`Deleted Shopify token for shop: ${shopDomain}`);
       } catch (err) {
-        console.error('Error deleting token from Supabase:', err);
+        console.error('Error deleting Shopify token from Supabase:', err);
       }
     }
-    // Save token on install (if token is present in payload)
-    if (topic === 'app/installed' || (topic === 'shop/update' && payload.access_token)) {
-      // Save shop and access token to Supabase
-      try {
-        await supabase.from('shopify_tokens').upsert({ shop: shopDomain, access_token: payload.access_token });
-        console.log(`Saved token for shop: ${shopDomain}`);
-      } catch (err) {
-        console.error('Error saving token to Supabase:', err);
-      }
-    }
+
     if (topic === 'shop/update') {
       // Handle shop updates if needed
       console.log(`Shop updated: ${shopDomain}`);
-      // Optionally update shop info in Supabase
-      // await supabase.from('shopify_tokens').update({ ...fields }).eq('shop', shopDomain);
     }
 
     // Respond 200 OK for all valid webhooks

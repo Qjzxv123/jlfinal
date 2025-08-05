@@ -135,7 +135,7 @@ function checkShopifyParams() {
   return false;
 }
 
-// Shopify-specific OAuth start
+// Shopify-specific OAuth start - simplified since user will login after OAuth
 async function startShopifyOAuth(shopDomain) {
   console.log('Starting Shopify OAuth for domain:', shopDomain);
   
@@ -144,22 +144,8 @@ async function startShopifyOAuth(shopDomain) {
   document.getElementById('shopify-loading').style.display = 'block';
   
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    console.log('Current user:', user ? user.id : 'No user');
-    
-    if (!user) {
-      // For Shopify app access, redirect to login but preserve Shopify params
-      const currentParams = window.location.search;
-      console.log('No user found, redirecting to login with params:', currentParams);
-      window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname + currentParams);
-      return;
-    }
-    
-    const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
-    const stateObj = { user_id: user.id, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
-    const state = btoa(JSON.stringify(stateObj));
-    
-    const oauthUrl = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(shopDomain)}&state=${encodeURIComponent(state)}`;
+    // Simply redirect to OAuth without requiring user to be logged in first
+    const oauthUrl = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(shopDomain)}`;
     console.log('Redirecting to OAuth URL:', oauthUrl);
     
     // Redirect to Shopify OAuth with the shop parameter
@@ -170,68 +156,6 @@ async function startShopifyOAuth(shopDomain) {
     document.getElementById('shopify-loading').style.display = 'none';
     document.getElementById('platform-oauth').style.display = 'block';
     alert('Error starting Shopify OAuth: ' + error.message);
-  }
-}
-
-// Simple function to link Shopify user after OAuth completion
-async function linkShopifyUser(shop) {
-  console.log('linkShopifyUser called with shop:', shop);
-  
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    console.log('Current user:', user ? user.id : 'No user');
-    
-    if (!user) {
-      // If no user is logged in, redirect to login with shop parameter preserved
-      console.log('No user logged in, redirecting to login');
-      window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname + window.location.search);
-      return;
-    }
-
-    // User is logged in, update the token with their UserID
-    console.log(`Linking Shopify store ${shop} to user ${user.id}`);
-    
-    const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
-    
-    // Create user first
-    try {
-      const addUserResponse = await fetch('/.netlify/functions/add-user-row', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: user.id,
-          display_name: displayName,
-          role: 'customer',
-          email: displayName
-        })
-      });
-      console.log('Add user response:', addUserResponse.status);
-    } catch (userErr) {
-      console.error('Error creating user:', userErr);
-    }
-    
-    // Update the oauth token with the user ID
-    const { error } = await supabase
-      .from('oauth_tokens')
-      .update({ UserID: user.id })
-      .eq('user_key', shop)
-      .eq('platform', 'shopify');
-
-    if (error) {
-      console.error('Error linking Shopify store:', error);
-      alert('Failed to link Shopify store to your account.');
-      return;
-    }
-
-    console.log('Shopify store linked successfully!');
-    alert('Shopify store connected successfully to your account!');
-    
-    // Clean up URL parameters
-    window.history.replaceState({}, document.title, window.location.pathname);
-    
-  } catch (error) {
-    console.error('Error linking Shopify user:', error);
-    alert('Error linking Shopify store. Please try again.');
   }
 }
 
@@ -264,15 +188,8 @@ document.getElementById('shopify-btn').onclick = async () => {
     domain = domain.replace(/\.myshopify\.com.*/, '');
     domain = `${domain}.myshopify.com`;
   }
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
-    return;
-  }
-  const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
-  const stateObj = { user_id: user.id, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
-  const state = btoa(JSON.stringify(stateObj));
-  window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(domain)}&state=${encodeURIComponent(state)}`;
+  // Start OAuth directly - user will login after OAuth completion
+  window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(domain)}`;
 };
 
 // Initialize and check for Shopify parameters immediately
@@ -281,9 +198,19 @@ console.log('Script loaded, checking for Shopify parameters...');
 // Check for shopify_oauth_complete parameter (OAuth just finished)
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('shopify_oauth_complete') === 'true') {
-  const shop = urlParams.get('shop');
-  console.log('Shopify OAuth completed for shop:', shop);
-  linkShopifyUser(shop);
+  console.log('Shopify OAuth completed, checking if user is logged in...');
+  
+  // Check if user is logged in
+  supabase.auth.getUser().then(({ data: { user } }) => {
+    if (user) {
+      console.log('User is logged in after Shopify OAuth completion');
+      alert('Shopify store connected successfully to your account!');
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      console.log('User not logged in after Shopify OAuth, something went wrong');
+    }
+  });
 }
 
 // Check immediately when script loads
