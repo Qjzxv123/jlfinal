@@ -451,6 +451,10 @@
                 🔄 Refresh Orders
             </button>
             
+            <button class="btn" onclick="showManifestModal()" id="manifestBtn" style="background: #9b59b6; border-color: #8e44ad;">
+                📋 Print Daily Manifest
+            </button>
+            
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="Search by order number, customer name, or product..." 
                        oninput="filterOrders()">
@@ -562,6 +566,35 @@
     <button id="modalCloseBtn" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.2rem;cursor:pointer;color:#888;">&times;</button>
   </div>
 </div>
+
+    <!-- Manifest Modal -->
+<div id="manifestModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:white; border-radius:12px; max-width:400px; width:90%; margin:auto; padding:30px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.25); position:relative;">
+    <h2 style="margin-bottom:18px; font-size:1.2rem; color:#2c3e50; text-align:center;">Create Daily Manifest</h2>
+    
+    <p style="margin-bottom:15px; font-size:0.9rem; color:#666; text-align:center;">
+      Generate a manifest/scanform for all shipping labels created on a specific date.<br>
+      <small style="color:#888;">A manifest is required by carriers for pickup and simplifies the drop-off process.</small>
+    </p>
+    
+    <form id="manifestForm">
+      <div style="margin-bottom:18px;">
+        <label style="display:block; margin-bottom:5px; font-weight:600; color:#2c3e50;">
+          Select Date:
+        </label>
+        <input type="date" id="manifestDate" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; background:#f8f9fa;">
+      </div>
+      
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button type="submit" class="btn" style="flex:1;">Create Manifest</button>
+        <button type="button" class="btn" style="background:#ccc;color:#333;flex:1;" onclick="closeManifestModal()">Cancel</button>
+      </div>
+    </form>
+    
+    <button onclick="closeManifestModal()" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.2rem;cursor:pointer;color:#888;">&times;</button>
+  </div>
+</div>
+
     <script>
         // Access control and inactivity timeout
         checkPermissions(['service_role', 'employee']);
@@ -1824,6 +1857,83 @@ async function printShippingLabels() {
             const oz = totalWeight - (lbs * 16);
             document.getElementById('modalWeightLbs').value = lbs;
             document.getElementById('modalWeightOz').value = oz.toFixed(2);
+        }
+
+        // Show manifest modal
+        function showManifestModal() {
+            // Set today's date as default
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('manifestDate').value = today;
+            document.getElementById('manifestModal').style.display = 'flex';
+        }
+
+        // Close manifest modal
+        function closeManifestModal() {
+            document.getElementById('manifestModal').style.display = 'none';
+        }
+
+        // Handle manifest form submission
+        document.getElementById('manifestForm').onsubmit = function(e) {
+            e.preventDefault();
+            const selectedDate = document.getElementById('manifestDate').value;
+            if (selectedDate) {
+                closeManifestModal();
+                printDailyManifest(selectedDate);
+            }
+        };
+
+        // Print daily manifest/scanform
+        async function printDailyManifest(date) {
+            const manifestBtn = document.getElementById('manifestBtn');
+            const originalText = manifestBtn.innerHTML;
+            manifestBtn.disabled = true;
+            manifestBtn.innerHTML = '⏳ Creating Manifest...';
+
+            showStatus('Creating daily manifest/scanform...', 'loading');
+
+            try {
+                const response = await fetch('/.netlify/functions/shippo-manifest', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        date: date
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    if (result.transaction_count === 0) {
+                        showStatus(`No shipments found for ${date}. Create some shipping labels first.`, 'error');
+                        setTimeout(hideStatus, 4000);
+                    } else {
+                        showStatus(`Manifest created successfully for ${result.transaction_count} shipment(s) on ${date}!`, 'success');
+                        
+                        // Open the manifest PDF in a new tab
+                        if (result.manifest_url) {
+                            window.open(result.manifest_url, '_blank');
+                        }
+                        
+                        setTimeout(hideStatus, 3000);
+                    }
+                } else {
+                    throw new Error(result.error || 'Failed to create manifest');
+                }
+
+            } catch (error) {
+                console.error('Error creating manifest:', error);
+                showStatus(`Error creating manifest: ${error.message}`, 'error');
+                setTimeout(hideStatus, 5000);
+            } finally {
+                manifestBtn.disabled = false;
+                manifestBtn.innerHTML = originalText;
+            }
         }
 
         // Initialize page

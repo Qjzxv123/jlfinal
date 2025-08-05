@@ -75,6 +75,17 @@
     <div class="container">
       <h1>Onboard Your Store</h1>
       <div id="user-info" style="margin-bottom: 1rem; display:none;"></div>
+      
+      <!-- Loading state for Shopify OAuth -->
+      <div id="shopify-loading" style="display: none; text-align: center; padding: 2rem;">
+        <div style="font-size: 1.2rem; color: #666; margin-bottom: 1rem;">
+          🔄 Connecting to Shopify...
+        </div>
+        <div style="font-size: 0.9rem; color: #888;">
+          Please wait while we redirect you to authenticate with Shopify.
+        </div>
+      </div>
+      
       <div id="platform-oauth">
         <button id="faire-btn">Connect Faire</button>
         <div style="margin: 24px 0;">
@@ -90,6 +101,44 @@
 
 checkPermissions(['customer', 'service_role']);
 setupInactivityTimeout(10);
+
+// Check if this is a Shopify callback/embedded app access
+function checkShopifyParams() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const shop = urlParams.get('shop');
+  const hmac = urlParams.get('hmac');
+  const host = urlParams.get('host');
+  
+  // If we have Shopify parameters, immediately start OAuth
+  if (shop && hmac) {
+    console.log('Shopify app access detected, starting OAuth immediately for shop:', shop);
+    startShopifyOAuth(shop);
+    return true;
+  }
+  return false;
+}
+
+// Shopify-specific OAuth start
+async function startShopifyOAuth(shopDomain) {
+  // Show loading state and hide normal UI
+  document.getElementById('platform-oauth').style.display = 'none';
+  document.getElementById('shopify-loading').style.display = 'block';
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    // If no user, redirect to login but preserve Shopify params
+    const currentParams = window.location.search;
+    window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname + currentParams);
+    return;
+  }
+  
+  const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
+  const stateObj = { user_id: user.id, user_display_name: displayName, nonce: Math.random().toString(36).substring(2) };
+  const state = btoa(JSON.stringify(stateObj));
+  
+  // Redirect to Shopify OAuth with the shop parameter
+  window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(shopDomain)}&state=${encodeURIComponent(state)}`;
+}
 
 // Only support Faire, Etsy, and Shopify OAuth
 async function startOAuth(provider) {
@@ -144,6 +193,24 @@ document.getElementById('sign-out-btn').addEventListener('click', async function
   await supabase.auth.signOut();
   window.location.reload();
 });
+
+// Initialize and check for Shopify parameters immediately
+document.addEventListener('DOMContentLoaded', function() {
+  if (!checkShopifyParams()) {
+    // Only show the UI if this is not a Shopify app access
+    console.log('Normal page access - showing OAuth options');
+  }
+});
+
+// Also check immediately in case DOMContentLoaded already fired
+if (document.readyState === 'loading') {
+  // Document still loading
+} else {
+  // Document already loaded
+  if (!checkShopifyParams()) {
+    console.log('Normal page access - showing OAuth options');
+  }
+}
 </script>
 </body>
 </html>
