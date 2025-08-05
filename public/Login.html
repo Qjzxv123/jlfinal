@@ -105,10 +105,29 @@
         const form = document.getElementById('login-form');
         const signupForm = document.getElementById('signup-form');
         const message = document.getElementById('message');
-        // Get redirect param if present
+        // Get redirect param if present, cleaning up problematic parameters
         function getRedirectUrl() {
             const params = new URLSearchParams(window.location.search);
-            return params.get('returnTo') || params.get('redirect') || 'index.html';
+            let redirectUrl = params.get('returnTo') || params.get('redirect') || 'index.html';
+            
+            // If redirect URL contains shopify_token or shopify_oauth_complete, clean them up
+            if (redirectUrl.includes('shopify_token=') || redirectUrl.includes('shopify_oauth_complete=')) {
+                try {
+                    const redirectUrlObj = new URL(redirectUrl, window.location.origin);
+                    redirectUrlObj.searchParams.delete('shopify_token');
+                    // If it's an OAuth completion page, redirect to ecommerce-oauth.html without the completion flag
+                    if (redirectUrlObj.pathname.includes('ecommerce-oauth.html')) {
+                        redirectUrlObj.searchParams.delete('shopify_oauth_complete');
+                        redirectUrlObj.searchParams.delete('shop');
+                    }
+                    redirectUrl = redirectUrlObj.pathname + (redirectUrlObj.search || '');
+                } catch (e) {
+                    console.error('Error cleaning redirect URL:', e);
+                    redirectUrl = 'ecommerce-oauth.html';
+                }
+            }
+            
+            return redirectUrl;
         }
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -216,6 +235,13 @@
                         console.log('Waiting 3 seconds before redirect...');
                         await new Promise(resolve => setTimeout(resolve, 3000));
                         
+                        // Clean up URL parameters to prevent redirect loops
+                        const cleanUrl = new URL(window.location);
+                        cleanUrl.searchParams.delete('shopify_token');
+                        cleanUrl.searchParams.delete('returnTo');
+                        cleanUrl.searchParams.delete('redirect');
+                        window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search);
+                        
                     } catch (tokenErr) {
                         console.error('Error processing Shopify token:', tokenErr);
                         console.log('Waiting 2 seconds before continuing...');
@@ -225,8 +251,13 @@
                     console.log('No Shopify token found in URL params');
                 }
                 
+                // Determine redirect URL - if we processed a Shopify token, go to ecommerce-oauth.html
+                const currentUrlParams = new URLSearchParams(window.location.search);
+                const processedShopifyToken = currentUrlParams.get('shopify_token');
+                const redirectUrl = processedShopifyToken ? 'ecommerce-oauth.html' : getRedirectUrl();
+                
                 setTimeout(() => {
-                    window.location.href = getRedirectUrl();
+                    window.location.href = redirectUrl;
                 }, 800);
             }
         });
@@ -320,13 +351,25 @@
                         console.log('Waiting 3 seconds before redirect...');
                         await new Promise(resolve => setTimeout(resolve, 3000));
                         
+                        // Clean up URL parameters to prevent redirect loops
+                        const cleanUrl = new URL(window.location);
+                        cleanUrl.searchParams.delete('shopify_token');
+                        cleanUrl.searchParams.delete('returnTo');
+                        cleanUrl.searchParams.delete('redirect');
+                        window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search);
+                        
                     } catch (tokenErr) {
                         console.error('Error processing Shopify token for already logged-in user:', tokenErr);
                     }
+                    
+                    // After processing Shopify token, redirect to clean ecommerce-oauth.html
+                    console.log('Redirecting already logged-in user to clean ecommerce-oauth.html after token processing');
+                    window.location.href = 'ecommerce-oauth.html';
+                } else {
+                    // No Shopify token, use normal redirect
+                    console.log('Redirecting already logged-in user to:', getRedirectUrl());
+                    window.location.href = getRedirectUrl();
                 }
-                
-                console.log('Redirecting already logged-in user to:', getRedirectUrl());
-                window.location.href = getRedirectUrl();
             } else {
                 console.log('User not logged in, staying on login page');
             }
