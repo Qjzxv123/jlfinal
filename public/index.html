@@ -81,6 +81,30 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/Assets/CheckAccess.js"></script>
   <script>
+      // Check for Shopify parameters and redirect to ecommerce-oauth page
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get('shop');
+      const shopifyOauthComplete = urlParams.get('shopify_oauth_complete');
+      const hmac = urlParams.get('hmac');
+      const host = urlParams.get('host');
+      const timestamp = urlParams.get('timestamp');
+      const embedded = urlParams.get('embedded');
+      
+      // Log all parameters for debugging
+      console.log('Index.html - Current URL:', window.location.href);
+      console.log('Index.html - URL Parameters:', {
+        shop, shopifyOauthComplete, hmac, host, timestamp, embedded,
+        allParams: Object.fromEntries(urlParams.entries())
+      });
+      
+      // If we have any Shopify-related parameters, redirect to ecommerce-oauth page
+      if (shop || hmac || host || embedded) {
+        console.log('Shopify parameters detected, redirecting to ecommerce-oauth page');
+        console.log('Redirecting to:', '/ecommerce-oauth.html' + window.location.search);
+        window.location.href = '/ecommerce-oauth.html' + window.location.search;
+        return; // Prevent further execution
+      }
+      
       async function showLoginOrWelcome() {
         const { data: { user } } = await supabase.auth.getUser();
         const loginBar = document.getElementById('login-bar');
