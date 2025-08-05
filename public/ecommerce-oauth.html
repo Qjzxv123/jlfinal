@@ -111,34 +111,23 @@ function checkShopifyParams() {
   const embedded = urlParams.get('embedded');
   const shopifyOauthComplete = urlParams.get('shopify_oauth_complete');
   
-  console.log('Ecommerce-oauth - Checking Shopify parameters:', { 
-    shop, hmac, host, timestamp, embedded, shopifyOauthComplete,
-    allParams: Object.fromEntries(urlParams.entries())
-  });
-  console.log('Ecommerce-oauth - Current URL:', window.location.href);
-  
   // If shopify_oauth_complete is true, handle OAuth completion
   if (shopifyOauthComplete === 'true' && shop) {
-    console.log('Shopify OAuth completion detected for shop:', shop);
     // OAuth completion is now handled by the separate code block above
     return true;
   }
   
   // If we have Shopify app installation parameters (hmac indicates Shopify app access)
   if (shop && (hmac || host || embedded)) {
-    console.log('Shopify app access detected, starting OAuth immediately for shop:', shop);
     startShopifyOAuth(shop);
     return true;
   }
   
-  console.log('No Shopify parameters found or insufficient params, showing normal UI');
   return false;
 }
 
 // Shopify-specific OAuth start - simplified since user will login after OAuth
 async function startShopifyOAuth(shopDomain) {
-  console.log('Starting Shopify OAuth for domain:', shopDomain);
-  
   // Show loading state and hide normal UI
   document.getElementById('platform-oauth').style.display = 'none';
   document.getElementById('shopify-loading').style.display = 'block';
@@ -146,7 +135,6 @@ async function startShopifyOAuth(shopDomain) {
   try {
     // Simply redirect to OAuth without requiring user to be logged in first
     const oauthUrl = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(shopDomain)}`;
-    console.log('Redirecting to OAuth URL:', oauthUrl);
     
     // Redirect to Shopify OAuth with the shop parameter
     window.location.href = oauthUrl;
@@ -193,18 +181,15 @@ document.getElementById('shopify-btn').onclick = async () => {
 };
 
 // Initialize and check for Shopify parameters immediately
-console.log('Script loaded, checking for Shopify parameters...');
 
 // Check for shopify_oauth_complete parameter (OAuth just finished)
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('shopify_oauth_complete') === 'true') {
   const shop = urlParams.get('shop');
-  console.log('Shopify OAuth completed, checking if user is logged in...', { shop });
   
   // Check if user is logged in
   supabase.auth.getUser().then(({ data: { user } }) => {
     if (user) {
-      console.log('User is logged in after Shopify OAuth completion');
       if (shop) {
         alert(`Shopify store "${shop}" connected successfully to your account!`);
       } else {
@@ -213,7 +198,6 @@ if (urlParams.get('shopify_oauth_complete') === 'true') {
       // Clean up URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      console.log('User not logged in after Shopify OAuth, redirecting to login');
       // Redirect to login with the return URL including shop parameter
       const returnUrl = shop 
         ? `/ecommerce-oauth.html?shopify_oauth_complete=true&shop=${encodeURIComponent(shop)}`
@@ -227,20 +211,17 @@ if (urlParams.get('shopify_oauth_complete') === 'true') {
 checkShopifyParams();
 
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM loaded, checking Shopify parameters again...');
   if (!checkShopifyParams()) {
     // Only show the UI if this is not a Shopify app access
-    console.log('Normal page access - showing OAuth options');
   }
 });
 
 // Also check immediately in case DOMContentLoaded already fired
 if (document.readyState === 'loading') {
-  console.log('Document still loading...');
+  // Document still loading
 } else {
-  console.log('Document already loaded, checking Shopify parameters...');
   if (!checkShopifyParams()) {
-    console.log('Normal page access - showing OAuth options');
+    // Normal page access - showing OAuth options
   }
 }
 </script>
