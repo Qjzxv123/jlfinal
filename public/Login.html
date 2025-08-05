@@ -309,10 +309,12 @@
                         const { data: { user } } = await supabase.auth.getUser();
                         console.log('Already logged-in user ID:', user?.id);
                         
+                        // Extract display name from user metadata
+                        const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
+                        
                         // Create user record if it doesn't exist
                         try {
                             console.log('Creating/updating user record for already logged-in user...');
-                            const displayName = user.user_metadata && user.user_metadata.display_name ? user.user_metadata.display_name : user.email;
                             const addUserResponse = await fetch('/.netlify/functions/add-user-row', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
