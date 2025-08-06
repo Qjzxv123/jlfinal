@@ -31,30 +31,21 @@ const sendEmail = async (to, subject, content) => {
 
     // Send email
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ EMAIL SENT SUCCESSFULLY:');
-    console.log(`   To: ${to}`);
-    console.log(`   Subject: ${subject}`);
-    console.log(`   Message ID: ${info.messageId}`);
-    console.log(`   Response: ${info.response || 'No response'}`);
+    console.log(`✅ Email sent to ${to}: ${subject}`);
     
     return { success: true, messageId: info.messageId, response: info.response };
   } catch (error) {
-    console.error('❌ EMAIL SENDING FAILED:');
-    console.error(`   To: ${to}`);
-    console.error(`   Subject: ${subject}`);
-    console.error(`   Error: ${error.message}`);
-    console.error(`   Full error:`, error);
+    console.error(`❌ Email failed to ${to}: ${error.message}`);
     
     // For development or if SMTP not configured, just log
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.log(`📧 [DEV MODE] Would send email to ${to}: ${subject}`);
+      console.log(`📧 [DEV] Would send to ${to}: ${subject}`);
       return { success: true, dev: true, devMessage: `Email would be sent to ${to}` };
     }
     
     // If authentication failed, likely need app password
     if (error.code === 'EAUTH') {
-      console.log(`🔐 [AUTH ISSUE] Gmail requires App Password - falling back to dev mode`);
-      console.log(`📧 [DEV MODE] Would send email to ${to}: ${subject}`);
+      console.log(`🔐 [AUTH] Gmail requires App Password - fallback to dev mode`);
       return { success: true, dev: true, devMessage: `Email would be sent to ${to} (Auth fallback)` };
     }
     
@@ -130,13 +121,11 @@ const sendNotificationToUser = async (userId, type, title, message, data = {}, c
 
     // Send email notification
     if (channels.includes('email') && userPrefs.email) {
-      console.log(`📧 Attempting to send email notification to: ${userPrefs.email}`);
       const emailResult = await sendEmail(
         userPrefs.email,
         title,
         `Hello ${userPrefs.displayName || 'there'},\n\n${message}\n\nBest regards,\nJ&L Naturals Team`
       );
-      console.log(`📧 Email result for ${userPrefs.email}:`, emailResult);
       results.push({ channel: 'email', ...emailResult });
     }
 
@@ -160,12 +149,10 @@ const sendNotificationToUser = async (userId, type, title, message, data = {}, c
 // Check inventory levels and send alerts
 const checkInventoryAlerts = async () => {
   try {
-    console.log('Checking inventory levels...');
-
-    // Get current inventory data
+    // Get current inventory data with UserID
     const { data: inventoryData, error: inventoryError } = await supabase
       .from('Products')
-      .select('ProductSKU, Name, Quantity, ReserveQuantity')
+      .select('ProductSKU, Name, Quantity, ReserveQuantity, UserID')
       .eq('Archived', false)
       .order('Quantity', { ascending: true });
 
@@ -184,7 +171,6 @@ const checkInventoryAlerts = async () => {
 
     // If no alerts needed, exit early
     if (criticalItems.length === 0 && lowItems.length === 0) {
-      console.log('No inventory alerts needed');
       return { success: true, message: 'No inventory alerts needed' };
     }
 
@@ -202,25 +188,38 @@ const checkInventoryAlerts = async () => {
     });
 
     if (alertUsers.length === 0) {
-      console.log('No users configured for inventory alerts');
       return { success: true, message: 'No users configured for inventory alerts' };
     }
 
     const notificationResults = [];
 
-    // Send alerts to each user
+    // Send alerts to each user - only for items they're associated with
     for (const user of alertUsers) {
+      // Filter critical and low items for this specific user
+      const userCriticalItems = criticalItems.filter(item => 
+        item.UserID && Array.isArray(item.UserID) && item.UserID.includes(user.id)
+      );
+      
+      const userLowItems = lowItems.filter(item => 
+        item.UserID && Array.isArray(item.UserID) && item.UserID.includes(user.id)
+      );
+
+      // Skip if user has no relevant inventory items
+      if (userCriticalItems.length === 0 && userLowItems.length === 0) {
+        continue;
+      }
+
       let alertMessage = '';
       let alertData = {
-        criticalItems: criticalItems.length,
-        lowItems: lowItems.length,
+        criticalItems: userCriticalItems.length,
+        lowItems: userLowItems.length,
         items: []
       };
 
-      // Build alert message
-      if (criticalItems.length > 0) {
-        alertMessage += `⚠️ CRITICAL: ${criticalItems.length} item(s) out of stock:\n`;
-        criticalItems.forEach(item => {
+      // Build alert message for user's items
+      if (userCriticalItems.length > 0) {
+        alertMessage += `⚠️ CRITICAL: ${userCriticalItems.length} item(s) out of stock:\n`;
+        userCriticalItems.forEach(item => {
           const displayName = item.Name || item.ProductSKU;
           alertMessage += `• ${displayName} (${item.Quantity || 0} units)\n`;
           alertData.items.push({
@@ -233,9 +232,9 @@ const checkInventoryAlerts = async () => {
         alertMessage += '\n';
       }
 
-      if (lowItems.length > 0) {
-        alertMessage += `⚡ LOW STOCK: ${lowItems.length} item(s) below 20 units:\n`;
-        lowItems.forEach(item => {
+      if (userLowItems.length > 0) {
+        alertMessage += `⚡ LOW STOCK: ${userLowItems.length} item(s) below 20 units:\n`;
+        userLowItems.forEach(item => {
           const displayName = item.Name || item.ProductSKU;
           alertMessage += `• ${displayName} (${item.Quantity || 0} units)\n`;
           alertData.items.push({
@@ -262,32 +261,22 @@ const checkInventoryAlerts = async () => {
       notificationResults.push({
         userId: user.id,
         email: user.email,
+        userCriticalItems: userCriticalItems.length,
+        userLowItems: userLowItems.length,
         ...result
       });
     }
 
-    console.log(`Sent inventory alerts to ${alertUsers.length} users`);
+    const usersWithAlerts = notificationResults.length;
     
     // Log email success summary
     const emailResults = notificationResults.map(r => r.results?.find(res => res.channel === 'email'));
     const successfulEmails = emailResults.filter(r => r?.success).length;
     const failedEmails = emailResults.filter(r => !r?.success).length;
-    console.log(`📊 EMAIL SUMMARY - Inventory Alerts:`);
-    console.log(`   ✅ Successful: ${successfulEmails}`);
-    console.log(`   ❌ Failed: ${failedEmails}`);
-    console.log(`   📧 Total attempted: ${emailResults.length}`);
+    console.log(`📊 Inventory Alerts: ${successfulEmails} sent, ${failedEmails} failed`);
     
     return {
-      success: true,
-      criticalItems: criticalItems.length,
-      lowItems: lowItems.length,
-      usersNotified: alertUsers.length,
-      emailStats: {
-        successful: successfulEmails,
-        failed: failedEmails,
-        total: emailResults.length
-      },
-      results: notificationResults
+      success: true
     };
 
   } catch (error) {
@@ -299,8 +288,6 @@ const checkInventoryAlerts = async () => {
 // Check for task reminders
 const checkTaskReminders = async () => {
   try {
-    console.log('Checking task reminders...');
-
     // Get tasks due within next 24 hours or overdue
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -314,7 +301,6 @@ const checkTaskReminders = async () => {
     if (tasksError) throw tasksError;
 
     if (!tasks || tasks.length === 0) {
-      console.log('No task reminders needed');
       return { success: true, message: 'No task reminders needed' };
     }
 
@@ -400,27 +386,14 @@ const checkTaskReminders = async () => {
       }
     }
 
-    console.log(`Sent task reminders to ${processedUsers.size} users`);
-    
     // Log email success summary
     const emailResults = notificationResults.map(r => r.results?.find(res => res.channel === 'email'));
     const successfulEmails = emailResults.filter(r => r?.success).length;
     const failedEmails = emailResults.filter(r => !r?.success).length;
-    console.log(`📊 EMAIL SUMMARY - Task Reminders:`);
-    console.log(`   ✅ Successful: ${successfulEmails}`);
-    console.log(`   ❌ Failed: ${failedEmails}`);
-    console.log(`   📧 Total attempted: ${emailResults.length}`);
+    console.log(`📊 Task Reminders: ${successfulEmails} sent, ${failedEmails} failed`);
     
     return {
-      success: true,
-      usersNotified: processedUsers.size,
-      totalTasks: tasks.length,
-      emailStats: {
-        successful: successfulEmails,
-        failed: failedEmails,
-        total: emailResults.length
-      },
-      results: notificationResults
+      success: true
     };
 
   } catch (error) {
@@ -432,8 +405,6 @@ const checkTaskReminders = async () => {
 // Check for order updates and send notifications
 const checkOrderNotifications = async () => {
   try {
-    console.log('Checking for order updates...');
-
     // Get all orders - simplified query without specific columns
     const { data: allOrders, error: ordersError } = await supabase
       .from('ManufacturingTasks')
@@ -441,23 +412,17 @@ const checkOrderNotifications = async () => {
       .limit(10); // Limit to avoid too many notifications
 
     if (ordersError) {
-      console.log('Could not fetch orders:', ordersError.message);
       return { success: true, message: 'Could not fetch orders - table may not exist or have different structure' };
     }
 
     if (!allOrders || allOrders.length === 0) {
-      console.log('No orders found');
       return { success: true, message: 'No orders found' };
     }
-
-    console.log(`Found ${allOrders.length} orders`);
     
     // For now, just return success without sending notifications
     // since we're not sure about the exact table structure
     return {
-      success: true,
-      message: 'Order notifications checked - found orders but notifications disabled until table structure is confirmed',
-      ordersFound: allOrders.length
+      success: true
     };
 
   } catch (error) {
@@ -473,8 +438,6 @@ const checkOrderNotifications = async () => {
 // Send order status notifications
 const sendOrderNotification = async (orderId, orderNumber, newStatus, oldStatus, userIds = [], additionalData = {}) => {
   try {
-    console.log(`Sending order notification for ${orderNumber || orderId}: ${oldStatus} -> ${newStatus}`);
-
     // Get target users
     let targetUsers = [];
     if (userIds.length > 0) {
@@ -498,7 +461,6 @@ const sendOrderNotification = async (orderId, orderNumber, newStatus, oldStatus,
         .single();
 
       if (orderError) {
-        console.error('Error fetching order:', orderError);
         return { success: false, error: 'Order not found' };
       }
 
@@ -518,7 +480,6 @@ const sendOrderNotification = async (orderId, orderNumber, newStatus, oldStatus,
     }
 
     if (targetUsers.length === 0) {
-      console.log('No users to notify for order update');
       return { success: true, message: 'No users to notify for this order update' };
     }
 
@@ -592,14 +553,8 @@ const sendOrderNotification = async (orderId, orderNumber, newStatus, oldStatus,
       });
     }
 
-    console.log(`Sent order update notifications to ${targetUsers.length} users`);
     return {
-      success: true,
-      orderId,
-      orderNumber: displayOrderNumber,
-      newStatus: formattedNewStatus,
-      usersNotified: targetUsers.length,
-      results: notificationResults
+      success: true
     };
 
   } catch (error) {
@@ -632,21 +587,11 @@ exports.handler = async (event, context) => {
 
     // Handle different endpoints
     if (method === 'POST' || method === 'GET') {
-      // Always run all notification checks for opted-in users
-      console.log('Running all notification checks for opted-in users...');
-      
-      const inventoryResult = await checkInventoryAlerts();
-      const taskResult = await checkTaskReminders();
-      const orderResult = await checkOrderNotifications();
+      await checkInventoryAlerts();
+      await checkTaskReminders();
+      await checkOrderNotifications();
 
-      result = {
-        success: true,
-        message: 'All notification checks completed for opted-in users',
-        inventory: inventoryResult,
-        tasks: taskResult,
-        orders: orderResult,
-        timestamp: new Date().toISOString()
-      };
+      result = { success: true };
     } else {
       return {
         statusCode: 405,
@@ -662,14 +607,10 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error('Notification handler error:', error);
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ 
-        error: 'Internal server error',
-        details: error.message 
-      })
+      body: JSON.stringify({ error: 'Internal server error' })
     };
   }
 };
