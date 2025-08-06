@@ -1003,13 +1003,15 @@
       document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
     }
 
-    function loadContainersFromString(containerString) {
-      if (!containerString) {
+    function loadContainersFromString(containerData) {
+      if (!containerData) {
         selectedContainerSKUs = [];
-      } else if (Array.isArray(containerString)) {
-        selectedContainerSKUs = [...containerString];
+      } else if (Array.isArray(containerData)) {
+        selectedContainerSKUs = [...containerData];
+      } else if (typeof containerData === 'string') {
+        selectedContainerSKUs = containerData.split(',').map(s => s.trim()).filter(s => s);
       } else {
-        selectedContainerSKUs = containerString.split(',').map(s => s.trim()).filter(s => s);
+        selectedContainerSKUs = [];
       }
       updateSelectedContainersDisplay();
       document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
@@ -1260,7 +1262,7 @@
         'Product Weight(oz)': document.getElementById('ProductSize').value.trim(),
         'Product Type': document.getElementById('ProductType').value,
         'Microbial Testing': document.getElementById('MicrobialTesting').checked,
-        ContainerSKUs: selectedContainerSKUs.join(','),
+        ContainerSKUs: selectedContainerSKUs.length > 0 ? selectedContainerSKUs : null,
         Archived: document.getElementById('Archived').checked,
         Retailer: document.getElementById('Customer').value.trim(),
         ShelfLife: document.getElementById('ShelfLife').value ? parseFloat(document.getElementById('ShelfLife').value) : null,
