@@ -17,6 +17,3 @@
 
 [functions."etsy-sync-inventory-cron"]
   schedule = "*/15 * * * *" # every 15 minutes
-
-[functions."notifications"]
-  schedule = "0 9-17 * * 1-5" # every hour during business hours (9 AM - 5 PM), Monday to Friday
