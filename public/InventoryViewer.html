@@ -143,12 +143,9 @@
     <div class="main-content" id="mainContent">
         <div id="main-container">
         <h2>Inventory Viewer</h2>
-        <div style="display: flex; gap: 1em; flex-wrap: wrap; margin-bottom: 1.2em;">
-          <button id="sync-faire-btn" style="background:#2c5aa0;color:#fff;border:none;padding:0.6em 1.2em;border-radius:6px;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s;">Sync Faire Inventory</button>
-          <button id="sync-etsy-btn" style="background:#f56500;color:#fff;border:none;padding:0.6em 1.2em;border-radius:6px;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s;">Sync Etsy Inventory</button>
+        <div style="margin-bottom: 1em; color: #666; font-style: italic;">
+          Inventory syncs automatically every 15 minutes via scheduled jobs.
         </div>
-        <div id="sync-faire-status" style="margin-bottom:0.5em;font-size:1em;"></div>
-        <div id="sync-etsy-status" style="margin-bottom:1em;font-size:1em;"></div>
         <!-- Search bar removed -->
         <div id="data-viewer" style="display:none; margin-top:2rem;"></div>
     </div>
@@ -303,131 +300,6 @@
             }
         }
 
-        // Sync Faire Inventory button handler
-        document.getElementById('sync-faire-btn').addEventListener('click', async () => {
-            const statusDiv = document.getElementById('sync-faire-status');
-            statusDiv.textContent = 'Syncing Faire inventory...';
-            statusDiv.style.color = '#333';
-            // Get selected SKUs and quantities
-            const qtyInputs = document.querySelectorAll('.sync-sku-qty');
-            const selectedSkus = [];
-            const skuQtys = {};
-            qtyInputs.forEach(input => {
-                const sku = input.getAttribute('data-sku');
-                const qty = parseInt(input.value);
-                if (sku && qty > 0) {
-                    selectedSkus.push(sku);
-                    skuQtys[sku] = qty;
-                }
-            });
-            // Get current user's UserID and Faire token
-            let userID = null;
-            let faireToken = null;
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                userID = session?.user?.id;
-                // Query oauth_tokens for faire token for this user
-                if (userID) {
-                    const { data: tokenRows } = await supabase
-                        .from('oauth_tokens')
-                        .select('access_token, platform')
-                        .eq('user_key', userID)
-                        .eq('platform', 'faire')
-                        .maybeSingle();
-                    faireToken = tokenRows?.access_token || null;
-                }
-            } catch (e) {}
-            if (!faireToken) {
-                statusDiv.textContent = 'No Faire token found for your account.';
-                statusDiv.style.color = '#b91c1c';
-                return;
-            }
-            try {
-                const res = await fetch('/.netlify/functions/faire-sync-inventory', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${faireToken}`
-                    },
-                    body: JSON.stringify({ skus: selectedSkus, quantities: skuQtys })
-                });
-                if (res.ok) {
-                    statusDiv.textContent = 'Faire inventory sync complete!';
-                    statusDiv.style.color = '#228B22';
-                    fetchAndDisplayData();
-                } else {
-                    const err = await res.text();
-                    statusDiv.textContent = 'Sync failed: ' + err;
-                    statusDiv.style.color = '#b91c1c';
-                }
-            } catch (e) {
-                statusDiv.textContent = 'Sync failed: ' + e.message;
-                statusDiv.style.color = '#b91c1c';
-            }
-        });
-
-        // Sync Etsy Inventory button handler
-        document.getElementById('sync-etsy-btn').addEventListener('click', async () => {
-            const statusDiv = document.getElementById('sync-etsy-status');
-            statusDiv.textContent = 'Syncing Etsy inventory...';
-            statusDiv.style.color = '#333';
-            // Get selected SKUs and quantities
-            const qtyInputs = document.querySelectorAll('.sync-sku-qty');
-            const selectedSkus = [];
-            const skuQtys = {};
-            qtyInputs.forEach(input => {
-                const sku = input.getAttribute('data-sku');
-                const qty = parseInt(input.value);
-                if (sku && qty > 0) {
-                    selectedSkus.push(sku);
-                    skuQtys[sku] = qty;
-                }
-            });
-            // Get current user's UserID and Etsy token
-            let userID = null;
-            let etsyToken = null;
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                userID = session?.user?.id;
-                // Query oauth_tokens for etsy token for this user
-                if (userID) {
-                    const { data: tokenRows } = await supabase
-                        .from('oauth_tokens')
-                        .select('access_token, platform')
-                        .eq('user_key', userID)
-                        .eq('platform', 'etsy')
-                        .maybeSingle();
-                    etsyToken = tokenRows?.access_token || null;
-                }
-            } catch (e) {}
-            if (!etsyToken) {
-                statusDiv.textContent = 'No Etsy token found for your account.';
-                statusDiv.style.color = '#b91c1c';
-                return;
-            }
-            try {
-                const res = await fetch('/.netlify/functions/etsy-sync-inventory', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${etsyToken}`
-                    },
-                    body: JSON.stringify({ skus: selectedSkus, quantities: skuQtys })
-                });
-                if (res.ok) {
-                    statusDiv.textContent = 'Etsy inventory sync complete!';
-                    statusDiv.style.color = '#228B22';
-                    fetchAndDisplayData();
-                } else {
-                    const err = await res.text();
-                    statusDiv.textContent = 'Sync failed: ' + err;
-                    statusDiv.style.color = '#b91c1c';
-                }
-            } catch (e) {
-                statusDiv.textContent = 'Sync failed: ' + e.message;
-                statusDiv.style.color = '#b91c1c';
-            }
-        });
         // Search bar removed
 
         // On load, fetch and display data after access check

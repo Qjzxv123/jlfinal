@@ -1,6 +1,8 @@
+// netlify/functions/faire-sync-inventory-cron.cjs
+// Scheduled function to sync Faire inventory every 15 minutes
+
 let fetch = require('node-fetch');
 if (fetch && fetch.default) fetch = fetch.default;
-const { getTokenRow } = require('./faire-token-utils.cjs');
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ypvyrophqkfqwpefuigi.supabase.co';
@@ -8,12 +10,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 exports.handler = async function(event, context) {
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method not allowed' }),
-    };
-  }
+  console.log('[Faire Sync Cron] Starting scheduled inventory sync');
 
   // Get all oauth tokens from Supabase
   let tokenRows = [];
@@ -25,6 +22,7 @@ exports.handler = async function(event, context) {
     if (error) throw error;
     tokenRows = data || [];
   } catch (e) {
+    console.error('[Faire Sync Cron] Failed to fetch tokens:', e);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Failed to fetch tokens', details: e.message || e.toString() }),
@@ -55,7 +53,7 @@ exports.handler = async function(event, context) {
           },
         });
         if (!prodRes.ok) {
-          console.error(`Faire products API error for retailer ${retailer}:`, prodRes.status, await prodRes.text());
+          console.error(`[Faire Sync Cron] Faire products API error for retailer ${retailer}:`, prodRes.status, await prodRes.text());
           break;
         }
         const prodData = await prodRes.json();
@@ -76,17 +74,20 @@ exports.handler = async function(event, context) {
       try {
         const { data: products, error: prodErr } = await supabase
           .from('Products')
-          .select('ProductSKU,Quantity,Retailer')
+          .select('ProductSKU,Quantity,Retailer,ReserveQuantity')
           .eq('Retailer', retailer);
         if (prodErr) throw prodErr;
         supaProducts = (products || []).filter(p => retailersWithToken.has(p.Retailer));
       } catch (e) {
-        console.error(`Supabase error for retailer ${retailer}:`, e);
+        console.error(`[Faire Sync Cron] Supabase error for retailer ${retailer}:`, e);
         continue;
       }
       const skuToQty = {};
       for (const p of supaProducts) {
-        skuToQty[p.ProductSKU] = parseInt(p.Quantity) || 0;
+        const totalQty = parseInt(p.Quantity) || 0;
+        const reserveQty = parseInt(p.ReserveQuantity) || 0;
+        const availableQty = Math.max(0, totalQty - reserveQty); // Ensure non-negative
+        skuToQty[p.ProductSKU] = availableQty;
       }
       // 3. For each Faire SKU, determine bundle logic and build update payload (deduplicate SKUs)
       const uniqueSkus = Array.from(new Set(allSkus));
@@ -132,17 +133,20 @@ exports.handler = async function(event, context) {
         body: JSON.stringify(patchPayload),
       });
       if (!patchRes.ok) {
-        console.error(`Faire PATCH error for retailer ${retailer}:`, patchRes.status, await patchRes.text());
+        console.error(`[Faire Sync Cron] Faire PATCH error for retailer ${retailer}:`, patchRes.status, await patchRes.text());
+      } else {
+        console.log(`[Faire Sync Cron] Successfully synced ${patchPayload.inventories.length} items for retailer ${retailer}`);
       }
     } catch (e) {
-      console.error(`Faire API exception for retailer ${retailer}:`, e);
+      console.error(`[Faire Sync Cron] Faire API exception for retailer ${retailer}:`, e);
       continue;
     }
   }
-  console.log('Faire sync results:', results);
+  
+  console.log(`[Faire Sync Cron] Completed sync for ${tokenRows.length} retailers`);
   return {
     statusCode: 200,
-    body: JSON.stringify(results),
+    body: JSON.stringify({ message: 'Faire inventory sync completed', results }),
     headers: { 'Content-Type': 'application/json' },
   };
 };

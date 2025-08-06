@@ -1,15 +1,16 @@
-// netlify/functions/etsy-sync-inventory.cjs
-// POST: Syncs Etsy inventory to Supabase Products table for the logged-in user
+// netlify/functions/etsy-sync-inventory-cron.cjs
+// Scheduled function to sync Etsy inventory every 15 minutes
 
+let fetch = require('node-fetch');
+if (fetch && fetch.default) fetch = fetch.default;
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 exports.handler = async function(event) {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
+  console.log('[Etsy Sync Cron] Starting scheduled inventory sync');
+  
   // Get all oauth tokens from Supabase
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
   let tokenRows = [];
@@ -20,9 +21,8 @@ exports.handler = async function(event) {
       .eq('platform', 'etsy');
     if (error) throw error;
     tokenRows = data || [];
-    // ...removed raw debugging...
   } catch (e) {
-    console.error('[Etsy Sync] Failed to fetch tokens:', e);
+    console.error('[Etsy Sync Cron] Failed to fetch tokens:', e);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Failed to fetch tokens', details: e.message || e.toString() }),
@@ -39,7 +39,7 @@ exports.handler = async function(event) {
     let accessToken = row.access_token;
     const refreshToken = row.refresh_token;
     const ETSY_CLIENT_ID = process.env.ETSY_CLIENT_ID;
-    // ...removed raw debugging...
+    
     async function refreshEtsyToken(row, supabase) {
       const refreshUrl = 'https://api.etsy.com/v3/public/oauth/token';
       const params = new URLSearchParams();
@@ -53,7 +53,7 @@ exports.handler = async function(event) {
       });
       if (!resp.ok) {
         const errText = await resp.text();
-        console.error('[Etsy Sync] Failed to refresh token:', resp.status, errText);
+        console.error('[Etsy Sync Cron] Failed to refresh token:', resp.status, errText);
         return null;
       }
       const json = await resp.json();
@@ -64,6 +64,7 @@ exports.handler = async function(event) {
       }).eq('user_key', row.user_key).eq('platform', 'etsy');
       return json.access_token;
     }
+    
     // Always fetch shop_id from Etsy API using the access token, refresh if expired
     let shopId;
     let shopResp = await fetch('https://openapi.etsy.com/v3/application/users/me', {
@@ -72,13 +73,13 @@ exports.handler = async function(event) {
         'x-api-key': ETSY_CLIENT_ID
       }
     });
-    // ...removed raw debugging...
+    
     if (shopResp.status === 401) {
-      console.warn(`[Etsy Sync] 401 Unauthorized for retailer ${retailer}, attempting token refresh`);
+      console.warn(`[Etsy Sync Cron] 401 Unauthorized for retailer ${retailer}, attempting token refresh`);
       const newToken = await refreshEtsyToken(row, supabase);
       if (!newToken) {
         const errText = await shopResp.text();
-        console.error('[Etsy Sync] Token refresh failed, still 401:', errText);
+        console.error('[Etsy Sync Cron] Token refresh failed, still 401:', errText);
         continue;
       }
       accessToken = newToken;
@@ -88,20 +89,22 @@ exports.handler = async function(event) {
           'x-api-key': ETSY_CLIENT_ID
         }
       });
-    }z
+    }
+    
     if (!shopResp.ok) {
       const errText = await shopResp.text();
-      console.error(`[Etsy Sync] Failed to fetch user/me for retailer ${retailer}:`, shopResp.status, errText);
+      console.error(`[Etsy Sync Cron] Failed to fetch user/me for retailer ${retailer}:`, shopResp.status, errText);
       continue;
     }
+    
     const shopJson = await shopResp.json();
     if (shopJson && shopJson.shop_id) {
       shopId = shopJson.shop_id;
-      // ...removed raw debugging...
     } else {
-      console.error('[Etsy Sync] No shop_id found in getMe response');
+      console.error('[Etsy Sync Cron] No shop_id found in getMe response');
       continue;
     }
+    
     // Fetch all listings from Etsy
     let listings = [];
     let offset = 0;
@@ -116,7 +119,7 @@ exports.handler = async function(event) {
           }
         });
       if (!resp.ok) {
-        console.error(`[Etsy Sync] Failed to fetch listings for retailer ${retailer}:`, resp.status, await resp.text());
+        console.error(`[Etsy Sync Cron] Failed to fetch listings for retailer ${retailer}:`, resp.status, await resp.text());
         break;
       }
       const json = await resp.json();
@@ -126,26 +129,28 @@ exports.handler = async function(event) {
       }
       offset += limit;
     } while (total !== null && listings.length < total);
-    // ...removed raw debugging...
+    
     // Get all SKUs from Supabase for this retailer
     let supaProducts = [];
     try {
       const { data: products, error: prodErr } = await supabase
         .from('Products')
-        .select('ProductSKU,Quantity,Retailer')
+        .select('ProductSKU,Quantity,Retailer,ReserveQuantity')
         .eq('Retailer', retailer);
       if (prodErr) throw prodErr;
       supaProducts = (products || []).filter(p => retailersWithToken.has(p.Retailer));
-      // ...removed raw debugging...
     } catch (e) {
-      console.error(`[Etsy Sync] Supabase error for retailer ${retailer}:`, e);
+      console.error(`[Etsy Sync Cron] Supabase error for retailer ${retailer}:`, e);
       continue;
     }
     const skuToQty = {};
     for (const p of supaProducts) {
-      skuToQty[p.ProductSKU] = parseInt(p.Quantity) || 0;
+      const totalQty = parseInt(p.Quantity) || 0;
+      const reserveQty = parseInt(p.ReserveQuantity) || 0;
+      const availableQty = Math.max(0, totalQty - reserveQty); // Ensure non-negative
+      skuToQty[p.ProductSKU] = availableQty;
     }
-    // ...removed raw debugging...
+    
     // Gather all SKUs from Etsy listings
     let allSkus = [];
     for (const listing of listings) {
@@ -158,7 +163,9 @@ exports.handler = async function(event) {
       }
     }
     const uniqueSkus = Array.from(new Set(allSkus));
+    
     // For each listing, update inventory on Etsy using the inventory endpoint
+    let listingsUpdated = 0;
     for (const listing of listings) {
       // Gather all SKUs for this listing
       let listingSkus = [];
@@ -169,6 +176,7 @@ exports.handler = async function(event) {
       } else if (typeof listing.sku === 'string') {
         listingSkus = [listing.sku];
       }
+      
       // Fetch current inventory for this listing from Etsy
       let inventory = null;
       if (listing.listing_id) {
@@ -183,89 +191,27 @@ exports.handler = async function(event) {
           });
           if (invResp.ok) {
             inventory = await invResp.json();
-            // ...removed raw debugging...
           } else {
             const errText = await invResp.text();
-            console.error(`[Etsy Sync] Failed to GET inventory for listing ${listing.listing_id}:`, invResp.status, errText);
+            console.error(`[Etsy Sync Cron] Failed to GET inventory for listing ${listing.listing_id}:`, invResp.status, errText);
           }
         } catch (err) {
-          console.error(`[Etsy Sync] Exception fetching inventory for listing ${listing.listing_id}:`, err);
+          console.error(`[Etsy Sync Cron] Exception fetching inventory for listing ${listing.listing_id}:`, err);
         }
       }
-      // Always PATCH all products from GET inventory, updating only the quantities for SKUs being synced
-      let products = [];
-      if (inventory && Array.isArray(inventory.products)) {
-        products = inventory.products.map(product => {
-          // If this product's SKU is in listingSkus, update its quantity
-          let newProduct = JSON.parse(JSON.stringify(product));
-          if (listingSkus.includes(product.sku)) {
-            // Calculate bundleQty for this SKU
-            let bundleQty = null;
-            let parts = null;
-            if (product.sku && product.sku.includes('+')) {
-              parts = product.sku.split('+').map(p => p.trim());
-            }
-            if (parts && parts.length > 1) {
-              if (parts.every(p => p === parts[0])) {
-                const baseSku = parts[0];
-                const baseQty = skuToQty[baseSku];
-                if (typeof baseQty === 'number' && !isNaN(baseQty)) {
-                  bundleQty = Math.floor(baseQty / parts.length);
-                  console.log(`[Etsy Sync] Bundle SKU ${product.sku} (all same: ${baseSku}) qty: ${bundleQty}`);
-                }
-              } else {
-                let minQty = null;
-                for (const part of parts) {
-                  const q = skuToQty[part];
-                  if (typeof q === 'number' && !isNaN(q)) {
-                    if (minQty === null || q < minQty) minQty = q;
-                  }
-                }
-                if (minQty !== null) {
-                  bundleQty = minQty;
-                  console.log(`[Etsy Sync] Bundle SKU ${product.sku} (mixed) qty: ${bundleQty}`);
-                }
-              }
-            } else {
-              const qty = skuToQty[product.sku];
-              if (typeof qty === 'number' && !isNaN(qty)) {
-                bundleQty = qty;
-                console.log(`[Etsy Sync] SKU ${product.sku} qty: ${bundleQty}`);
-              }
-            }
-            if (typeof bundleQty === 'number' && !isNaN(bundleQty)) {
-              // Clamp negative quantities to zero
-              if (Array.isArray(newProduct.offerings)) {
-                newProduct.offerings = newProduct.offerings.map(o => {
-                  let newOffering = { ...o, quantity: Math.max(0, Math.min(999, bundleQty)) };
-                  // If price is a Money object, set price as Money object (amount, divisor, currency_code)
-                  if (o.price && typeof o.price.amount === 'number' && typeof o.price.divisor === 'number' && typeof o.price.currency_code === 'string') {
-                    newOffering.price = {
-                      amount: o.price.amount,
-                      divisor: o.price.divisor,
-                      currency_code: o.price.currency_code
-                    };
-                  }
-                  return newOffering;
-                });
-                console.log(`[Etsy Sync] Updated offerings for SKU ${product.sku}:`, newProduct.offerings.map(of => of.quantity));
-              }
-            } else {
-              console.warn(`[Etsy Sync] No valid quantity for SKU ${product.sku} for retailer ${retailer}`);
-            }
-          }
-          return newProduct;
-        });
-      }
-      if (products.length > 0 && listing.listing_id) {
+      
+      // Update inventory if we have it
+      if (inventory && Array.isArray(inventory.products) && inventory.products.length > 0 && listing.listing_id) {
         // Only PATCH if listing is active
         if (listing.state && listing.state !== 'active') {
-          console.log(`[Etsy Sync] Skipping PATCH for listing ${listing.listing_id} (state: ${listing.state})`);
+          console.log(`[Etsy Sync Cron] Skipping PATCH for listing ${listing.listing_id} (state: ${listing.state})`);
           continue;
         }
+        
         // PUT inventory to Etsy with top-level fields copied from GET response, replacing only products quantities
         const putUrl = `https://openapi.etsy.com/v3/application/listings/${listing.listing_id}/inventory`;
-        let putBody = inventory ? JSON.parse(JSON.stringify(inventory)) : { products };
+        let putBody = JSON.parse(JSON.stringify(inventory));
+        
         if (putBody && Array.isArray(putBody.products)) {
           putBody.products = putBody.products.map(product => {
             let newProduct = { ...product };
@@ -335,12 +281,14 @@ exports.handler = async function(event) {
             return newProduct;
           });
         }
+        
         // Only include *_on_property fields if non-empty arrays
         ['price_on_property','quantity_on_property','sku_on_property','readiness_state_on_property'].forEach(key => {
           if (putBody[key] && Array.isArray(putBody[key]) && putBody[key].length === 0) {
             delete putBody[key];
           }
         });
+        
         try {
           const putResp = await fetch(putUrl, {
             method: 'PUT',
@@ -353,19 +301,24 @@ exports.handler = async function(event) {
           });
           if (!putResp.ok) {
             const errText = await putResp.text();
-            console.error(`[Etsy Sync] Failed to PUT inventory for listing ${listing.listing_id} retailer ${retailer}:`, putResp.status, errText);
+            console.error(`[Etsy Sync Cron] Failed to PUT inventory for listing ${listing.listing_id} retailer ${retailer}:`, putResp.status, errText);
+          } else {
+            listingsUpdated++;
           }
         } catch (err) {
-          console.error(`[Etsy Sync] Exception PUTting inventory for listing ${listing.listing_id} retailer ${retailer}:`, err);
+          console.error(`[Etsy Sync Cron] Exception PUTting inventory for listing ${listing.listing_id} retailer ${retailer}:`, err);
         }
       }
-      // Do not update Supabase etsy_quantity for each SKU (per user request)
     }
-    totalUpdated += listings.length;
+    
+    console.log(`[Etsy Sync Cron] Successfully synced ${listingsUpdated} listings for retailer ${retailer}`);
+    totalUpdated += listingsUpdated;
   }
+  
+  console.log(`[Etsy Sync Cron] Completed sync for ${tokenRows.length} retailers, ${totalUpdated} total listings updated`);
   return {
     statusCode: 200,
-    body: JSON.stringify({ updated: totalUpdated }),
+    body: JSON.stringify({ message: 'Etsy inventory sync completed', updated: totalUpdated }),
     headers: { 'Content-Type': 'application/json' },
   };
 };

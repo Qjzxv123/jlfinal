@@ -11,3 +11,9 @@
 
 [functions."shippo-get-orders-cron"]
   schedule = "*/15 * * * *" # every 15 minutes
+
+[functions."faire-sync-inventory-cron"]
+  schedule = "*/15 * * * *" # every 15 minutes
+
+[functions."etsy-sync-inventory-cron"]
+  schedule = "*/15 * * * *" # every 15 minutes
