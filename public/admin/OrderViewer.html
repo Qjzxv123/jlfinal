@@ -1461,9 +1461,11 @@ document.getElementById('modalCloseBtn').onclick = function() {
 };
 
 async function processShippingLabelsWithBoxData(orderParcels) {
-  showStatus('Generating shipping labels...', 'loading');
-  // Track label and rate data for each order for later Faire fulfillment
-  const faireFulfillmentQueue = [];
+  showStatus('Collecting shipping rates...', 'loading');
+  
+  // Step 1: Collect rates for each order individually
+  const ordersWithRates = [];
+  
   for (const {order, parcel} of orderParcels) {
     // Ensure ShippoObjectID and ShippoAddressID are present in order for label creation
     if ((!order.ShippoObjectID || !order.ShippoAddressID) && order.orderNumber) {
@@ -1481,164 +1483,213 @@ async function processShippingLabelsWithBoxData(orderParcels) {
         console.error('Error fetching ShippoObjectID/ShippoAddressID from Supabase:', err);
       }
     }
+    
     try {
-      let ratesResp, ratesData, selectedRate, labelResp, labelData;
-      // Use Shippo for all platforms
+      // Get rates for this order
       const payload = { order, parcel };
       if (order.ShippoAddressID) payload.ShippoAddressID = order.ShippoAddressID;
-      ratesResp = await fetch('/.netlify/functions/shippo-getlabel', {
+      
+      const ratesResp = await fetch('/.netlify/functions/shippo-getlabel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      
       if (!ratesResp.ok) throw new Error('Failed to get rates');
-      ratesData = await ratesResp.json();
+      
+      const ratesData = await ratesResp.json();
       if (!ratesData.rates || !Array.isArray(ratesData.rates) || ratesData.rates.length === 0) {
         alert('No shipping rates returned for order ' + order.orderNumber);
         continue;
       }
-      selectedRate = await showShippoRateSelectionModal(ratesData.rates);
+      
+      // Show rate selection modal for this order
+      const selectedRate = await showShippoRateSelectionModal(ratesData.rates);
       if (!selectedRate) {
         alert('No rate selected for order ' + order.orderNumber);
         continue;
       }
-      const labelPayload = { order, parcel, rate_id: selectedRate.object_id };
-      if (order.ShippoAddressID) labelPayload.ShippoAddressID = order.ShippoAddressID;
-      labelResp = await fetch('/.netlify/functions/shippo-getlabel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(labelPayload)
+      
+      ordersWithRates.push({
+        order,
+        parcel,
+        selectedRate
       });
-      if (!labelResp.ok) {
-        let errorMsg = 'Failed to buy label';
-        try {
-          const errorBody = await labelResp.text();
-          errorMsg += `: ${errorBody}`;
-        } catch (e) {}
-        alert('Error creating label for order ' + order.orderNumber + ': ' + errorMsg);
-        continue;
-      }
-      labelData = await labelResp.json();
-      if (labelData && labelData.label_url) {
-        window.open(labelData.label_url, '_blank');
-        // Insert shipping label info into Order History
-        try {
-          // Extract tracking number from labelData
-          let trackingNumber = null;
-          if (labelData) {
-            trackingNumber = labelData.tracking_number || labelData.tracking_code || labelData.trackingNumber || null;
-          }
-          
-          await supabase.from('Order History').upsert({
-            OrderID: order.orderNumber,
-            Platform: order.platform,
-            Retailer: order.shop,
-            Customer: JSON.stringify(order.customer),
-            CustomerMessages: order.customerMessages || null,
-            TrackingNumber: trackingNumber,
-            ShippedAt: new Date().toISOString(),
-            ShippingCost: selectedRate && selectedRate.amount ? parseFloat(selectedRate.amount) : null,
-            BoxSkus: parcel.boxes ? parcel.boxes.map(b => b.sku) : null,
-            Items: JSON.stringify(order.products),
-            Link: order.Link || null,
-            UserID: order.UserID
-          });
-          // Remove from Orders table
-          await supabase.from('Orders').delete().eq('OrderID', order.orderNumber);
-        } catch (err) {
-          console.error('Error inserting shipping label info into Order History:', err);
-        }
+      
+    } catch (err) {
+      alert('Error getting rates for order ' + order.orderNumber + ': ' + err.message);
+    }
+  }
+  
+  if (ordersWithRates.length === 0) {
+    hideStatus();
+    alert('No orders with selected rates to process.');
+    return;
+  }
+  
+  // Step 2: Use batch API to purchase all labels at once
+  showStatus('Creating batch and purchasing labels...', 'loading');
+  
+  try {
+    const batchResp = await fetch('/.netlify/functions/shippo-getlabel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'purchase_labels',
+        orderParcels: ordersWithRates
+      })
+    });
+    
+    if (!batchResp.ok) {
+      throw new Error('Failed to create batch: ' + await batchResp.text());
+    }
+    
+    const batchResult = await batchResp.json();
+    
+    if (!batchResult.success) {
+      throw new Error(batchResult.message || 'Batch purchase failed');
+    }
+    
+    // Step 3: Open all label URLs (combined PDF)
+    if (batchResult.label_urls && Array.isArray(batchResult.label_urls)) {
+      batchResult.label_urls.forEach(labelUrl => {
+        window.open(labelUrl, '_blank');
+      });
+      
+      showStatus(`Batch labels created successfully! ${batchResult.label_urls.length} PDF(s) generated.`, 'success');
+    } else {
+      showStatus('Labels created but no URLs returned from batch', 'success');
+    }
+    
+    // Step 4: Process each order for database updates and Faire fulfillment
+    await handleSingleLabelSuccess(ordersWithRates);
+    
+  } catch (error) {
+    console.error('Batch label creation error:', error);
+    showStatus('Error creating batch labels: ' + error.message, 'error');
+  }
+  
+  setTimeout(hideStatus, 3000);
+}
 
-        // Decrement box inventory in Supabase
-        if (parcel.boxes && Array.isArray(parcel.boxes)) {
-          for (const box of parcel.boxes) {
-            if (box.sku) {
-              try {
-                // Decrement box quantity by 1 (fetch and update, no supabase.literal in browser)
-                const { data: boxData, error: fetchError } = await supabase
+// Helper function to handle post-label success operations
+async function handleSingleLabelSuccess(ordersWithRates) {
+  const faireFulfillmentQueue = [];
+  
+  for (const {order, parcel, selectedRate} of ordersWithRates) {
+    try {
+      // Insert shipping label info into Order History
+      let trackingNumber = null;
+      if (selectedRate) {
+        trackingNumber = selectedRate.tracking_number || selectedRate.tracking_code || null;
+      }
+      
+      await supabase.from('Order History').upsert({
+        OrderID: order.orderNumber,
+        Platform: order.platform,
+        Retailer: order.shop,
+        Customer: JSON.stringify(order.customer),
+        CustomerMessages: order.customerMessages || null,
+        TrackingNumber: trackingNumber,
+        ShippedAt: new Date().toISOString(),
+        ShippingCost: selectedRate && selectedRate.amount ? parseFloat(selectedRate.amount) : null,
+        BoxSkus: parcel.boxes ? parcel.boxes.map(b => b.sku) : null,
+        Items: JSON.stringify(order.products),
+        Link: order.Link || null,
+        UserID: order.UserID
+      });
+      
+      // Remove from Orders table
+      await supabase.from('Orders').delete().eq('OrderID', order.orderNumber);
+      
+      // Decrement box inventory in Supabase
+      if (parcel.boxes && Array.isArray(parcel.boxes)) {
+        for (const box of parcel.boxes) {
+          if (box.sku) {
+            try {
+              const { data: boxData, error: fetchError } = await supabase
+                .from('Boxes')
+                .select('Quantity')
+                .eq('SKU', box.sku)
+                .single();
+              if (!fetchError && boxData) {
+                const newQty = (boxData.Quantity ?? 0) - 1;
+                const { error: boxError } = await supabase
                   .from('Boxes')
-                  .select('Quantity')
-                  .eq('SKU', box.sku)
-                  .single();
-                if (!fetchError && boxData) {
-                  const newQty = (boxData.Quantity ?? 0) - 1;
-                  const { error: boxError } = await supabase
-                    .from('Boxes')
-                    .update({ Quantity: newQty })
-                    .eq('SKU', box.sku);
-                  if (boxError) {
-                    console.error('Error decrementing box inventory for', box.sku, boxError);
-                  }
-                } else if (fetchError) {
-                  console.error('Error fetching box quantity for', box.sku, fetchError);
+                  .update({ Quantity: newQty })
+                  .eq('SKU', box.sku);
+                if (boxError) {
+                  console.error('Error decrementing box inventory for', box.sku, boxError);
                 }
-              } catch (err) {
-                console.error('Error decrementing box inventory for', box.sku, err);
               }
+            } catch (err) {
+              console.error('Error decrementing box inventory for', box.sku, err);
             }
           }
         }
-
-        // Remove from allOrders and filteredOrders
-        allOrders = allOrders.filter(o => o.orderNumber !== order.orderNumber);
-        filteredOrders = filteredOrders.filter(o => o.orderNumber !== order.orderNumber);
-        selectedOrders.delete(order.orderNumber);
-        displayOrders();
-        updateSummary();
-
-        // Queue Faire fulfillment if needed
-        if (order.platform === 'faire') {
-          // Pass retailer as user_key for Faire token lookup
-          // Use tracking number from labelData (preferred), fallback to selectedRate
-          let tracking_code = '';
-          if (labelData && labelData.tracking_number) tracking_code = labelData.tracking_number;
-          else if (labelData && labelData.tracking_code) tracking_code = labelData.tracking_code;
-          else if (selectedRate && selectedRate.tracking_number) tracking_code = selectedRate.tracking_number;
-          else if (parcel.tracking_number) tracking_code = parcel.tracking_number;
-          faireFulfillmentQueue.push({ order, parcel, labelData, selectedRate, user_key: order.shop, tracking_code });
-        }
-      } else {
-        alert('No label URL returned for order ' + order.orderNumber);
       }
+      
+      // Remove from UI
+      allOrders = allOrders.filter(o => o.orderNumber !== order.orderNumber);
+      filteredOrders = filteredOrders.filter(o => o.orderNumber !== order.orderNumber);
+      selectedOrders.delete(order.orderNumber);
+      
+      // Queue Faire fulfillment if needed
+      if (order.platform === 'faire') {
+        let tracking_code = '';
+        if (selectedRate && selectedRate.tracking_number) tracking_code = selectedRate.tracking_number;
+        else if (selectedRate && selectedRate.tracking_code) tracking_code = selectedRate.tracking_code;
+        
+        faireFulfillmentQueue.push({ 
+          order, 
+          parcel, 
+          selectedRate, 
+          user_key: order.shop, 
+          tracking_code 
+        });
+      }
+      
     } catch (err) {
-      alert('Error creating label for order ' + order.orderNumber + ': ' + err.message);
+      console.error('Error processing order', order.orderNumber, 'after label creation:', err);
     }
   }
-  showStatus('Shipping label(s) generated.', 'success');
-  setTimeout(hideStatus, 3000);
+  
+  // Update UI after processing all orders
+  displayOrders();
+  updateSummary();
+  
+  // Process Faire fulfillment queue
+  await processFaireFulfillmentQueue(faireFulfillmentQueue);
+}
 
-  // After all labels are printed, mark Faire orders as fulfilled
+// Helper function to process Faire fulfillment
+async function processFaireFulfillmentQueue(faireFulfillmentQueue) {
   for (const item of faireFulfillmentQueue) {
-    const { order, parcel, labelData, selectedRate, user_key, tracking_code } = item;
+    const { order, selectedRate, user_key, tracking_code } = item;
     try {
-      // Attempt to extract carrier and cost from labelData if available
       let carrier = '';
       let maker_cost_cents = 0;
-      if (labelData) {
-        carrier = labelData.carrier || labelData.provider || '';
-        if (labelData.amount) {
-          maker_cost_cents = Math.round(parseFloat(labelData.amount) * 100);
-        }
-      }
-      // Fallback: try to get from selectedRate if available
-      if (!carrier && selectedRate) {
+      
+      if (selectedRate) {
         carrier = selectedRate.provider || '';
         if (selectedRate.amount) {
           maker_cost_cents = Math.round(parseFloat(selectedRate.amount) * 100);
         }
       }
-      // Always send shipments array
+      
       const shipments = [{
         order_id: order.orderNumber,
         maker_cost_cents,
         carrier,
         tracking_code: tracking_code || ''
       }];
+      
       const response = await fetch('/.netlify/functions/faire-mark-fulfilled', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shipments, user_key })
       });
+      
       const result = await response.json();
       if (result.success) {
         console.log(`Faire order ${order.orderNumber} marked as fulfilled.`);
@@ -1649,6 +1700,8 @@ async function processShippingLabelsWithBoxData(orderParcels) {
       console.error(`Error marking Faire order ${order.orderNumber} as fulfilled:`, err);
     }
   }
+}
+
 // Helper: Show Shippo rate selection modal and return selected rate
 async function showShippoRateSelectionModal(rates) {
   return new Promise((resolve) => {
@@ -1738,7 +1791,6 @@ async function showShippoRateSelectionModal(rates) {
     modal.appendChild(inner);
     document.body.appendChild(modal);
   });
-}
 }
 
 // Replace printShippingLabels to use modal
