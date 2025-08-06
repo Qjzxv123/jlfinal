@@ -1523,12 +1523,19 @@ async function processShippingLabelsWithBoxData(orderParcels) {
         window.open(labelData.label_url, '_blank');
         // Insert shipping label info into Order History
         try {
+          // Extract tracking number from labelData
+          let trackingNumber = null;
+          if (labelData) {
+            trackingNumber = labelData.tracking_number || labelData.tracking_code || labelData.trackingNumber || null;
+          }
+          
           await supabase.from('Order History').upsert({
             OrderID: order.orderNumber,
             Platform: order.platform,
             Retailer: order.shop,
             Customer: JSON.stringify(order.customer),
             CustomerMessages: order.customerMessages || null,
+            TrackingNumber: trackingNumber,
             ShippedAt: new Date().toISOString(),
             ShippingCost: selectedRate && selectedRate.amount ? parseFloat(selectedRate.amount) : null,
             BoxSkus: parcel.boxes ? parcel.boxes.map(b => b.sku) : null,
