@@ -64,7 +64,7 @@
     // Get SKU from URL
     function getSKUFromURL() {
       const params = new URLSearchParams(window.location.search);
-      return params.get('sku').toUpperCase();
+      return params.get('sku');
     }
 
     async function loadProductInfo(sku) {
