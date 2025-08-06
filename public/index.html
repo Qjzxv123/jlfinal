@@ -91,7 +91,7 @@
       window.location.href = '/EmailVerified.html' + window.location.search;
     }
     
-    checkPermissions("service_role","client","employee");
+    checkPermissions('service_role','client','employee');
       async function showLoginOrWelcome() {
         const { data: { user } } = await supabase.auth.getUser();
         const loginBar = document.getElementById('login-bar');
