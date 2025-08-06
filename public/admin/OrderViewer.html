@@ -658,6 +658,7 @@
                     country: customer.country || customer.Country || ''
                 },
                 notes: supabaseOrder.Notes || '',
+                customerMessages: supabaseOrder.CustomerMessages || '',
                 products: items.map(item => ({
                     sku: item.SKU || item.sku || '',
                     name: item.Name || item.name || item.title || 'Unknown Product',
@@ -692,7 +693,7 @@
         // Get all orders from Supabase Orders table
         const { data: supabaseOrders, error } = await supabase
             .from('Orders')
-            .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, UserID')
+            .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, UserID, CustomerMessages')
             .order('Platform, Retailer', { ascending: true });
 
         if (error) {
@@ -1090,11 +1091,11 @@ async function removeSelectedOrders() {
                                 ${customerAddress ? `<p style="margin: 0 0 5px 0; font-size: 12px;">${customerAddress}</p>` : '<p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">Address not provided</p>'}
                             </div>
                         </div>
-                        ${order.notes ? `
+                        ${order.customerMessages ? `
                         <div style="margin-bottom: 25px;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; background-color: #fff3cd; padding: 8px; border-left: 4px solid #ffc107;">SPECIAL NOTE:</h3>
-                            <div style="padding: 10px; border: 1px solid #ffc107; background-color: #fff3cd;">
-                                <p style="margin: 0; font-size: 14px; font-weight: 600; color: #856404;">${order.notes}</p>
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; background-color: #e3f2fd; padding: 8px; border-left: 4px solid #2196f3;">MESSAGE:</h3>
+                            <div style="padding: 10px; border: 1px solid #2196f3; background-color: #e3f2fd;">
+                                <p style="margin: 0; font-size: 14px; font-weight: 600; color: #1565c0;">${order.customerMessages}</p>
                             </div>
                         </div>
                         ` : ''}
@@ -1527,6 +1528,7 @@ async function processShippingLabelsWithBoxData(orderParcels) {
             Platform: order.platform,
             Retailer: order.shop,
             Customer: JSON.stringify(order.customer),
+            CustomerMessages: order.customerMessages || null,
             ShippedAt: new Date().toISOString(),
             ShippingCost: selectedRate && selectedRate.amount ? parseFloat(selectedRate.amount) : null,
             BoxSkus: parcel.boxes ? parcel.boxes.map(b => b.sku) : null,

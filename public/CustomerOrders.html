@@ -400,11 +400,33 @@
                             <input type="hidden" id="note-modal-order-id" />
                             <div class="form-group">
                                 <label for="order-note">Note:</label>
-                                <textarea id="order-note" rows="4" placeholder="Enter Note to send with the order to the customer" required></textarea>
+                                <textarea id="order-note" rows="4" placeholder="Enter note for fulfillment staff" required></textarea>
                             </div>
                             <div class="modal-buttons">
                                 <button type="submit" class="btn">Add Note</button>
                                 <button type="button" class="btn btn-secondary" onclick="closeAddNoteModal()">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <!-- Customer Messages Modal -->
+            <div id="customer-messages-modal" class="modal" style="display:none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Customer Messages</h3>
+                        <span class="close" onclick="closeCustomerMessagesModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="customer-messages-form">
+                            <input type="hidden" id="messages-modal-order-id" />
+                            <div class="form-group">
+                                <label for="customer-message-text">Customer Messages:</label>
+                                <textarea id="customer-message-text" rows="4" placeholder="Enter messages for the customer"></textarea>
+                            </div>
+                            <div class="modal-buttons">
+                                <button type="submit" class="btn">Save Messages</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeCustomerMessagesModal()">Cancel</button>
                             </div>
                         </form>
                     </div>
@@ -436,7 +458,7 @@
             try {
                 const { data, error } = await supabase
                     .from('Orders')
-                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link')
+                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, CustomerMessages')
                     .order('Platform', { ascending: true });
                 if (error) throw error;
                 if (!data || data.length === 0) {
@@ -456,6 +478,7 @@
                             <th>Retailer</th>
                             <th>Items</th>
                             <th>Notes</th>
+                            <th>Customer Messages</th>
                         </tr>
                 `;
                 for (const order of ordersToShow) {
@@ -486,6 +509,9 @@
                     const notesDisplay = order.Notes ? 
                         order.Notes.length > 50 ? order.Notes.substring(0, 50) + '...' : order.Notes
                         : 'No notes';
+                    const customerMessagesDisplay = order.CustomerMessages ? 
+                        order.CustomerMessages.length > 50 ? order.CustomerMessages.substring(0, 50) + '...' : order.CustomerMessages
+                        : 'No messages';
                     html += `
                         <tr>
                             <td>
@@ -503,6 +529,12 @@
                                 <div style="max-width: 150px; word-wrap: break-word;">${notesDisplay}</div>
                                 <button class="btn" onclick="openAddNoteModal('${order.OrderID}')" style="margin-top: 4px; font-size: 0.7rem; padding: 0.2rem 0.4rem;">
                                     Add Note
+                                </button>
+                            </td>
+                            <td>
+                                <div style="max-width: 150px; word-wrap: break-word;">${customerMessagesDisplay}</div>
+                                <button class="btn" onclick="openCustomerMessagesModal('${order.OrderID}')" style="margin-top: 4px; font-size: 0.7rem; padding: 0.2rem 0.4rem;">
+                                    Edit Messages
                                 </button>
                             </td>
                         </tr>
@@ -593,7 +625,7 @@
         function viewOrderDetails(orderId) {
             supabase
                 .from('Orders')
-                .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link')
+                .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, CustomerMessages')
                 .eq('OrderID', orderId)
                 .single()
                 .then(({ data, error }) => {
@@ -661,6 +693,7 @@ ${items.map(item =>
 ).join('\n') || 'No items found'}
 
 Notes: ${data.Notes || 'None'}
+Customer Messages: ${data.CustomerMessages || 'None'}
                     `;
                     
                     alert(details);
@@ -689,30 +722,63 @@ Notes: ${data.Notes || 'None'}
         function addOrderNote(orderId, note) {
             if (!note || note.trim() === '') return;
             
-            // First get the current order to append the note
+            // Update the order with the new note
             supabase
                 .from('Orders')
-                .select('Notes')
+                .update({ Notes: note })
+                .eq('OrderID', orderId)
+                .then(({ error: updateError }) => {
+                    if (updateError) {
+                        alert('Error adding note: ' + updateError.message);
+                    } else {
+                        fetchActiveOrders(); // Refresh the list
+                    }
+                });
+        }
+
+        // Customer Messages Modal functions
+        function openCustomerMessagesModal(orderId) {
+            document.getElementById('messages-modal-order-id').value = orderId;
+            document.getElementById('customer-messages-modal').style.display = 'flex';
+            
+            // Load current customer messages
+            supabase
+                .from('Orders')
+                .select('CustomerMessages')
                 .eq('OrderID', orderId)
                 .single()
                 .then(({ data, error }) => {
                     if (error) {
-                        alert('Error fetching order: ' + error.message);
-                        return;
+                        console.error('Error fetching customer messages:', error);
+                    } else {
+                        document.getElementById('customer-message-text').value = data.CustomerMessages || '';
                     }
-                    
-                    // Update the order with the new note
-                    supabase
-                        .from('Orders')
-                        .update({ Notes: note })
-                        .eq('OrderID', orderId)
-                        .then(({ error: updateError }) => {
-                            if (updateError) {
-                                alert('Error adding note: ' + updateError.message);
-                            } else {
-                                fetchActiveOrders(); // Refresh the list
-                            }
-                        });
+                });
+            
+            // Focus on textarea after a short delay
+            setTimeout(() => {
+                document.getElementById('customer-message-text').focus();
+            }, 100);
+        }
+        
+        function closeCustomerMessagesModal() {
+            document.getElementById('customer-messages-modal').style.display = 'none';
+            document.getElementById('customer-messages-form').reset();
+        }
+        
+        // Update customer messages
+        function updateCustomerMessages(orderId, customerMessages) {
+            // Update the order with the new customer messages
+            supabase
+                .from('Orders')
+                .update({ CustomerMessages: customerMessages || null })
+                .eq('OrderID', orderId)
+                .then(({ error: updateError }) => {
+                    if (updateError) {
+                        alert('Error updating customer messages: ' + updateError.message);
+                    } else {
+                        fetchActiveOrders(); // Refresh the list
+                    }
                 });
         }
 
@@ -936,6 +1002,17 @@ Notes: ${data.Notes || 'None'}
             closeAddNoteModal();
         });
 
+        // Handle customer messages form submission
+        document.getElementById('customer-messages-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const orderId = document.getElementById('messages-modal-order-id').value;
+            const customerMessages = document.getElementById('customer-message-text').value.trim();
+            
+            updateCustomerMessages(orderId, customerMessages);
+            closeCustomerMessagesModal();
+        });
+
         // Close modal when clicking outside of it
         document.getElementById('add-item-modal').addEventListener('click', function(e) {
             if (e.target === this) {
@@ -946,6 +1023,12 @@ Notes: ${data.Notes || 'None'}
         document.getElementById('add-note-modal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeAddNoteModal();
+            }
+        });
+        
+        document.getElementById('customer-messages-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCustomerMessagesModal();
             }
         });
     </script>
