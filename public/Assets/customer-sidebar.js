@@ -24,6 +24,7 @@ function renderCustomerSidebar() {
       <a href="CustomerOrders.html" class="nav-item"><i class="cil-user"></i><span>Customer Orders</span></a>
       <a href="AddProduct.html" class="nav-item"><i class="cil-plus"></i><span>Add Product</span></a>
       <a href="SendtoAmazon.html" class="nav-item"><i class="cib-amazon"></i><span>Send To Amazon</span></a>
+      <a href="SendtoWarehouse.html" class="nav-item"><i class="cil-truck"></i><span>Send To Warehouse</span></a>
       <a href="CustomerOrderView.html" class="nav-item"><i class="cil-bullhorn"></i><span>Order Requester</span></a>
       <a href="CustomerChecklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
       <a href="admin/OrderViewer.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>

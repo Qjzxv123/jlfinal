@@ -21,6 +21,7 @@ function renderAdminSidebar() {
       <a href="BatchMaker.html" class="nav-item"><i class="cil-factory"></i><span>Batch Maker</span></a>
       <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
       <a href="AmazonShipments.html" class="nav-item"><i class="cib-amazon"></i><span>Amazon Shipments</span></a>
+      <a href="WarehouseShipments.html" class="nav-item"><i class="cil-truck"></i><span>Warehouse Shipments</span></a>
       <a href="OrderTracker.html" class="nav-item"><i class="cil-list"></i><span>Order Tracker</span></a>
       <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
       <a href="AddItemAdmin.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update</span></a>

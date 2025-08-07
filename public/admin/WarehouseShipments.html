@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charfet="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amazon Shipments Viewer</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <link rel="stylesheet" href="/Assets/sidebar.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      min-height: 100vh;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      display: flex;
+    }
+    
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+      width: calc(100% - 60px);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      color: indigo;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .header p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+    
+    .controls {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      background: #4DBA93;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .btn:disabled {
+      background: #ccc;
+      cursor: pointer;
+      transform: none;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e1e5e9;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s ease;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: #4DBA93;
+    }
+
+    .filter-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .filter-controls select {
+      padding: 8px 12px;
+      border: 2px solid #e1e5e9;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .status {
+      margin: 20px 0;
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .loading {
+      color: #4DBA93;
+      font-weight: 600;
+    }
+
+    .error {
+      color: #e74c3c;
+      font-weight: 600;
+    }
+
+    .success {
+      color: #27ae60;
+      font-weight: 600;
+    }
+
+    .shipments-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    .shipments-summary {
+      padding: 15px 20px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e1e5e9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .shipments-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .shipments-table th,
+    .shipments-table td {
+      padding: 15px;
+      text-align: left;
+      border-bottom: 1px solid #e1e5e9;
+    }
+
+    .shipments-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #2c3e50;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .shipments-table tr:hover {
+      background: #f8f9fa;
+    }
+
+    .sku-link {
+      color: #4DBA93;
+      text-decoration: none;
+      font-weight: 500;
+      font-family: 'Courier New', monospace;
+    }
+
+    .sku-link:hover {
+      text-decoration: underline;
+    }
+
+    .quantity-badge {
+      background: #c1de9f;
+      color: #2c3e50;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .notes-cell {
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .notes-cell:hover {
+      white-space: normal;
+      word-wrap: break-word;
+    }
+
+    .user-name {
+      font-weight: 500;
+      color: #2c3e50;
+    }
+
+    .no-shipments {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+
+    .no-shipments h3 {
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+
+    .action-buttons {
+      background: white;
+      padding: 15px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .action-btn {
+      background: #BA4D74;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+    }
+
+    .action-btn.danger {
+      background: #e74c3c;
+    }
+
+    .action-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .checkbox-cell {
+      width: 40px;
+      text-align: center;
+    }
+
+    .shipment-checkbox {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .selected-row {
+      background: #e8f5e8 !important;
+    }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+
+    .modal-content {
+      background-color: white;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 12px;
+      width: 80%;
+      max-width: 800px;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e1e5e9;
+      padding-bottom: 15px;
+    }
+
+    .modal-header h2 {
+      color: #2c3e50;
+      margin: 0;
+    }
+
+    .close {
+      color: #aaa;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .close:hover {
+      color: #000;
+    }
+
+    .box-selection {
+      margin-bottom: 20px;
+    }
+
+    .box-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      border: 2px solid #e1e5e9;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      background: #f8f9fa;
+    }
+
+    .box-item.selected {
+      border-color: #4DBA93;
+      background: #e8f5e8;
+    }
+
+    .box-info {
+      flex: 1;
+    }
+
+    .box-sku {
+      font-weight: 600;
+      color: #2c3e50;
+      font-family: 'Courier New', monospace;
+    }
+
+    .box-dimensions {
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    .box-quantity {
+      color: #4DBA93;
+      font-weight: 600;
+    }
+
+    .quantity-input {
+      width: 80px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .process-summary {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
+</head>
+<body>
+  <!-- Sidebar -->
+  <div id="sidebar"></div>
+  <script src="/Assets/sidebar.js"></script>
+  
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+    <div class="container">
+      <div class="header">
+        <h1>Amazon Shipments Viewer</h1>
+        <p>View and manage Amazon shipment orders</p>
+      </div>
+
+      <div class="controls">
+        <button class="btn" onclick="loadShipments()" id="refreshBtn">
+          🔄 Refresh Shipments
+        </button>
+        
+        <button class="btn" onclick="openReceiveModal()" id="receiveBtn" style="background: #4DBA93;">
+          ⚙️ Process Shipments
+        </button>
+        <button class="btn" id="markRecievedBtn" style="background: #10b981;" onclick="markSelectedAsRecieved()" disabled>Mark as Recieved</button>
+        
+        
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Search by SKU, user name, or notes..." 
+                 oninput="filterShipments()">
+        </div>
+        
+        <div class="filter-controls">
+          <select id="userFilter" onchange="filterShipments()">
+            <option value="">All Users</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="status" id="statusDiv" style="display: none;"></div>
+
+      <div class="action-buttons" id="actionButtons" style="display: none;">
+        <span style="font-weight: 600; color: #2c3e50;">Selected Shipments:</span>
+        <span id="selectedCount" style="font-weight: 600; color: #4DBA93;">0</span>
+        <button class="action-btn danger" onclick="deleteSelectedShipments()" id="deleteBtn">
+          <i class="cil-trash"></i>
+        </button>
+      </div>
+
+      <div class="shipments-container">
+        <div class="shipments-summary" id="shipmentsSummary" style="display: none;">
+          <div class="summary-item">
+            <span>Total Shipments: <strong id="totalShipments">0</strong></span>
+          </div>
+        </div>
+
+        <div id="shipmentsTableContainer">
+          <div class="no-shipments">
+            <h3>Ready to load shipments</h3>
+            <p>Click "Refresh Shipments" to load Amazon shipment orders</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receive Shipment Modal -->
+  <div id="receiveModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Receive Shipment</h2>
+        <span class="close" onclick="closeReceiveModal()">&times;</span>
+      </div>
+      <form id="receiveForm" onsubmit="submitReceiveShipment(event)">
+        <div style="margin-bottom: 18px;">
+          <label style="font-weight:600;">Actual Contents</label><br>
+          <div id="actualContentsDropdowns"></div>
+        </div>
+        <div style="margin-bottom: 18px;">
+          <label for="receivingHoursInput" style="font-weight:600;">Receiving Hours</label><br>
+          <input id="receivingHoursInput" type="text" style="width:100%;font-size:1rem;" placeholder="e.g. 2.5" required />
+        </div>
+        <div style="text-align:center;">
+          <button class="btn" type="submit" id="submitReceiveBtn">✅ Mark as Received</button>
+          <button class="btn" type="button" onclick="closeReceiveModal()" style="background:#666;margin-left:10px;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Access control and inactivity timeout
+    checkPermissions(['service_role']);
+    setupInactivityTimeout(10);
+
+    let allShipments = [];
+    let filteredShipments = [];
+    let selectedShipments = new Set();
+    let availableBoxes = [];
+    let selectedBoxes = {};
+
+    function showStatus(message, type = 'loading') {
+      const statusDiv = document.getElementById('statusDiv');
+      statusDiv.style.display = 'block';
+      statusDiv.className = `status ${type}`;
+      statusDiv.textContent = message;
+    }
+
+    function hideStatus() {
+      document.getElementById('statusDiv').style.display = 'none';
+    }
+
+
+    // --- Receive Shipment Logic ---
+function openReceiveModal() {
+  if (selectedShipments.size !== 1) {
+    alert('Please select exactly one shipment to receive.');
+    return;
+  }
+  document.getElementById('receivingHoursInput').value = '';
+  // Build dropdowns for AllegedContents
+  const shipmentId = Array.from(selectedShipments)[0];
+  const shipment = allShipments.find(s => s.id === shipmentId);
+  const container = document.getElementById('actualContentsDropdowns');
+  container.innerHTML = '';
+  if (shipment && shipment.items && shipment.items.length > 0) {
+    shipment.items.forEach(item => {
+      const div = document.createElement('div');
+      div.style.marginBottom = '14px';
+      div.innerHTML = `
+        <label style="font-weight:500;display:block;margin-bottom:4px;">SKU: <span style='font-family:monospace;'>${item.sku}</span> <span style='color:#888;font-size:0.95em;'>(Ordered: ${item.quantity})</span></label>
+        <input type="number" value="${item.quantity}" min="0" max="${item.quantity}" id="actual-qty-${item.sku}" class="styled-qty-input" required />
+      `;
+      container.appendChild(div);
+    });
+    // Add style for .styled-qty-input
+    if (!document.getElementById('styled-qty-input-css')) {
+      const style = document.createElement('style');
+      style.id = 'styled-qty-input-css';
+      style.textContent = `
+        .styled-qty-input {
+          width: 120px;
+          padding: 8px 12px;
+          border: 2px solid #4DBA93;
+          border-radius: 8px;
+          font-size: 1.1rem;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background: #f8f9fa;
+          color: #2c3e50;
+          margin-bottom: 2px;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .styled-qty-input:focus {
+          outline: none;
+          border-color: #2c3e50;
+          box-shadow: 0 0 0 2px #c1de9f;
+        }
+        .styled-qty-input::-webkit-inner-spin-button,
+        .styled-qty-input::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  } else {
+    container.innerHTML = '<em>No SKUs found in AllegedContents.</em>';
+  }
+  document.getElementById('receiveModal').style.display = 'block';
+}
+
+    function closeReceiveModal() {
+      document.getElementById('receiveModal').style.display = 'none';
+    }
+
+async function submitReceiveShipment(event) {
+  event.preventDefault();
+  const btn = document.getElementById('submitReceiveBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Receiving...';
+  try {
+    const shipmentId = Array.from(selectedShipments)[0];
+    const shipment = allShipments.find(s => s.id === shipmentId);
+    const receivingHours = document.getElementById('receivingHoursInput').value.trim();
+    // Build ActualContents from dropdowns
+    let items = [];
+    if (shipment && shipment.items && shipment.items.length > 0) {
+      for (const item of shipment.items) {
+        const qtyInput = document.getElementById(`actual-qty-${item.sku}`);
+        let qty = parseInt(qtyInput.value, 10);
+        if (isNaN(qty) || qty < 0) qty = 0;
+        items.push({ sku: item.sku, quantity: qty });
+      }
+    }
+    const actualContents = { items };
+    // Update the shipment in ReceivingLog
+    const { error } = await supabase
+      .from('ReceivingLog')
+      .update({
+        ActualContents: actualContents,
+        ReceivingHours: receivingHours,
+        RecievedAt: new Date().toISOString(),
+        Status: 'Processed'
+      })
+      .eq('id', shipmentId);
+    if (error) throw error;
+
+    // --- Add to Products inventory ---
+    // Get displayName from user.user_metadata.display_name if available
+    let displayName = null;
+    if (window.user && window.user.user_metadata && window.user.user_metadata.display_name) {
+      displayName = window.user.user_metadata.display_name;
+    }
+    for (const item of items) {
+      if (!item.sku || !item.quantity || item.quantity <= 0) continue;
+      // Update existing product quantity only
+      const { data: prod, error: prodErr } = await supabase
+        .from('Products')
+        .select('Quantity')
+        .eq('ProductSKU', item.sku)
+        .maybeSingle();
+      if (prodErr) throw prodErr;
+      if (prod) {
+        const newQty = (prod.Quantity || 0) + item.quantity;
+        const { error: upErr } = await supabase
+          .from('Products')
+          .update({ Quantity: newQty })
+          .eq('ProductSKU', item.sku);
+        if (upErr) throw upErr;
+        // Log the inventory update
+        const logMsg = `Received ${item.quantity} to SKU ${item.sku}`;
+        await supabase
+          .from('inventoryupdatelogs')
+          .insert({
+            log: logMsg,
+            updated_by: displayName || shipment.Retailer || null,
+            SKU: item.sku,
+            QuantityChanged: item.quantity
+          });
+      } else {
+        throw new Error(`Product with SKU ${item.sku} does not exist in Products table.`);
+      }
+    }
+
+    // Update local arrays
+    allShipments = allShipments.map(s => s.id === shipmentId ? { ...s,  ActualContents: actualContents, ReceivingHours: receivingHours, RecievedAt: new Date().toISOString(), Status: 'Processed' } : s);
+    filteredShipments = filteredShipments.map(s => s.id === shipmentId ? { ...s, ActualContents: actualContents, ReceivingHours: receivingHours, RecievedAt: new Date().toISOString(), Status: 'Processed' } : s);
+    selectedShipments.clear();
+    displayShipments();
+    updateSummary();
+    populateUserFilter();
+    closeReceiveModal();
+    showStatus('Shipment marked as received and inventory updated!', 'success');
+    setTimeout(hideStatus, 3000);
+  } catch (error) {
+    showStatus(`Error receiving shipment: ${error.message}`, 'error');
+  }
+  btn.disabled = false;
+  btn.textContent = '✅ Mark as Received';
+}
+
+    async function loadShipments() {
+      const refreshBtn = document.getElementById('refreshBtn');
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = '⏳ Loading...';
+
+      showStatus('Loading Amazon shipments...', 'loading');
+      
+      try {
+        const { data: logs, error } = await supabase
+          .from('ReceivingLog')
+          .select('id, TrackingLink, UserID, Retailer, AllegedContents, ReceivingHours, ActualContents, RecievedAt')
+          .order('id', { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        allShipments = (logs || []).map(log => {
+          const items = (log.AllegedContents && log.AllegedContents.items && Array.isArray(log.AllegedContents.items)) ? log.AllegedContents.items : [];
+          return {
+            id: log.id,
+            TrackingLink: log.TrackingLink,
+            UserID: log.UserID,
+            Retailer: log.Retailer,
+            ReceivingHours: log.ReceivingHours,
+            ActualContents: log.ActualContents,
+            RecievedAt: log.RecievedAt,
+            items: items
+          };
+        });
+        showStatus(`Successfully loaded ${allShipments.length} shipments`, 'success');
+        setTimeout(hideStatus, 3000);
+
+      } catch (error) {
+        console.error('Error loading shipments:', error);
+        showStatus(`Error loading shipments: ${error.message}`, 'error');
+      }
+
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '🔄 Refresh Shipments';
+
+      filteredShipments = [...allShipments];
+      displayShipments();
+      updateSummary();
+      populateUserFilter();
+    }
+
+    function populateUserFilter() {
+      const userSelect = document.getElementById('userFilter');
+      const currentValue = userSelect.value;
+      
+      // Get unique users from allShipments (Retailer)
+      const users = Array.from(new Set(allShipments.map(shipment => shipment.Retailer).filter(Boolean)));
+      users.sort((a, b) => a.localeCompare(b));
+      
+      // Save the first option (All Users)
+      const firstOption = document.createElement('option');
+      firstOption.value = '';
+      firstOption.textContent = 'All Users';
+      
+      userSelect.innerHTML = '';
+      userSelect.appendChild(firstOption);
+      
+      users.forEach(user => {
+        const opt = document.createElement('option');
+        opt.value = user;
+        opt.textContent = user;
+        userSelect.appendChild(opt);
+      });
+      
+      // Restore previous selection if possible
+      userSelect.value = currentValue;
+    }
+
+    function filterShipments() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      const userFilter = document.getElementById('userFilter').value;
+
+      filteredShipments = allShipments.filter(shipment => {
+        // User filter
+        if (userFilter && shipment.Retailer !== userFilter) {
+          return false;
+        }
+
+        // Search filter
+        if (searchTerm) {
+          // Search in all SKUs, Retailer, and TrackingLink
+          const skuString = shipment.items.map(i => i.sku).join(' ');
+          const searchFields = [
+            skuString,
+            shipment.Retailer,
+            shipment.TrackingLink
+          ].join(' ').toLowerCase();
+
+          if (!searchFields.includes(searchTerm)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      displayShipments();
+      updateSummary();
+    }
+
+    function displayShipments() {
+      const container = document.getElementById('shipmentsTableContainer');
+      const summaryDiv = document.getElementById('shipmentsSummary');
+      const actionButtons = document.getElementById('actionButtons');
+      
+      if (filteredShipments.length === 0) {
+        summaryDiv.style.display = 'none';
+        actionButtons.style.display = 'none';
+        container.innerHTML = `
+          <div class="no-shipments">
+            <h3>${allShipments.length === 0 ? 'No shipments found' : 'No shipments match your filters'}</h3>
+            <p>${allShipments.length === 0 ? 'No Amazon shipments have been created yet. Use the Amazon Shipments form to create shipments.' : 'Try adjusting your search or filter criteria'}</p>
+          </div>
+        `;
+        return;
+      }
+
+      summaryDiv.style.display = 'flex';
+      actionButtons.style.display = 'flex';
+
+      const tableHTML = `
+        <table class="shipments-table">
+          <thead>
+            <tr>
+              <th class="checkbox-cell">
+                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+              </th>
+              <th>ID</th>
+              <th>SKUs</th>
+              <th>Quantities</th>
+              <th>User</th>
+              <th>Tracking Link</th>
+              <th>Status</th>
+              <th>Received At</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredShipments.map(shipment => {
+              const isSelected = selectedShipments.has(shipment.id);
+              const skuList = shipment.items.map(i => i.sku).join(", ");
+              const qtyList = shipment.items.map(i => i.quantity).join(", ");
+              const retailer = shipment.Retailer || 'Unknown User';
+              const tracking = shipment.TrackingLink || '';
+              const receivedAt = shipment.RecievedAt ? shipment.RecievedAt : 'Not yet received';
+              const status = shipment.Status || '';
+              return `
+                <tr class="${isSelected ? 'selected-row' : ''}" id="shipment-${shipment.id}">
+                  <td class="checkbox-cell">
+                    <input type="checkbox" class="shipment-checkbox" 
+                           ${isSelected ? 'checked' : ''} 
+                           onchange="toggleShipmentSelection(${shipment.id})">
+                  </td>
+                  <td><strong>#${shipment.id}</strong></td>
+                  <td>${skuList}</td>
+                  <td>${qtyList}</td>
+                  <td><span class="user-name">${retailer}</span></td>
+                  <td>${tracking}</td>
+                  <td>${status}</td>
+                  <td>${receivedAt}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+    // Mark as Recieved handler for selected shipment
+    window.markSelectedAsRecieved = async function() {
+      if (selectedShipments.size === 0) return;
+      if (!confirm(`Mark ${selectedShipments.size} shipment(s) as Recieved?`)) return;
+      try {
+        const now = new Date().toISOString();
+        const ids = Array.from(selectedShipments);
+        // Update all selected shipments in the database
+        const { error } = await supabase
+          .from('ReceivingLog')
+          .update({ RecievedAt: now, Status: 'Recieved' })
+          .in('id', ids);
+        if (error) throw error;
+        // Update local arrays
+        allShipments = allShipments.map(s => ids.includes(s.id) ? { ...s, RecievedAt: now, Status: 'Recieved' } : s);
+        filteredShipments = filteredShipments.map(s => ids.includes(s.id) ? { ...s, RecievedAt: now, Status: 'Recieved' } : s);
+        selectedShipments.clear();
+        displayShipments();
+        updateSummary();
+        showStatus(`${ids.length} shipment(s) marked as Recieved!`, 'success');
+        setTimeout(hideStatus, 2000);
+      } catch (err) {
+        showStatus('Error marking as Recieved: ' + err.message, 'error');
+      }
+    }
+
+      container.innerHTML = tableHTML;
+      updateSelectedCount();
+      updateSelectAllCheckbox();
+    }
+
+    function updateSummary() {
+      const summaryDiv = document.getElementById('shipmentsSummary');
+      
+      if (filteredShipments.length === 0) {
+        summaryDiv.style.display = 'none';
+        return;
+      }
+
+      document.getElementById('totalShipments').textContent = filteredShipments.length;
+    }
+
+    function toggleShipmentSelection(shipmentId) {
+      const shipmentRow = document.getElementById(`shipment-${shipmentId}`);
+      const checkbox = shipmentRow.querySelector('.shipment-checkbox');
+      
+      if (selectedShipments.has(shipmentId)) {
+        selectedShipments.delete(shipmentId);
+        shipmentRow.classList.remove('selected-row');
+      } else {
+        selectedShipments.add(shipmentId);
+        shipmentRow.classList.add('selected-row');
+      }
+      
+      updateSelectedCount();
+      updateSelectAllCheckbox();
+    }
+
+    function toggleSelectAll() {
+      const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+      
+      if (selectAllCheckbox.checked) {
+        filteredShipments.forEach(shipment => {
+          selectedShipments.add(shipment.id);
+        });
+      } else {
+        selectedShipments.clear();
+      }
+      
+      displayShipments();
+    }
+
+    function updateSelectedCount() {
+      const selectedCountSpan = document.getElementById('selectedCount');
+      selectedCountSpan.textContent = selectedShipments.size;
+      // Enable Mark as Recieved button if at least one shipment is selected
+      const btn = document.getElementById('markRecievedBtn');
+      if (!btn) return;
+      btn.disabled = selectedShipments.size === 0;
+    }
+
+    function updateSelectAllCheckbox() {
+      const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+      const filteredShipmentIds = filteredShipments.map(shipment => shipment.id);
+      const selectedFilteredShipments = filteredShipmentIds.filter(id => selectedShipments.has(id));
+      
+      if (selectedFilteredShipments.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+      } else if (selectedFilteredShipments.length === filteredShipmentIds.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+      } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+      }
+    }
+
+    function getSelectedShipmentsData() {
+      return allShipments.filter(shipment => selectedShipments.has(shipment.id));
+    }
+
+    async function deleteSelectedShipments() {
+      if (selectedShipments.size === 0) {
+        alert('Please select at least one shipment to delete.');
+        return;
+      }
+      
+      if (!confirm(`Are you sure you want to delete ${selectedShipments.size} selected shipment(s)? This action cannot be undone.`)) {
+        return;
+      }
+
+      showStatus('Deleting selected shipments...', 'loading');
+      
+      let deletedCount = 0;
+      let errorCount = 0;
+
+      for (const shipmentId of selectedShipments) {
+        try {
+          const { error } = await supabase
+            .from('ReceivingLog')
+            .delete()
+            .eq('id', shipmentId);
+
+          if (!error) {
+            deletedCount++;
+            // Remove from local arrays
+            allShipments = allShipments.filter(s => s.id !== shipmentId);
+            filteredShipments = filteredShipments.filter(s => s.id !== shipmentId);
+          } else {
+            console.error('Error deleting shipment', shipmentId, error);
+            errorCount++;
+          }
+        } catch (err) {
+          console.error('Error deleting shipment', shipmentId, err);
+          errorCount++;
+        }
+      }
+
+      selectedShipments.clear();
+      displayShipments();
+      updateSummary();
+      
+      showStatus(`${deletedCount} shipment(s) deleted${errorCount > 0 ? `, ${errorCount} errors` : ''}`, errorCount === 0 ? 'success' : 'error');
+      setTimeout(hideStatus, 3000);
+    }
+
+    // Make functions globally available
+    window.loadShipments = loadShipments;
+    window.filterShipments = filterShipments;
+    window.toggleShipmentSelection = toggleShipmentSelection;
+    window.toggleSelectAll = toggleSelectAll;
+    window.deleteSelectedShipments = deleteSelectedShipments;
+    window.openReceiveModal = openReceiveModal;
+    window.closeReceiveModal = closeReceiveModal;
+    window.submitReceiveShipment = submitReceiveShipment;
+
+    // Initialize the page
+    window.addEventListener('DOMContentLoaded', () => {
+      loadShipments();
+    });
+
+    // Close modal when clicking outside of it
+    window.addEventListener('click', (event) => {
+      const modal = document.getElementById('receiveModal');
+      if (event.target === modal) {
+        closeReceiveModal();
+      }
+    });
+  </script>
+</body>
+</html>
