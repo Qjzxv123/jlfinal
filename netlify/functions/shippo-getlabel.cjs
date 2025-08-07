@@ -177,21 +177,23 @@ exports.handler = async (event) => {
   let labelUrl = null;
   let shippingCost = null;
   try {
-    // Reference the Shippo order's object_id in the transaction request
+    // Create transaction payload for label purchase
     const transactionBody = {
       rate: rate_id,
       label_file_type: 'PDF_4x6'
     };
-    // Add address and order IDs only to transaction payload
+    // Add address ID if available (optional for transactions)
     if (body.ShippoAddressID && body.ShippoAddressID.trim() !== '') {
       transactionBody.address_to = body.ShippoAddressID;
     } else if (order.toAddressObjectID && order.toAddressObjectID.trim() !== '') {
       transactionBody.address_to = order.toAddressObjectID;
     }
-    if (order && order.ShippoObjectID) {
+    // Add order reference only if it exists and not a Faire order
+    const isFaireOrder = order.platform === 'faire' || order.source === 'faire' || 
+                        (order.id && order.id.toString().startsWith('faire_'));
+    
+    if (!isFaireOrder && order && order.ShippoObjectID && order.ShippoObjectID.trim() !== '') {
       transactionBody.order = order.ShippoObjectID;
-    } else if (shipment && shipment.object_id) {
-      transactionBody.order = shipment.object_id;
     }
     const transactionResp = await fetch('https://api.goshippo.com/transactions/', {
       method: 'POST',
