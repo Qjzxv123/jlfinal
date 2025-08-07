@@ -33,9 +33,10 @@ function renderAdminSidebar() {
       <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
       <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
       <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-      <a href="UserManagement.html" class="nav-item"><i class="cil-user"></i><span>User Management</span></a>
-      <a href="/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
-      <a class="nav-item" id="sidebar-signout-btn"><i class="cil-account-logout"></i><span>Sign Out</span></a>
+  <a href="UserManagement.html" class="nav-item"><i class="cil-user"></i><span>User Management</span></a>
+  <a href="AddFulfillmentLog.html" class="nav-item"><i class="cil-notes"></i><span>Add Fulfillment Log</span></a>
+  <a href="/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
+  <a class="nav-item" id="sidebar-signout-btn"><i class="cil-account-logout"></i><span>Sign Out</span></a>
     </div>
   `;
   const sidebar = document.getElementById('sidebar');
