@@ -3,7 +3,7 @@
 <head>
   <meta charfet="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Amazon Shipments Viewer</title>
+  <title>Warehouse Shipments Viewer</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
   <link rel="stylesheet" href="/Assets/sidebar.css">
   <style>
@@ -424,8 +424,8 @@
   <div class="main-content" id="mainContent">
     <div class="container">
       <div class="header">
-        <h1>Amazon Shipments Viewer</h1>
-        <p>View and manage Amazon shipment orders</p>
+        <h1>Warehouse Shipments Viewer</h1>
+        <p>View and manage Warehouse shipment orders</p>
       </div>
 
       <div class="controls">
@@ -471,7 +471,7 @@
         <div id="shipmentsTableContainer">
           <div class="no-shipments">
             <h3>Ready to load shipments</h3>
-            <p>Click "Refresh Shipments" to load Amazon shipment orders</p>
+            <p>Click "Refresh Shipments" to load Warehouse shipment orders</p>
           </div>
         </div>
       </div>
@@ -678,7 +678,7 @@ async function submitReceiveShipment(event) {
       refreshBtn.disabled = true;
       refreshBtn.textContent = '⏳ Loading...';
 
-      showStatus('Loading Amazon shipments...', 'loading');
+      showStatus('Loading Warehouse shipments...', 'loading');
       
       try {
         const { data: logs, error } = await supabase
@@ -790,7 +790,7 @@ async function submitReceiveShipment(event) {
         container.innerHTML = `
           <div class="no-shipments">
             <h3>${allShipments.length === 0 ? 'No shipments found' : 'No shipments match your filters'}</h3>
-            <p>${allShipments.length === 0 ? 'No Amazon shipments have been created yet. Use the Amazon Shipments form to create shipments.' : 'Try adjusting your search or filter criteria'}</p>
+            <p>${allShipments.length === 0 ? 'No Warehouse shipments have been created yet. Use the Warehouse Shipments form to create shipments.' : 'Try adjusting your search or filter criteria'}</p>
           </div>
         `;
         return;
