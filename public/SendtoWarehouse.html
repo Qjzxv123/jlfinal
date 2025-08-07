@@ -202,7 +202,7 @@
           </div>
           <button type="button" class="btn add-item" onclick="addItemRow()">Add Another Item</button>
         </div>
-        <button type="submit" class="btn">Submit Receiving Log</button>
+        <button type="submit" class="btn">Submit Shipment</button>
       </form>
       <div class="status" id="statusMsg"></div>
     </div>
@@ -212,8 +212,7 @@
       <table id="shipmentsTable">
         <thead>
           <tr>
-            <th>SKU</th>
-            <th>Quantity</th>
+            <th></th>
             <th>Status</th>
             <th>Received At</th>
           </tr>
@@ -278,23 +277,47 @@
         }
 
         shipmentsTableBody.innerHTML = '';
-        logs.forEach(log => {
+        logs.forEach((log, idx) => {
           if (log.AllegedContents && log.AllegedContents.items && Array.isArray(log.AllegedContents.items)) {
-            // Combine all SKUs and quantities into comma-separated strings
-            const skuList = log.AllegedContents.items.map(item => item.sku).join(", ");
-            const qtyList = log.AllegedContents.items.map(item => item.quantity).join(", ");
             const status = log.Status ? log.Status : '';
             const receivedAt = log.RecievedAt ? log.RecievedAt : 'Not yet received';
+            const collapseId = `collapse-items-${idx}`;
             const row = `
-              <tr>
-                <td>${skuList}</td>
-                <td>${qtyList}</td>
+              <tr class="collapsible-row" data-collapse="${collapseId}" style="cursor:pointer;">
+                <td colspan="1"><span style="font-weight:bold;">Show Items</span></td>
                 <td>${status}</td>
                 <td>${receivedAt}</td>
+              </tr>
+              <tr id="${collapseId}" class="items-detail-row" style="display:none;background:#f9f9f9;">
+                <td colspan="3">
+                  <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                      <tr><th>SKU</th><th>Quantity</th></tr>
+                    </thead>
+                    <tbody>
+                      ${log.AllegedContents.items.map(item => `<tr><td>${item.sku}</td><td>${item.quantity}</td></tr>`).join('')}
+                    </tbody>
+                  </table>
+                </td>
               </tr>
             `;
             shipmentsTableBody.innerHTML += row;
           }
+        });
+        // Add click listeners for collapsible rows
+        document.querySelectorAll('.collapsible-row').forEach(row => {
+          row.addEventListener('click', function() {
+            const collapseId = this.getAttribute('data-collapse');
+            const detailRow = document.getElementById(collapseId);
+            if (detailRow) {
+              detailRow.style.display = detailRow.style.display === 'none' ? '' : 'none';
+              // Optionally toggle label
+              const label = this.querySelector('span');
+              if (label) {
+                label.textContent = detailRow.style.display === '' ? 'Hide Items' : 'Show Items';
+              }
+            }
+          });
         });
       } catch (error) {
         console.error('Error fetching recent shipments:', error);
