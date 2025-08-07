@@ -711,7 +711,9 @@
             // Extract time and time type
             const timeKey = Object.keys(phaseData).find(key => key.includes('Time'));
             if (timeKey) {
-              phase.mixTime = phaseData[timeKey];
+              // Convert hours back to minutes for display (multiply by 60)
+              const timeValueInHours = phaseData[timeKey];
+              phase.mixTime = timeValueInHours ? (timeValueInHours * 60) : '';
               if (timeKey.includes('Melt')) {
                 phase.timeType = 'Melt';
               } else if (timeKey.includes('Mix')) {
@@ -1237,13 +1239,41 @@
       const process = {};
       processTableData.forEach(phase => {
         if (phase.name && phase.ingredients.length > 0) {
-          process[phase.name] = {
-            ingredients: phase.ingredients.filter(ing => ing.name || ing.sku),
-            temp: phase.temp || null,
-            timeType: phase.timeType || 'Melt',
-            mixTime: phase.mixTime || null,
-            consistency: phase.consistency || null
-          };
+          const phaseData = {};
+          
+          // Add temperature if provided
+          if (phase.temp && String(phase.temp).trim() !== '') {
+            phaseData[`${phase.name} Temperature(C)`] = parseFloat(phase.temp);
+          }
+          
+          // Add time based on timeType
+          if (phase.mixTime && String(phase.mixTime).trim() !== '') {
+            const timeValue = parseFloat(phase.mixTime) / 60; // Convert minutes to hours
+            if (phase.timeType === 'Melt') {
+              phaseData[`${phase.name} Melt Time(Hours)`] = timeValue;
+            } else {
+              phaseData[`${phase.name} Mix Time(Hours)`] = timeValue;
+            }
+          }
+          
+          // Add consistency if provided
+          if (phase.consistency && String(phase.consistency).trim() !== '') {
+            phaseData[`${phase.name} Consistency`] = phase.consistency;
+          }
+          
+          // Add ingredients with the correct format
+          const validIngredients = phase.ingredients.filter(ing => (ing.name || ing.sku) && ing.percent);
+          if (validIngredients.length > 0) {
+            phaseData[`${phase.name} Ingredients`] = validIngredients.map(ing => ({
+              IngredientSKU: ing.sku || '',
+              'Ingredient Quantity(%)': parseFloat(ing.percent) || 0
+            }));
+          }
+          
+          // Only add phase if it has any data
+          if (Object.keys(phaseData).length > 0) {
+            process[phase.name] = phaseData;
+          }
         }
       });
       return Object.keys(process).length > 0 ? process : null;
