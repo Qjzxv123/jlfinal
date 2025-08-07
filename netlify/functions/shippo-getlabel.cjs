@@ -176,6 +176,8 @@ exports.handler = async (event) => {
   // Buy label with selected rate
   let labelUrl = null;
   let shippingCost = null;
+  let trackingNumber = null;
+  let carrier = null;
   try {
     // Create transaction payload for label purchase
     const transactionBody = {
@@ -272,8 +274,8 @@ exports.handler = async (event) => {
     shippingCost = transaction.amount;
     
     // Extract tracking information and carrier details
-    let trackingNumber = transaction.tracking_number || transaction.tracking_code;
-    let carrier = transaction.rate?.provider || transaction.rate?.carrier;
+    trackingNumber = transaction.tracking_number || transaction.tracking_code;
+    carrier = transaction.rate?.provider || transaction.rate?.carrier;
     
     // If tracking number not found in transaction, try to get it from the rate
     if (!trackingNumber && transaction.rate) {
