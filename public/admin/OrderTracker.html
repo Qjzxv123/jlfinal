@@ -478,16 +478,31 @@
           }
           // Ensure batchMakerButton and instructionsBtn are always defined
           let batchMakerButton = '';
-          // --- Ingredient check logic (BatchMaker style) ---
+          // --- Ingredient & Container check logic (BatchMaker style) ---
           let highlightRed = false;
           if ((task.Progress || '').toLowerCase() === 'requested') {
             const ingredients = orderIngredientsMap[task.OrderNumber] || [];
+            // Check ingredients as before
             if (ingredients.length > 0) {
               for (const ing of ingredients) {
                 const invQty = ingredientInventoryMap[ing.sku];
                 if (invQty === undefined || Number(invQty) < ing.totalAmount) {
                   highlightRed = true;
                   break;
+                }
+              }
+            }
+            // Check ContainerSKUs (only these, not labels/packaging)
+            if (!highlightRed) {
+              const productData = productDataMap[task.ProductSKU];
+              if (productData && Array.isArray(productData.ContainerSKUs) && productData.ContainerSKUs.length > 0) {
+                // For each container SKU, check if inventory is at least task.Quantity
+                for (const containerSKU of productData.ContainerSKUs) {
+                  const invQty = ingredientInventoryMap[containerSKU];
+                  if (invQty === undefined || Number(invQty) < task.Quantity) {
+                    highlightRed = true;
+                    break;
+                  }
                 }
               }
             }
