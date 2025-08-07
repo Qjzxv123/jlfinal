@@ -249,6 +249,10 @@ exports.handler = async (event) => {
       transaction.amount = pollTransaction.amount;
       transaction.status = pollTransaction.status;
       transaction.messages = pollTransaction.messages;
+      // Also copy tracking information from polled transaction
+      transaction.tracking_number = pollTransaction.tracking_number;
+      transaction.tracking_code = pollTransaction.tracking_code;
+      transaction.rate = pollTransaction.rate;
     }
     if (!transaction.label_url || transaction.status === 'ERROR') {
       console.error('[Shippo Label] Label purchase failed:', {
@@ -266,6 +270,24 @@ exports.handler = async (event) => {
     }
     labelUrl = transaction.label_url;
     shippingCost = transaction.amount;
+    
+    // Extract tracking information and carrier details
+    let trackingNumber = transaction.tracking_number || transaction.tracking_code;
+    let carrier = transaction.rate?.provider || transaction.rate?.carrier;
+    
+    // If tracking number not found in transaction, try to get it from the rate
+    if (!trackingNumber && transaction.rate) {
+      trackingNumber = transaction.rate.tracking_number || transaction.rate.tracking_code;
+    }
+    
+    // Try to find tracking number in the label response metadata
+    if (!trackingNumber && transaction.metadata) {
+      trackingNumber = transaction.metadata.tracking_number || transaction.metadata.tracking_code;
+    }
+    
+    // Log the transaction object for debugging
+    console.log('[Shippo Label] Transaction object for tracking extraction:', JSON.stringify(transaction, null, 2));
+    
   } catch (err) {
     console.error('[Shippo Label] Exception during label purchase:', err);
     return { statusCode: 500, body: 'Error buying label: ' + err.message };
@@ -273,6 +295,12 @@ exports.handler = async (event) => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ label_url: labelUrl, shipping_cost: shippingCost })
+    body: JSON.stringify({ 
+      label_url: labelUrl, 
+      shipping_cost: shippingCost,
+      tracking_number: trackingNumber,
+      carrier: carrier,
+      amount: shippingCost // Include amount for consistency
+    })
   };
 };

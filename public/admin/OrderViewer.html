@@ -1604,12 +1604,23 @@ async function processShippingLabelsWithBoxData(orderParcels) {
           console.log('labelData:', labelData);
           console.log('selectedRate:', selectedRate);
           
+          // Try to extract tracking number from various sources
           if (labelData && labelData.tracking_number) {
             tracking_code = labelData.tracking_number;
             console.log('Found tracking_number in labelData:', tracking_code);
           } else if (labelData && labelData.tracking_code) {
             tracking_code = labelData.tracking_code;
             console.log('Found tracking_code in labelData:', tracking_code);
+          } else if (selectedRate && selectedRate.tracking_number) {
+            tracking_code = selectedRate.tracking_number;
+            console.log('Found tracking_number in selectedRate:', tracking_code);
+          } else if (selectedRate && selectedRate.tracking_code) {
+            tracking_code = selectedRate.tracking_code;
+            console.log('Found tracking_code in selectedRate:', tracking_code);
+          } else if (selectedRate && selectedRate.object_id) {
+            // For Shippo, the rate object_id sometimes can be used as a reference
+            tracking_code = selectedRate.object_id;
+            console.log('Using selectedRate.object_id as tracking_code:', tracking_code);
           } else if (labelData && labelData.tracking_url_provider) {
             // Sometimes the tracking number is embedded in the tracking URL
             const trackingMatch = labelData.tracking_url_provider.match(/\/([A-Z0-9]+)$/);
@@ -1617,9 +1628,6 @@ async function processShippingLabelsWithBoxData(orderParcels) {
               tracking_code = trackingMatch[1];
               console.log('Extracted tracking code from tracking_url_provider:', tracking_code);
             }
-          } else if (selectedRate && selectedRate.tracking_number) {
-            tracking_code = selectedRate.tracking_number;
-            console.log('Found tracking_number in selectedRate:', tracking_code);
           } else if (parcel.tracking_number) {
             tracking_code = parcel.tracking_number;
             console.log('Found tracking_number in parcel:', tracking_code);
@@ -1630,6 +1638,15 @@ async function processShippingLabelsWithBoxData(orderParcels) {
               for (const [key, value] of Object.entries(labelData)) {
                 if (typeof value === 'string' && value.length > 5 && /^[A-Z0-9]+$/.test(value)) {
                   console.log(`Potential tracking code found in labelData.${key}:`, value);
+                  if (!tracking_code) tracking_code = value; // Use the first one found
+                }
+              }
+            }
+            // Also check selectedRate properties
+            if (!tracking_code && selectedRate) {
+              for (const [key, value] of Object.entries(selectedRate)) {
+                if (typeof value === 'string' && value.length > 5 && /^[A-Z0-9]+$/.test(value) && key !== 'object_id') {
+                  console.log(`Potential tracking code found in selectedRate.${key}:`, value);
                   if (!tracking_code) tracking_code = value; // Use the first one found
                 }
               }
