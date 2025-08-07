@@ -1486,7 +1486,10 @@ async function processShippingLabelsWithBoxData(orderParcels) {
       let ratesResp, ratesData, selectedRate, labelResp, labelData;
       // Use Shippo for all platforms
       const payload = { order, parcel };
-      if (order.ShippoAddressID) payload.ShippoAddressID = order.ShippoAddressID;
+      // Only include ShippoAddressID for non-Faire orders
+      if (order.platform !== 'faire' && order.ShippoAddressID) {
+        payload.ShippoAddressID = order.ShippoAddressID;
+      }
       ratesResp = await fetch('/.netlify/functions/shippo-getlabel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1504,7 +1507,10 @@ async function processShippingLabelsWithBoxData(orderParcels) {
         continue;
       }
       const labelPayload = { order, parcel, rate_id: selectedRate.object_id };
-      if (order.ShippoAddressID) labelPayload.ShippoAddressID = order.ShippoAddressID;
+      // Only include ShippoAddressID for non-Faire orders
+      if (order.platform !== 'faire' && order.ShippoAddressID) {
+        labelPayload.ShippoAddressID = order.ShippoAddressID;
+      }
       labelResp = await fetch('/.netlify/functions/shippo-getlabel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
