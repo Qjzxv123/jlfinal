@@ -807,8 +807,7 @@ async function submitReceiveShipment(event) {
                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
               </th>
               <th>ID</th>
-              <th>SKUs</th>
-              <th>Quantities</th>
+              <th>Items</th>
               <th>User</th>
               <th>Tracking Link</th>
               <th>Status</th>
@@ -816,28 +815,38 @@ async function submitReceiveShipment(event) {
             </tr>
           </thead>
           <tbody>
-            ${filteredShipments.map(shipment => {
+            ${filteredShipments.map((shipment, idx) => {
               const isSelected = selectedShipments.has(shipment.id);
-              const skuList = shipment.items.map(i => i.sku).join(", ");
-              const qtyList = shipment.items.map(i => i.quantity).join(", ");
               const retailer = shipment.Retailer || 'Unknown User';
               const tracking = shipment.TrackingLink || '';
               const receivedAt = shipment.RecievedAt ? shipment.RecievedAt : 'Not yet received';
               const status = shipment.Status || '';
+              const collapseId = `collapse-items-${shipment.id}`;
               return `
-                <tr class="${isSelected ? 'selected-row' : ''}" id="shipment-${shipment.id}">
-                  <td class="checkbox-cell">
+                <tr class="${isSelected ? 'selected-row' : ''} collapsible-row" id="shipment-${shipment.id}" data-collapse="${collapseId}" style="cursor:pointer;">
+                  <td class="checkbox-cell" onclick="event.stopPropagation();">
                     <input type="checkbox" class="shipment-checkbox" 
                            ${isSelected ? 'checked' : ''} 
                            onchange="toggleShipmentSelection(${shipment.id})">
                   </td>
                   <td><strong>#${shipment.id}</strong></td>
-                  <td>${skuList}</td>
-                  <td>${qtyList}</td>
+                  <td><span style="font-weight:bold;">Show Items</span></td>
                   <td><span class="user-name">${retailer}</span></td>
                   <td>${tracking}</td>
                   <td>${status}</td>
                   <td>${receivedAt}</td>
+                </tr>
+                <tr id="${collapseId}" class="items-detail-row" style="display:none;background:#f9f9f9;">
+                  <td colspan="7">
+                    <table style="width:100%;border-collapse:collapse;">
+                      <thead>
+                        <tr><th>SKU</th><th>Quantity</th></tr>
+                      </thead>
+                      <tbody>
+                        ${shipment.items.map(item => `<tr><td>${item.sku}</td><td>${item.quantity}</td></tr>`).join('')}
+                      </tbody>
+                    </table>
+                  </td>
                 </tr>
               `;
             }).join('')}
@@ -873,6 +882,23 @@ async function submitReceiveShipment(event) {
       container.innerHTML = tableHTML;
       updateSelectedCount();
       updateSelectAllCheckbox();
+      // Add click listeners for collapsible rows
+      document.querySelectorAll('.collapsible-row').forEach(row => {
+        row.addEventListener('click', function(e) {
+          // Prevent toggling if clicking the checkbox cell
+          if (e.target.closest('.checkbox-cell')) return;
+          const collapseId = this.getAttribute('data-collapse');
+          const detailRow = document.getElementById(collapseId);
+          if (detailRow) {
+            detailRow.style.display = detailRow.style.display === 'none' ? '' : 'none';
+            // Optionally toggle label
+            const label = this.querySelector('span');
+            if (label) {
+              label.textContent = detailRow.style.display === '' ? 'Hide Items' : 'Show Items';
+            }
+          }
+        });
+      });
     }
 
     function updateSummary() {
