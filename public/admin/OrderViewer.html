@@ -1591,10 +1591,52 @@ async function processShippingLabelsWithBoxData(orderParcels) {
           // Pass retailer as user_key for Faire token lookup
           // Use tracking number from labelData (preferred), fallback to selectedRate
           let tracking_code = '';
-          if (labelData && labelData.tracking_number) tracking_code = labelData.tracking_number;
-          else if (labelData && labelData.tracking_code) tracking_code = labelData.tracking_code;
-          else if (selectedRate && selectedRate.tracking_number) tracking_code = selectedRate.tracking_number;
-          else if (parcel.tracking_number) tracking_code = parcel.tracking_number;
+          
+          // Debug: log the labelData and selectedRate to see what properties are available
+          console.log('Debugging tracking code extraction for Faire order:', order.orderNumber);
+          console.log('labelData:', labelData);
+          console.log('selectedRate:', selectedRate);
+          
+          if (labelData && labelData.tracking_number) {
+            tracking_code = labelData.tracking_number;
+            console.log('Found tracking_number in labelData:', tracking_code);
+          } else if (labelData && labelData.tracking_code) {
+            tracking_code = labelData.tracking_code;
+            console.log('Found tracking_code in labelData:', tracking_code);
+          } else if (labelData && labelData.tracking_url_provider) {
+            // Sometimes the tracking number is embedded in the tracking URL
+            const trackingMatch = labelData.tracking_url_provider.match(/\/([A-Z0-9]+)$/);
+            if (trackingMatch) {
+              tracking_code = trackingMatch[1];
+              console.log('Extracted tracking code from tracking_url_provider:', tracking_code);
+            }
+          } else if (selectedRate && selectedRate.tracking_number) {
+            tracking_code = selectedRate.tracking_number;
+            console.log('Found tracking_number in selectedRate:', tracking_code);
+          } else if (parcel.tracking_number) {
+            tracking_code = parcel.tracking_number;
+            console.log('Found tracking_number in parcel:', tracking_code);
+          } else {
+            // Last resort: check all properties for anything that looks like a tracking number
+            console.log('No tracking code found in expected places, checking all labelData properties...');
+            if (labelData) {
+              for (const [key, value] of Object.entries(labelData)) {
+                if (typeof value === 'string' && value.length > 5 && /^[A-Z0-9]+$/.test(value)) {
+                  console.log(`Potential tracking code found in labelData.${key}:`, value);
+                  if (!tracking_code) tracking_code = value; // Use the first one found
+                }
+              }
+            }
+          }
+          
+          if (!tracking_code) {
+            console.error('No tracking code found for Faire order:', order.orderNumber);
+            alert(`Warning: No tracking code found for Faire order ${order.orderNumber}. The order may not be marked as fulfilled properly.`);
+            tracking_code = 'UNKNOWN'; // Use a placeholder to avoid the API error
+          }
+          
+          console.log('Final tracking_code for Faire fulfillment:', tracking_code);
+          
           faireFulfillmentQueue.push({ order, parcel, labelData, selectedRate, user_key: order.shop, tracking_code });
         }
       } else {
@@ -1614,19 +1656,45 @@ async function processShippingLabelsWithBoxData(orderParcels) {
       // Attempt to extract carrier and cost from labelData if available
       let carrier = '';
       let maker_cost_cents = 0;
+      
+      // Debug: log the labelData and selectedRate to see what properties are available
+      console.log('Debugging carrier extraction for Faire order:', order.orderNumber);
+      console.log('labelData:', labelData);
+      console.log('selectedRate:', selectedRate);
+      
       if (labelData) {
-        carrier = labelData.carrier || labelData.provider || '';
+        carrier = labelData.carrier || labelData.provider || labelData.servicelevel || '';
         if (labelData.amount) {
           maker_cost_cents = Math.round(parseFloat(labelData.amount) * 100);
         }
+        console.log('Found carrier in labelData:', carrier);
       }
       // Fallback: try to get from selectedRate if available
       if (!carrier && selectedRate) {
-        carrier = selectedRate.provider || '';
+        carrier = selectedRate.provider || selectedRate.carrier || selectedRate.servicelevel || '';
         if (selectedRate.amount) {
           maker_cost_cents = Math.round(parseFloat(selectedRate.amount) * 100);
         }
+        console.log('Found carrier in selectedRate:', carrier);
       }
+      
+      // If still no carrier, try to extract from service or other fields
+      if (!carrier) {
+        if (labelData && labelData.servicelevel && labelData.servicelevel.name) {
+          carrier = labelData.servicelevel.name;
+          console.log('Found carrier in labelData.servicelevel.name:', carrier);
+        } else if (selectedRate && selectedRate.servicelevel && selectedRate.servicelevel.name) {
+          carrier = selectedRate.servicelevel.name;
+          console.log('Found carrier in selectedRate.servicelevel.name:', carrier);
+        }
+      }
+      
+      if (!carrier) {
+        console.error('No carrier found for Faire order:', order.orderNumber);
+        carrier = 'UNKNOWN'; // Use a placeholder to avoid the API error
+      }
+      
+      console.log('Final carrier for Faire fulfillment:', carrier);
       // Always send shipments array
       const shipments = [{
         order_id: order.orderNumber,
