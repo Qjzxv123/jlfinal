@@ -1465,8 +1465,9 @@ async function processShippingLabelsWithBoxData(orderParcels) {
   // Track label and rate data for each order for later Faire fulfillment
   const faireFulfillmentQueue = [];
   for (const {order, parcel} of orderParcels) {
-    // Ensure ShippoObjectID and ShippoAddressID are present in order for label creation
-    if ((!order.ShippoObjectID || !order.ShippoAddressID) && order.orderNumber) {
+    // For Faire orders, we don't use ShippoObjectID/ShippoAddressID - use Customer JSONB directly
+    // For other platforms, try to get ShippoObjectID and ShippoAddressID if not present
+    if (order.platform !== 'faire' && (!order.ShippoObjectID || !order.ShippoAddressID) && order.orderNumber) {
       try {
         const { data: supaOrder, error } = await supabase
           .from('Orders')
