@@ -480,23 +480,23 @@
 
   <!-- Receive Shipment Modal -->
   <div id="receiveModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Receive Shipment</h2>
-        <span class="close" onclick="closeReceiveModal()">&times;</span>
+    <div class="modal-content" style="max-width: 420px; padding: 32px 28px; border-radius: 18px; box-shadow: 0 6px 24px rgba(0,0,0,0.18);">
+      <div class="modal-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
+        <h2 style="font-size: 1.5rem; color: #2c3e50; margin: 0;">Process Shipment</h2>
+        <span class="close" onclick="closeReceiveModal()" style="top: 18px; right: 18px;">&times;</span>
       </div>
-      <form id="receiveForm" onsubmit="submitReceiveShipment(event)">
-        <div style="margin-bottom: 18px;">
-          <label style="font-weight:600;">Actual Contents</label><br>
+      <form id="receiveForm" onsubmit="submitReceiveShipment(event)" style="margin-top: 18px;">
+        <div style="margin-bottom: 22px;">
+          <label style="font-weight:600; margin-bottom: 6px; display: block; color: #34495e;">Actual Contents</label>
           <div id="actualContentsDropdowns"></div>
         </div>
-        <div style="margin-bottom: 18px;">
-          <label for="receivingHoursInput" style="font-weight:600;">Receiving Hours</label><br>
-          <input id="receivingHoursInput" type="text" style="width:100%;font-size:1rem;" placeholder="e.g. 2.5" required />
+        <div style="margin-bottom: 22px;">
+          <label for="receivingHoursInput" style="font-weight:600; margin-bottom: 6px; display: block; color: #34495e;">Receiving Hours</label>
+          <input id="receivingHoursInput" type="text" style="width:100%;font-size:1.08rem;padding:10px;border:1.5px solid #e1e5e9;border-radius:7px;box-sizing:border-box;transition:border-color 0.2s,box-shadow 0.2s;" placeholder="e.g. 2.5" required />
         </div>
-        <div style="text-align:center;">
-          <button class="btn" type="submit" id="submitReceiveBtn">✅ Mark as Processed</button>
-          <button class="btn" type="button" onclick="closeReceiveModal()" style="background:#666;margin-left:10px;">Cancel</button>
+        <div style="display: flex; gap: 12px; justify-content: center; margin-top: 18px;">
+          <button class="btn" type="submit" id="submitReceiveBtn" style="background: #4DBA93; min-width: 140px;">✅ Mark as Processed</button>
+          <button class="btn" type="button" onclick="closeReceiveModal()" style="background:#b0b0b0; min-width: 100px;">Cancel</button>
         </div>
       </form>
     </div>
@@ -540,30 +540,30 @@ function openReceiveModal() {
   if (shipment && shipment.items && shipment.items.length > 0) {
     shipment.items.forEach(item => {
       const div = document.createElement('div');
-      div.style.marginBottom = '14px';
+      div.style.marginBottom = '18px';
+      div.style.background = '#f8f9fa';
+      div.style.border = '1.5px solid #e1e5e9';
+      div.style.borderRadius = '10px';
+      div.style.padding = '14px 16px 10px 16px';
+      div.style.display = 'flex';
+      div.style.alignItems = 'center';
+      div.style.gap = '18px';
       div.innerHTML = `
-        <label style="font-weight:500;display:block;margin-bottom:4px;">SKU: <span style='font-family:monospace;'>${item.sku}</span> <span style='color:#888;font-size:0.95em;'>(Ordered: ${item.quantity})</span></label>
-        <input type="number" value="${item.quantity}" min="0" max="${item.quantity}" id="actual-qty-${item.sku}" class="styled-qty-input" required />
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:1.04rem;color:#34495e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            SKU: <span style='font-family:monospace;'>${item.sku}</span>
+            <span style='color:#888;font-size:0.97em;font-weight:400;margin-left:8px;'>(Ordered: ${item.quantity})</span>
+          </div>
+        </div>
+        <input type="number" value="${item.quantity}" min="0" max="${item.quantity}" id="actual-qty-${item.sku}" class="styled-qty-input" required style="width:90px;padding:8px 10px;border:1.5px solid #4DBA93;border-radius:7px;font-size:1.08rem;background:#fff;color:#2c3e50;transition:border-color 0.2s,box-shadow 0.2s;" />
       `;
       container.appendChild(div);
     });
-    // Add style for .styled-qty-input
+    // Add style for .styled-qty-input if not present
     if (!document.getElementById('styled-qty-input-css')) {
       const style = document.createElement('style');
       style.id = 'styled-qty-input-css';
       style.textContent = `
-        .styled-qty-input {
-          width: 120px;
-          padding: 8px 12px;
-          border: 2px solid #4DBA93;
-          border-radius: 8px;
-          font-size: 1.1rem;
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          background: #f8f9fa;
-          color: #2c3e50;
-          margin-bottom: 2px;
-          transition: border-color 0.2s, box-shadow 0.2s;
-        }
         .styled-qty-input:focus {
           outline: none;
           border-color: #2c3e50;
@@ -683,7 +683,7 @@ async function submitReceiveShipment(event) {
       try {
         const { data: logs, error } = await supabase
           .from('ReceivingLog')
-          .select('id, TrackingLink, UserID, Retailer, AllegedContents, ReceivingHours, ActualContents, RecievedAt')
+          .select('id, TrackingLink, UserID, Retailer, AllegedContents, ReceivingHours, ActualContents, RecievedAt, Status')
           .order('id', { ascending: false });
 
         if (error) {
@@ -700,6 +700,7 @@ async function submitReceiveShipment(event) {
             ReceivingHours: log.ReceivingHours,
             ActualContents: log.ActualContents,
             RecievedAt: log.RecievedAt,
+            Status: log.Status || '',
             items: items
           };
         });
@@ -830,7 +831,7 @@ async function submitReceiveShipment(event) {
                            onchange="toggleShipmentSelection(${shipment.id})">
                   </td>
                   <td><strong>#${shipment.id}</strong></td>
-                  <td><span style="font-weight:bold;">Show Items</span></td>
+                  <td><span class="collapse-arrow" style="font-weight:bold;font-size:1.2em;">&#9660;</span></td>
                   <td><span class="user-name">${retailer}</span></td>
                   <td>${tracking}</td>
                   <td>${status}</td>
@@ -889,12 +890,12 @@ async function submitReceiveShipment(event) {
           if (e.target.closest('.checkbox-cell')) return;
           const collapseId = this.getAttribute('data-collapse');
           const detailRow = document.getElementById(collapseId);
+          const arrow = this.querySelector('.collapse-arrow');
           if (detailRow) {
-            detailRow.style.display = detailRow.style.display === 'none' ? '' : 'none';
-            // Optionally toggle label
-            const label = this.querySelector('span');
-            if (label) {
-              label.textContent = detailRow.style.display === '' ? 'Hide Items' : 'Show Items';
+            const isOpen = detailRow.style.display === '';
+            detailRow.style.display = isOpen ? 'none' : '';
+            if (arrow) {
+              arrow.innerHTML = isOpen ? '&#9660;' : '&#9650;';
             }
           }
         });
