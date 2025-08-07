@@ -659,7 +659,9 @@
         document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
         document.getElementById('ProductType').value = product['Product Type'] || '';
         document.getElementById('MicrobialTesting').checked = product['Microbial Testing'] || false;
-        loadContainersFromString(product.ContainerSKUs);
+  loadContainersFromString(product.ContainerSKUs);
+  // Ensure the container dropdown is rebuilt after loading containers
+  await createContainerDropdown();
         document.getElementById('Archived').checked = product.Archived || false;
         document.getElementById('Customer').value = product.Retailer || '';
         document.getElementById('ShelfLife').value = product.ShelfLife || '';
@@ -1009,14 +1011,25 @@
       if (!containerData) {
         selectedContainerSKUs = [];
       } else if (Array.isArray(containerData)) {
-        selectedContainerSKUs = [...containerData];
+        selectedContainerSKUs = containerData.filter(Boolean);
       } else if (typeof containerData === 'string') {
-        selectedContainerSKUs = containerData.split(',').map(s => s.trim()).filter(s => s);
+        // Try to parse as JSON array, fallback to comma split
+        try {
+          const arr = JSON.parse(containerData);
+          if (Array.isArray(arr)) {
+            selectedContainerSKUs = arr.filter(Boolean);
+          } else {
+            selectedContainerSKUs = containerData.split(',').map(s => s.trim()).filter(s => s);
+          }
+        } catch {
+          selectedContainerSKUs = containerData.split(',').map(s => s.trim()).filter(s => s);
+        }
       } else {
         selectedContainerSKUs = [];
       }
       updateSelectedContainersDisplay();
-      document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
+      // Store as JSON array string for consistency
+      document.getElementById('ContainerSKUs').value = JSON.stringify(selectedContainerSKUs);
     }
 
     // Process editor functions
