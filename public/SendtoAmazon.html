@@ -159,6 +159,19 @@
       color: #34495e;
       margin-bottom: 10px;
     }
+    #shipmentsTable {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    #shipmentsTable th, #shipmentsTable td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    #shipmentsTable th {
+      background-color: #f2f2f2;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
@@ -195,6 +208,22 @@
       </form>
       <div class="status" id="statusMsg"></div>
     </div>
+
+    <div class="container" style="margin-top: 20px;">
+      <h2>Recent Shipments</h2>
+      <table id="shipmentsTable">
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>Quantity</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Rows will be inserted here by JavaScript -->
+        </tbody>
+      </table>
+    </div>
   </div>
   <script>
     // Access control and inactivity timeout
@@ -203,6 +232,7 @@
 
     const form = document.getElementById('orderForm');
     const statusMsg = document.getElementById('statusMsg');
+    const shipmentsTableBody = document.querySelector('#shipmentsTable tbody');
     let allProducts = [];
 
     // Fetch all products for dropdown
@@ -223,6 +253,44 @@
         populateProductDropdowns();
       } catch (error) {
         console.error('Error fetching products:', error);
+      }
+    }
+
+    // Fetch recent shipments
+    async function fetchRecentShipments() {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData || !userData.user) {
+          console.log('User not logged in');
+          return;
+        }
+        const userId = userData.user.id;
+
+        const { data: shipments, error } = await supabase
+          .from('AmazonShipments')
+          .select('SKU, Quantity, Notes')
+          .eq('UserID', userId)
+          .order('id', { ascending: false })
+          .limit(10);
+
+        if (error) {
+          console.error('Error fetching shipments:', error);
+          return;
+        }
+
+        shipmentsTableBody.innerHTML = '';
+        shipments.forEach(shipment => {
+          const row = `
+            <tr>
+              <td>${shipment.SKU}</td>
+              <td>${shipment.Quantity}</td>
+              <td>${shipment.Notes || ''}</td>
+            </tr>
+          `;
+          shipmentsTableBody.innerHTML += row;
+        });
+      } catch (error) {
+        console.error('Error fetching recent shipments:', error);
       }
     }
 
@@ -299,6 +367,7 @@
     // Initialize the page
     window.addEventListener('DOMContentLoaded', async () => {
       await fetchAllProducts();
+      await fetchRecentShipments();
     });
 
     form.onsubmit = async function(e) {
@@ -308,11 +377,11 @@
       
       try {
         // Get user data for retailer name
-        let displayName = '';
+        let userId = null;
         try {
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData && userData.user && userData.user.user_metadata && userData.user.user_metadata.display_name) {
-            displayName = userData.user.user_metadata.display_name;
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            userId = user.id;
           }
         } catch (e) {
           console.error('Error getting user data:', e);
@@ -345,14 +414,15 @@
 
         // Insert each item as a separate row in AmazonShipments table
         const insertPromises = items.map(item => {
-          return supabase
-            .from('AmazonShipments')
-            .insert({
-              SKU: item.sku,
-              Quantity: item.quantity,
-              Notes: notes,
-              display_name: displayName
-            });
+          const record = {
+            SKU: item.sku,
+            Quantity: item.quantity,
+            Notes: notes
+          };
+          if (userId) {
+            record.UserID = userId;
+          }
+          return supabase.from('AmazonShipments').insert(record);
         });
 
         // Wait for all inserts to complete
@@ -380,6 +450,7 @@
             </div>
           `;
           populateProductDropdowns();
+          fetchRecentShipments(); // Refresh the shipments table
         }
       } catch (error) {
         statusMsg.textContent = 'Error: ' + error.message;
