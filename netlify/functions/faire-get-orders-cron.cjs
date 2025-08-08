@@ -8,7 +8,8 @@ if (typeof fetch !== 'undefined') {
   fetchFn = require('node-fetch');
 }
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-
+  // Clear Orders table before inserting new ones
+    await supabase.from('Orders').delete().neq('OrderID', '');
 async function fetchOrdersForUser(userKey) {
   // Fetch the token row to get UserID
   let apiToken, tokenRow;

@@ -31,8 +31,6 @@ console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
   try {
     const { createClient } = require('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-    // Clear Orders table before inserting new ones
-    await supabase.from('Orders').delete().neq('OrderID', '');
     for (const order of orders) {
       // Get first SKU from line_items
       let retailerValue = "JNL";
