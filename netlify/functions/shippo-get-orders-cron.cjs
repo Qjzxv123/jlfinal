@@ -15,11 +15,11 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: 'Missing Shippo API token.' };
   }
 
-  // Fetch Shippo orders (transactions) after 7/25/2025
+  // Fetch Shippo orders (transactions) after 8/08/2025
   let orders = [];
   try {
     // Shippo expects ISO 8601 format for date filtering
-    const createdAfter = '2025-08-08T00:00:00Z';
+    const createdAfter = '2025-08-8T00:00:00Z';
     const url = `https://api.goshippo.com/orders?order_status[]=PAID&created__gt=${encodeURIComponent(createdAfter)}`;
     const resp = await fetch(url, {
       headers: { Authorization: `ShippoToken ${SHIPPO_API_KEY}` }
