@@ -117,16 +117,13 @@
         <label>Date
           <input type="date" id="Date" required>
         </label>
-        <label>SKU
-          <input type="text" id="SKU" list="sku-list" autocomplete="off" placeholder="Search SKU or Name...">
-          <datalist id="sku-list"></datalist>
-        </label>
-        <label>Quantity
-          <input type="text" id="Quantity">
-        </label>
         <label>Retailer
           <select id="Retailer"></select>
         </label>
+        <div id="sku-rows">
+          <!-- SKU/Quantity rows will be inserted here -->
+        </div>
+        <button type="button" id="add-sku-btn" class="btn" style="background:#eee;color:#333;margin-top:8px;margin-bottom:8px;">Add another SKU</button>
         <button type="submit" class="btn">Add Log Entry</button>
       </form>
       <div class="status" id="statusMsg"></div>
@@ -160,8 +157,9 @@
     }
 
 
-    async function populateSkuDatalist() {
-      const skuDatalist = document.getElementById('sku-list');
+    async function populateSkuDatalist(datalistId) {
+      const skuDatalist = document.getElementById(datalistId);
+      if (!skuDatalist) return;
       skuDatalist.innerHTML = '';
       try {
         const { data: products, error } = await supabase
@@ -182,7 +180,30 @@
       }
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
+    // Add SKU/Quantity row logic (define only once in global scope)
+    function addSkuRow() {
+      const skuRows = document.getElementById('sku-rows');
+      const rowIdx = skuRows.children.length;
+      const row = document.createElement('div');
+      row.className = 'sku-row';
+      row.style.display = 'flex';
+      row.style.gap = '8px';
+      row.style.marginBottom = '6px';
+      row.innerHTML = `
+        <input type="text" class="sku-input" list="sku-list-${rowIdx}" placeholder="SKU..." style="flex:2;" autocomplete="off">
+        <datalist id="sku-list-${rowIdx}"></datalist>
+        <input type="number" class="qty-input" min="1" placeholder="Qty" style="flex:1;">
+        <button type="button" class="remove-sku-btn" style="background:#eee;color:#b00;border:none;border-radius:4px;padding:0 8px;cursor:pointer;">&times;</button>
+      `;
+      skuRows.appendChild(row);
+      populateSkuDatalist(`sku-list-${rowIdx}`);
+      // Remove row handler
+      row.querySelector('.remove-sku-btn').onclick = function() {
+        row.remove();
+      };
+    }
+
+    window.addEventListener('DOMContentLoaded', function() {
       // Set date input to today
       const dateInput = document.getElementById('Date');
       if (dateInput) {
@@ -193,7 +214,14 @@
         dateInput.value = `${yyyy}-${mm}-${dd}`;
       }
       populateRetailerDropdown();
-      populateSkuDatalist();
+      addSkuRow();
+      const addSkuBtn = document.getElementById('add-sku-btn');
+      if (addSkuBtn) {
+        addSkuBtn.onclick = function(e) {
+          e.preventDefault();
+          addSkuRow();
+        };
+      }
     });
 
     form.onsubmit = async function(e) {
@@ -202,19 +230,29 @@
       statusMsg.className = 'status';
       try {
         const date = document.getElementById('Date').value;
-        const skuInput = document.getElementById('SKU');
-        const sku = skuInput.value.trim() || null;
-        const quantity = document.getElementById('Quantity').value.trim() || null;
         const retailerSelect = document.getElementById('Retailer');
         const userId = retailerSelect.value || null;
         const retailer = retailerSelect.options[retailerSelect.selectedIndex]?.getAttribute('data-retailer') || null;
-        // Always include both UserID and Retailer in the insert
+        // Gather all SKU/Qty rows
+        const skuRows = document.querySelectorAll('.sku-row');
+        const skus = [];
+        for (const row of skuRows) {
+          const sku = row.querySelector('.sku-input').value.trim();
+          const qty = row.querySelector('.qty-input').value.trim();
+          if (sku && qty) {
+            skus.push({ sku, qty: Number(qty) });
+          }
+        }
+        if (skus.length === 0) {
+          statusMsg.textContent = 'Please enter at least one SKU and quantity.';
+          statusMsg.className = 'status error';
+          return;
+        }
         const record = {
           Date: date,
-          SKU: sku,
-          Quantity: quantity,
           UserID: userId ? [userId] : null,
-          Retailer: retailer ? retailer : null
+          Retailer: retailer ? retailer : null,
+          SKUS: skus
         };
         const { error } = await supabase.from('FulfillmentLog').insert(record);
         if (error) {
@@ -224,8 +262,9 @@
           statusMsg.textContent = 'Successfully created fulfillment log!';
           statusMsg.className = 'status success';
           form.reset();
+          document.getElementById('sku-rows').innerHTML = '';
+          addSkuRow();
           await populateRetailerDropdown();
-          await populateSkuDatalist();
         }
       } catch (error) {
         statusMsg.textContent = 'Error: ' + error.message;

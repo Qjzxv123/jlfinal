@@ -114,10 +114,10 @@
         async function fetchAndDisplayData() {
             dataViewer.style.display = 'block';
             dataViewer.innerHTML = '<b>Loading your fulfillment log...</b>';
-            // Fetch Date, SKU, Quantity columns
+            // Fetch Date, SKUS columns
             const { data, error } = await supabase
                 .from('FulfillmentLog')
-                .select('Date,SKU,Quantity')
+                .select('Date,SKUS')
                 .order('Date', { ascending: false })
                 .throwOnError();
             if (error) {
@@ -128,18 +128,28 @@
                 dataViewer.innerHTML = '<div>No fulfillment log entries found for your account.</div>';
                 return;
             }
-            // Render as table (no Retailer column)
-            let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-            html += '<tr>' + ['Date', 'SKU', 'Quantity'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
-            for (const row of data) {
-                html += `<tr>`;
-                html += `<td style='padding:4px;'>${row.Date ?? ''}</td>`;
-                html += `<td style='padding:4px;'>${row.SKU ?? ''}</td>`;
-                html += `<td style='padding:4px;'>${row.Quantity ?? ''}</td>`;
-                html += `</tr>`;
-            }
-            html += '</table>';
-            dataViewer.innerHTML = html;
+                        // Render as table (SKUS as sub-table)
+                        let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+                        html += '<tr>' + ['Date', 'Items'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
+                        for (const row of data) {
+                                html += `<tr>`;
+                                html += `<td style='padding:4px;vertical-align:top;'>${row.Date ?? ''}</td>`;
+                                html += `<td style='padding:4px;'>`;
+                                if (Array.isArray(row.SKUS) && row.SKUS.length > 0) {
+                                    html += '<table style="width:auto;border-collapse:collapse;">';
+                                    html += '<tr><th>SKU</th><th>Qty</th></tr>';
+                                    for (const skuObj of row.SKUS) {
+                                        html += `<tr><td>${skuObj.sku ?? ''}</td><td>${skuObj.qty ?? ''}</td></tr>`;
+                                    }
+                                    html += '</table>';
+                                } else {
+                                    html += '<span style="color:#888;">No SKUs</span>';
+                                }
+                                html += `</td>`;
+                                html += `</tr>`;
+                        }
+                        html += '</table>';
+                        dataViewer.innerHTML = html;
         }
 
         // On load, fetch and display data after access check
