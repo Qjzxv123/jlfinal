@@ -502,6 +502,12 @@
           <label>Quantity<input type="number" id="BoxQuantity" min="0" step="1" placeholder="Number of boxes in stock"></label>
           <label>Cost ($/unit)<input type="number" id="BoxCost" min="0" step="any" placeholder="Cost per box"></label>
           <label>Price ($/unit)<input type="number" id="BoxPrice" min="0" step="any" placeholder="Selling price per box"></label>
+          <label>Retailer(s)
+            <select id="BoxUserIDs" multiple style="width:100%;padding:8px;margin-top:4px;border-radius:6px;border:1.5px solid #cbd5e1;">
+              <option value="">Loading...</option>
+            </select>
+            <div style="font-size:0.9rem;color:#6b7280;margin-top:0.25rem;">Hold Ctrl (Windows) or Cmd (Mac) to select multiple retailers.</div>
+          </label>
           <label>Link<input type="url" id="BoxLink" placeholder="https://supplier-website.com/product-page"></label>
           <button type="submit" class="btn">Add/Update Box</button>
         </form>
@@ -1493,6 +1499,11 @@
     document.getElementById('boxForm').onsubmit = async function(e) {
       e.preventDefault();
       
+      // Get selected UserIDs (uuid[])
+      const userSelect = document.getElementById('BoxUserIDs');
+      let userIDs = Array.from(userSelect.selectedOptions).map(opt => opt.value).filter(Boolean);
+      if (userIDs.length === 0) userIDs = null;
+
       const data = {
         SKU: document.getElementById('BoxSKU').value.trim(),
         'Weight(Lbs)': document.getElementById('BoxWeight').value ? parseFloat(document.getElementById('BoxWeight').value) : null,
@@ -1500,6 +1511,7 @@
         Quantity: document.getElementById('BoxQuantity').value ? parseInt(document.getElementById('BoxQuantity').value) : null,
         Cost: document.getElementById('BoxCost').value ? parseFloat(document.getElementById('BoxCost').value) : null,
         Price: document.getElementById('BoxPrice').value ? parseFloat(document.getElementById('BoxPrice').value) : null,
+        UserID: userIDs,
         Link: document.getElementById('BoxLink').value.trim()
       };
 
@@ -1529,6 +1541,30 @@
         showStatus('boxStatusMsg', 'Error saving box: ' + error.message, 'error');
       }
     };
+    // Populate retailer dropdown for boxes
+    async function populateBoxUserDropdown() {
+      const select = document.getElementById('BoxUserIDs');
+      if (!select) return;
+      select.innerHTML = '<option value="">Loading...</option>';
+      try {
+        const { data: users, error } = await supabase
+          .from('Users')
+          .select('id, display_name, email')
+          .order('display_name', { ascending: true });
+        if (error) throw error;
+        select.innerHTML = '';
+        (users || []).forEach(user => {
+          const label = user.display_name ? `${user.display_name} (${user.email})` : user.email;
+          const opt = document.createElement('option');
+          opt.value = user.id;
+          opt.textContent = label;
+          select.appendChild(opt);
+        });
+      } catch (e) {
+        select.innerHTML = '<option value="">Error loading users</option>';
+      }
+    }
+
 
     // Manufacturing instructions toggle
     document.getElementById('useCustomInstructions').addEventListener('change', function() {
@@ -1555,7 +1591,7 @@
       // Start by loading products and ingredients
       await fetchAllProducts();
       await fetchAllIngredients();
-      
+      await populateBoxUserDropdown();
       // Initialize product tab components
       renderProcessTableEditor();
       updateSelectedContainersDisplay();
