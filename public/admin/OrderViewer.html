@@ -447,9 +447,7 @@
         </div>
 
         <div class="controls">
-            <button class="btn" onclick="loadAllOrders()" id="refreshBtn">
-                🔄 Refresh Orders
-            </button>
+            <!-- Refresh Orders button removed -->
             
             <button class="btn" onclick="window.open('https://apps.goshippo.com/shipments/manifests', '_blank')" id="manifestBtn" style="background: #9b59b6; border-color: #8e44ad;">
                 📋 Print Daily Manifest
@@ -574,16 +572,7 @@
         // Box management variables
         let availableBoxes = [];
         let boxCounter = 0;
-        let currentOrderProductWeight = 0;
-        let selectedBoxes = []; // Array to store selected box details
 
-        // Helper: get unique order ID (Shopify uses shopifyId, others use orderNumber)
-        function getOrderUniqueId(order) {
-            if (order.platform === 'shopify' && order.shopifyId) {
-                return order.shopifyId;
-            }
-            return order.orderNumber;
-        }
 
         let allOrders = [];
         let filteredOrders = [];
@@ -593,26 +582,7 @@
         function transformSupabaseOrder(supabaseOrder) {
             let items = [];
             try {
-                // Handle different formats of Items data
-                if (Array.isArray(supabaseOrder.Items)) {
-                    // Items is already an array
-                    items = supabaseOrder.Items;
-                } else if (typeof supabaseOrder.Items === 'string') {
-                    // Check if it's the problematic "[object Object]" string
-                    if (supabaseOrder.Items === '[object Object]' || supabaseOrder.Items.includes('[object Object]')) {
-                        console.warn('Items field contains "[object Object]" for order', supabaseOrder.OrderID, '- using empty items array');
-                        items = [];
-                    } else {
-                        // Try to parse as JSON
-                        items = JSON.parse(supabaseOrder.Items);
-                    }
-                } else if (supabaseOrder.Items && typeof supabaseOrder.Items === 'object') {
-                    // Items is an object, wrap it in an array
-                    items = [supabaseOrder.Items];
-                } else {
-                    // No items or null
-                    items = [];
-                }
+                items = JSON.parse(supabaseOrder.Items);
             } catch (e) {
                 console.warn('Failed to parse Items for order', supabaseOrder.OrderID, '- Error:', e.message, '- Raw value:', supabaseOrder.Items);
                 items = [];
@@ -620,49 +590,31 @@
 
             let customer = {};
             try {
-                if (typeof supabaseOrder.Customer === 'string') {
-                    // Check if it's the problematic "[object Object]" string
-                    if (supabaseOrder.Customer === '[object Object]' || supabaseOrder.Customer.includes('[object Object]')) {
-                        console.warn('Customer field contains "[object Object]" for order', supabaseOrder.OrderID, '- using empty customer object');
-                        customer = {};
-                    } else {
-                        customer = JSON.parse(supabaseOrder.Customer);
-                    }
-                } else if (supabaseOrder.Customer && typeof supabaseOrder.Customer === 'object') {
-                    customer = supabaseOrder.Customer;
-                } else {
-                    customer = {};
-                }
+                customer = JSON.parse(supabaseOrder.Customer);
             } catch (e) {
                 console.warn('Failed to parse Customer for order', supabaseOrder.OrderID, '- Error:', e.message, '- Raw value:', supabaseOrder.Customer);
-                // Try to handle if Customer is a plain string (name only)
-                if (typeof supabaseOrder.Customer === 'string' && !supabaseOrder.Customer.includes('[object Object]')) {
-                    customer = { name: supabaseOrder.Customer };
-                } else {
-                    customer = {};
-                }
+                customer = {};
             }
 
             return {
                 orderNumber: supabaseOrder.OrderID,
                 platform: (supabaseOrder.Platform || 'unknown').toLowerCase(),
                 shop: supabaseOrder.Retailer || 'Unknown',
-                shopifyId: supabaseOrder.OrderID, // Use OrderID as shopifyId for now
                 customer: {
-                    name: customer.name || customer.Name || 'Unknown Customer',
-                    address1: customer.address1 || customer.Address1 || '',
-                    address2: customer.address2 || customer.Address2 || '',
-                    city: customer.city || customer.City || '',
-                    state: customer.state || customer.State || '',
-                    zipCode: customer.zipCode || customer.ZipCode || customer.zip || '',
-                    country: customer.country || customer.Country || ''
+                    name: customer.name || 'Unknown Customer',
+                    address1: customer.address1 || '',
+                    address2: customer.address2 || '',
+                    city: customer.city || '',
+                    state: customer.state || '',
+                    zipCode: customer.zipCode || '',
+                    country: customer.country || ''
                 },
                 notes: supabaseOrder.Notes || '',
                 customerMessages: supabaseOrder.CustomerMessages || '',
                 products: items.map(item => ({
-                    sku: item.SKU || item.sku || '',
-                    name: item.Name || item.name || item.title || 'Unknown Product',
-                    quantity: parseInt(item.Quantity || item.quantity || 0)
+                    sku: item.SKU || '',
+                    name: item.Name || 'Unknown Product',
+                    quantity: parseInt(item.Quantity || 0)
                 })),
                 UserID: supabaseOrder.UserID || null,
                 Link: supabaseOrder.Link || null
@@ -681,14 +633,8 @@
         }
 
         async function loadAllOrders() {
-    const refreshBtn = document.getElementById('refreshBtn');
-    refreshBtn.disabled = true;
-    refreshBtn.textContent = '⏳ Loading...';
-
-    showStatus('Refreshing orders from Faire and Shippo...', 'loading');
-    allOrders = [];
-
     showStatus('Loading orders from Supabase...', 'loading');
+    allOrders = [];
     try {
         // Get all orders from Supabase Orders table
         const { data: supabaseOrders, error } = await supabase
@@ -714,9 +660,6 @@
         console.error('Error loading orders from Supabase:', error);
         showStatus(`Error loading orders: ${error.message}`, 'error');
     }
-
-    refreshBtn.disabled = false;
-    refreshBtn.textContent = '🔄 Refresh Orders';
 
     filteredOrders = [...allOrders];
     displayOrders();
@@ -1000,8 +943,9 @@ async function removeSelectedOrders() {
 
             // --- Master Picklist ---
             const selectedOrdersData = getSelectedOrdersData();
-            // Aggregate SKUs split by plus sign
+            // Aggregate SKUs split by plus sign and map to product names
             const skuMap = new Map();
+            const nameMap = new Map();
             selectedOrdersData.forEach(order => {
                 order.products.forEach(product => {
                     if (product.sku) {
@@ -1010,20 +954,18 @@ async function removeSelectedOrders() {
                         skuParts.forEach(sku => {
                             const currentQty = skuMap.get(sku) || 0;
                             skuMap.set(sku, currentQty + product.quantity);
+                            if (!nameMap.has(sku)) {
+                                nameMap.set(sku, product.name);
+                            }
                         });
                     }
                 });
             });
-            const picklistItems = Array.from(skuMap.entries()).map(([sku, quantity]) => {
-                const product = selectedOrdersData
-                    .flatMap(order => order.products)
-                    .find(p => p.sku && p.sku.split('+').map(s => s.trim()).includes(sku));
-                return {
-                    sku: sku,
-                    name: product ? product.name : 'Unknown Product',
-                    quantity: quantity
-                };
-            });
+            const picklistItems = Array.from(skuMap.entries()).map(([sku, quantity]) => ({
+                sku: sku,
+                name: nameMap.get(sku) || 'Unknown Product',
+                quantity: quantity
+            }));
             let picklistHtml = `
                 <div style="font-family: Arial, sans-serif; padding: 20px; background: white;">
                     <div style="text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 25px;">
@@ -1144,39 +1086,27 @@ async function removeSelectedOrders() {
             // Generate CSV content as before
             const selectedOrdersData = getSelectedOrdersData();
             const skuMap = new Map();
+            const nameMap = new Map();
             selectedOrdersData.forEach(order => {
                 order.products.forEach(product => {
                     if (product.sku) {
                         const currentQty = skuMap.get(product.sku) || 0;
                         skuMap.set(product.sku, currentQty + product.quantity);
+                        if (!nameMap.has(product.sku)) {
+                            nameMap.set(product.sku, product.name);
+                        }
                     }
                 });
             });
-            const csvLines = ['SKU,Product Name,Quantity'];
+            const csvLines = ['SKU,Quantity'];
             skuMap.forEach((quantity, sku) => {
-                const product = selectedOrdersData
-                    .flatMap(order => order.products)
-                    .find(p => p.sku === sku);
-                const productName = product ? product.name : 'Unknown Product';
-                const escapedName = productName.includes(',') || productName.includes('"') 
-                    ? `"${productName.replace(/"/g, '""')}"` 
-                    : productName;
-                csvLines.push(`${sku},${escapedName},${quantity}`);
+                csvLines.push(`${sku},${quantity}`);
             });
             const csvContent = csvLines.join('\n');
 
             // Store CSV in sessionStorage and navigate to InventoryUpdater.html
             sessionStorage.setItem('inventoryCSV', csvContent);
             window.location.href = 'InventoryUpdater.html';
-
-            // Remove processed orders from view
-            const selectedUniqueIds = new Set(selectedOrdersData.map(getOrderUniqueId));
-            allOrders = allOrders.filter(order => !selectedUniqueIds.has(getOrderUniqueId(order)));
-            filteredOrders = filteredOrders.filter(order => !selectedUniqueIds.has(getOrderUniqueId(order)));
-            selectedOrders.clear();
-            displayOrders();
-            updateSummary();
-
             showStatus(`CSV processed and sent to Inventory Updater!`, 'success');
             setTimeout(hideStatus, 3000);
         }
@@ -1604,64 +1534,18 @@ async function processShippingLabelsWithBoxData(orderParcels) {
           console.log('labelData:', labelData);
           console.log('selectedRate:', selectedRate);
           
-          // Try to extract tracking number from various sources
-          if (labelData && labelData.tracking_number) {
-            tracking_code = labelData.tracking_number;
-            console.log('Found tracking_number in labelData:', tracking_code);
-          } else if (labelData && labelData.tracking_code) {
-            tracking_code = labelData.tracking_code;
-            console.log('Found tracking_code in labelData:', tracking_code);
-          } else if (selectedRate && selectedRate.tracking_number) {
-            tracking_code = selectedRate.tracking_number;
-            console.log('Found tracking_number in selectedRate:', tracking_code);
-          } else if (selectedRate && selectedRate.tracking_code) {
-            tracking_code = selectedRate.tracking_code;
-            console.log('Found tracking_code in selectedRate:', tracking_code);
-          } else if (selectedRate && selectedRate.object_id) {
-            // For Shippo, the rate object_id sometimes can be used as a reference
-            tracking_code = selectedRate.object_id;
-            console.log('Using selectedRate.object_id as tracking_code:', tracking_code);
-          } else if (labelData && labelData.tracking_url_provider) {
-            // Sometimes the tracking number is embedded in the tracking URL
-            const trackingMatch = labelData.tracking_url_provider.match(/\/([A-Z0-9]+)$/);
-            if (trackingMatch) {
-              tracking_code = trackingMatch[1];
-              console.log('Extracted tracking code from tracking_url_provider:', tracking_code);
-            }
-          } else if (parcel.tracking_number) {
-            tracking_code = parcel.tracking_number;
-            console.log('Found tracking_number in parcel:', tracking_code);
-          } else {
-            // Last resort: check all properties for anything that looks like a tracking number
-            console.log('No tracking code found in expected places, checking all labelData properties...');
-            if (labelData) {
-              for (const [key, value] of Object.entries(labelData)) {
-                if (typeof value === 'string' && value.length > 5 && /^[A-Z0-9]+$/.test(value)) {
-                  console.log(`Potential tracking code found in labelData.${key}:`, value);
-                  if (!tracking_code) tracking_code = value; // Use the first one found
-                }
-              }
-            }
-            // Also check selectedRate properties
-            if (!tracking_code && selectedRate) {
-              for (const [key, value] of Object.entries(selectedRate)) {
-                if (typeof value === 'string' && value.length > 5 && /^[A-Z0-9]+$/.test(value) && key !== 'object_id') {
-                  console.log(`Potential tracking code found in selectedRate.${key}:`, value);
-                  if (!tracking_code) tracking_code = value; // Use the first one found
-                }
-              }
-            }
-          }
-          
-          if (!tracking_code) {
-            console.error('No tracking code found for Faire order:', order.orderNumber);
-            alert(`Warning: No tracking code found for Faire order ${order.orderNumber}. The order may not be marked as fulfilled properly.`);
-            tracking_code = 'UNKNOWN'; // Use a placeholder to avoid the API error
-          }
-          
-          console.log('Final tracking_code for Faire fulfillment:', tracking_code);
-          
-          faireFulfillmentQueue.push({ order, parcel, labelData, selectedRate, user_key: order.shop, tracking_code });
+                    // Extract tracking number only from labelData.tracking_number as returned by shippo-getlabel.cjs
+                                var tracking_code = '';
+                                if (labelData && labelData.tracking_number) {
+                                    tracking_code = labelData.tracking_number;
+                                    console.log('Found tracking_number in labelData:', tracking_code);
+                                } else {
+                                    console.error('No tracking_number found in labelData for Faire order:', order.orderNumber);
+                                    alert(`Warning: No tracking number found for Faire order ${order.orderNumber}. The order may not be marked as fulfilled properly.`);
+                                    tracking_code = 'UNKNOWN';
+                                }
+                                console.log('Final tracking_code for Faire fulfillment:', tracking_code);
+                                faireFulfillmentQueue.push({ order, parcel, labelData, selectedRate, user_key: order.shop, tracking_code });
         }
       } else {
         alert('No label URL returned for order ' + order.orderNumber);
@@ -1747,49 +1631,21 @@ async function showShippoRateSelectionModal(rates) {
     // Sort rates by amount ascending
     rates = rates.slice().sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount));
 
-    // Carrier logos removed for cleaner modal
-
     // Create modal
     const modal = document.createElement('div');
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.width = '100vw';
-    modal.style.height = '100vh';
-    modal.style.background = 'rgba(0,0,0,0.4)';
-    modal.style.zIndex = '3000';
-    modal.style.display = 'flex';
-    modal.style.alignItems = 'center';
-    modal.style.justifyContent = 'center';
+    modal.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4); z-index:3000; display:flex; align-items:center; justify-content:center;";
 
     const inner = document.createElement('div');
-    inner.style.background = 'white';
-    inner.style.borderRadius = '12px';
-    inner.style.maxWidth = '540px';
-    inner.style.width = '95%';
-    inner.style.padding = '30px 20px';
-    inner.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)';
-    inner.style.maxHeight = '80vh';
-    inner.style.overflowY = 'auto';
+    inner.style.cssText = "background:white; border-radius:12px; max-width:540px; width:95%; padding:30px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.25); max-height:80vh; overflow-y:auto;";
     inner.innerHTML = `<h2 style="margin-bottom:18px; font-size:1.2rem; color:#2c3e50; text-align:center;">Select Shipping Rate</h2>`;
 
     const rateList = document.createElement('div');
-    rateList.style.marginBottom = '20px';
-    rateList.style.maxHeight = '55vh';
-    rateList.style.overflowY = 'auto';
-    rates.forEach(rate => {
-      const rateDiv = document.createElement('div');
-      rateDiv.style.display = 'flex';
-      rateDiv.style.alignItems = 'center';
-      rateDiv.style.justifyContent = 'space-between';
-      rateDiv.style.padding = '12px 10px';
-      rateDiv.style.border = '1px solid #eee';
-      rateDiv.style.borderRadius = '8px';
-      rateDiv.style.marginBottom = '12px';
-      rateDiv.style.cursor = 'pointer';
-      rateDiv.style.transition = 'background 0.2s';
-      rateDiv.onmouseover = () => { rateDiv.style.background = '#f8fcfa'; };
-      rateDiv.onmouseout = () => { rateDiv.style.background = 'white'; };
+    rateList.style.cssText = "margin-bottom:20px; max-height:55vh; overflow-y:auto;";
+        rates.forEach(rate => {
+            const rateDiv = document.createElement('div');
+            rateDiv.style.cssText = "display:flex; align-items:center; justify-content:space-between; padding:12px 10px; border:1px solid #eee; border-radius:8px; margin-bottom:12px; cursor:pointer; transition:background 0.2s;";
+            rateDiv.onmouseover = () => { rateDiv.style.background = '#f8fcfa'; };
+            rateDiv.onmouseout = () => { rateDiv.style.background = 'white'; };
 
       // Details (no logo)
       rateDiv.innerHTML = `
@@ -1812,20 +1668,13 @@ async function showShippoRateSelectionModal(rates) {
     });
 
     inner.appendChild(rateList);
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.style.background = '#ccc';
-    cancelBtn.style.color = '#333';
-    cancelBtn.style.border = 'none';
-    cancelBtn.style.padding = '10px 15px';
-    cancelBtn.style.borderRadius = '6px';
-    cancelBtn.style.width = '100%';
-    cancelBtn.style.fontSize = '1rem';
-    cancelBtn.style.marginTop = '8px';
-    cancelBtn.onclick = () => {
-      document.body.removeChild(modal);
-      resolve(null);
-    };
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = "background:#ccc; color:#333; border:none; padding:10px 15px; border-radius:6px; width:100%; font-size:1rem; margin-top:8px;";
+        cancelBtn.onclick = () => {
+            document.body.removeChild(modal);
+            resolve(null);
+        };
     inner.appendChild(cancelBtn);
     modal.appendChild(inner);
     document.body.appendChild(modal);
