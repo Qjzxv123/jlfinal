@@ -184,7 +184,6 @@
       padding: 25px;
       max-height: 800px;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      overflow-y: scroll;
     }
 
     .section-header {
@@ -594,7 +593,7 @@
                 <span class="detail-value" id="memberSince">Loading...</span>
               </div>
               <div class="detail-item">
-                <span class="detail-label">Total Orders:</span>
+                <span class="detail-label">Active Orders:</span>
                 <span class="detail-value" id="totalOrders">Loading...</span>
               </div>
               <div class="detail-item">
@@ -606,52 +605,12 @@
         </div>
       </div>
 
-      <!-- Dashboard Stats -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-header">
-            <div class="stat-icon orders">
-              <i class="cil-list"></i>
-            </div>
-            <div class="stat-info">
-              <h3>Total Orders</h3>
-              <div class="stat-value" id="statTotalOrders">0</div>
-              <div class="stat-change neutral" id="statTotalChange">All time</div>
-            </div>
-          </div>
-        </div>
 
-        <div class="stat-card">
-          <div class="stat-header">
-            <div class="stat-icon pending">
-              <i class="cil-clock"></i>
-            </div>
-            <div class="stat-info">
-              <h3>Pending Orders</h3>
-              <div class="stat-value" id="statPendingOrders">0</div>
-              <div class="stat-change neutral" id="statPendingChange">In progress</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-header">
-            <div class="stat-icon completed">
-              <i class="cil-check-circle"></i>
-            </div>
-            <div class="stat-info">
-              <h3>Completed</h3>
-              <div class="stat-value" id="statCompletedOrders">0</div>
-              <div class="stat-change positive" id="statCompletedChange">This month</div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- Content Grid -->
       <div class="content-grid">
         <!-- Inventory Alerts -->
-        <div class="section-card">
+        <div class="section-card" style="overflow-y: scroll;">
           <div class="section-header">
             <h2 class="section-title">
               <i class="cil-warning" style="margin-right: 8px; color: #f57c00;"></i>
@@ -679,19 +638,10 @@
                 <div class="action-icon new-order">
                   <i class="cil-plus"></i>
                 </div>
-                <div class="action-title">New Order</div>
-                <div class="action-description">Request a new custom order with detailed specifications</div>
+                <div class="action-title">Request Manufacturing</div>
+                <div class="action-description">Request manufacturing for one or more of your products</div>
               </a>
-              
-              <a href="CustomerOrderView.html" class="action-card">
-                <div class="action-icon track">
-                  <i class="cil-magnifying-glass"></i>
-                </div>
-                <div class="action-title">Track Orders</div>
-                <div class="action-description">Monitor the progress of your current orders</div>
-              </a>
-              
-              <a href="#" onclick="showAccountSettings()" class="action-card">
+              <a href="#" onclick="showNotificationSettings()" class="action-card">
                 <div class="action-icon account">
                   <i class="cil-settings"></i>
                 </div>
@@ -745,14 +695,9 @@
         await Promise.all([
           loadUserInfo(),
           loadProducts(),
-          loadOrders(),
           loadChecklist(),
           checkInventoryLevels()
-        ]);
-
-        // Update dashboard stats
-        updateDashboardStats();
-        
+        ]);        
       } catch (error) {
         console.error('Dashboard initialization error:', error);
       }
@@ -783,13 +728,23 @@
 
     async function loadUserInfo() {
       if (!currentUser) return;
-      
       document.getElementById('userName').textContent = currentUser.display_name || 'Client';
-      
       // Set member since date
       if (currentUser.created_at) {
         const memberSince = new Date(currentUser.created_at).toLocaleDateString();
         document.getElementById('memberSince').textContent = memberSince;
+      }
+      // Fetch total orders from Orders table for this user
+      try {
+        const { data, error } = await supabase
+          .from('Orders')
+          .select('OrderID', { count: 'exact', head: true })
+          .overlaps('UserID', [currentUser.id]);
+        if (error) throw error;
+        const totalOrders = data?.length ?? 0;
+        document.getElementById('totalOrders').textContent = totalOrders;
+      } catch (e) {
+        document.getElementById('totalOrders').textContent = '—';
       }
     }
 
@@ -802,17 +757,12 @@
           
         if (error) throw error;
         
-        userProducts = data || [];
-        populateProductDropdown();
-        
+        userProducts = data || [];        
       } catch (error) {
         console.error('Error loading products:', error);
       }
     }
 
-    function populateProductDropdown() {
-      // This function is no longer needed but kept for potential future use
-    }
 
     async function checkInventoryLevels() {
       try {
@@ -926,45 +876,6 @@
       // Since we're showing all warnings, no need for a "View All" link
     }
 
-    async function loadOrders() {
-      if (!currentUser) return;
-      
-      try {
-        // Use overlaps operator to check if the UserID array contains our user ID
-        const { data, error } = await supabase
-          .from('ManufacturingTasks')
-          .select('*')
-          .overlaps('UserID', [currentUser.id]);
-          
-        if (error) throw error;
-        
-        userOrders = data || [];
-        
-        // Sort orders by OrderNumber or other available field since created_at doesn't exist
-        userOrders.sort((a, b) => {
-          // Try to sort by OrderNumber if it contains timestamp
-          if (a.OrderNumber && b.OrderNumber) {
-            return b.OrderNumber.localeCompare(a.OrderNumber);
-          }
-          return 0;
-        });
-        
-      } catch (error) {
-        console.error('Error loading orders:', error);
-      }
-    }
-
-    function getOrderStatusText(progress) {
-      const statusMap = {
-        'requested': 'Pending Review',
-        'scheduled': 'Scheduled for Production',
-        'in-production': 'In Production',
-        'completed': 'Completed',
-        'cancelled': 'Cancelled'
-      };
-      return statusMap[progress?.toLowerCase()] || 'Unknown Status';
-    }
-
     async function loadChecklist() {
       if (!currentUser) return;
       
@@ -1061,61 +972,6 @@
       }
     }
 
-    function updateDashboardStats() {
-      const totalOrders = userOrders.length;
-      const pendingOrders = userOrders.filter(o => 
-        ['requested', 'scheduled', 'in-production'].includes(o.Progress?.toLowerCase())
-      ).length;
-      const completedOrders = userOrders.filter(o => 
-        o.Progress?.toLowerCase() === 'completed'
-      ).length;
-      
-      // Calculate this month's completed orders
-      const thisMonth = new Date().getMonth();
-      const thisYear = new Date().getFullYear();
-      const thisMonthCompleted = userOrders.filter(o => {
-        if (o.Progress?.toLowerCase() !== 'completed' || !o.CompletionDate) return false;
-        const orderDate = new Date(o.CompletionDate);
-        return orderDate.getMonth() === thisMonth && orderDate.getFullYear() === thisYear;
-      }).length;
-      
-      // Update stats
-      document.getElementById('statTotalOrders').textContent = totalOrders;
-      document.getElementById('statPendingOrders').textContent = pendingOrders;
-      document.getElementById('statCompletedOrders').textContent = completedOrders;
-      document.getElementById('totalOrders').textContent = totalOrders;
-      
-      // Update changes
-      document.getElementById('statCompletedChange').textContent = `${thisMonthCompleted} this month`;
-      document.getElementById('statPendingChange').textContent = `${pendingOrders} active`;
-      
-      // Update welcome message based on pending orders
-      const welcomeMsg = pendingOrders > 0 
-        ? `You have ${pendingOrders} order${pendingOrders > 1 ? 's' : ''} in progress.`
-        : "All caught up! Consider placing a new order.";
-      document.getElementById('welcomeMessage').textContent = welcomeMsg;
-    }
-
-    // Utility functions
-    function timeAgo(dateString) {
-      const date = new Date(dateString);
-      const now = new Date();
-      const diffMs = now - date;
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMins / 60);
-      const diffDays = Math.floor(diffHours / 24);
-      
-      if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins}m ago`;
-      if (diffHours < 24) return `${diffHours}h ago`;
-      if (diffDays < 7) return `${diffDays}d ago`;
-      return date.toLocaleDateString();
-    }
-
-    function showAccountSettings() {
-      showNotificationSettings();
-    }
-
     async function showNotificationSettings() {
       try {
         // Get current user notification preferences
@@ -1179,21 +1035,6 @@
 
               <form id="notificationForm">
                 <div style="display: flex; flex-direction: column; gap: 20px;">
-                  
-                  <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                    <div>
-                      <div style="font-weight: 600; color: #2d3748; margin-bottom: 4px;">Order Updates</div>
-                      <div style="font-size: 0.9rem; color: #718096;">Get notified when your order status changes</div>
-                    </div>
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                      <input type="checkbox" id="orderUpdates" ${currentNotifications.orderUpdates ? 'checked' : ''} style="
-                        width: 18px;
-                        height: 18px;
-                        margin: 0;
-                        accent-color: #4dba93;
-                      ">
-                    </label>
-                  </div>
 
                   <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px;">
                     <div>
@@ -1217,21 +1058,6 @@
                     </div>
                     <label style="display: flex; align-items: center; cursor: pointer;">
                       <input type="checkbox" id="taskReminders" ${currentNotifications.taskReminders ? 'checked' : ''} style="
-                        width: 18px;
-                        height: 18px;
-                        margin: 0;
-                        accent-color: #4dba93;
-                      ">
-                    </label>
-                  </div>
-
-                  <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                    <div>
-                      <div style="font-weight: 600; color: #2d3748; margin-bottom: 4px;">Promotions & Updates</div>
-                      <div style="font-size: 0.9rem; color: #718096;">Receive news about new features and special offers</div>
-                    </div>
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                      <input type="checkbox" id="promotions" ${currentNotifications.promotions ? 'checked' : ''} style="
                         width: 18px;
                         height: 18px;
                         margin: 0;
@@ -1289,10 +1115,8 @@
     async function saveNotificationSettings() {
       try {
         const notifications = {
-          orderUpdates: document.getElementById('orderUpdates').checked,
           inventoryAlerts: document.getElementById('inventoryAlerts').checked,
           taskReminders: document.getElementById('taskReminders').checked,
-          promotions: document.getElementById('promotions').checked
         };
 
         // First, check if user exists in Users table
@@ -1350,18 +1174,6 @@
         modal.remove();
       }
     }
-
-    // Auto-refresh dashboard every 5 minutes
-    setInterval(async () => {
-      if (currentUser) {
-        await Promise.all([
-          loadOrders(),
-          checkInventoryLevels(),
-          loadChecklist()
-        ]);
-        updateDashboardStats();
-      }
-    }, 300000); // 5 minutes
   </script>
 </body>
 </html>
