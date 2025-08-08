@@ -376,12 +376,14 @@
       statusMsg.className = 'status';
       
       try {
-        // Get user data for retailer name
+        // Get user data for retailer name and display_name
         let userId = null;
+        let displayName = null;
         try {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             userId = user.id;
+            displayName = user.user_metadata?.display_name || user.email || null;
           }
         } catch (e) {
           console.error('Error getting user data:', e);
@@ -421,6 +423,9 @@
           };
           if (userId) {
             record.UserID = userId;
+          }
+          if (displayName) {
+            record.display_name = displayName;
           }
           return supabase.from('AmazonShipments').insert(record);
         });

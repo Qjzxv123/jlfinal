@@ -449,7 +449,7 @@
         // Insert a single row into ReceivingLog
         const record = {
           TrackingLink: trackingLink,
-          UserID: userId,
+          UserID: userId ? [userId] : [],
           Retailer: retailer,
           AllegedContents: allegedContents,
           Status: 'Sent'

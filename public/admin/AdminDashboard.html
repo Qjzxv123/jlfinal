@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - J&L Naturals</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <link rel="stylesheet" href="/Assets/sidebar.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      min-height: 100vh;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      display: flex;
+    }
+    .main-content {
+      margin-left: 60px;
+      width: calc(100% - 60px);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .dashboard-container {
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+    .dashboard-header {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #2d3748;
+      font-size: 2.2rem;
+      margin-bottom: 10px;
+    }
+    .section-card {
+      background: white;
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      overflow-y: auto;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f7fafc;
+      cursor: pointer;
+    }
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #2d3748;
+    }
+    .row-count {
+      font-size: 1rem;
+      color: #4dba93;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    .table-list {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .table-list th, .table-list td {
+      border: 1px solid #e2e8f0;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .table-list th {
+      background: #f7fafc;
+      font-weight: 700;
+    }
+    .loading-state, .empty-state {
+      text-align: center;
+      padding: 30px 10px;
+      color: #718096;
+    }
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #4dba93;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .collapsed-table {
+      display: none;
+    }
+    .collapse-arrow {
+      margin-right: 8px;
+      transition: transform 0.2s;
+    }
+    .collapsed .collapse-arrow {
+      transform: rotate(-90deg);
+    }
+    @media (max-width: 900px) {
+      .main-content { margin-left: 0; width: 100%; padding: 10px; }
+      .dashboard-header { padding: 18px; }
+      .section-card { padding: 14px; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
+</head>
+<body>
+  <div id="sidebar"></div>
+  <script src="/Assets/sidebar.js"></script>
+  <div class="main-content">
+    <div class="dashboard-container">
+      <div class="dashboard-header">
+        <h1>Admin Dashboard</h1>
+        <div id="ordersCount" style="font-size:1.2rem;font-weight:600;margin-top:10px;"></div>
+      </div>
+      <div id="adminSections"></div>
+    </div>
+  </div>
+  <script>
+    checkPermissions(['service_role']);
+    setupInactivityTimeout(10);
+    const sections = [
+  { key: 'AmazonShipments', label: 'Amazon Shipments', columns: ['SKU','Quantity','Notes','display_name'] },
+      { key: 'IngredientOrders', label: 'Ingredient Orders', columns: ['ExpectedBy','IngredientSKU','Quantity(Lbs/Units)'] },
+  { key: 'ReceivingLog', label: 'Receiving Log', columns: ['TrackingLink','Retailer','RecievedAt','Status'] },
+      { key: 'Checklist', label: 'Checklist', columns: ['Priority','Task','Status','AssignedTo','Deadline'] },
+      { key: 'ManufacturingTasks', label: 'Manufacturing Tasks', columns: ['OrderNumber','ProductSKU','Quantity','PlannedManufactureDate','Progress'], filter: row => row.Progress !== 'Completed' }
+    ];
+    document.addEventListener('DOMContentLoaded', async function() {
+      await loadOrdersCount();
+      for (const section of sections) {
+        await renderCollapsableTable(section);
+      }
+      await renderLowInventorySection();
+    });
+    async function loadOrdersCount() {
+      const ordersCountDiv = document.getElementById('ordersCount');
+      ordersCountDiv.innerHTML = '<span class="loading-spinner"></span> Loading order count...';
+      try {
+        const { count, error } = await supabase
+          .from('Orders')
+          .select('OrderID', { count: 'exact', head: true });
+        if (error) throw error;
+        ordersCountDiv.textContent = `Active Ecommerce Orders: ${count ?? 0}`;
+      } catch (e) {
+        ordersCountDiv.textContent = 'Unable to load order count';
+      }
+    }
+    async function renderCollapsableTable(section) {
+      const container = document.getElementById('adminSections');
+      const card = document.createElement('div');
+      card.className = 'section-card';
+      card.innerHTML = `
+        <div class="section-header" id="header-${section.key}">
+          <span><span class="collapse-arrow">&#9654;</span><span class="section-title">${section.label}</span><span class="row-count" id="count-${section.key}"></span></span>
+        </div>
+        <div class="table-container" id="table-${section.key}">
+          <div class="loading-state"><div class="loading-spinner"></div>Loading...</div>
+        </div>
+      `;
+      container.appendChild(card);
+      let collapsed = true;
+      const header = card.querySelector('.section-header');
+      const tableContainer = card.querySelector('.table-container');
+      const arrow = card.querySelector('.collapse-arrow');
+      header.addEventListener('click', () => {
+        collapsed = !collapsed;
+        if (collapsed) {
+          tableContainer.classList.add('collapsed-table');
+          card.classList.add('collapsed');
+        } else {
+          tableContainer.classList.remove('collapsed-table');
+          card.classList.remove('collapsed');
+        }
+      });
+      // Start collapsed, show only row count
+      tableContainer.classList.add('collapsed-table');
+      card.classList.add('collapsed');
+      // Load data
+      try {
+        const { data, error, count } = await supabase
+          .from(section.key)
+          .select('*', { count: 'exact' });
+        if (error) throw error;
+        let filteredData = data;
+        if (section.filter) {
+          filteredData = (data || []).filter(section.filter);
+        }
+        document.getElementById(`count-${section.key}`).textContent = `(${filteredData.length})`;
+        if (!filteredData.length) {
+          tableContainer.innerHTML = '<div class="empty-state">No data</div>';
+          return;
+        }
+        // Render table
+        let table = `<table class="table-list"><thead><tr>`;
+        for (const col of section.columns) {
+          table += `<th>${col}</th>`;
+        }
+        table += `</tr></thead><tbody>`;
+        for (const row of filteredData) {
+          table += '<tr>';
+          for (const col of section.columns) {
+            let val = row[col];
+            if (typeof val === 'object' && val !== null) val = JSON.stringify(val);
+            table += `<td>${val ?? ''}</td>`;
+          }
+          table += '</tr>';
+        }
+        table += '</tbody></table>';
+        tableContainer.innerHTML = table;
+      } catch (e) {
+        tableContainer.innerHTML = '<div class="empty-state">Unable to load data</div>';
+      }
+    }
+    async function renderLowInventorySection() {
+      const container = document.getElementById('adminSections');
+      // Products low inventory
+      const prodCard = document.createElement('div');
+      prodCard.className = 'section-card';
+      prodCard.innerHTML = `
+        <div class="section-header" id="header-ProductsLow">
+          <span><span class="collapse-arrow">&#9654;</span><span class="section-title">Products Low Inventory</span><span class="row-count" id="count-ProductsLow"></span></span>
+        </div>
+        <div class="table-container" id="table-ProductsLow">
+          <div class="loading-state"><div class="loading-spinner"></div>Loading...</div>
+        </div>
+      `;
+      container.appendChild(prodCard);
+      let collapsed = true;
+      const header = prodCard.querySelector('.section-header');
+      const tableContainer = prodCard.querySelector('.table-container');
+      header.addEventListener('click', () => {
+        collapsed = !collapsed;
+        if (collapsed) {
+          tableContainer.classList.add('collapsed-table');
+          prodCard.classList.add('collapsed');
+        } else {
+          tableContainer.classList.remove('collapsed-table');
+          prodCard.classList.remove('collapsed');
+        }
+      });
+      tableContainer.classList.add('collapsed-table');
+      prodCard.classList.add('collapsed');
+      try {
+        const { data, error } = await supabase
+          .from('Products')
+          .select('*')
+          .lt('Quantity', 20);
+        if (error) throw error;
+        document.getElementById('count-ProductsLow').textContent = `(${data.length})`;
+        if (!data.length) {
+          tableContainer.innerHTML = '<div class="empty-state">No low inventory products</div>';
+          return;
+        }
+        let table = `<table class="table-list"><thead><tr><th>ProductSKU</th><th>Name</th><th>Quantity</th></tr></thead><tbody>`;
+        for (const row of data) {
+          table += `<tr><td>${row.ProductSKU}</td><td>${row.Name}</td><td>${row.Quantity}</td></tr>`;
+        }
+        table += '</tbody></table>';
+        tableContainer.innerHTML = table;
+      } catch (e) {
+        tableContainer.innerHTML = '<div class="empty-state">Unable to load data</div>';
+      }
+      // Ingredients low inventory
+      const ingCard = document.createElement('div');
+      ingCard.className = 'section-card';
+      ingCard.innerHTML = `
+        <div class="section-header" id="header-IngredientsLow">
+          <span><span class="collapse-arrow">&#9654;</span><span class="section-title">Ingredients Low Inventory</span><span class="row-count" id="count-IngredientsLow"></span></span>
+        </div>
+        <div class="table-container" id="table-IngredientsLow">
+          <div class="loading-state"><div class="loading-spinner"></div>Loading...</div>
+        </div>
+      `;
+      container.appendChild(ingCard);
+      let ingCollapsed = true;
+      const ingHeader = ingCard.querySelector('.section-header');
+      const ingTableContainer = ingCard.querySelector('.table-container');
+      ingHeader.addEventListener('click', () => {
+        ingCollapsed = !ingCollapsed;
+        if (ingCollapsed) {
+          ingTableContainer.classList.add('collapsed-table');
+          ingCard.classList.add('collapsed');
+        } else {
+          ingTableContainer.classList.remove('collapsed-table');
+          ingCard.classList.remove('collapsed');
+        }
+      });
+      ingTableContainer.classList.add('collapsed-table');
+      ingCard.classList.add('collapsed');
+      try {
+        const { data, error } = await supabase
+          .from('Ingredients')
+          .select('*');
+        if (error) throw error;
+        // Filter for Quantity < LowInvThreshold
+        const lowInv = (data || []).filter(row => row["Quantity(Lbs/Units)"] < row.LowInvThreshold);
+        document.getElementById('count-IngredientsLow').textContent = `(${lowInv.length})`;
+        if (!lowInv.length) {
+          ingTableContainer.innerHTML = '<div class="empty-state">No low inventory ingredients</div>';
+          return;
+        }
+        let table = `<table class="table-list"><thead><tr><th>IngredientSKU</th><th>Name</th><th>Quantity</th><th>Threshold</th></tr></thead><tbody>`;
+        for (const row of lowInv) {
+          table += `<tr><td>${row.IngredientSKU}</td><td>${row.Name}</td><td>${row["Quantity(Lbs/Units)"]}</td><td>${row.LowInvThreshold}</td></tr>`;
+        }
+        table += '</tbody></table>';
+        ingTableContainer.innerHTML = table;
+      } catch (e) {
+        ingTableContainer.innerHTML = '<div class="empty-state">Unable to load data</div>';
+      }
+    }
+  </script>
+</body>
+</html>

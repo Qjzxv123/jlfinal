@@ -18,6 +18,7 @@ function renderAdminSidebar() {
       <h2>${displayName}</h2>
     </div>
     <nav class="sidebar-nav">
+  <a href="AdminDashboard.html" class="nav-item"><i class="cil-briefcase"></i><span>Admin Dashboard</span></a>
   <a href="EmployeeDashboard.html" class="nav-item"><i class="cil-speedometer"></i><span>Employee Dashboard</span></a>
   <a href="BatchMaker.html" class="nav-item"><i class="cil-factory"></i><span>Batch Maker</span></a>
       <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
