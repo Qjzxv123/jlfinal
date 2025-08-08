@@ -60,6 +60,37 @@ exports.handler = async (event) => {
           email: order.customer?.email || ''
         };
 
+  // Validate address_to using Shippo's address validation API if it's an address object
+  if (typeof address_to === 'object' && address_to && address_to.street1) {
+    try {
+      const validateResp = await fetch('https://api.goshippo.com/addresses/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `ShippoToken ${SHIPPO_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...address_to,
+          validate: true
+        })
+      });
+      const validateData = await validateResp.json();
+      if (!validateResp.ok || !validateData.validation_results || validateData.validation_results.is_valid === false) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error: 'Invalid shipping address',
+            details: validateData.validation_results || validateData
+          })
+        };
+      }
+      // Use the validated address for shipment
+      address_to = validateData;
+    } catch (err) {
+      return { statusCode: 500, body: 'Error validating address: ' + err.message };
+    }
+  }
+
   // Build shipment payload
   const isInternational = order.customer?.country && order.customer.country.toUpperCase() !== 'US';
   let shipmentPayload = {
