@@ -305,7 +305,52 @@
         // On load, fetch and display data after access check
         window.addEventListener('DOMContentLoaded', async () => {
             fetchAndDisplayData();
+            fetchAndDisplayBoxes();
         });
+
+        // Fetch and display Boxes table
+        async function fetchAndDisplayBoxes() {
+            const mainContainer = document.getElementById('main-container');
+            let boxSection = document.getElementById('boxes-section');
+            if (!boxSection) {
+                boxSection = document.createElement('div');
+                boxSection.id = 'boxes-section';
+                boxSection.style = 'margin-top:2.5rem;width:100%;';
+                mainContainer.appendChild(boxSection);
+            }
+            boxSection.innerHTML = '<h3>Boxes</h3><div id="boxes-table-viewer"><b>Loading boxes...</b></div>';
+            const tableViewer = boxSection.querySelector('#boxes-table-viewer');
+            try {
+                const { data, error } = await supabase
+                    .from('Boxes')
+                    .select('SKU, "Weight(Lbs)", Cost, Dimensions, Link, Price, Quantity, UserID');
+                if (error) {
+                    tableViewer.innerHTML = `<div class='error'>Error loading boxes: ${error.message}</div>`;
+                    return;
+                }
+                if (!data || data.length === 0) {
+                    tableViewer.innerHTML = '<div>No boxes found.</div>';
+                    return;
+                }
+                let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+                html += '<tr>' + ['SKU','Weight(Lbs)','Cost','Dimensions','Link','Price','Quantity'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
+                for (const row of data) {
+                    html += '<tr>';
+                    html += `<td style='padding:4px;'>${row.SKU ?? ''}</td>`;
+                    html += `<td style='padding:4px;'>${row["Weight(Lbs)"] ?? ''}</td>`;
+                    html += `<td style='padding:4px;'>${row.Cost ?? ''}</td>`;
+                    html += `<td style='padding:4px;'>${row.Dimensions ?? ''}</td>`;
+                    html += `<td style='padding:4px;'>${row.Link ? `<a href='${row.Link}' target='_blank' style='color:#3498db;text-decoration:underline;'>Link</a>` : ''}</td>`;
+                    html += `<td style='padding:4px;'>${row.Price ?? ''}</td>`;
+                    html += `<td style='padding:4px;'>${row.Quantity ?? ''}</td>`;
+                    html += '</tr>';
+                }
+                html += '</table>';
+                tableViewer.innerHTML = html;
+            } catch (e) {
+                tableViewer.innerHTML = `<div class='error'>Error loading boxes: ${e.message}</div>`;
+            }
+        }
     </script>
         </div> <!-- Close main-container -->
     </div> <!-- Close main-content -->
