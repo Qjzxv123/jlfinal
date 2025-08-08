@@ -1525,27 +1525,24 @@ async function processShippingLabelsWithBoxData(orderParcels) {
 
         // Queue Faire fulfillment if needed
         if (order.platform === 'faire') {
-          // Pass retailer as user_key for Faire token lookup
-          // Use tracking number from labelData (preferred), fallback to selectedRate
-          let tracking_code = '';
-          
-          // Debug: log the labelData and selectedRate to see what properties are available
-          console.log('Debugging tracking code extraction for Faire order:', order.orderNumber);
-          console.log('labelData:', labelData);
-          console.log('selectedRate:', selectedRate);
-          
+                    // Pass retailer as user_key for Faire token lookup
+                    // Use tracking number from labelData (preferred), fallback to selectedRate
+                    let tracking_code = '';
+                    // Debug: log the labelData and selectedRate to see what properties are available
+                    console.log('Debugging tracking code extraction for Faire order:', order.orderNumber);
+                    console.log('labelData:', labelData);
+                    console.log('selectedRate:', selectedRate);
                     // Extract tracking number only from labelData.tracking_number as returned by shippo-getlabel.cjs
-                                var tracking_code = '';
-                                if (labelData && labelData.tracking_number) {
-                                    tracking_code = labelData.tracking_number;
-                                    console.log('Found tracking_number in labelData:', tracking_code);
-                                } else {
-                                    console.error('No tracking_number found in labelData for Faire order:', order.orderNumber);
-                                    alert(`Warning: No tracking number found for Faire order ${order.orderNumber}. The order may not be marked as fulfilled properly.`);
-                                    tracking_code = 'UNKNOWN';
-                                }
-                                console.log('Final tracking_code for Faire fulfillment:', tracking_code);
-                                faireFulfillmentQueue.push({ order, parcel, labelData, selectedRate, user_key: order.shop, tracking_code });
+                    if (labelData && labelData.tracking_number) {
+                        tracking_code = labelData.tracking_number;
+                        console.log('Found tracking_number in labelData:', tracking_code);
+                    } else {
+                        console.error('No tracking_number found in labelData for Faire order:', order.orderNumber);
+                        alert(`Warning: No tracking number found for Faire order ${order.orderNumber}. The order may not be marked as fulfilled properly.`);
+                        tracking_code = 'UNKNOWN';
+                    }
+                    console.log('Final tracking_code for Faire fulfillment:', tracking_code);
+                    faireFulfillmentQueue.push({ order, parcel, labelData, selectedRate, user_key: order.shop, tracking_code });
         }
       } else {
         alert('No label URL returned for order ' + order.orderNumber);
