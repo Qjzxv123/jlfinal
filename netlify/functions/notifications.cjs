@@ -21,7 +21,7 @@ const sendEmail = async (to, subject, content) => {
     });
 
     const mailOptions = {
-      from: `"J&L Naturals" <${process.env.SMTP_USER || 'noreply@jlnaturals.com'}>`,
+      from: `"J&L Naturals" <jnlnaturals@gmail.com>`,
       to,
       subject,
       text: content,
