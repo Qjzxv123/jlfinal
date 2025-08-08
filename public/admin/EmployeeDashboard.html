@@ -257,11 +257,11 @@
     }
     async function loadOrders() {
       try {
-        const { data, error } = await supabase
+        const { count, error } = await supabase
           .from('Orders')
           .select('OrderID', { count: 'exact', head: true });
         if (error) throw error;
-        renderOrderCount(data?.length ?? 0);
+        renderOrderCount(count ?? 0);
       } catch (e) {
         document.getElementById('ordersList').innerHTML = '<div class="empty-state">Unable to load orders</div>';
       }
