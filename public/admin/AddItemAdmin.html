@@ -443,7 +443,7 @@
           <label>Aroma<input type="text" id="Aroma" placeholder="e.g., Floral, Citrus, Earthy, Minty"></label>
           <label>ASIN<input type="text" id="ASIN" placeholder="Amazon Standard Identification Number"></label>
           <label>FNSKU<input type="text" id="FNSKU" placeholder="Fulfillment Network Stock Keeping Unit"></label>
-          
+          <label>UPC<input type="text" id="UPC" placeholder="Universal Product Code"></label>
           <label style="display:flex;align-items:center;gap:0.5em;margin-top:1em;">
             <input type="checkbox" id="useCustomInstructions" style="width:auto;"> Use Custom Manufacturing Instructions
           </label>
@@ -1302,6 +1302,7 @@
       const data = {
         ProductSKU: document.getElementById('ProductSKU').value.trim(),
         Name: document.getElementById('Name').value.trim(),
+        UPC: document.getElementById('UPC').value.trim(),
         'Product Weight(oz)': document.getElementById('ProductSize').value.trim(),
         'Product Type': document.getElementById('ProductType').value,
         'Microbial Testing': document.getElementById('MicrobialTesting').checked,
