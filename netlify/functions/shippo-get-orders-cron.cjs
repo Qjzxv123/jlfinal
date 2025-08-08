@@ -161,7 +161,7 @@ function getPlatformOrderUrl(platform, orderNumber) {
       return `https://www.etsy.com/your/orders/sold?ref=seller-platform-mcnav&order_id=${orderNumber}`;
     case 'shopify': 
       return `N/A`;
-      case 'Amazon':
+      case 'amazon':
         return `https://sellercentral.amazon.com/orders-v3/order/${orderNumber}`;
     default:
       return '#';
