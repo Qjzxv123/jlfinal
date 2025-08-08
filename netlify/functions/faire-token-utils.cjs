@@ -1,6 +1,6 @@
-const supabase = require('./supabase-client.cjs');
 const fetch = require('node-fetch');
-
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_KEY);
 async function getTokenRow(userKey) {
   const { data, error } = await supabase
     .from('oauth_tokens')

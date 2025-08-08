@@ -10,7 +10,8 @@ exports.handler = async (event) => {
     const body = event.body;
 
     // Supabase client for token management
-    const supabase = require('./supabase-client.cjs');
+   const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_KEY);
 
     if (!shopifySecret) {
       console.error('Missing SHOPIFY_API_SECRET environment variable');

@@ -182,16 +182,19 @@
         const displayName = user.user_metadata?.display_name || user.email || 'Employee';
         document.getElementById('welcomeHeader').textContent = `Welcome, ${displayName}!`;
       } catch (e) {
-        // fallback: do nothing
       }
     }
     async function loadTasks() {
       try {
-        const { data, error } = await supabase
-          .from('Checklist')
-          .select('*')
-          .order('Priority', { ascending: false })
-          .order('Deadline', { ascending: true });
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) throw userError || new Error('No user');
+        const userId = user.id;
+          const { data, error } = await supabase
+            .from('Checklist')
+            .select('*')
+            .contains('UserID', [userId])
+            .order('Priority', { ascending: false })
+            .order('Deadline', { ascending: true });
         if (error) throw error;
         renderTasks(data || []);
       } catch (e) {
