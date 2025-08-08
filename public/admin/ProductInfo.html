@@ -183,52 +183,32 @@
               .order('ShippedAt', { ascending: false });
             let filteredOrders = [];
             if (orders && Array.isArray(orders)) {
-              // Find orders where Items contains this SKU
               filteredOrders = orders.filter(order => {
                 if (!order.Items) return false;
-                if (Array.isArray(order.Items)) {
-                  // If Items is an array of objects
-                  return order.Items.some(item => item.SKU === sku);
-                } else if (typeof order.Items === 'object') {
-                  // If Items is a single object or object map
-                  if (Array.isArray(order.Items.items)) {
-                    return order.Items.items.some(item => item.SKU === sku);
-                  } else if (order.Items.SKU) {
-                    return order.Items.SKU === sku;
-                  }
+                let itemsArr = [];
+                if (typeof order.Items === 'string') {
+                  try { itemsArr = JSON.parse(order.Items); } catch { return false; }
+                } else if (Array.isArray(order.Items)) {
+                  itemsArr = order.Items;
                 }
-                return false;
+                return itemsArr.some(item => item.sku === sku);
               });
             }
             if (filteredOrders.length) {
               ordersHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Order History</div>`;
-              ordersHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Shipped</th><th style='padding:6px 10px;text-align:left;'>Order ID</th><th style='padding:6px 10px;text-align:left;'>Customer</th><th style='padding:6px 10px;text-align:left;'>Retailer</th><th style='padding:6px 10px;text-align:left;'>Platform</th><th style='padding:6px 10px;text-align:left;'>Qty</th><th style='padding:6px 10px;text-align:left;'>Link</th></tr></thead><tbody>`;
+              ordersHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Shipped</th><th style='padding:6px 10px;text-align:left;'>Order ID</th><th style='padding:6px 10px;text-align:left;'>Platform</th><th style='padding:6px 10px;text-align:left;'>Qty</th><th style='padding:6px 10px;text-align:left;'>Link</th></tr></thead><tbody>`;
               for (const order of filteredOrders) {
                 // Find quantity for this SKU in Items
                 let qty = '';
-                if (order.Items) {
-                  if (Array.isArray(order.Items)) {
-                    const found = order.Items.find(item => item.SKU === sku);
-                    qty = found ? (found.Quantity || found.Qty || '') : '';
-                  } else if (typeof order.Items === 'object') {
-                    if (Array.isArray(order.Items.items)) {
-                      const found = order.Items.items.find(item => item.SKU === sku);
-                      qty = found ? (found.Quantity || found.Qty || '') : '';
-                    } else if (order.Items.SKU === sku) {
-                      qty = order.Items.Quantity || order.Items.Qty || '';
-                    }
-                  }
+                let itemsArr = [];
+                if (typeof order.Items === 'string') {
+                  try { itemsArr = JSON.parse(order.Items); } catch { itemsArr = []; }
+                } else if (Array.isArray(order.Items)) {
+                  itemsArr = order.Items;
                 }
-                // Customer name
-                let customerName = '';
-                if (order.Customer) {
-                  if (typeof order.Customer === 'object') {
-                    customerName = order.Customer.name || order.Customer.Name || '';
-                  } else {
-                    customerName = order.Customer;
-                  }
-                }
-                ordersHtml += `<tr><td style='padding:6px 10px;'>${order.ShippedAt ? new Date(order.ShippedAt).toLocaleString() : ''}</td><td style='padding:6px 10px;'>${order.OrderID || ''}</td><td style='padding:6px 10px;'>${customerName}</td><td style='padding:6px 10px;'>${order.Retailer || ''}</td><td style='padding:6px 10px;'>${order.Platform || ''}</td><td style='padding:6px 10px;'>${qty}</td><td style='padding:6px 10px;'>${order.Link ? `<a href='${order.Link}' target='_blank'>View</a>` : ''}</td></tr>`;
+                const found = itemsArr.find(item => item.sku === sku);
+                qty = found ? (found.quantity || '') : '';
+                ordersHtml += `<tr><td style='padding:6px 10px;'>${order.ShippedAt ? new Date(order.ShippedAt).toLocaleString() : ''}</td><td style='padding:6px 10px;'>${order.OrderID || ''}</td><td style='padding:6px 10px;'>${order.Platform || ''}</td><td style='padding:6px 10px;'>${qty}</td><td style='padding:6px 10px;'>${order.Link ? `<a href='${order.Link}' target='_blank'>View</a>` : ''}</td></tr>`;
               }
               ordersHtml += '</tbody></table>';
             } else {
