@@ -119,10 +119,7 @@
               <option value="">Loading...</option>
             </select>
           </div>
-          <div>
-            <label for="orderNumber">Order #</label>
-            <input type="text" id="orderNumber" required placeholder="Order Number">
-          </div>
+          <!-- OrderNumber input removed -->
           <div>
             <label for="productSKU">Product SKU</label>
             <select id="productSKU" required>
@@ -253,11 +250,6 @@
         .from('ManufacturingTasks')
         .insert([order]);
       if (error) {
-        if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
-          alert('OrderID must be unique.');
-        } else {
-          alert('Failed to add task: ' + error.message);
-        }
         return false;
       }
       return true;
@@ -492,7 +484,7 @@
                 }
               }
             }
-            // Check ContainerSKUs (only these, not labels/packaging)
+            // Check ContainerSKUs
             if (!highlightRed) {
               const productData = productDataMap[task.ProductSKU];
               if (productData && Array.isArray(productData.ContainerSKUs) && productData.ContainerSKUs.length > 0) {
@@ -515,16 +507,7 @@
             });
             batchMakerButton = `<a href="BatchMaker.html?${params.toString()}" target="_blank" style="margin-left: 10px; display: inline-block; background: #F9AD28; color: white; padding: 0.2rem 0.5rem; text-decoration: none; border-radius: 4px; font-size: 0.8rem;"><i class='cil-warning'></i></a>`;
           }
-          // --- Batch number logic ---
-          function hashOrderNumber(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-              hash = ((hash << 5) - hash) + str.charCodeAt(i);
-              hash |= 0;
-            }
-            return Math.abs(hash % 1000000).toString().padStart(6, '0');
-          }
-          const batchNum = hashOrderNumber(task.OrderNumber || '');
+          const batchNum = task.OrderNumber || '';
           const instructionsBtnStyle = 'background:#9B41E5; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.4em;';
           let vesselDataAttr = '';
           if (task.Vessel !== undefined && task.Vessel !== null) {
@@ -548,7 +531,7 @@
           }
           tr.innerHTML = `
             <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
-            <td>${batchMakerButton} ${task.OrderNumber || ''}<br><span style="display:block;opacity:0.45;font-size:0.95em;line-height:1.1;">Batch: ${batchNum}</span></td>
+            <td>${batchMakerButton} ${task.OrderNumber || ''}</td>
             <td><span style="font-weight:600; color:#E2DB53;">${customerDisplay}</span><br><span style="color:#374151;">${task.ProductSKU || ''} × <span style='opacity:0.65;'>${task.Quantity || ''}</span></span></td>
           <td class="${progressClass}">
             <button class="update-progress-btn" data-order-id="${task.OrderNumber}" data-current-progress="${progress}" style="background:#4dba93; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.5em;">
@@ -635,15 +618,7 @@
             if (productSKU && batchtime && batchSize) {
               const lot = await generatelotNumber(productSKU);
               // Deterministic batch number based on order number
-              function hashOrderNumber(str) {
-                let hash = 0;
-                for (let i = 0; i < str.length; i++) {
-                  hash = ((hash << 5) - hash) + str.charCodeAt(i);
-                  hash |= 0;
-                }
-                return Math.abs(hash % 1000000).toString().padStart(6, '0');
-              }
-              // Find the order number from the closest row
+              // Use OrderNumber directly for batchNum
               let orderNumber = null;
               let row = btn.closest('tr');
               if (row) {
@@ -657,7 +632,7 @@
               if (!orderNumber) {
                 orderNumber = `${productSKU}-${batchtime}-${batchSize}`;
               }
-              const batchNum = hashOrderNumber(orderNumber);
+              const batchNum = orderNumber;
               // Pass vessel as a JSON stringified array in the URL
               const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
               window.open(url, '_blank');
@@ -752,15 +727,8 @@
             scheduleColHtml = `<button class="schedule-btn" data-order-id="${task.OrderNumber}" style="background:#1976d2; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-calendar"></i></button>`;
           }
           // --- Batch number logic ---
-          function hashOrderNumber(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-              hash = ((hash << 5) - hash) + str.charCodeAt(i);
-              hash |= 0;
-            }
-            return Math.abs(hash % 1000000).toString().padStart(6, '0');
-          }
-          const batchNum = hashOrderNumber(task.OrderNumber || '');
+          // No batch hash needed; use OrderNumber directly
+          const batchNum = task.OrderNumber || '';
           const instructionsBtnStyle = 'background:#9B41E5; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.4em;';
           let vesselDataAttr = '';
           if (task.Vessel !== undefined && task.Vessel !== null) {
@@ -793,7 +761,7 @@
           }
           tr.innerHTML = `
             <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
-            <td>${task.OrderNumber || ''}<br><span style="display:block;opacity:0.45;font-size:0.95em;line-height:1.1;">Batch: ${batchNum}</span></td>
+            <td>${task.OrderNumber || ''}</td>
             <td><span style="font-weight:600; color:#E2DB53;">${customerDisplay}</span><br><span style="color:#374151;">${task.ProductSKU || ''} × <span style='opacity:0.65;'>${task.Quantity || ''}</span></span></td>
             <td class="${progressClass}">${progressDisplay}</td>
             <td>${completionDate}</td>
@@ -870,14 +838,7 @@
             }
             if (productSKU && batchtime && batchSize) {
               const lot = await generatelotNumber(productSKU);
-              function hashOrderNumber(str) {
-                let hash = 0;
-                for (let i = 0; i < str.length; i++) {
-                  hash = ((hash << 5) - hash) + str.charCodeAt(i);
-                  hash |= 0;
-                }
-                return Math.abs(hash % 1000000).toString().padStart(6, '0');
-              }
+              // Use OrderNumber directly for batchNum
               let orderNumber = null;
               let row = btn.closest('tr');
               if (row) {
@@ -891,7 +852,7 @@
               if (!orderNumber) {
                 orderNumber = `${productSKU}-${batchtime}-${batchSize}`;
               }
-              const batchNum = hashOrderNumber(orderNumber);
+              const batchNum = orderNumber;
               const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
               window.open(url, '_blank');
             }
@@ -1288,7 +1249,7 @@
             .from('ManufacturingTasks')
             .insert([{
               ...orderDetails,
-              OrderNumber: newOrderNumber,
+              // OrderNumber intentionally omitted for identity/serial PK
               Quantity: batches[i],
               Progress: 'scheduled',
               PlannedManufactureDate: plannedDate,
@@ -1394,16 +1355,10 @@
       const deadlineValue = document.getElementById('deadline').value;
       const task = {
         Customer: userKey || userID,
-        OrderNumber: document.getElementById('orderNumber').value.trim(),
         ProductSKU: document.getElementById('productSKU').value.trim(),
         Quantity: parseInt(document.getElementById('quantity').value),
         Progress: document.getElementById('progress').value,
-        UserID: [
-          userID,
-          'a4df0386-d361-4f54-a936-c9a2ea01e914',
-          '0d983c8e-07d8-4d01-8e5d-ec635ce4410a',
-          'bc4441d2-38e8-4e77-afb4-2609ec6f56f6'
-        ]
+        UserID: [userID]
       };
       if (deadlineValue) {
         task.Deadline = deadlineValue;
@@ -1416,7 +1371,7 @@
         }
         task.PlannedManufactureDate = plannedDate;
       }
-      if (!task.Customer || !task.OrderNumber || !task.ProductSKU || !task.Quantity) {
+      if (!task.Customer || !task.ProductSKU || !task.Quantity) {
         alert('Please fill in all fields.');
         return;
       }

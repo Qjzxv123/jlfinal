@@ -327,11 +327,9 @@
         alert('Please select a product and enter quantity.');
         return;
       }
-      // Generate a simple order number (timestamp-based)
-      const orderNumber = 'REQ-' + Date.now();
+      // Do not set OrderNumber; let the database assign it
       const task = {
         Customer: displayName,
-        OrderNumber: orderNumber,
         ProductSKU: productSKU,
         Quantity: quantity,
         Progress: 'requested',

@@ -1254,7 +1254,23 @@
                     if (error) {
                         alert('Failed to save instructions: ' + error.message);
                     } else {
-                        alert('Instructions saved to Supabase!');
+                        // Also set Progress to 'Quality Checks' for this ManufacturingTask
+                        // Use SKU and batch number from URL to identify the task
+                        const params = new URLSearchParams(window.location.search);
+                        const batchNumber = params.get('batch');
+                        if (sku && batchNumber) {
+                            const { error: updateError } = await supabase
+                                .from('ManufacturingTasks')
+                                .update({ Progress: 'Quality Checks' })
+                                .eq('OrderNumber', batchNumber);
+                            if (updateError) {
+                                alert('Instructions saved, but failed to update Progress: ' + updateError.message);
+                            } else {
+                                alert('Instructions saved and Progress set to Quality Checks!');
+                            }
+                        } else {
+                            alert('Instructions saved to Supabase! (Could not update Progress: missing SKU or batch number)');
+                        }
                     }
                 } catch (err) {
                     alert('Error saving instructions: ' + err.message);
