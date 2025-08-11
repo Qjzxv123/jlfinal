@@ -590,7 +590,7 @@
                 });
 
                 // Receiving hours and storage fee
-                const receivingCost = (receivingHours - 1) * 25;
+                const receivingCost = 25+Math.max((receivingHours - 2) * 25,0);
                 const storageFee = (bins * 7.5) + (shelves * 12.5) + (pallets * 40);
                 const total = shippingCosts + boxCosts + baseFees + extraItemFees + noteFees + insertsFees + receivingCost + storageFee;
 
