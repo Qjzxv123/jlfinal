@@ -178,6 +178,27 @@
       } catch (e) {
         console.error('Error loading products:', e);
       }
+        // Fetch box SKUs from Boxes table
+        let { data: boxes, error: boxError } = await supabase
+          .from('Boxes')
+          .select('SKU, Dimensions')
+          .order('SKU');
+        if (!boxError && boxes && Array.isArray(boxes)) {
+          boxes.forEach(box => {
+            if (box.SKU) {
+              const opt = document.createElement('option');
+              opt.value = box.SKU;
+              let label = box.SKU;
+              if (box.Dimensions) {
+                label += ` (Box, ${box.Dimensions})`;
+              } else {
+                label += ' (Box)';
+              }
+              opt.label = label;
+              skuDatalist.appendChild(opt);
+            }
+          });
+        }
     }
 
     // Add SKU/Quantity row logic (define only once in global scope)
