@@ -1393,21 +1393,21 @@ async function processShippingLabelsWithBoxData(orderParcels) {
   // Track label and rate data for each order for later Faire fulfillment
   const faireFulfillmentQueue = [];
   for (const {order, parcel} of orderParcels) {
-    // For Faire orders, we don't use ShippoObjectID/ShippoAddressID - use Customer JSONB directly
-    // For other platforms, try to get ShippoObjectID and ShippoAddressID if not present
-    if (order.platform !== 'faire' && (!order.ShippoObjectID || !order.ShippoAddressID) && order.orderNumber) {
+    // For Faire orders, we don't use ShippoOrderID/ShippoAddressID - use Customer JSONB directly
+    // For other platforms, try to get ShippoOrderID and ShippoAddressID if not present
+    if (order.platform !== 'faire' && (!order.ShippoOrderID || !order.ShippoAddressID) && order.orderNumber) {
       try {
         const { data: supaOrder, error } = await supabase
           .from('Orders')
-          .select('ShippoObjectID,ShippoAddressID')
+          .select('ShippoOrderID,ShippoAddressID')
           .eq('OrderID', order.orderNumber)
           .single();
         if (!error && supaOrder) {
-          if (supaOrder.ShippoObjectID) order.ShippoObjectID = supaOrder.ShippoObjectID;
+          if (supaOrder.ShippoOrderID) order.ShippoOrderID = supaOrder.ShippoOrderID;
           if (supaOrder.ShippoAddressID) order.ShippoAddressID = supaOrder.ShippoAddressID;
         }
       } catch (err) {
-        console.error('Error fetching ShippoObjectID/ShippoAddressID from Supabase:', err);
+        console.error('Error fetching ShippoOrderID/ShippoAddressID from Supabase:', err);
       }
     }
     try {

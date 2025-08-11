@@ -197,8 +197,8 @@ exports.handler = async (event) => {
     const isFaireOrder = order.platform === 'faire' || order.source === 'faire' || 
                         (order.id && order.id.toString().startsWith('faire_'));
     
-    if (!isFaireOrder && order && order.ShippoObjectID && order.ShippoObjectID.trim() !== '') {
-      transactionBody.order = order.ShippoObjectID;
+    if (!isFaireOrder && order && order.ShippoOrderID && order.ShippoOrderID.trim() !== '') {
+      transactionBody.order = order.ShippoOrderID;
     }
     const transactionResp = await fetch('https://api.goshippo.com/transactions/', {
       method: 'POST',
