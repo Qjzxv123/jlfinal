@@ -355,10 +355,6 @@
                             <span class="breakdown-value" id="extraItemFees">$0.00</span>
                         </div>
                         
-                        <div class="breakdown-item">
-                            <span class="breakdown-label">Customer Message Processing Fees (<span id="noteCount">0</span> orders × $2.00):</span>
-                            <span class="breakdown-value" id="noteFees">$0.00</span>
-                        </div>
                         
                         <div class="breakdown-item" id="insertsFeeRow" style="display: none;">
                             <span class="breakdown-label">Insert Fees (<span id="insertOrderCount">0</span> orders × $0.20):</span>
@@ -481,7 +477,7 @@
                 let boxCosts = 0;
                 let baseFees = orders.length * 2.5; // $2.5 per order
                 let extraItemFees = 0; // Will be calculated per order
-                let noteFees = 0; // Will be calculated per order
+                // let noteFees = 0; // Removed: Customer Message Processing Fee
                 // Check if inserts are enabled
                 const hasInserts = document.getElementById('insertsCheckbox').checked;
                 let insertsFees = hasInserts ? orders.length * 0.20 : 0; // $0.20 per order if inserts enabled
@@ -574,14 +570,11 @@
                     if (itemCount > 5) {
                         extraItemFees += (itemCount - 5) * 0.20;
                     }
-                    // Customer message processing fees: $2 if order has customer messages
-                    if (order.CustomerMessages && order.CustomerMessages.trim()) {
-                        noteFees += 2;
-                    }
+                    // Removed: Customer message processing fees
                     processedOrders.push({
                         orderId: order.OrderID,
                         itemCount: itemCount,
-                        hasNotes: !!(order.CustomerMessages && order.CustomerMessages.trim()),
+                        // Removed: hasNotes
                         shippingCost: parseFloat(order.ShippingCost) || 0,
                         boxesUsed: orderBoxes,
                         boxCost: orderBoxCost,
@@ -592,14 +585,14 @@
                 // Receiving hours and storage fee
                 const receivingCost = 25+Math.max((receivingHours - 2) * 25,0);
                 const storageFee = (bins * 7.5) + (shelves * 12.5) + (pallets * 40);
-                const total = shippingCosts + boxCosts + baseFees + extraItemFees + noteFees + insertsFees + receivingCost + storageFee;
+                const total = shippingCosts + boxCosts + baseFees + extraItemFees + insertsFees + receivingCost + storageFee;
 
                 const breakdown = {
                     shippingCosts: shippingCosts,
                     boxCosts: boxCosts,
                     baseFees: baseFees,
                     extraItemFees: extraItemFees,
-                    noteFees: noteFees,
+                    // noteFees removed
                     insertsFees: insertsFees,
                     receivingCost: receivingCost,
                     storageFee: storageFee,
@@ -629,7 +622,7 @@
             document.getElementById('boxCosts').textContent = `$${breakdown.boxCosts.toFixed(2)}`;
             document.getElementById('baseFees').textContent = `$${breakdown.baseFees.toFixed(2)}`;
             document.getElementById('extraItemFees').textContent = `$${breakdown.extraItemFees.toFixed(2)}`;
-            document.getElementById('noteFees').textContent = `$${breakdown.noteFees.toFixed(2)}`;
+            // Removed: noteFees display
             // Receiving hours cost
             let receivingCostRow = document.getElementById('receivingCostRow');
             if (!receivingCostRow) {
@@ -681,7 +674,7 @@
             // Update counts
             document.getElementById('orderCount').textContent = orders.length;
             document.getElementById('summaryOrderCount').textContent = orders.length;
-            document.getElementById('noteCount').textContent = orders.filter(o => o.hasNotes).length;
+            // Removed: noteCount display
 
             // Update orders list
             const ordersList = document.getElementById('ordersList');
@@ -699,7 +692,7 @@
                                 <span class="order-id">${order.orderId}</span>
                                 <div class="order-details">
                                     ${order.itemCount} items • 
-                                    ${order.hasNotes ? 'Has customer messages' : 'No customer messages'} • 
+                                    
                                     $${order.shippingCost.toFixed(2)} shipping
                                     ${order.boxCost > 0 ? ` • $${order.boxCost.toFixed(2)} boxes` : ''}
                                 </div>
