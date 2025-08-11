@@ -61,7 +61,7 @@ exports.handler = async (event) => {
         };
 
   // Build shipment payload
-  const isInternational = order.customer?.country && order.customer.country.toUpperCase() !== 'US';
+  const isInternational = order.customer?.country && !["UNITED STATES", "US"].includes(order.customer.country.toUpperCase());
   let shipmentPayload = {
     address_from: {
       name: 'J&L Naturals',
