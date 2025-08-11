@@ -1018,8 +1018,27 @@ async function removeSelectedOrders() {
                         });
                     }
                 });
+
+                // Retailer logo logic
+                let logoUrl = '';
+                let logoAlt = '';
+                const shop = (order.shop || '').toLowerCase();
+                if (shop.includes('desesh')) {
+                    logoUrl = 'https://desesh.com/cdn/shop/files/Desesh_Logo_-_Zero_Waste_Plastic_Free_Sustainable_Kitchen_Bathroom_Laundry.png?v=1669413380&width=500';
+                    logoAlt = 'Desesh Logo';
+                } else if (shop.includes('river organics')) {
+                    logoUrl = 'https://riverorganics.org/cdn/shop/files/RO_Secondary_Logos-14_98f44cae-12e5-46ee-9391-5e0e168f2427.png?v=1735735433&width=255';
+                    logoAlt = 'River Organics Logo';
+                } else if (shop.includes('jnl') || shop.includes('jnl naturals')) {
+                    logoUrl = 'https://www.jnlnaturals.com/cdn/shop/files/JL_PNG_TRAN_BLACK_FINAL_Cropped_outlined.png?v=1697910301&width=300';
+                    logoAlt = 'JNL Naturals Logo';
+                }
+
                 packingSlipsHtml += `
                     <div style="font-family: Arial, sans-serif; padding: 20px; background: white; ${index > 0 ? 'page-break-before: always;' : ''}">
+                        <div style="display: flex; justify-content: flex-end; align-items: flex-start; min-height: 60px;">
+                            ${logoUrl ? `<img src="${logoUrl}" alt="${logoAlt}" style="max-width:180px; max-height:80px; margin-bottom:10px; margin-left:auto; display:block;">` : ''}
+                        </div>
                         <div style="text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 25px;">
                             <h1 style="margin: 0; font-size: 28px; font-weight: bold;">PACKING SLIP</h1>
                             <p style="margin: 10px 0 0 0; font-size: 18px; font-weight: bold;">Order #${order.orderNumber}</p>
