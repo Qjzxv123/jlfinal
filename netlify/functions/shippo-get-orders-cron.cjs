@@ -15,22 +15,31 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: 'Missing Shippo API token.' };
   }
 
-  // Fetch Shippo orders (transactions) after 8/08/2025
+  // Fetch Shippo orders (transactions) after 8/01/2025, handle pagination
   let orders = [];
   try {
-    // Shippo expects ISO 8601 format for date filtering
-    const createdAfter = '2025-08-8T00:00:00Z';
-    const url = `https://api.goshippo.com/orders?order_status[]=PAID&created__gt=${encodeURIComponent(createdAfter)}`;
-    const resp = await fetch(url, {
-      headers: { Authorization: `ShippoToken ${SHIPPO_API_KEY}` }
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || 'Failed to fetch Shippo orders');
-    orders = data.results || [];
+    const createdAfter = '2025-08-01T00:00:00Z';
+    let page = 1;
+    let keepGoing = true;
+    while (keepGoing) {
+      const url = `https://api.goshippo.com/orders?order_status[]=PAID&results=100&page=${page}&start_date=${encodeURIComponent(createdAfter)}`;
+      const resp = await fetch(url, {
+        headers: { Authorization: `ShippoToken ${SHIPPO_API_KEY}` }
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || 'Failed to fetch Shippo orders');
+      const pageResults = data.results || [];
+      orders = orders.concat(pageResults);
+      if (pageResults.length < 100) {
+        keepGoing = false;
+      } else {
+        page++;
+      }
+    }
   } catch (err) {
     return { statusCode: 500, body: 'Error fetching Shippo orders: ' + err.message };
   }
-console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
+  console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
   // Save orders to Supabase
   try {
     const { createClient } = require('@supabase/supabase-js');
