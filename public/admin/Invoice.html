@@ -477,7 +477,6 @@
                 let boxCosts = 0;
                 let baseFees = orders.length * 2.5; // $2.5 per order
                 let extraItemFees = 0; // Will be calculated per order
-                // let noteFees = 0; // Removed: Customer Message Processing Fee
                 // Check if inserts are enabled
                 const hasInserts = document.getElementById('insertsCheckbox').checked;
                 let insertsFees = hasInserts ? orders.length * 0.20 : 0; // $0.20 per order if inserts enabled
@@ -570,11 +569,9 @@
                     if (itemCount > 5) {
                         extraItemFees += (itemCount - 5) * 0.20;
                     }
-                    // Removed: Customer message processing fees
                     processedOrders.push({
                         orderId: order.OrderID,
                         itemCount: itemCount,
-                        // Removed: hasNotes
                         shippingCost: parseFloat(order.ShippingCost) || 0,
                         boxesUsed: orderBoxes,
                         boxCost: orderBoxCost,
