@@ -1153,11 +1153,9 @@ function showShippingModal(orders) {
                 for (const product of order.products) {
                     let unitWeight = 0;
                     let name = product.name;
-                    let weightValue = '';
                     if (product.sku && productWeights[product.sku]) {
                         unitWeight = productWeights[product.sku].unitWeight;
                         name = productWeights[product.sku].name || product.name;
-                        weightValue = productWeights[product.sku].unitWeight;
                     }
                     if (!isNaN(unitWeight) && unitWeight > 0) {
                         const totalProductWeight = unitWeight * product.quantity;
@@ -1178,7 +1176,7 @@ function showShippingModal(orders) {
                             unitWeight: 0,
                             quantity: product.quantity,
                             totalWeight: 0,
-                            weight: weightValue ? `${weightValue} oz (invalid)` : 'No weight data',
+                            weight: 'No weight data',
                             weightSource: 'Invalid or missing weight'
                         });
                     }
