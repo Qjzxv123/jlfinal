@@ -89,37 +89,61 @@
       <div style="margin-bottom:32px;">
         <button id="toggleRoleTableBtn" class="btn" style="margin-bottom:8px;">Show Role Access Table ▼</button>
         <div id="roleAccessTableContainer" style="display:none;">
-          <h2>Role Access Table</h2>
-          <table id="roleAccessTable">
+          <h3>Public Pages</h3>
+          <table id="roleAccessTablePublic">
             <thead>
               <tr>
                 <th>Page</th>
-                <th>Roles Allowed</th>
+                <th>service_role</th>
+                <th>employee</th>
+                <th>client</th>
               </tr>
             </thead>
             <tbody>
-              <tr><td>AddProduct.html</td><td>service_role, client</td></tr>
-              <tr><td>CustomerOrders.html</td><td>service_role, client</td></tr>
-              <tr><td>InventoryViewer.html</td><td>service_role, client</td></tr>
-              <tr><td>CustomerOrderView.html</td><td>service_role, client</td></tr>
-              <tr><td>CustomerChecklist.html</td><td>service_role, client, employee</td></tr>
-              <tr><td>ecommerce-oauth.html</td><td>service_role, client</td></tr>
-              <tr><td>admin/UserManagement.html</td><td>service_role</td></tr>
-              <tr><td>admin/Invoice.html</td><td>service_role</td></tr>
-              <tr><td>admin/Quoting.html</td><td>service_role</td></tr>
-              <tr><td>admin/Qrcode.html</td><td>service_role, employee</td></tr>
-              <tr><td>admin/ProductInfo.html</td><td>service_role, employee, client</td></tr>
-              <tr><td>admin/OrderViewer.html</td><td>service_role, employee</td></tr>
-              <tr><td>admin/OrderTracker.html</td><td>service_role</td></tr>
-              <tr><td>admin/ManufacturingInstructions.html</td><td>service_role, employee</td></tr>
-              <tr><td>admin/InventoryUpdater.html</td><td>service_role, employee</td></tr>
-              <tr><td>admin/InventoryScanner.html</td><td>service_role, employee</td></tr>
-              <tr><td>admin/IngredientInfo.html</td><td>service_role, employee, client</td></tr>
-              <tr><td>admin/IncomingIngredients.html</td><td>service_role</td></tr>
-              <tr><td>admin/DatabaseViewer.html</td><td>service_role, employee</td></tr>
-              <tr><td>admin/Checklist.html</td><td>service_role</td></tr>
-              <tr><td>admin/Calendar.html</td><td>service_role, employee</td></tr>
-              <tr><td>admin/AddItemAdmin.html</td><td>service_role</td></tr>
+              <tr><td>Add Product</td><td>✓</td><td></td><td>✓</td></tr>
+              <tr><td>Checklist</td><td>✓</td><td>✓</td><td>✓</td></tr>
+              <tr><td>Customer Dashboard</td><td>✓</td><td></td><td>✓</td></tr>
+              <tr><td>Customer Orders</td><td>✓</td><td></td><td>✓</td></tr>
+              <tr><td>Customer Manufacturing Requester</td><td>✓</td><td></td><td>✓</td></tr>
+              <tr><td>Ecommerce OAuth</td><td>✓</td><td></td><td>✓</td></tr>
+              <tr><td>Fulfillment Log Viewer</td><td>✓</td><td></td><td>✓</td></tr>
+              <tr><td>Inventory Viewer</td><td>✓</td><td></td><td>✓</td></tr>
+              <tr><td>Send to Amazon</td><td>✓</td><td></td><td>✓</td></tr>
+              <tr><td>Send to Warehouse</td><td>✓</td><td></td><td>✓</td></tr>
+            </tbody>
+          </table>
+          <h3 style="margin-top:2em;">Admin Pages</h3>
+          <table id="roleAccessTableAdmin">
+            <thead>
+              <tr>
+                <th>Page</th>
+                <th>service_role</th>
+                <th>employee</th>
+                <th>client</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Add Fulfillment Log</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Add Item (Admin)</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Admin Dashboard</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Amazon Shipments</td><td>✓</td><td>✓</td><td></td></tr>
+              <tr><td>Calendar</td><td>✓</td><td>✓</td><td></td></tr>
+              <tr><td>Admin Checklist</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Database Viewer</td><td>✓</td><td>✓</td><td></td></tr>
+              <tr><td>Employee Dashboard</td><td>✓</td><td>✓</td><td></td></tr>
+              <tr><td>Incoming Ingredients</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Ingredient Info</td><td>✓</td><td>✓</td><td>✓</td></tr>
+              <tr><td>Inventory Scanner</td><td>✓</td><td>✓</td><td></td></tr>
+              <tr><td>Inventory Updater</td><td>✓</td><td>✓</td><td></td></tr>
+              <tr><td>Invoice</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Manufacturing Instructions</td><td>✓</td><td>✓</td><td></td></tr>
+              <tr><td>Manufacturing Tracker</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Order Viewer</td><td>✓</td><td>✓</td><td></td></tr>
+              <tr><td>Product Info</td><td>✓</td><td>✓</td><td>✓</td></tr>
+              <tr><td>QR Code</td><td>✓</td><td>✓</td><td></td></tr>
+              <tr><td>Quoting</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>User Management</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Warehouse Shipments</td><td>✓</td><td></td><td></td></tr>
             </tbody>
           </table>
         </div>
