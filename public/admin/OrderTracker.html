@@ -259,107 +259,119 @@
       if (progress.toLowerCase() !== 'scheduled') {
         updateObj.Vessel = null;
       }
-      // If marking as completed, set CompletionDate
+      // If progress is completed, prompt for actual quantity made before updating inventory and progress
       if (progress.toLowerCase() === 'completed') {
-        updateObj.CompletionDate = new Date().toISOString();
-      }
-      // Fetch order data
-      const { data: orderData, error: orderError } = await supabase
-        .from('ManufacturingTasks')
-        .select('ProductSKU, Quantity')
-        .eq('OrderNumber', orderNumber)
-        .maybeSingle();
-      // Update order progress
-      const { error } = await supabase
-        .from('ManufacturingTasks')
-        .update(updateObj)
-        .eq('OrderNumber', orderNumber);
-      if (error) {
-        alert('Failed to update task: ' + error.message);
-        return;
-      }
-      // If progress is completed, prompt for actual quantity made before updating inventory
-      if (progress.toLowerCase() === 'completed' && orderData && orderData.ProductSKU && orderData.Quantity) {
-        // Show modal to ask for actual quantity made
-        let modal = document.getElementById('actualQtyModal');
-        if (!modal) {
-          modal = document.createElement('div');
-          modal.id = 'actualQtyModal';
-          modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2600; align-items:center; justify-content:center;';
-          modal.innerHTML = `
-            <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
-              <h3 style="margin-top:0;">Enter Actual Quantity Made</h3>
-              <div style="margin-bottom:1em;">Product: <b>${orderData.ProductSKU}</b></div>
-              <label for="actualQtyInput" style="font-weight:600;">Actual Quantity Made</label>
-              <input type="number" id="actualQtyInput" min="0" step="1" value="${orderData.Quantity}" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;" />
-              <div style="display:flex; gap:1em; justify-content:flex-end;">
-                <button id="actualQtyCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
-                <button id="actualQtySaveBtn" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
+        // Fetch order data
+        const { data: orderData, error: orderError } = await supabase
+          .from('ManufacturingTasks')
+          .select('ProductSKU, Quantity')
+          .eq('OrderNumber', orderNumber)
+          .maybeSingle();
+        if (orderData && orderData.ProductSKU && orderData.Quantity) {
+          // Show modal to ask for actual quantity made
+          let modal = document.getElementById('actualQtyModal');
+          if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'actualQtyModal';
+            modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2600; align-items:center; justify-content:center;';
+            modal.innerHTML = `
+              <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+                <h3 style="margin-top:0;">Enter Actual Quantity Made</h3>
+                <div style="margin-bottom:1em;">Product: <b>${orderData.ProductSKU}</b></div>
+                <label for="actualQtyInput" style="font-weight:600;">Actual Quantity Made</label>
+                <input type="number" id="actualQtyInput" min="0" step="1" value="${orderData.Quantity}" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;" />
+                <div style="display:flex; gap:1em; justify-content:flex-end;">
+                  <button id="actualQtyCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
+                  <button id="actualQtySaveBtn" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
+                </div>
               </div>
-            </div>
-          `;
-          document.body.appendChild(modal);
-        }
-        // Show modal
-        modal.style.display = 'flex';
-        // Remove previous listeners
-        const newSaveBtn = modal.querySelector('#actualQtySaveBtn').cloneNode(true);
-        modal.querySelector('#actualQtySaveBtn').replaceWith(newSaveBtn);
-        const newCancelBtn = modal.querySelector('#actualQtyCancelBtn').cloneNode(true);
-        modal.querySelector('#actualQtyCancelBtn').replaceWith(newCancelBtn);
-        // Save handler
-        newSaveBtn.onclick = async function() {
-          const input = modal.querySelector('#actualQtyInput');
-          let actualQty = parseInt(input.value);
-          if (isNaN(actualQty) || actualQty < 0) {
-            alert('Please enter a valid quantity.');
-            return;
+            `;
+            document.body.appendChild(modal);
           }
-          // Fetch current product quantity
-          const { data: productData, error: productError } = await supabase
-            .from('Products')
-            .select('Quantity')
-            .eq('ProductSKU', orderData.ProductSKU)
-            .maybeSingle();
-          if (!productError && productData) {
-            const currentQty = productData.Quantity || 0;
-            const newQty = currentQty + actualQty;
-            const { error: updateProductError } = await supabase
-              .from('Products')
-              .update({ Quantity: newQty })
-              .eq('ProductSKU', orderData.ProductSKU);
-            if (updateProductError) {
-              alert('Failed to update product inventory: ' + updateProductError.message);
+          // Show modal
+          modal.style.display = 'flex';
+          // Remove previous listeners
+          const newSaveBtn = modal.querySelector('#actualQtySaveBtn').cloneNode(true);
+          modal.querySelector('#actualQtySaveBtn').replaceWith(newSaveBtn);
+          const newCancelBtn = modal.querySelector('#actualQtyCancelBtn').cloneNode(true);
+          modal.querySelector('#actualQtyCancelBtn').replaceWith(newCancelBtn);
+          // Save handler
+          newSaveBtn.onclick = async function() {
+            const input = modal.querySelector('#actualQtyInput');
+            let actualQty = parseInt(input.value);
+            if (isNaN(actualQty) || actualQty < 0) {
+              alert('Please enter a valid quantity.');
               return;
             }
-            // Get current user's display_name for updated_by using session data
-            const { data: { session } } = await supabase.auth.getSession();
-            const displayName = (session && session.user && session.user.user_metadata && session.user.user_metadata.display_name) ? session.user.user_metadata.display_name : 'Unknown User';
-            // Log the addition in inventoryupdatelogs
-            const logEntry = {
-              SKU: orderData.ProductSKU,
-              QuantityChanged: actualQty,
-              log: `Added ${actualQty} of ${orderData.ProductSKU} to inventory (completed order)`,
-              updated_by: displayName
-            };
-            await supabase.from('inventoryupdatelogs').insert([logEntry]);
-            alert('Product inventory updated and logged successfully.');
-          }
-          modal.style.display = 'none';
-          loadOrders();
-        };
-        // Cancel handler
-        newCancelBtn.onclick = function() {
-          modal.style.display = 'none';
-        };
-        // Close modal on outside click
-        modal.onclick = function(e) {
-          if (e.target === modal) modal.style.display = 'none';
-        };
-        // Don't continue until user input
-        return;
+            // Update order progress and completion date
+            const updateObj = { Progress: progress, CompletionDate: new Date().toISOString() };
+            const { error } = await supabase
+              .from('ManufacturingTasks')
+              .update(updateObj)
+              .eq('OrderNumber', orderNumber);
+            if (error) {
+              alert('Failed to update task: ' + error.message);
+              return;
+            }
+            // Fetch current product quantity
+            const { data: productData, error: productError } = await supabase
+              .from('Products')
+              .select('Quantity')
+              .eq('ProductSKU', orderData.ProductSKU)
+              .maybeSingle();
+            if (!productError && productData) {
+              const currentQty = productData.Quantity || 0;
+              const newQty = currentQty + actualQty;
+              const { error: updateProductError } = await supabase
+                .from('Products')
+                .update({ Quantity: newQty })
+                .eq('ProductSKU', orderData.ProductSKU);
+              if (updateProductError) {
+                alert('Failed to update product inventory: ' + updateProductError.message);
+                return;
+              }
+              // Get current user's display_name for updated_by using session data
+              const { data: { session } } = await supabase.auth.getSession();
+              const displayName = (session && session.user && session.user.user_metadata && session.user.user_metadata.display_name) ? session.user.user_metadata.display_name : 'Unknown User';
+              // Log the addition in inventoryupdatelogs
+              const logEntry = {
+                SKU: orderData.ProductSKU,
+                QuantityChanged: actualQty,
+                log: `Added ${actualQty} of ${orderData.ProductSKU} to inventory (completed order)`,
+                updated_by: displayName
+              };
+              await supabase.from('inventoryupdatelogs').insert([logEntry]);
+              alert('Product inventory updated and logged successfully.');
+            }
+            modal.style.display = 'none';
+            loadOrders();
+          };
+          // Cancel handler
+          newCancelBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            modal.style.display = 'none';
+          };
+          // Close modal on outside click
+          modal.onclick = function(e) {
+            if (e.target === modal) modal.style.display = 'none';
+          };
+          // Don't continue until user input
+          return;
+        }
       }
-    }
+      // For all other progress values, update immediately
+      else {
+        const { error } = await supabase
+          .from('ManufacturingTasks')
+          .update(updateObj)
+          .eq('OrderNumber', orderNumber);
+        if (error) {
+          alert('Failed to update task: ' + error.message);
+          return;
+        }
+      }
+    } // <-- Add this closing brace to end updateOrderProgress
 
      function renderOrders(orders) {
       // Split orders into completed and non-completed
@@ -499,7 +511,7 @@
           }
 
           if (highlightRed) {
-            batchMakerButton = `<button class="low-ingredients-btn" data-productsku="${task.ProductSKU}" data-quantity="${task.Quantity}" style="margin-left: 10px; display: inline-block; background: #F9AD28; color: white; padding: 0.2rem 0.5rem; border: none; border-radius: 4px; font-size: 0.8rem; cursor:pointer;"><i class='cil-warning'></i></button>`;
+            batchMakerButton = `<button title="View Insufficient Ingredients" class="low-ingredients-btn" data-productsku="${task.ProductSKU}" data-quantity="${task.Quantity}" style="margin-left: 10px; display: inline-block; background: #F9AD28; color: white; padding: 0.2rem 0.5rem; border: none; border-radius: 4px; font-size: 0.8rem; cursor:pointer;"><i class='cil-warning'></i></button>`;
           }
           const batchNum = task.OrderNumber || '';
           const instructionsBtnStyle = 'background:#9B41E5; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.4em;';
@@ -524,7 +536,7 @@
             instructionsBtn = `<span style=\"color:#888;\"></span>`;
           }
           tr.innerHTML = `
-            <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
+            <td><button title="Remove Task" class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
             <td>${batchMakerButton} ${task.OrderNumber || ''}</td>
             <td><span style="font-weight:600; color:#E2DB53;">${customerDisplay}</span><br><span style="color:#374151;">${task.ProductSKU || ''} × <span style='opacity:0.65;'>${task.Quantity || ''}</span></span></td>
           <td class="${progressClass}">
@@ -890,7 +902,7 @@
             }
           }
           tr.innerHTML = `
-            <td><button class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
+            <td><button title="Remove Task" class="remove-order-btn" data-order-id="${task.OrderNumber}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1.2em;"><i class="cil-trash"></i></button></td>
             <td>${task.OrderNumber || ''}</td>
             <td><span style="font-weight:600; color:#E2DB53;">${customerDisplay}</span><br><span style="color:#374151;">${task.ProductSKU || ''} × <span style='opacity:0.65;'>${task.Quantity || ''}</span></span></td>
             <td class="${progressClass}">${progressDisplay}</td>
@@ -1009,7 +1021,7 @@
           </select>
           <div style="display:flex; gap:1em; justify-content:flex-end;">
             <button id="modalScheduleCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
-            <button id="modalScheduleSaveBtn" style="background:#1976d2; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
+            <button id="modalScheduleSaveBtn" style="background:#1976d2; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save and Remove Ingredients</button>
           </div>
         </div>
       `;

@@ -428,11 +428,7 @@
         <p>View and manage Warehouse shipment orders</p>
       </div>
 
-      <div class="controls">
-        <button class="btn" onclick="loadShipments()" id="refreshBtn">
-          🔄 Refresh Shipments
-        </button>
-        
+      <div class="controls">        
         <button class="btn" onclick="openReceiveModal()" id="receiveBtn" style="background: #4DBA93;">
           ⚙️ Process Shipments
         </button>
@@ -456,7 +452,7 @@
       <div class="action-buttons" id="actionButtons" style="display: none;">
         <span style="font-weight: 600; color: #2c3e50;">Selected Shipments:</span>
         <span id="selectedCount" style="font-weight: 600; color: #4DBA93;">0</span>
-        <button class="action-btn danger" onclick="deleteSelectedShipments()" id="deleteBtn">
+        <button title="Delete Selected Shipments" class="action-btn danger" onclick="deleteSelectedShipments()" id="deleteBtn">
           <i class="cil-trash"></i>
         </button>
       </div>
@@ -471,7 +467,6 @@
         <div id="shipmentsTableContainer">
           <div class="no-shipments">
             <h3>Ready to load shipments</h3>
-            <p>Click "Refresh Shipments" to load Warehouse shipment orders</p>
           </div>
         </div>
 
@@ -505,7 +500,7 @@
           <input id="receivingHoursInput" type="text" style="width:100%;font-size:1.08rem;padding:10px;border:1.5px solid #e1e5e9;border-radius:7px;box-sizing:border-box;transition:border-color 0.2s,box-shadow 0.2s;" placeholder="e.g. 2.5" required />
         </div>
         <div style="display: flex; gap: 12px; justify-content: center; margin-top: 18px;">
-          <button class="btn" type="submit" id="submitReceiveBtn" style="background: #4DBA93; min-width: 140px;">✅ Mark as Processed</button>
+          <button class="btn" type="submit" id="submitReceiveBtn" style="background: #4DBA93; min-width: 140px;">Add to Inventory</button>
           <button class="btn" type="button" onclick="closeReceiveModal()" style="background:#b0b0b0; min-width: 100px;">Cancel</button>
         </div>
       </form>
@@ -684,9 +679,7 @@ async function submitReceiveShipment(event) {
 }
 
     async function loadShipments() {
-      const refreshBtn = document.getElementById('refreshBtn');
-      refreshBtn.disabled = true;
-      refreshBtn.textContent = '⏳ Loading...';
+
 
       showStatus('Loading Warehouse shipments...', 'loading');
       
@@ -721,9 +714,6 @@ async function submitReceiveShipment(event) {
         console.error('Error loading shipments:', error);
         showStatus(`Error loading shipments: ${error.message}`, 'error');
       }
-
-      refreshBtn.disabled = false;
-      refreshBtn.textContent = '🔄 Refresh Shipments';
 
       filteredShipments = [...allShipments];
       displayShipments();

@@ -270,7 +270,7 @@
           <td style="text-align:center;">${priorityIcon}</td>
           <td>${task.AssignedTo || ''}</td>
           <td>${deadline}</td>
-          <td><button class="remove-task-btn" data-id="${task.id}" style="background:#e74c3c;"><i class="cil-trash"></i></button></td>
+          <td><button title="Remove Task" class="remove-task-btn" data-id="${task.id}" style="background:#e74c3c;"><i class="cil-trash"></i></button></td>
         `;
         if (checked) {
           completedTbody.appendChild(tr);
