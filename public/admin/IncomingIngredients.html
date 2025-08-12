@@ -333,7 +333,7 @@
         </tbody>
       </table>
       <div style="text-align: center; margin: 2rem 0;">
-        <button class="btn" onclick="processReceivedBoxes()" style="background: #059669; font-size: 1.1rem; padding: 1rem 2rem;">
+        <button title='Add boxes to inventory' class="btn" onclick="processReceivedBoxes()" style="background: #059669; font-size: 1.1rem; padding: 1rem 2rem;">
           <i class="cil-check"></i> Process Received Boxes
         </button>
       </div>
@@ -847,10 +847,10 @@
               <input type="number" class="cost-field" placeholder="Cost" min="0" step="0.01" style="width: 100%;" />
             </td>
             <td>
-              <button class="btn btn-success" onclick="processSingleReceivedIngredient(this)" style="padding: 0.5rem; margin-right: 0.5rem;">
+              <button title="Add Ingredient Batch to Inventory " class="btn btn-success" onclick="processSingleReceivedIngredient(this)" style="padding: 0.5rem; margin-right: 0.5rem;">
                 <i class="cil-check"></i>
               </button>
-              <button class="btn btn-danger" onclick="removePendingOrder(${order.id})" style="padding: 0.5rem;">
+              <button title="Remove Order" class="btn btn-danger" onclick="removePendingOrder(${order.id})" style="padding: 0.5rem;">
                 <i class="cil-trash"></i>
               </button>
             </td>
@@ -1640,8 +1640,8 @@
             <td>${lotQuantity}</td>
             <td>${expiry}</td>
             <td>
-              <button class='btn btn-secondary' style='padding:0.3rem 0.8rem;font-size:0.9em;margin-right:0.5em;' onclick="printLabel('${ingredient.IngredientSKU}','${expiry}','${lotNumber}')"><i class='cil-print'></i></button>
-              <button class='btn btn-danger' style='padding:0.3rem 0.8rem;font-size:0.9em;' onclick="removeLotFromView('${ingredient.IngredientSKU}','${lot.replace(/'/g, "&#39;")}', this)"><i class='cil-trash'></i></button>
+              <button title="Print Label" class='btn btn-secondary' style='padding:0.3rem 0.8rem;font-size:0.9em;margin-right:0.5em;' onclick="printLabel('${ingredient.IngredientSKU}','${expiry}','${lotNumber}')"><i class='cil-print'></i></button>
+              <button title='Remove Batch' class='btn btn-danger' style='padding:0.3rem 0.8rem;font-size:0.9em;' onclick="removeLotFromView('${ingredient.IngredientSKU}','${lot.replace(/'/g, "&#39;")}', this)"><i class='cil-trash'></i></button>
             </td>
           </tr>`;
           anyLots = true;

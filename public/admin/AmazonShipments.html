@@ -500,7 +500,7 @@
       
       <div style="text-align: center; margin-top: 20px;">
         <button class="btn" onclick="submitProcessing()" id="submitProcessBtn">
-          📋 Send to Inventory Updater
+          📋 Send to Inventory Updater(This will remove Products from Inventory)
         </button>
         <button class="btn" onclick="closeBoxModal()" style="background: #666; margin-left: 10px;">
           Cancel
@@ -715,21 +715,6 @@
           ? `"${productName.replace(/"/g, '""')}"` 
           : productName;
         csvLines.push(`${sku},${escapedName},${quantity}`);
-      });
-      
-      return csvLines.join('\n');
-    }
-
-    function generateBoxCSV() {
-      // Generate box CSV in similar format (SKU, Product Name, Quantity)
-      const csvLines = ['SKU,Product Name,Quantity'];
-      Object.entries(selectedBoxes).forEach(([boxSKU, quantity]) => {
-        const box = availableBoxes.find(b => b.SKU === boxSKU);
-        const productName = box?.Dimensions ? `Box ${box.Dimensions}` : `Box ${boxSKU}`;
-        const escapedName = productName.includes(',') || productName.includes('"') 
-          ? `"${productName.replace(/"/g, '""')}"` 
-          : productName;
-        csvLines.push(`${boxSKU},${escapedName},${quantity}`);
       });
       
       return csvLines.join('\n');

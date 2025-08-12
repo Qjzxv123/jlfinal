@@ -474,6 +474,16 @@
             <p>Click "Refresh Shipments" to load Warehouse shipment orders</p>
           </div>
         </div>
+
+          <!-- Collapsible Processed Shipments Table -->
+          <div id="processedShipmentsSection" style="margin-top:32px;">
+            <div style="display:flex;align-items:center;cursor:pointer;gap:10px;background:#f8f9fa;padding:12px 18px;border-radius:8px 8px 0 0;user-select:none;" onclick="toggleProcessedShipments()">
+              <span id="processedCollapseArrow" style="font-size:1.3em;font-weight:bold;">&#9654;</span>
+              <span style="font-size:1.1em;font-weight:600;color:#2c3e50;">Processed Shipments</span>
+              <span id="processedCount" style="margin-left:8px;color:#4DBA93;font-weight:600;"></span>
+            </div>
+            <div id="processedShipmentsTableContainer" style="display:none;border:1px solid #e1e5e9;border-top:none;border-radius:0 0 8px 8px;overflow-x:auto;background:white;"></div>
+          </div>
       </div>
     </div>
   </div>
@@ -642,7 +652,7 @@ async function submitReceiveShipment(event) {
           .eq('ProductSKU', item.sku);
         if (upErr) throw upErr;
         // Log the inventory update
-        const logMsg = `Received ${item.quantity} to SKU ${item.sku}`;
+        const logMsg = `Received ${item.quantity} SKU ${item.sku}`;
         await supabase
           .from('inventoryupdatelogs')
           .insert({
@@ -664,7 +674,7 @@ async function submitReceiveShipment(event) {
     updateSummary();
     populateUserFilter();
     closeReceiveModal();
-    showStatus('Shipment marked as received and inventory updated!', 'success');
+    showStatus('Shipment marked as Processed and inventory updated!', 'success');
     setTimeout(hideStatus, 3000);
   } catch (error) {
     showStatus(`Error receiving shipment: ${error.message}`, 'error');
@@ -800,6 +810,8 @@ async function submitReceiveShipment(event) {
       summaryDiv.style.display = 'flex';
       actionButtons.style.display = 'flex';
 
+      // Only show non-processed shipments in the main table
+      const nonProcessedShipments = filteredShipments.filter(s => s.Status !== 'Processed');
       const tableHTML = `
         <table class="shipments-table">
           <thead>
@@ -816,7 +828,7 @@ async function submitReceiveShipment(event) {
             </tr>
           </thead>
           <tbody>
-            ${filteredShipments.map((shipment, idx) => {
+            ${nonProcessedShipments.map((shipment, idx) => {
               const isSelected = selectedShipments.has(shipment.id);
               const retailer = shipment.Retailer || 'Unknown User';
               const tracking = shipment.TrackingLink || '';
@@ -854,6 +866,8 @@ async function submitReceiveShipment(event) {
           </tbody>
         </table>
       `;
+    // Render Processed Shipments Table
+    renderProcessedShipmentsTable();
     // Mark as Recieved handler for selected shipment
     window.markSelectedAsRecieved = async function() {
       if (selectedShipments.size === 0) return;
@@ -901,6 +915,87 @@ async function submitReceiveShipment(event) {
         });
       });
     }
+
+      // Collapsible Processed Shipments Table logic
+      function renderProcessedShipmentsTable() {
+        const processedShipments = allShipments.filter(s => s.Status === 'Processed');
+        const processedCount = processedShipments.length;
+        document.getElementById('processedCount').textContent = processedCount > 0 ? `(${processedCount})` : '';
+        const container = document.getElementById('processedShipmentsTableContainer');
+        if (processedCount === 0) {
+          container.innerHTML = `<div class="no-shipments"><h3>No processed shipments</h3></div>`;
+          return;
+        }
+        container.innerHTML = `
+          <table class="shipments-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Items</th>
+                <th>User</th>
+                <th>Tracking Link</th>
+                <th>Status</th>
+                <th>Received At</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${processedShipments.map(shipment => {
+                const retailer = shipment.Retailer || 'Unknown User';
+                const tracking = shipment.TrackingLink || '';
+                const receivedAt = shipment.RecievedAt ? shipment.RecievedAt : 'Not yet received';
+                const status = shipment.Status || '';
+                const collapseId = `collapse-processed-items-${shipment.id}`;
+                return `
+                  <tr class="collapsible-row-processed" id="processed-shipment-${shipment.id}" data-collapse="${collapseId}" style="cursor:pointer;">
+                    <td><strong>#${shipment.id}</strong></td>
+                    <td><span class="collapse-arrow-processed" style="font-weight:bold;font-size:1.2em;">&#9660;</span></td>
+                    <td><span class="user-name">${retailer}</span></td>
+                    <td>${tracking}</td>
+                    <td>${status}</td>
+                    <td>${receivedAt}</td>
+                  </tr>
+                  <tr id="${collapseId}" class="items-detail-row-processed" style="display:none;background:#f9f9f9;">
+                    <td colspan="6">
+                      <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                          <tr><th>SKU</th><th>Quantity</th></tr>
+                        </thead>
+                        <tbody>
+                          ${(shipment.ActualContents && shipment.ActualContents.items ? shipment.ActualContents.items : []).map(item => `<tr><td>${item.sku}</td><td>${item.quantity}</td></tr>`).join('')}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        `;
+        // Add click listeners for collapsible rows in processed table
+        document.querySelectorAll('.collapsible-row-processed').forEach(row => {
+          row.addEventListener('click', function(e) {
+            const collapseId = this.getAttribute('data-collapse');
+            const detailRow = document.getElementById(collapseId);
+            const arrow = this.querySelector('.collapse-arrow-processed');
+            if (detailRow) {
+              const isOpen = detailRow.style.display === '';
+              detailRow.style.display = isOpen ? 'none' : '';
+              if (arrow) {
+                arrow.innerHTML = isOpen ? '&#9660;' : '&#9650;';
+              }
+            }
+          });
+        });
+      }
+
+      // Toggle processed shipments section
+      window.toggleProcessedShipments = function() {
+        const container = document.getElementById('processedShipmentsTableContainer');
+        const arrow = document.getElementById('processedCollapseArrow');
+        const isOpen = container.style.display === '';
+        container.style.display = isOpen ? 'none' : '';
+        arrow.innerHTML = isOpen ? '&#9654;' : '&#9660;';
+      }
 
     function updateSummary() {
       const summaryDiv = document.getElementById('shipmentsSummary');
