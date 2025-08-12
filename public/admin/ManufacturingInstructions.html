@@ -1265,6 +1265,9 @@
             btn.textContent = 'Finish & Save Instructions';
             btn.style = 'margin: 2rem auto; display: block; background: #4dba93; color: white; font-size: 1.2rem; padding: 1rem 2.5rem; border-radius: 8px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(77,186,147,0.2);';
             btn.onclick = async function() {
+                if (!confirm('Are you sure you want to finish and save these instructions? This will send order to quality checks.')) {
+                    return;
+                }
                 // Collect all input values
                 const inputs = instructionsDiv.querySelectorAll('input');
                 let filledInstructions = instructionsDiv.innerHTML;
