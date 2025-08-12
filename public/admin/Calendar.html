@@ -249,7 +249,42 @@
         .lte('ExpectedBy', endDate);
       return { tasks, ingOrders };
     }
-
+ function generatelotNumber(productSKU) {
+              const now = new Date();
+              const year = now.getFullYear();
+              const month = now.getMonth() + 1;
+              const day = now.getDate();
+              let shelfLifeYears = 3;
+              try {
+                const { data: productShelfData, error: shelfError } =  supabase
+                  .from('Products')
+                  .select('ShelfLife')
+                  .eq('ProductSKU', productSKU)
+                  .maybeSingle();
+                if (!shelfError && productShelfData && productShelfData.ShelfLife) {
+                  shelfLifeYears = productShelfData.ShelfLife;
+                }
+              } catch (error) {
+                console.warn('Failed to fetch shelf life, using default of 3 years:', error);
+              }
+              const monthLetters = 'abcdefghijkl';
+              const monthLetter = monthLetters[month - 1];
+              const thirdDigitYear = Math.floor((year % 100) / 10);
+              const lastDigitYear = year % 10;
+              let expirationMonth = month;
+              let expirationYear = year + shelfLifeYears;
+              if (day >= 15) {
+                expirationMonth = month + 1;
+                if (expirationMonth > 12) {
+                  expirationMonth = 1;
+                  expirationYear = year + shelfLifeYears + 1;
+                }
+              }
+              const formattedExpMonth = expirationMonth.toString().padStart(2, '0');
+              const expYearLastTwo = (expirationYear % 100).toString().padStart(2, '0');
+              const lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
+              return lot;
+            }
     // Render calendar view
     function renderCalendar(year, month, _unused, tasks, ingOrders) {
       const calendarDiv = document.getElementById('calendar-view');
@@ -279,14 +314,14 @@
           vesselParam = '';
         }
         const params = new URLSearchParams({
-          ProductSKU: task.ProductSKU || '',
-          Quantity: task.Quantity || '',
-          Vessel: vesselParam
+          sku: task.ProductSKU || '',
+          batch: task.OrderNumber,
+          lot: generatelotNumber(task.ProductSKU),
         }).toString();
         eventsByDate[date].push({
           type: 'manufacturing',
           label: `Manufacture ${task.Quantity}x ${task.ProductSKU}${vesselList ? ' (' + vesselList + ')' : ''}`,
-          link: `BatchMaker.html?${params}`
+          link: `ManufacturingInstructions.html?${params}`
         });
       }
       // Ingredient orders

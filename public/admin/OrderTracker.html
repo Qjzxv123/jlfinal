@@ -525,7 +525,7 @@
             vesselDataAttr = ` data-vessel='${JSON.stringify(vesselArr)}'`;
           }
           if (task.Progress && task.Progress.toLowerCase() === 'scheduled' && task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
-            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
+            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
           } else {
             instructionsBtn = `<span style=\"color:#888;\"></span>`;
           }
@@ -604,7 +604,6 @@
             }
 
             const productSKU = btn.getAttribute('data-productsku');
-            const batchtime = btn.getAttribute('data-batchtime');
             const batchSize = btn.getAttribute('data-batchsize');
             let vesselArr = [];
             try {
@@ -615,7 +614,7 @@
             } catch (e) {
               vesselArr = [];
             }
-            if (productSKU && batchtime && batchSize) {
+            if (productSKU && batchSize) {
               const lot = await generatelotNumber(productSKU);
               // Deterministic batch number based on order number
               // Use OrderNumber directly for batchNum
@@ -629,12 +628,9 @@
                   orderNumber = parts[parts.length - 1];
                 }
               }
-              if (!orderNumber) {
-                orderNumber = `${productSKU}-${batchtime}-${batchSize}`;
-              }
               const batchNum = orderNumber;
               // Pass vessel as a JSON stringified array in the URL
-              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
+              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
               window.open(url, '_blank');
             }
           }
@@ -747,7 +743,7 @@
           }
           let instructionsBtn = '';
           if (task.Progress && task.Progress.toLowerCase() === 'scheduled' && task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
-            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
+            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
           } else {
             instructionsBtn = `<span style=\"color:#888;\"></span>`;
           }
@@ -825,7 +821,6 @@
               return lot;
             }
             const productSKU = btn.getAttribute('data-productsku');
-            const batchtime = btn.getAttribute('data-batchtime');
             const batchSize = btn.getAttribute('data-batchsize');
             let vesselArr = [];
             try {
@@ -836,7 +831,7 @@
             } catch (e) {
               vesselArr = [];
             }
-            if (productSKU && batchtime && batchSize) {
+            if (productSKU && batchSize) {
               const lot = await generatelotNumber(productSKU);
               // Use OrderNumber directly for batchNum
               let orderNumber = null;
@@ -849,11 +844,8 @@
                   orderNumber = parts[parts.length - 1];
                 }
               }
-              if (!orderNumber) {
-                orderNumber = `${productSKU}-${batchtime}-${batchSize}`;
-              }
               const batchNum = orderNumber;
-              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
+              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
               window.open(url, '_blank');
             }
           }

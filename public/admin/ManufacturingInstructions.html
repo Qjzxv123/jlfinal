@@ -19,17 +19,16 @@
     <script src="/Assets/CheckAccess.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Show batch/lot/batchtime and summary from URL only
+            // Show batch/lot and summary from URL only
             const params = new URLSearchParams(window.location.search);
             const batch = params.get('batch') || '';
             const lot = params.get('lot') || '';
-            const batchtime = params.get('batchtime') || '';
             let batchInfoHTML = '';
-            if (batch || lot || batchtime) {
+            if (batch || lot ) {
                 batchInfoHTML = `<div style="padding: 0.7rem 1.2rem; margin: 1rem 0 0.5rem 0; font-size: 1.08em; border: 1px solid #888; border-radius: 6px; text-align:center;">
                     <b>Batch Number:</b> ${batch ? batch : '<em>Not specified</em>'} &nbsp; | &nbsp;
                     <b>Lot Number:</b> ${lot ? lot : '<em>Not specified</em>'} &nbsp; | &nbsp;
-                    <b>Batch Date:</b> ${batchtime ? (new Date(batchtime).toISOString().slice(0,10)) : '<em>Not specified</em>'}
+                    <b>Batch Date:</b> ${ (new Date()).toISOString().slice(0,10)}
                 </div>`;
             }
             document.getElementById('batchInfoContainer').innerHTML = batchInfoHTML;
