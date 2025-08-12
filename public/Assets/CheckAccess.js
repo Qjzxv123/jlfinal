@@ -46,8 +46,9 @@ async function checkPermissions(allowedRoles) {
   console.log('[CheckAccess] allowedPages:', allowedPages);
   console.log('[CheckAccess] current page:', page);
     // Always allow index.html
-    if (page === 'index') return user;
-    if (!allowedPages.includes(page)) {
+    if (page.toLowerCase() === 'index') return user;
+    const allowedPagesLower = allowedPages.map(p => p.toLowerCase());
+    if (!allowedPagesLower.includes(page.toLowerCase())) {
       document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied<br><br><a href="/index.html" style="color:#3498db;text-decoration:underline;font-size:1rem;">Return Home</a></div>';
       throw new Error('Access denied');
     }
