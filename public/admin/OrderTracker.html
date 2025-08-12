@@ -371,7 +371,7 @@
           return;
         }
       }
-    } // <-- Add this closing brace to end updateOrderProgress
+    }
 
      function renderOrders(orders) {
       // Split orders into completed and non-completed
@@ -793,6 +793,15 @@
         document.querySelectorAll('.schedule-btn').forEach(btn => {
           btn.addEventListener('click', function() {
             const orderId = this.getAttribute('data-order-id');
+            // Find the row for this button
+            const row = this.closest('tr');
+            // Check for low inventory warning in this row (existing logic: batchMakerButton present means highlightRed)
+            const lowWarningBtn = row.querySelector('.low-ingredients-btn');
+            if (lowWarningBtn) {
+              if (!confirm('Warning: This order has a low inventory warning. Are you sure you want to schedule it?')) {
+                return;
+              }
+            }
             openScheduleModal(orderId);
           });
         });
@@ -1146,7 +1155,7 @@
           alert('Order details not found.');
           return;
         }
-        // --- Calculate max batch size (BatchMaker logic) ---
+        // --- Calculate max batch size  ---
         let maxBatch = 0;
         // Fetch product size
         const { data: productData, error: productError } = await supabase
@@ -1456,6 +1465,15 @@
       newSaveBtn.onclick = async function() {
         const newProgress = select.value;
         if (newProgress === 'scheduled') {
+          // Low inventory warning logic (same as schedule button)
+          // Find the row for this order in the table
+          const row = document.querySelector(`button.update-progress-btn[data-order-id='${orderId}']`).closest('tr');
+          const lowWarningBtn = row ? row.querySelector('.low-ingredients-btn') : null;
+          if (lowWarningBtn) {
+            if (!confirm('Warning: This order has a low inventory warning. Are you sure you want to schedule it?')) {
+              return;
+            }
+          }
           modal.style.display = 'none';
           openScheduleModal(orderId);
           return;
