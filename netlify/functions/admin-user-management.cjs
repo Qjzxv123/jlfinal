@@ -33,7 +33,40 @@ exports.handler = async function(event, context) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
   try {
-    if (action === 'changeRole') {
+    if (action === 'updateAllowedPages') {
+      const { allowedPages } = body;
+      if (!Array.isArray(allowedPages)) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ error: 'allowedPages must be an array' })
+        };
+      }
+      // Update Users table
+      const { error: tableError } = await supabase
+        .from('Users')
+        .update({ allowed_pages: allowedPages })
+        .eq('id', userId);
+      if (tableError) {
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: 'Error updating allowed_pages', details: tableError.message })
+        };
+      }
+      // Also update user_metadata in Auth
+      const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: { allowed_pages: allowedPages }
+      });
+      if (authError) {
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: 'Allowed pages updated in Users table, but error updating in Auth', details: authError.message })
+        };
+      }
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: 'Allowed pages updated successfully' })
+      };
+    } else if (action === 'changeRole') {
       if (!newRole) {
         return {
           statusCode: 400,

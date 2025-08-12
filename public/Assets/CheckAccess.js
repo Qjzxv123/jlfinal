@@ -22,7 +22,6 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 async function checkPermissions(allowedRoles) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    // Always use relative Login.html for redirect
     window.location.href = '/Login.html?redirect=' + encodeURIComponent(window.location.pathname);
     return;
   }
@@ -35,6 +34,27 @@ async function checkPermissions(allowedRoles) {
   if (!user || !userRole || !allowedRoles.includes(userRole)) {
     document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied<br><br><a href="/index.html" style="color:#3498db;text-decoration:underline;font-size:1rem;">Return Home</a></div>';
     throw new Error('Access denied');
+  }
+  // Employee page access restriction
+  if (userRole === 'employee') {
+    const allowedPages = (user.user_metadata?.allowed_pages || []).map(normalizePageName);
+    // Try to extract the page name from the pathname (e.g., /public/InventoryViewer.html => InventoryViewer)
+    let page = window.location.pathname.split('/').pop() || '';
+    page = page.replace('.html', '');
+    const normalizedPage = normalizePageName(page);
+    // Always allow index.html
+    if (normalizedPage === 'index') return user;
+    if (!allowedPages.includes(normalizedPage)) {
+      document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied<br><br><a href="/index.html" style="color:#3498db;text-decoration:underline;font-size:1rem;">Return Home</a></div>';
+      throw new Error('Access denied');
+    }
+  }
+
+  // Normalize page names for consistent access control
+  function normalizePageName(name) {
+    return name
+      .replace(/[^a-zA-Z0-9]/g, '') // Remove non-alphanumeric
+      .toLowerCase();
   }
   return user;
 }

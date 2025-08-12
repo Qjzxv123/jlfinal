@@ -100,7 +100,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr><td>Add Product</td><td>✓</td><td></td><td>✓</td></tr>
+              <tr><td>Add Product</td><td>✓</td><td>✓</td><td>✓</td></tr>
               <tr><td>Checklist</td><td>✓</td><td>✓</td><td>✓</td></tr>
               <tr><td>Customer Dashboard</td><td>✓</td><td></td><td>✓</td></tr>
               <tr><td>Customer Orders</td><td>✓</td><td></td><td>✓</td></tr>
@@ -123,27 +123,27 @@
               </tr>
             </thead>
             <tbody>
-              <tr><td>Add Fulfillment Log</td><td>✓</td><td></td><td></td></tr>
-              <tr><td>Add Item (Admin)</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Add Fulfillment Log</td><td>✓</td><td>✓</td><td></td></tr>
+              <tr><td>Add Item (Admin)</td><td>✓</td><td>✓</td><td></td></tr>
               <tr><td>Admin Dashboard</td><td>✓</td><td></td><td></td></tr>
               <tr><td>Amazon Shipments</td><td>✓</td><td>✓</td><td></td></tr>
               <tr><td>Calendar</td><td>✓</td><td>✓</td><td></td></tr>
-              <tr><td>Admin Checklist</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Admin Checklist</td><td>✓</td><td>✓</td><td></td></tr>
               <tr><td>Database Viewer</td><td>✓</td><td>✓</td><td></td></tr>
               <tr><td>Employee Dashboard</td><td>✓</td><td>✓</td><td></td></tr>
-              <tr><td>Incoming Ingredients</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Incoming Ingredients</td><td>✓</td><td>✓</td><td></td></tr>
               <tr><td>Ingredient Info</td><td>✓</td><td>✓</td><td>✓</td></tr>
               <tr><td>Inventory Scanner</td><td>✓</td><td>✓</td><td></td></tr>
               <tr><td>Inventory Updater</td><td>✓</td><td>✓</td><td></td></tr>
               <tr><td>Invoice</td><td>✓</td><td></td><td></td></tr>
               <tr><td>Manufacturing Instructions</td><td>✓</td><td>✓</td><td></td></tr>
-              <tr><td>Manufacturing Tracker</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Manufacturing Tracker</td><td>✓</td><td>✓</td><td></td></tr>
               <tr><td>Order Viewer</td><td>✓</td><td>✓</td><td></td></tr>
               <tr><td>Product Info</td><td>✓</td><td>✓</td><td>✓</td></tr>
               <tr><td>QR Code</td><td>✓</td><td>✓</td><td></td></tr>
               <tr><td>Quoting</td><td>✓</td><td></td><td></td></tr>
               <tr><td>User Management</td><td>✓</td><td></td><td></td></tr>
-              <tr><td>Warehouse Shipments</td><td>✓</td><td></td><td></td></tr>
+              <tr><td>Warehouse Shipments</td><td>✓</td><td>✓</td><td></td></tr>
             </tbody>
           </table>
         </div>
@@ -184,7 +184,7 @@
       statusDiv.textContent = 'Loading users...';
       const { data, error } = await supabase
         .from('Users')
-        .select('id, display_name, "Role"');
+        .select('id, display_name, Role');
       if (error) {
         statusDiv.textContent = 'Error loading users: ' + error.message;
         return;
@@ -263,6 +263,116 @@
 
     // Initial load
     loadUsers();
+  </script>
+  <script>
+  // --- Employee Page Access Editor ---
+  // Use supabase instance from CheckAccess.js
+
+  // List of employee-accessible pages (update as needed)
+  const EMPLOYEE_PAGES = [
+    'AddProduct',
+    'Checklist',
+    'AddFulfillmentLog',
+    'AddItemAdmin',
+    'AmazonShipments',
+    'Calendar',
+    'DatabaseViewer',
+    'EmployeeDashboard',
+    'IncomingIngredients',
+    'IngredientInfo',
+    'InventoryScanner',
+    'InventoryUpdater',
+    'ManufacturingInstructions',
+    'OrderTracker',
+    'OrderViewer',
+    'ProductInfo',
+    'Qrcode',
+    'WarehouseShipments',
+  ];
+
+async function fetchEmployees() {
+  const { data, error } = await supabase
+    .from('Users')
+    .select('id, email, "Role", display_name, allowed_pages')
+    .eq('Role', 'employee');
+  if (error) return [];
+  return (data || []).map(user => ({
+    id: user.id,
+    email: user.email,
+    allowed_pages: user.allowed_pages || []
+  }));
+}
+
+  function renderEmployeeAccessTables(employees) {
+    let html = '';
+    if (!employees.length) {
+      html = '<div style="color:#e67e22;margin:1rem 0;">No employees found.</div>';
+    } else {
+      html += '<h3>Employee Page Access</h3>';
+      html += '<table border="1" style="border-collapse:collapse;min-width:400px;">';
+      html += '<tr><th>Page</th>';
+      for (const emp of employees) html += `<th>${emp.email}</th>`;
+      html += '<th>Save</th></tr>';
+      for (const page of EMPLOYEE_PAGES) {
+        html += `<tr><td>${page}</td>`;
+        for (const emp of employees) {
+          const allowed = emp.allowed_pages || [];
+          const checked = allowed.includes(page) ? 'checked' : '';
+          html += `<td><input type="checkbox" class="page-access" data-uid="${emp.id}" data-page="${page}" ${checked}></td>`;
+        }
+        if (page === EMPLOYEE_PAGES[0]) {
+          html += `<td rowspan="${EMPLOYEE_PAGES.length}"><button class="save-access-all">Save All</button></td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</table>';
+    }
+    const container = document.createElement('div');
+    container.id = 'employee-access-tables';
+    container.innerHTML = html;
+    // Remove old if exists
+    const old = document.getElementById('employee-access-tables');
+    if (old) old.remove();
+    // Insert after usersTable
+    const usersTable = document.getElementById('usersTable');
+    if (usersTable && usersTable.parentNode) {
+      usersTable.parentNode.insertBefore(container, usersTable.nextSibling);
+    }
+  }
+
+async function saveAllEmployeeAccess(employees) {
+  // For each employee, collect allowed pages and send update
+  for (const emp of employees) {
+    const checkboxes = document.querySelectorAll(`input.page-access[data-uid='${emp.id}']`);
+    const allowed = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.getAttribute('data-page'));
+    const btn = null; // No per-employee button
+    try {
+      const resp = await fetch('/.netlify/functions/admin-user-management', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateAllowedPages', userId: emp.id, allowedPages: allowed })
+      });
+      const result = await resp.json();
+      if (result.error) alert('Error saving for ' + emp.email + ': ' + result.error);
+    } catch (e) {
+      alert('Network error saving allowed pages for ' + emp.email);
+    }
+  }
+  // Optionally, show a toast or reload
+  alert('Saved!');
+}
+  window.addEventListener('DOMContentLoaded', async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.user_metadata?.role === 'service_role') {
+      const employees = await fetchEmployees();
+      renderEmployeeAccessTables(employees);
+      document.body.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('save-access-all')) {
+          await saveAllEmployeeAccess(employees);
+        }
+      });
+    }
+  });
   </script>
 </body>
 </html>
