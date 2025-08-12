@@ -149,7 +149,6 @@ exports.handler = async (event) => {
       body: JSON.stringify(shipmentPayload)
     });
     const shipmentText = await shipmentResp.text();
-    // Removed full shipment response log for rates
     try {
       shipment = JSON.parse(shipmentText);
     } catch (parseErr) {

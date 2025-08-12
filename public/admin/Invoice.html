@@ -618,7 +618,6 @@
             document.getElementById('boxCosts').textContent = `$${breakdown.boxCosts.toFixed(2)}`;
             document.getElementById('baseFees').textContent = `$${breakdown.baseFees.toFixed(2)}`;
             document.getElementById('extraItemFees').textContent = `$${breakdown.extraItemFees.toFixed(2)}`;
-            // Removed: noteFees display
             // Receiving hours cost
             let receivingCostRow = document.getElementById('receivingCostRow');
             if (!receivingCostRow) {
@@ -670,8 +669,6 @@
             // Update counts
             document.getElementById('orderCount').textContent = orders.length;
             document.getElementById('summaryOrderCount').textContent = orders.length;
-            // Removed: noteCount display
-
             // Update orders list
             const ordersList = document.getElementById('ordersList');
             if (orders.length === 0) {
