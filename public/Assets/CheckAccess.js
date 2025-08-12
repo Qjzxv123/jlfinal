@@ -28,7 +28,7 @@ async function checkPermissions(allowedRoles) {
   const { data: { user } } = await supabase.auth.getUser();
   const userRole = user?.user_metadata?.role;
   if (userRole === 'newuser') {
-    window.location.href = 'PendingApproval.html';
+    window.location.href = '/public/PendingApproval.html';
     return;
   }
   if (!user || !userRole || !allowedRoles.includes(userRole)) {
@@ -37,25 +37,18 @@ async function checkPermissions(allowedRoles) {
   }
   // Employee page access restriction
   if (userRole === 'employee') {
-    const allowedPages = (user.user_metadata?.allowed_pages || []).map(normalizePageName);
+    const allowedPages = user.user_metadata?.allowed_pages || [];
     // Try to extract the page name from the pathname (e.g., /public/InventoryViewer.html => InventoryViewer)
     let page = window.location.pathname.split('/').pop() || '';
     page = page.replace('.html', '');
-    const normalizedPage = normalizePageName(page);
     // Always allow index.html
-    if (normalizedPage === 'index') return user;
-    if (!allowedPages.includes(normalizedPage)) {
+    if (page === 'index') return user;
+    if (!allowedPages.includes(page)) {
       document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied<br><br><a href="/index.html" style="color:#3498db;text-decoration:underline;font-size:1rem;">Return Home</a></div>';
       throw new Error('Access denied');
     }
   }
 
-  // Normalize page names for consistent access control
-  function normalizePageName(name) {
-    return name
-      .replace(/[^a-zA-Z0-9]/g, '') // Remove non-alphanumeric
-      .toLowerCase();
-  }
   return user;
 }
 
