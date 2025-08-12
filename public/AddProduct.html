@@ -210,7 +210,7 @@
   <script>
     // --- Supabase config (single instance) ---
     // Access control and inactivity timeout (shared logic)
-    checkPermissions(['service_role', 'client']);
+    checkPermissions(['service_role','employee', 'client']);
     setupInactivityTimeout(10);
 
     const form = document.getElementById('productForm');
