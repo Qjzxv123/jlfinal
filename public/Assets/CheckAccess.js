@@ -41,6 +41,10 @@ async function checkPermissions(allowedRoles) {
     // Try to extract the page name from the pathname (e.g., /public/InventoryViewer.html => InventoryViewer)
     let page = window.location.pathname.split('/').pop() || '';
     page = page.replace('.html', '');
+  // Debug logging for production troubleshooting
+  console.log('[CheckAccess] userRole:', userRole);
+  console.log('[CheckAccess] allowedPages:', allowedPages);
+  console.log('[CheckAccess] current page:', page);
     // Always allow index.html
     if (page === 'index') return user;
     if (!allowedPages.includes(page)) {
