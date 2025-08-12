@@ -469,7 +469,7 @@
           }
           // Ensure batchMakerButton and instructionsBtn are always defined
           let batchMakerButton = '';
-          // --- Ingredient & Container check logic (BatchMaker style) ---
+          // --- Ingredient & Container check logic ---
           let highlightRed = false;
           if ((task.Progress || '').toLowerCase() === 'requested') {
             const ingredients = orderIngredientsMap[task.OrderNumber] || [];
@@ -905,7 +905,6 @@
         }
       }
 
-      // Helper: get all vessel options (sync with BatchMaker.html)
       const ALL_VESSELS = [
         'P1-30L',
         'P2-30L',
@@ -995,7 +994,7 @@
           alert('Order details not found.');
           return;
         }
-        // --- Calculate max batch size (BatchMaker logic) ---
+        // --- Calculate max batch size ---
         let maxBatch = 0;
         // Fetch product size
         const { data: productData, error: productError } = await supabase

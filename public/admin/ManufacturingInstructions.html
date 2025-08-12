@@ -88,7 +88,7 @@
             // Otherwise, continue with auto-generated instructions
             console.log('Product data retrieved:', data); // Debug log
 
-            // Color-coded batch card table (like in BatchMaker), grouped by phase
+            // Color-coded batch card table grouped by phase
             function generateBatchCardTable(process) {
                 if (!process || typeof process !== 'object') return '<em>No process data</em>';
                 const phaseKeys = Object.keys(process).filter(k => k.startsWith('Phase ')).sort((a, b) => {
