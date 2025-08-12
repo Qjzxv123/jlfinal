@@ -119,6 +119,7 @@
               <option value="">Loading...</option>
             </select>
           </div>
+          <!-- OrderNumber input removed -->
           <div>
             <label for="productSKU">Product SKU</label>
             <select id="productSKU" required>
@@ -295,7 +296,7 @@
               <input type="number" id="actualQtyInput" min="0" step="1" value="${orderData.Quantity}" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;" />
               <div style="display:flex; gap:1em; justify-content:flex-end;">
                 <button id="actualQtyCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
-                <button id="actualQtySaveBtn" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save(This will Add Product to inventory)</button>
+                <button id="actualQtySaveBtn" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
               </div>
             </div>
           `;
@@ -469,7 +470,7 @@
           }
           // Ensure batchMakerButton and instructionsBtn are always defined
           let batchMakerButton = '';
-          // --- Ingredient & Container check logic ---
+          // --- Ingredient & Container check logic (BatchMaker style) ---
           let highlightRed = false;
           if ((task.Progress || '').toLowerCase() === 'requested') {
             const ingredients = orderIngredientsMap[task.OrderNumber] || [];
@@ -500,11 +501,7 @@
           }
 
           if (highlightRed) {
-            const params = new URLSearchParams({
-              ProductSKU: task.ProductSKU,
-              Quantity: task.Quantity
-            });
-            batchMakerButton = `<a href="BatchMaker.html?${params.toString()}" target="_blank" style="margin-left: 10px; display: inline-block; background: #F9AD28; color: white; padding: 0.2rem 0.5rem; text-decoration: none; border-radius: 4px; font-size: 0.8rem;"><i class='cil-warning'></i></a>`;
+            batchMakerButton = `<button class="low-ingredients-btn" data-productsku="${task.ProductSKU}" data-quantity="${task.Quantity}" style="margin-left: 10px; display: inline-block; background: #F9AD28; color: white; padding: 0.2rem 0.5rem; border: none; border-radius: 4px; font-size: 0.8rem; cursor:pointer;"><i class='cil-warning'></i></button>`;
           }
           const batchNum = task.OrderNumber || '';
           const instructionsBtnStyle = 'background:#9B41E5; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:0.95em; display:inline-flex; align-items:center; gap:0.4em;';
@@ -524,7 +521,7 @@
             vesselDataAttr = ` data-vessel='${JSON.stringify(vesselArr)}'`;
           }
           if (task.Progress && task.Progress.toLowerCase() === 'scheduled' && task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
-            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
+            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
           } else {
             instructionsBtn = `<span style=\"color:#888;\"></span>`;
           }
@@ -544,8 +541,144 @@
           `;
           newTbody.appendChild(tr);
         }
-        // Add event listeners for remove buttons (delegate to newTbody)
-        newTbody.addEventListener('click', async function(e) {
+  // Add event listeners for remove buttons and low-ingredients modal (delegate to newTbody)
+  newTbody.addEventListener('click', async function(e) {
+          // Low ingredients modal button
+          const lowBtn = e.target.closest('.low-ingredients-btn');
+          if (lowBtn) {
+            const productSKU = lowBtn.getAttribute('data-productsku');
+            const quantity = Number(lowBtn.getAttribute('data-quantity'));
+            // Fetch product info and process
+            const { data: product, error: productError } = await supabase
+              .from('Products')
+              .select('Process, "Product Weight(oz)", Name')
+              .eq('ProductSKU', productSKU)
+              .maybeSingle();
+            if (productError || !product) {
+              alert('Failed to fetch product info.');
+              return;
+            }
+            const process = product.Process;
+            const productSizeOz = Number(product["Product Weight(oz)"]) || 0;
+            const productSizeLbs = productSizeOz / 16;
+            let ingredients = [];
+            if (process && productSizeLbs > 0) {
+              Object.keys(process).forEach(key => {
+                if (key.startsWith('Phase ') && process[key][`${key} Ingredients`]) {
+                  process[key][`${key} Ingredients`].forEach(ingredient => {
+                    if (ingredient.IngredientSKU && ingredient['Ingredient Quantity(%)'] !== undefined) {
+                      const percentage = ingredient['Ingredient Quantity(%)'];
+                      if (!isNaN(percentage) && percentage > 0) {
+                        const baseAmountLbs = 1.1 * (percentage / 100) * productSizeLbs;
+                        const totalAmount = baseAmountLbs * quantity;
+                        ingredients.push({
+                          sku: ingredient.IngredientSKU,
+                          name: ingredient.Name || ingredient.IngredientSKU,
+                          required: totalAmount
+                        });
+                      }
+                    }
+                  });
+                }
+              });
+            }
+            // Fetch current inventory for these ingredients
+            const ingredientSKUs = ingredients.map(i => i.sku);
+            let inventoryMap = {};
+            if (ingredientSKUs.length > 0) {
+              const { data: invData } = await supabase
+                .from('Ingredients')
+                .select('IngredientSKU, Name, "Quantity(Lbs/Units)"')
+                .in('IngredientSKU', ingredientSKUs);
+              (invData || []).forEach(row => {
+                inventoryMap[row.IngredientSKU] = row["Quantity(Lbs/Units)"];
+              });
+            }
+            // Filter to only low ingredients
+            const lowIngredients = ingredients.filter(i => {
+              const inv = Number(inventoryMap[i.sku] || 0);
+              return inv < i.required;
+            });
+            // Show modal
+            let modal = document.getElementById('lowIngredientsModal');
+            if (!modal) {
+              modal = document.createElement('div');
+              modal.id = 'lowIngredientsModal';
+              modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2700; align-items:center; justify-content:center;';
+              modal.innerHTML = `
+                <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+                  <h3 style="margin-top:0;">Low Ingredients for <span id="lowIngProductName"></span></h3>
+                  <div id="lowIngredientsList"></div>
+                  <div style="display:flex; gap:1em; justify-content:flex-end; margin-top:1em;">
+                    <button id="closeLowIngredientsBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Close</button>
+                  </div>
+                </div>`;
+              document.body.appendChild(modal);
+            }
+            // Fill modal
+            modal.querySelector('#lowIngProductName').textContent = product.Name || productSKU;
+            const listDiv = modal.querySelector('#lowIngredientsList');
+            if (lowIngredients.length === 0) {
+              listDiv.innerHTML = '<div style="color:#27ae60;">No low ingredients!</div>';
+            } else {
+              listDiv.innerHTML = lowIngredients.map(ing => {
+                const inv = Number(inventoryMap[ing.sku] || 0);
+                return `<div style="margin-bottom:1em;display:flex;align-items:center;gap:1em;">
+                  <span style="font-weight:600;">${ing.name} (${ing.sku})</span>
+                  <span style="color:#b91c1c;">${inv.toFixed(3)} / ${ing.required.toFixed(3)} lbs/units</span>
+                  <button class="update-ingredient-btn" data-ing-sku="${ing.sku}" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.4em 1em; font-size:0.95em; cursor:pointer;">Update Quantity</button>
+                </div>`;
+              }).join('');
+            }
+            // Show modal
+            modal.style.display = 'flex';
+            // Close button
+            modal.querySelector('#closeLowIngredientsBtn').onclick = function() {
+              modal.style.display = 'none';
+            };
+            // Close modal on outside click
+            modal.onclick = function(e) {
+              if (e.target === modal) modal.style.display = 'none';
+            };
+            // Add event listeners for update buttons
+            listDiv.querySelectorAll('.update-ingredient-btn').forEach(btn => {
+              btn.onclick = function() {
+                const sku = btn.getAttribute('data-ing-sku');
+                // Show inline input for new quantity
+                let input = document.createElement('input');
+                input.type = 'number';
+                input.min = '0';
+                input.step = '0.0001';
+                input.value = inventoryMap[sku] || 0;
+                input.style = 'margin-left:0.5em;width:90px;padding:0.3em;border-radius:5px;border:1px solid #cbd5e1;';
+                let saveBtn = document.createElement('button');
+                saveBtn.textContent = 'Save';
+                saveBtn.style = 'margin-left:0.5em;background:#1976d2;color:white;border:none;border-radius:5px;padding:0.3em 0.8em;cursor:pointer;';
+                btn.parentNode.appendChild(input);
+                btn.parentNode.appendChild(saveBtn);
+                btn.disabled = true;
+                saveBtn.onclick = async function() {
+                  const newQty = Number(input.value);
+                  if (isNaN(newQty) || newQty < 0) {
+                    alert('Enter a valid quantity.');
+                    return;
+                  }
+                  // Update in DB
+                  const { error } = await supabase
+                    .from('Ingredients')
+                    .update({ "Quantity(Lbs/Units)": newQty })
+                    .eq('IngredientSKU', sku);
+                  if (!error) {
+                    alert('Quantity updated!');
+                    modal.style.display = 'none';
+                    loadOrders();
+                  } else {
+                    alert('Failed to update: ' + error.message);
+                  }
+                };
+              };
+            });
+          }
           const removeBtn = e.target.closest('.remove-order-btn');
           if (removeBtn) {
             const orderId = removeBtn.getAttribute('data-order-id');
@@ -603,6 +736,7 @@
             }
 
             const productSKU = btn.getAttribute('data-productsku');
+            const batchtime = btn.getAttribute('data-batchtime');
             const batchSize = btn.getAttribute('data-batchsize');
             let vesselArr = [];
             try {
@@ -613,7 +747,7 @@
             } catch (e) {
               vesselArr = [];
             }
-            if (productSKU && batchSize) {
+            if (productSKU && batchtime && batchSize) {
               const lot = await generatelotNumber(productSKU);
               // Deterministic batch number based on order number
               // Use OrderNumber directly for batchNum
@@ -627,9 +761,12 @@
                   orderNumber = parts[parts.length - 1];
                 }
               }
+              if (!orderNumber) {
+                orderNumber = `${productSKU}-${batchtime}-${batchSize}`;
+              }
               const batchNum = orderNumber;
               // Pass vessel as a JSON stringified array in the URL
-              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
+              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
               window.open(url, '_blank');
             }
           }
@@ -742,7 +879,7 @@
           }
           let instructionsBtn = '';
           if (task.Progress && task.Progress.toLowerCase() === 'scheduled' && task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
-            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
+            instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
           } else {
             instructionsBtn = `<span style=\"color:#888;\"></span>`;
           }
@@ -820,6 +957,7 @@
               return lot;
             }
             const productSKU = btn.getAttribute('data-productsku');
+            const batchtime = btn.getAttribute('data-batchtime');
             const batchSize = btn.getAttribute('data-batchsize');
             let vesselArr = [];
             try {
@@ -830,7 +968,7 @@
             } catch (e) {
               vesselArr = [];
             }
-            if (productSKU && batchSize) {
+            if (productSKU && batchtime && batchSize) {
               const lot = await generatelotNumber(productSKU);
               // Use OrderNumber directly for batchNum
               let orderNumber = null;
@@ -843,8 +981,11 @@
                   orderNumber = parts[parts.length - 1];
                 }
               }
+              if (!orderNumber) {
+                orderNumber = `${productSKU}-${batchtime}-${batchSize}`;
+              }
               const batchNum = orderNumber;
-              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
+              const url = `ManufacturingInstructions.html?sku=${encodeURIComponent(productSKU)}&batchtime=${encodeURIComponent(batchtime)}&batchSize=${encodeURIComponent(batchSize)}&lot=${encodeURIComponent(lot)}&batch=${batchNum}&vessel=${encodeURIComponent(JSON.stringify(vesselArr))}`;
               window.open(url, '_blank');
             }
           }
@@ -870,7 +1011,7 @@
           </select>
           <div style="display:flex; gap:1em; justify-content:flex-end;">
             <button id="modalScheduleCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
-            <button id="modalScheduleSaveBtn" style="background:#1976d2; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save(This will remove Ingredients from Inventory)</button>
+            <button id="modalScheduleSaveBtn" style="background:#1976d2; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
           </div>
         </div>
       `;
@@ -905,6 +1046,7 @@
         }
       }
 
+      // Helper: get all vessel options (sync with BatchMaker.html)
       const ALL_VESSELS = [
         'P1-30L',
         'P2-30L',
@@ -994,7 +1136,7 @@
           alert('Order details not found.');
           return;
         }
-        // --- Calculate max batch size ---
+        // --- Calculate max batch size (BatchMaker logic) ---
         let maxBatch = 0;
         // Fetch product size
         const { data: productData, error: productError } = await supabase
