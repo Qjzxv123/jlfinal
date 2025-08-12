@@ -50,7 +50,6 @@
         });
     // Access control and inactivity timeout
     checkPermissions(['service_role', 'employee']);
-    setupInactivityTimeout(30);
         // Helper to get SKU from URL query string
         function getSku() {
             const params = new URLSearchParams(window.location.search);
@@ -80,7 +79,43 @@
 
             // If ManufacturingInstructions is present and non-empty, display it below the batch card and skip auto instructions
             if (data.ManufacturingInstructions!=null && data.ManufacturingInstructions.trim() !== '') {
-                document.getElementById('productSteps').innerHTML += `<div style="white-space:pre-line;font-family:inherit;line-height:1.7;padding:1.2rem;border:1px solid #888;border-radius:8px;margin:1rem 0;max-width:900px;margin-left:auto;margin-right:auto;">${data.ManufacturingInstructions}</div>`;
+                // Gather all ingredients in order for [n] replacement
+                let allIngredients = [];
+                if (data.Process && typeof data.Process === 'object') {
+                    const phaseKeys = Object.keys(data.Process).filter(k => k.startsWith('Phase ')).sort((a, b) => {
+                        const numA = parseInt(a.replace('Phase ', ''));
+                        const numB = parseInt(b.replace('Phase ', ''));
+                        return numA - numB;
+                    });
+                    phaseKeys.forEach(phaseKey => {
+                        const phase = data.Process[phaseKey];
+                        let ingredients = [];
+                        const phaseNumMatch = phaseKey.match(/Phase (\d+)/);
+                        if (phaseNumMatch) {
+                            const phaseNum = phaseNumMatch[1];
+                            const phaseIngredientsKey = `Phase ${phaseNum} Ingredients`;
+                            if (Array.isArray(phase[phaseIngredientsKey])) {
+                                ingredients = phase[phaseIngredientsKey];
+                            }
+                        }
+                        if (ingredients.length === 0 && Array.isArray(phase['Ingredients'])) {
+                            ingredients = phase['Ingredients'];
+                        }
+                        ingredients.forEach(ing => {
+                            if (ing.Name) allIngredients.push(ing.Name);
+                            else if (ing.IngredientSKU) allIngredients.push(ing.IngredientSKU);
+                        });
+                    });
+                }
+                // Replace [n] with nth ingredient (1-based)
+                let customInstructions = data.ManufacturingInstructions.replace(/\[(\d+)\]/g, (match, n) => {
+                    n = parseInt(n);
+                    if (!isNaN(n) && n > 0 && n <= allIngredients.length) {
+                        return allIngredients[n-1];
+                    }
+                    return match;
+                });
+                document.getElementById('productSteps').innerHTML += `<div style="white-space:pre-line;font-family:inherit;line-height:1.7;padding:1.2rem;border:1px solid #888;border-radius:8px;margin:1rem 0;max-width:900px;margin-left:auto;margin-right:auto;">${customInstructions}</div>`;
                 document.getElementById('instructions').classList.add('visible');
                 return;
             }

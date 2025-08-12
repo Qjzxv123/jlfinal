@@ -450,7 +450,8 @@
           </label>
           <div id="manufacturingInstructionsContainer" class="manufacturing-instructions-container">
             <label>Manufacturing Instructions
-              <textarea id="ManufacturingInstructions" rows="6" placeholder="Enter detailed manufacturing instructions here..."></textarea>
+              <textarea id="ManufacturingInstructions" rows="12" placeholder="Enter detailed manufacturing instructions here. Use [n] to add nth ingredient to instructions (Ingredient Number is Independent of Phases)"></textarea>
+              <button type="button" id="insertGeneralInstructionsTemplate" style="margin-top:8px;background:#e2e8f0;color:#374151;border:none;border-radius:6px;padding:0.5em 1.2em;font-size:1em;cursor:pointer;">Insert General Instructions Template</button>
             </label>
           </div>
           
@@ -518,6 +519,20 @@
   </div>
 
   <script>
+  const GENERAL_MANUFACTURING_INSTRUCTIONS_TEMPLATE = `1. Preparation & Sanitization\n• Wear PPE (gloves, hairnet, lab coat, and face mask) to prevent contamination.\n\nEquipment Needed:\n- Ingredient cups\n- Spatula\n- Agitator\n\n✅ Clean & Sanitize Equipment:\n- Ensure all containers, utensils, and mixing vessels are cleaned and sanitized with alcohol or an approved cleaning solution.\n- Ensure there is no oil residue on any equipment, tools, or workspace.\n- Ensure the production area meets GMP requirements.\n- Ensure scale is working properly.\n\n✅ Weigh all ingredients\nFor each ingredient in the formula:\n- Place the container on the scale and tare it to zero.\n- Slowly add the ingredient until the exact required amount is reached. (Aim for ±0.1% accuracy or tighter if required.)\n- Close the container and place the pre-printed label for that ingredient on it.\n- For critical or expensive ingredients, have a second person verify.\n\n\n[Phase instructions here, e.g. Phase 1, Phase 2, etc.]\n\n\n8. Set temperature to [Pour Temperature]°C.\n\n\n9. Filling Process\n- Ensure temperature has reached [Pour Temperature]°C.\n- Confirm container SKU [Container SKUs]\n- Dispense product directly into proper containers.\n- Place filled containers on a tray to cool.\n\n10. Cooling Process\nLet products cool undisturbed, controlled environment for a minimum of 10 minutes or until fully solidified. Avoid contamination.\n\n11. In-Process Quality Control Checks\nPerform the following QC checks on at least 3 random units:\n- Texture and consistency: [Pour Consistency]\n- Aroma: [Aroma]\n- Visual inspection: Check for separation, graininess, air bubbles, or irregularities.\nIf deviations are observed, document immediately and notify supervisor before proceeding.\n\n\n12. Post-Fill Actions\n- Cap all containers securely using appropriate closures.\n- Inspect closures for proper application (tightness, alignment).\n- Shut down all filling equipment and clean per cleaning SOP.\n- Record number of containers filled.`;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const btn = document.getElementById('insertGeneralInstructionsTemplate');
+      if (btn) {
+        btn.addEventListener('click', function() {
+          const textarea = document.getElementById('ManufacturingInstructions');
+          if (textarea) {
+            textarea.value = GENERAL_MANUFACTURING_INSTRUCTIONS_TEMPLATE;
+            textarea.focus();
+          }
+        });
+      }
+    });
     // Access control and inactivity timeout
     checkPermissions(['service_role']);
     setupInactivityTimeout(10);
