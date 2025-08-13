@@ -70,7 +70,7 @@ exports.handler = async (event) => {
       state: 'NC',
       zip: '28115',
       country: 'US',
-      phone: '7046777577',
+      phone: '',
       email: 'jenn@jnlnaturals.com'
     },
     address_to,
