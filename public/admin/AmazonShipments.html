@@ -970,6 +970,8 @@
       summaryDiv.style.display = 'flex';
       actionButtons.style.display = 'flex';
 
+      // Only show non-completed shipments in the main table
+      const nonCompletedShipments = filteredShipments.filter(s => s.Status !== 'Completed');
       const tableHTML = `
         <table class="shipments-table">
           <thead>
@@ -985,9 +987,8 @@
             </tr>
           </thead>
           <tbody>
-            ${filteredShipments.map(shipment => {
+            ${nonCompletedShipments.map(shipment => {
               const isSelected = selectedShipments.has(shipment.id);
-              
               return `
                 <tr class="${isSelected ? 'selected-row' : ''}" id="shipment-${shipment.id}">
                   <td class="checkbox-cell">
