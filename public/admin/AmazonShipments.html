@@ -800,7 +800,7 @@
         if (processedShipmentIds.length > 0) {
           const { error: statusErr } = await supabase
             .from('AmazonShipments')
-            .update({ Status: 'Completed' })
+            .update({ Status: 'Completed' },{CompletionDate: Date.now()})
             .in('id', processedShipmentIds);
           if (statusErr) {
             console.error('Error updating status:', statusErr);

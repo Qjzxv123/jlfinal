@@ -316,6 +316,12 @@
                             <input type="checkbox" id="insertsCheckbox" style="width: 18px; height: 18px;">
                             <span>Customer has inserts (+$0.20 per order)</span>
                         </label>
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="amazonRate">Amazon Shipments: Rate per Piece ($)</label>
+                        <input type="number" id="amazonRate" min="0" step="0.01" value="0" required>
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
                         <button type="submit" class="btn" id="calculateBtn">
                             Calculate Invoice
                         </button>
@@ -481,10 +487,32 @@
                 const hasInserts = document.getElementById('insertsCheckbox').checked;
                 let insertsFees = hasInserts ? orders.length * 0.20 : 0; // $0.20 per order if inserts enabled
 
-                const processedOrders = [];
+                // Fetch Amazon Shipments for the selected month
+                let amazonPieces = 0;
+                let amazonBoxes = [];
+                try {
+                    const { data: amazonShipments, error: amazonErr } = await supabase
+                        .from('AmazonShipments')
+                        .select('Quantity, Boxes, Status, CompletionDate')
+                        .eq('Status', 'Completed')
+                        .eq('display_name', retailer)
+                        .gte('CompletionDate', startDateStr)
+                        .lte('CompletionDate', endDateStr);
+                    if (amazonErr) {
+                        console.warn('Error fetching Amazon Shipments:', amazonErr);
+                    } else if (amazonShipments && amazonShipments.length > 0) {
+                        amazonPieces = amazonShipments.reduce((sum, s) => sum + (parseInt(s.Quantity) || 0), 0);
+                        amazonBoxes = amazonShipments.flatMap(s => Array.isArray(s.Boxes) ? s.Boxes : []);
+                    }
+                } catch (e) {
+                    console.warn('Error fetching Amazon Shipments:', e);
+                }
+                // Get user inputted rate
+                const amazonRate = parseFloat(document.getElementById('amazonRate').value) || 0;
 
-                // Get all unique box SKUs from orders to fetch costs in one query
+                // Get all unique box SKUs from orders and amazonBoxes to fetch costs in one query
                 const allBoxSkus = new Set();
+                let processedOrders = [];
                 orders.forEach(order => {
                     if (order.BoxSkus) {
                         try {
@@ -502,6 +530,10 @@
                             console.warn('Error parsing BoxSkus:', e);
                         }
                     }
+                });
+                // Add Amazon box SKUs
+                amazonBoxes.forEach(box => {
+                    if (box && box.sku) allBoxSkus.add(box.sku);
                 });
 
                 // Fetch box costs from Supabase
@@ -522,6 +554,7 @@
                 }
 
                 orders.forEach(order => {
+                    // ...existing code...
                     // Add shipping costs
                     if (order.ShippingCost) {
                         shippingCosts += parseFloat(order.ShippingCost) || 0;
@@ -579,10 +612,19 @@
                     });
                 });
 
+                // Amazon Shipments Charges
+                let amazonPiecesCharge = amazonPieces * amazonRate;
+                let amazonBoxesCharge = 0;
+                for (const box of amazonBoxes) {
+                    if (box && box.sku && boxCostMap.has(box.sku)) {
+                        amazonBoxesCharge += (box.quantity || 1) * boxCostMap.get(box.sku);
+                    }
+                }
+
                 // Receiving hours and storage fee
                 const receivingCost = 25+Math.max((receivingHours - 2) * 25,0);
                 const storageFee = (bins * 7.5) + (shelves * 12.5) + (pallets * 40);
-                const total = shippingCosts + boxCosts + baseFees + extraItemFees + insertsFees + receivingCost + storageFee;
+                const total = shippingCosts + boxCosts + baseFees + extraItemFees + insertsFees + receivingCost + storageFee + amazonPiecesCharge + amazonBoxesCharge;
 
                 const breakdown = {
                     shippingCosts: shippingCosts,
@@ -592,8 +634,32 @@
                     insertsFees: insertsFees,
                     receivingCost: receivingCost,
                     storageFee: storageFee,
+                    amazonPiecesCharge: amazonPiecesCharge,
+                    amazonBoxesCharge: amazonBoxesCharge,
                     total: total
                 };
+            // Amazon Shipments breakdown
+            let amazonPiecesRow = document.getElementById('amazonPiecesRow');
+            if (!amazonPiecesRow) {
+                const breakdownSection = document.querySelector('.breakdown-section');
+                amazonPiecesRow = document.createElement('div');
+                amazonPiecesRow.className = 'breakdown-item';
+                amazonPiecesRow.id = 'amazonPiecesRow';
+                amazonPiecesRow.innerHTML = `<span class="breakdown-label">Amazon Shipments: Pieces Charge:</span><span class="breakdown-value" id="amazonPiecesCharge">$0.00</span>`;
+                breakdownSection.appendChild(amazonPiecesRow);
+            }
+            document.getElementById('amazonPiecesCharge').textContent = `$${(breakdown.amazonPiecesCharge || 0).toFixed(2)}`;
+
+            let amazonBoxesRow = document.getElementById('amazonBoxesRow');
+            if (!amazonBoxesRow) {
+                const breakdownSection = document.querySelector('.breakdown-section');
+                amazonBoxesRow = document.createElement('div');
+                amazonBoxesRow.className = 'breakdown-item';
+                amazonBoxesRow.id = 'amazonBoxesRow';
+                amazonBoxesRow.innerHTML = `<span class="breakdown-label">Amazon Shipments: Boxes Charge:</span><span class="breakdown-value" id="amazonBoxesCharge">$0.00</span>`;
+                breakdownSection.appendChild(amazonBoxesRow);
+            }
+            document.getElementById('amazonBoxesCharge').textContent = `$${(breakdown.amazonBoxesCharge || 0).toFixed(2)}`;
 
                 hideStatus();
                 showInvoiceResults(retailer, month, processedOrders, breakdown, hasInserts);
