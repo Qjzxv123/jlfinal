@@ -1056,7 +1056,7 @@ async function removeSelectedOrders() {
     <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; background-color: #e3f2fd; padding: 8px; border-left: 4px solid #2196f3;">MESSAGE:</h3>
     <div style="padding: 10px; border: 1px solid #2196f3; background-color: #e3f2fd;">
         <p style="margin: 0; font-size: 14px; font-weight: 600; color: #1565c0;">
-        ${order.customerMessages ? order.customerMessages : 'Thank you so much for your order! Use code SAVE10 for 10% off your next purchase at www.jnlnaturals.com 💚'}
+        ${order.customerMessages ? order.customerMessages : `Thank you so much for your order, ${order.customer.name}! Hope you enjoy your products as much as we enjoyed creating them for you! If you have a chance please take a second to leave a review, It really helps our small business. www.jnlnaturals.com 💚`}
         </p>
     </div>
 </div>
