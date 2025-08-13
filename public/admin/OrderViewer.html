@@ -1095,38 +1095,95 @@ async function removeSelectedOrders() {
             printWindow.print();
         }
 
-        function processInventoryCSV() {
+        async function processInventoryCSV() {
             if (selectedOrders.size === 0) {
-                alert('Please select at least one order to process CSV.');
+                alert('Please select at least one order to remove products from inventory.');
                 return;
             }
 
-            // Generate CSV content as before
             const selectedOrdersData = getSelectedOrdersData();
+            // ...skuMap declared below, remove duplicate...
+            // Map SKU to array of {orderID, quantity}
             const skuMap = new Map();
-            const nameMap = new Map();
             selectedOrdersData.forEach(order => {
                 order.products.forEach(product => {
                     if (product.sku) {
-                        const currentQty = skuMap.get(product.sku) || 0;
-                        skuMap.set(product.sku, currentQty + product.quantity);
-                        if (!nameMap.has(product.sku)) {
-                            nameMap.set(product.sku, product.name);
-                        }
+                        const skuParts = product.sku.split('+').map(s => s.trim()).filter(Boolean);
+                        skuParts.forEach(sku => {
+                            if (!skuMap.has(sku)) skuMap.set(sku, []);
+                            skuMap.get(sku).push({ orderID: order.orderNumber, quantity: product.quantity });
+                        });
                     }
                 });
             });
-            const csvLines = ['SKU,Quantity'];
-            skuMap.forEach((quantity, sku) => {
-                csvLines.push(`${sku},${quantity}`);
-            });
-            const csvContent = csvLines.join('\n');
 
-            // Store CSV in sessionStorage and navigate to InventoryUpdater.html
-            sessionStorage.setItem('inventoryCSV', csvContent);
-            window.location.href = 'InventoryUpdater.html';
-            showStatus(`CSV processed and sent to Inventory Updater!`, 'success');
-            setTimeout(hideStatus, 3000);
+            let successCount = 0;
+            let errorCount = 0;
+            let logMessages = [];
+            const { data: { user } } = await supabase.auth.getUser();
+            const displayName = user?.user_metadata?.display_name || user?.email || null;
+
+            for (const [sku, removals] of skuMap.entries()) {
+                // Sum total quantity to remove for this SKU
+                const totalToRemove = removals.reduce((sum, r) => sum + r.quantity, 0);
+                if (!sku || isNaN(totalToRemove)) continue;
+                const { data, error } = await supabase
+                    .from('Products')
+                    .select('Quantity,Name')
+                    .eq('ProductSKU', sku)
+                    .single();
+                let currentQty = 0;
+                if (error || !data) {
+                    removals.forEach(r => {
+                        const msg = `ERROR: ${sku} not found for Order ${r.orderID}`;
+                        logMessages.push(`<div class='error'>${msg}</div>`);
+                        supabase.from('inventoryupdatelogs').insert({
+                            log: msg,
+                            updated_by: displayName,
+                            SKU: sku,
+                            OrderID: r.orderID
+                        });
+                        errorCount++;
+                    });
+                    continue;
+                }
+                currentQty = data.Quantity || 0;
+                const newQuantity = currentQty - totalToRemove;
+                const { error: updateError } = await supabase
+                    .from('Products')
+                    .update({ Quantity: newQuantity })
+                    .eq('ProductSKU', sku);
+                if (updateError) {
+                    removals.forEach(r => {
+                        const msg = `ERROR: Error updating ${sku} for Order ${r.orderID}: ${updateError.message}`;
+                        logMessages.push(`<div class='error'>${msg}</div>`);
+                        supabase.from('inventoryupdatelogs').insert({
+                            log: msg,
+                            updated_by: displayName,
+                            SKU: sku,
+                            OrderID: r.orderID
+                        });
+                        errorCount++;
+                    });
+                } else {
+                    removals.forEach(r => {
+                        const msg = `SUCCESS: ${sku}: Removed ${r.quantity} for Order ${r.orderID}, Quantity is now ${newQuantity}`;
+                        logMessages.push(`<div class='success'>${msg}</div>`);
+                        supabase.from('inventoryupdatelogs').insert({
+                            log: msg,
+                            updated_by: displayName,
+                            SKU: sku,
+                            QuantityChanged: -r.quantity,
+                            OrderID: r.orderID
+                        });
+                        successCount++;
+                    });
+                }
+            }
+            const outputDiv = document.getElementById('statusDiv');
+            outputDiv.innerHTML = logMessages.join('') + `<div class='success'>Processed ${successCount} SKUs, ${errorCount} errors.</div>`;
+            outputDiv.style.display = 'block';
+            setTimeout(hideStatus, 6000);
         }
 
         let shippingModalOrders = [];
