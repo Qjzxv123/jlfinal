@@ -108,8 +108,8 @@
         let columns = [];
         let selectString = '*';
         if (tableName === 'Products') {
-                columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'Pack Size', 'Quantity'];
-                selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)","Pack Size",Quantity';
+                columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'Pack Size', 'Quantity', 'QuantityPerBin'];
+                selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)","Pack Size",Quantity,QuantityPerBin';
             } else if (tableName === 'Ingredients') {
                 columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'];
                 selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Supplier,LowInvThreshold';
@@ -155,7 +155,7 @@
             }
             let html = '<table><thead><tr>';
             columns.forEach(col => { html += `<th>${col}</th>`; });
-            html += '</tr></thead><tbody>';
+            html += '<th>Save</th></tr></thead><tbody>';
             filtered.forEach(row => {
                 html += '<tr>';
                 columns.forEach(col => {
@@ -163,19 +163,45 @@
                     if (typeof val === 'object' && val !== null) {
                         val = JSON.stringify(val);
                     }
-                    // Make SKU columns clickable links
+                    // Make SKU columns clickable links, others editable
                     if (col === 'ProductSKU' && val) {
                         html += `<td><a href="ProductInfo.html?sku=${encodeURIComponent(val)}" style="color:#3498db;text-decoration:underline;">${val}</a></td>`;
                     } else if (col === 'IngredientSKU' && val) {
                         html += `<td><a href="IngredientInfo.html?sku=${encodeURIComponent(val)}" style="color:#3498db;text-decoration:underline;">${val}</a></td>`;
                     } else {
-                        html += `<td>${val === null ? '' : val}</td>`;
+                        html += `<td><input type="text" value="${val === null ? '' : val}" data-sku="${row['ProductSKU'] || row['IngredientSKU']}" data-col="${col}" style="width:100%;padding:4px;border-radius:4px;border:1px solid #e1e5e9;" /></td>`;
                     }
                 });
+                // Add save button
+                html += `<td><button class="saveRowBtn" data-sku="${row['ProductSKU'] || row['IngredientSKU']}" style="background:#4DBA93;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;">Save</button></td>`;
                 html += '</tr>';
             });
             html += '</tbody></table>';
             container.innerHTML = html;
+
+            // Add event listeners for save buttons
+            container.querySelectorAll('.saveRowBtn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const sku = btn.getAttribute('data-sku');
+                    const rowInputs = btn.closest('tr').querySelectorAll('input[data-sku]');
+                    let updateObj = {};
+                    rowInputs.forEach(input => {
+                        updateObj[input.getAttribute('data-col')] = input.value;
+                    });
+                    let table = columns.includes('ProductSKU') ? 'Products' : 'Ingredients';
+                    let idCol = columns.includes('ProductSKU') ? 'ProductSKU' : 'IngredientSKU';
+                    try {
+                        const { error } = await supabase.from(table).update(updateObj).eq(idCol, sku);
+                        if (error) {
+                            alert('Error saving: ' + error.message);
+                        } else {
+                            alert('Saved!');
+                        }
+                    } catch (e) {
+                        alert('Error saving: ' + e.message);
+                    }
+                });
+            });
         }
 
         async function loadAllTables(searchTerm = '', ingredientLowInvOnly = false) {
