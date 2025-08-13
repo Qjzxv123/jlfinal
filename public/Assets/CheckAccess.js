@@ -26,6 +26,7 @@ async function checkPermissions(allowedRoles) {
     return;
   }
   const { data: { user } } = await supabase.auth.getUser();
+  window.user = user;
   const userRole = user?.user_metadata?.role;
   if (userRole === 'newuser') {
     window.location.href = '/PendingApproval.html';
