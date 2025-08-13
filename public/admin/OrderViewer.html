@@ -1123,31 +1123,36 @@ async function removeSelectedOrders() {
             const { data: { user } } = await supabase.auth.getUser();
             const displayName = user?.user_metadata?.display_name || user?.email || null;
 
+            // Batch fetch all SKUs
+            const allSkus = Array.from(skuMap.keys());
+            const { data: productsData, error: productsError } = await supabase
+                .from('Products')
+                .select('ProductSKU,Quantity,Name')
+                .in('ProductSKU', allSkus);
+
+            // Build a lookup map for fetched products
+            const productLookup = new Map();
+            if (Array.isArray(productsData)) {
+                productsData.forEach(prod => {
+                    productLookup.set(prod.ProductSKU, prod);
+                });
+            }
+
             for (const [sku, removals] of skuMap.entries()) {
                 // Sum total quantity to remove for this SKU
                 const totalToRemove = removals.reduce((sum, r) => sum + r.quantity, 0);
                 if (!sku || isNaN(totalToRemove)) continue;
-                const { data, error } = await supabase
-                    .from('Products')
-                    .select('Quantity,Name')
-                    .eq('ProductSKU', sku)
-                    .single();
+                const prod = productLookup.get(sku);
                 let currentQty = 0;
-                if (error || !data) {
+                if (!prod) {
                     removals.forEach(r => {
                         const msg = `ERROR: ${sku} not found for Order ${r.orderID}`;
                         logMessages.push(`<div class='error'>${msg}</div>`);
-                        supabase.from('inventoryupdatelogs').insert({
-                            log: msg,
-                            updated_by: displayName,
-                            SKU: sku,
-                            OrderID: r.orderID
-                        });
                         errorCount++;
                     });
                     continue;
                 }
-                currentQty = data.Quantity || 0;
+                currentQty = prod.Quantity || 0;
                 const newQuantity = currentQty - totalToRemove;
                 const { error: updateError } = await supabase
                     .from('Products')
@@ -1157,27 +1162,20 @@ async function removeSelectedOrders() {
                     removals.forEach(r => {
                         const msg = `ERROR: Error updating ${sku} for Order ${r.orderID}: ${updateError.message}`;
                         logMessages.push(`<div class='error'>${msg}</div>`);
-                        supabase.from('inventoryupdatelogs').insert({
-                            log: msg,
-                            updated_by: displayName,
-                            SKU: sku,
-                            OrderID: r.orderID
-                        });
                         errorCount++;
                     });
                 } else {
-                    removals.forEach(r => {
+                    for (const r of removals) {
                         const msg = `SUCCESS: ${sku}: Removed ${r.quantity} for Order ${r.orderID}, Quantity is now ${newQuantity}`;
                         logMessages.push(`<div class='success'>${msg}</div>`);
-                        supabase.from('inventoryupdatelogs').insert({
+                        await supabase.from('inventoryupdatelogs').insert({
                             log: msg,
                             updated_by: displayName,
                             SKU: sku,
-                            QuantityChanged: -r.quantity,
-                            OrderID: r.orderID
+                            QuantityChanged: -r.quantity
                         });
                         successCount++;
-                    });
+                    }
                 }
             }
             const outputDiv = document.getElementById('statusDiv');
