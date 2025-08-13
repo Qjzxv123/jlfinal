@@ -318,7 +318,7 @@
       try {
         const { data: products, error } = await supabase
           .from('Products')
-          .select('ProductSKU, Name, Retailer, "Pack Size"')
+          .select('ProductSKU, Name, Retailer, "Pack Size", QuantityPerBin')
           .order('ProductSKU');
 
         if (error) {
@@ -470,7 +470,8 @@
       for (const [sku, {product, quantity}] of selectedProducts.entries()) {
         const productName = product.Name || 'N/A';
         const Retailer = product.Retailer || 'N/A';
-        const packSize = product['Pack Size'] ? `Pack Size: ${product['Pack Size']}` : '';
+  const packSize = product['Pack Size'] ? `Pack Size: ${product['Pack Size']}` : '';
+  const quantityPerBin = product.QuantityPerBin ? `Quantity Per Bin: ${product.QuantityPerBin}` : '';
 
         for (let i = 0; i < quantity; i++) {
           const labelDiv = document.createElement('div');
@@ -489,6 +490,7 @@
             <div><strong>Name:</strong> ${productName}</div>
             <div><strong>Retailer:</strong> ${Retailer}</div>
             ${packSize ? `<div><strong>${packSize}</strong></div>` : ''}
+            ${quantityPerBin ? `<div><strong>${quantityPerBin}</strong></div>` : ''}
           `;
           topDiv.appendChild(detailsDiv);
 
