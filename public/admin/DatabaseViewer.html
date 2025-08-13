@@ -185,8 +185,15 @@
                     const sku = btn.getAttribute('data-sku');
                     const rowInputs = btn.closest('tr').querySelectorAll('input[data-sku]');
                     let updateObj = {};
+                    let changes = [];
                     rowInputs.forEach(input => {
-                        updateObj[input.getAttribute('data-col')] = input.value;
+                        const col = input.getAttribute('data-col');
+                        const oldVal = input.defaultValue;
+                        const newVal = input.value;
+                        updateObj[col] = newVal;
+                        if (oldVal !== newVal) {
+                            changes.push({ col, oldVal, newVal });
+                        }
                     });
                     let table = columns.includes('ProductSKU') ? 'Products' : 'Ingredients';
                     let idCol = columns.includes('ProductSKU') ? 'ProductSKU' : 'IngredientSKU';
@@ -195,6 +202,22 @@
                         if (error) {
                             alert('Error saving: ' + error.message);
                         } else {
+                            // Log changes to inventoryupdatelogs
+                            const user = (await supabase.auth.getUser()).data.user;
+                            const updated_by = user?.user_metadata?.display_name || user?.email || null;
+                            for (const change of changes) {
+                                let logMsg = `Updated ${change.col} for ${sku}: ${change.oldVal} → ${change.newVal}`;
+                                let quantityChanged = null;
+                                if (change.col.toLowerCase().includes('quantity')) {
+                                    quantityChanged = parseFloat(change.newVal) - parseFloat(change.oldVal);
+                                }
+                                await supabase.from('inventoryupdatelogs').insert({
+                                    log: logMsg,
+                                    updated_by,
+                                    SKU: sku,
+                                    QuantityChanged: quantityChanged
+                                });
+                            }
                             alert('Saved!');
                         }
                     } catch (e) {
