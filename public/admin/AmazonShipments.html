@@ -539,6 +539,7 @@
               <th>Quantity</th>
               <th>User</th>
               <th>Notes</th>
+              <th>Boxes</th>
             </tr>
           </thead>
           <tbody>
@@ -549,6 +550,16 @@
                 <td>${shipment.Quantity || 0}</td>
                 <td>${shipment.display_name || 'Unknown User'}</td>
                 <td class=\"notes-cell\" title=\"${shipment.Notes || ''}\">${shipment.Notes || '<em style=\"color: #999;\">No notes</em>'}</td>
+                <td>
+                  ${Array.isArray(shipment.Boxes) && shipment.Boxes.length > 0 ?
+                    shipment.Boxes.map(boxObj => {
+                      if (boxObj && typeof boxObj === 'object' && boxObj.sku) {
+                        return `${boxObj.sku} (${boxObj.quantity || 1})`;
+                      }
+                      return '';
+                    }).filter(Boolean).join(', ')
+                    : '<em style="color: #999;">None</em>'}
+                </td>
               </tr>
             `).join('')}
           </tbody>
@@ -724,6 +735,8 @@
         if (window.user && window.user.user_metadata && window.user.user_metadata.display_name) {
           displayName = window.user.user_metadata.display_name;
         }
+  // Prepare array of box objects for jsonb[] column
+  const selectedBoxObjects = Object.entries(selectedBoxes).map(([sku, quantity]) => ({ sku, quantity }));
         for (const shipment of selectedShipmentsData) {
           if (!shipment.SKU || !shipment.Quantity || shipment.Quantity <= 0) continue;
           // Update existing product quantity only
@@ -750,6 +763,11 @@
                 SKU: shipment.SKU,
                 QuantityChanged: -shipment.Quantity
               });
+            // Update the Boxes column for this shipment with array of objects
+            await supabase
+              .from('AmazonShipments')
+              .update({ Boxes: selectedBoxObjects })
+              .eq('id', shipment.id);
           } else {
             throw new Error(`Product with SKU ${shipment.SKU} does not exist in Products table.`);
           }
@@ -984,6 +1002,7 @@
               <th>Quantity</th>
               <th>User</th>
               <th>Notes</th>
+              <th>Boxes</th>
             </tr>
           </thead>
           <tbody>
