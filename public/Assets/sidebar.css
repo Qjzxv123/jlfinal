@@ -9,10 +9,15 @@
   color: white;
   z-index: 1000;
   transition: width 0.3s ease;
-  overflow-x: hidden;
-  overflow-y: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
   box-shadow: 2px 0 10px rgba(0,0,0,0.1);
 }
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .sidebar::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
 .sidebar:hover {
   width: 250px;
 }
