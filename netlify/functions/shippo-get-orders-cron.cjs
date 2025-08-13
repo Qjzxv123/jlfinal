@@ -45,11 +45,6 @@ exports.handler = async (event) => {
     const { createClient } = require('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
     for (const order of orders) {
-      // Skip order #8861
-      if (order.order_number && order.order_number.replace('#','') === '8861') {
-        console.warn('[WARN] Skipping order #8861');
-        continue;
-      }
       // Get first SKU from line_items
       let retailerValue = "J&L Naturals";
       if (order.line_items && order.line_items.length > 0) {
