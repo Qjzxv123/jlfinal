@@ -319,7 +319,7 @@
                     </div>
                     <div class="form-group" style="grid-column: 1 / -1;">
                         <label for="amazonRate">Amazon Shipments: Rate per Piece ($)</label>
-                        <input type="number" id="amazonRate" min="0" step="0.01" value="0" required>
+                        <input type="number" id="amazonRate" min="0" placeholder="River is 0.7, Desesh is 0.87" step="0.01"required>
                     </div>
                     <div class="form-group" style="grid-column: 1 / -1;">
                         <button type="submit" class="btn" id="calculateBtn">
@@ -645,7 +645,7 @@
                 amazonPiecesRow = document.createElement('div');
                 amazonPiecesRow.className = 'breakdown-item';
                 amazonPiecesRow.id = 'amazonPiecesRow';
-                amazonPiecesRow.innerHTML = `<span class="breakdown-label">Amazon Shipments: Pieces Charge:</span><span class="breakdown-value" id="amazonPiecesCharge">$0.00</span>`;
+                    amazonPiecesRow.innerHTML = `<span class="breakdown-label">Amazon Shipments: Pieces Charge (${amazonRate.toFixed(2)} × ${amazonPieces} = $${amazonPiecesCharge.toFixed(2)}):</span><span class="breakdown-value" id="amazonPiecesCharge">$${amazonPiecesCharge.toFixed(2)}</span>`;
                 breakdownSection.appendChild(amazonPiecesRow);
             }
             document.getElementById('amazonPiecesCharge').textContent = `$${(breakdown.amazonPiecesCharge || 0).toFixed(2)}`;
@@ -674,7 +674,7 @@
         function showInvoiceResults(retailer, month, orders, breakdown, hasInserts = false) {
             // Update header
             document.getElementById('invoiceTitle').textContent = `Invoice for ${retailer}`;
-            document.getElementById('invoicePeriod').textContent = new Date(month + '-01').toLocaleDateString('en-US', { 
+            document.getElementById('invoicePeriod').textContent = new Date().toLocaleDateString('en-US', { 
                 month: 'long', 
                 year: 'numeric' 
             });
