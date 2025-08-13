@@ -107,16 +107,19 @@
         // Define columns to request and display for each table
         let columns = [];
         let selectString = '*';
+        let orderCol = '';
         if (tableName === 'Products') {
-                columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'Pack Size', 'Quantity', 'QuantityPerBin'];
-                selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)","Pack Size",Quantity,QuantityPerBin';
-            } else if (tableName === 'Ingredients') {
-                columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'];
-                selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Supplier,LowInvThreshold';
-            }
-            try {
-                let query = supabase.from(tableName).select(selectString);
-                const { data, error } = await query;
+            columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'Pack Size', 'Quantity', 'QuantityPerBin'];
+            selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)","Pack Size",Quantity,QuantityPerBin';
+            orderCol = 'ProductSKU';
+        } else if (tableName === 'Ingredients') {
+            columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'];
+            selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Supplier,LowInvThreshold';
+            orderCol = 'IngredientSKU';
+        }
+        try {
+            let query = supabase.from(tableName).select(selectString).order(orderCol, { ascending: true });
+            const { data, error } = await query;
                 if (error) throw error;
                 if (!data || data.length === 0) {
                     container.innerHTML = '<div class="error">No data found.</div>';
