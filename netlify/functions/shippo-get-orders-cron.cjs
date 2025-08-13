@@ -51,7 +51,7 @@ exports.handler = async (event) => {
         continue;
       }
       // Get first SKU from line_items
-      let retailerValue = "JNL";
+      let retailerValue = "J&L Naturals";
       if (order.line_items && order.line_items.length > 0) {
         let firstSku = order.line_items[0].sku;
         if (firstSku && typeof firstSku === 'string') {
