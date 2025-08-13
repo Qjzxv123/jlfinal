@@ -168,7 +168,7 @@ function getPlatformOrderUrl(platform, orderNumber, retailerValue) {
   switch(platform?.toLowerCase()) {
     case 'etsy':
       return `https://www.etsy.com/your/orders/sold?ref=seller-platform-mcnav&order_id=${orderNumber}`;
-    case 'shopify': {
+    case 'shopify'|| 'Shopify(TikTok)': {
       let domain = 'river-organics-skincare';
       if (retailerValue && retailerValue.toLowerCase().includes('j&l')) {
         domain = 'j-l-naturals';
