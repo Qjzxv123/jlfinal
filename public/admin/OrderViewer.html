@@ -1028,7 +1028,7 @@ async function removeSelectedOrders() {
                 } else if (shop.includes('river organics')) {
                     logoUrl = 'https://riverorganics.org/cdn/shop/files/RO_Secondary_Logos-14_98f44cae-12e5-46ee-9391-5e0e168f2427.png?v=1735735433&width=255';
                     logoAlt = 'River Organics Logo';
-                } else if (shop.includes('jnl') || shop.includes('j&l naturals')) {
+                } else if (shop.includes('j&l naturals')) {
                     logoUrl = 'https://www.jnlnaturals.com/cdn/shop/files/JL_PNG_TRAN_BLACK_FINAL_Cropped_outlined.png?v=1697910301&width=300';
                     logoAlt = 'JNL Naturals Logo';
                 }
@@ -1051,15 +1051,16 @@ async function removeSelectedOrders() {
                                 ${customerAddress ? `<p style="margin: 0 0 5px 0; font-size: 12px;">${customerAddress}</p>` : '<p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">Address not provided</p>'}
                             </div>
                         </div>
-                        ${order.customerMessages ? `
-                        <div style="margin-bottom: 25px;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; background-color: #e3f2fd; padding: 8px; border-left: 4px solid #2196f3;">MESSAGE:</h3>
-                            <div style="padding: 10px; border: 1px solid #2196f3; background-color: #e3f2fd;">
-                                <p style="margin: 0; font-size: 14px; font-weight: 600; color: #1565c0;">${order.customerMessages}</p>
-                            </div>
-                        </div>
-                        ` : ''}
-                        <div>
+                       ${(order.customerMessages || order.shop === 'J&L Naturals') ? `
+<div style="margin-bottom: 25px;">
+    <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; background-color: #e3f2fd; padding: 8px; border-left: 4px solid #2196f3;">MESSAGE:</h3>
+    <div style="padding: 10px; border: 1px solid #2196f3; background-color: #e3f2fd;">
+        <p style="margin: 0; font-size: 14px; font-weight: 600; color: #1565c0;">
+        ${order.customerMessages ? order.customerMessages : 'Thank you so much for your order! Use code SAVE10 for 10% off your next purchase at www.jnlnaturals.com 💚'}
+        </p>
+    </div>
+</div>
+` : ''}                        <div>
                             <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; background-color: #e9ecef; padding: 8px;">ITEMS:</h3>
                             <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
                                 <thead>
