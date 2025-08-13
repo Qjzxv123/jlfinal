@@ -40,6 +40,8 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: 'Error fetching Shippo orders: ' + err.message };
   }
   console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
+    console.log(orders);
+
   // Save orders to Supabase
   try {
     const { createClient } = require('@supabase/supabase-js');
@@ -151,7 +153,7 @@ exports.handler = async (event) => {
         Items: JSON.stringify(parsedItems),
         Customer: customerObj ? JSON.stringify(customerObj) : null,
         Platform: platformValue,
-        Link: getPlatformOrderUrl(platformValue, order.order_number, order.shopify_id, retailerValue),
+  Link: getPlatformOrderUrl(platformValue, order.order_number, retailerValue),
         Notes: order.notes || null,
         ShippoOrderID: order.object_id || null,
         ShippoAddressID: order.to_address.object_id || null
@@ -164,14 +166,19 @@ exports.handler = async (event) => {
   return { statusCode: 200, body: `Fetched and saved ${orders.length} Shippo orders.` };
 };
 
-function getPlatformOrderUrl(platform, orderNumber) {
+function getPlatformOrderUrl(platform, orderNumber, retailerValue) {
   switch(platform?.toLowerCase()) {
     case 'etsy':
       return `https://www.etsy.com/your/orders/sold?ref=seller-platform-mcnav&order_id=${orderNumber}`;
-    case 'shopify': 
-      return `N/A`;
-      case 'amazon':
-        return `https://sellercentral.amazon.com/orders-v3/order/${orderNumber}`;
+    case 'shopify': {
+      let domain = 'river-organics-skincare';
+      if (retailerValue && retailerValue.toLowerCase().includes('j&l')) {
+        domain = 'j-l-naturals';
+      }
+      return `https://admin.shopify.com/store/${domain}/orders?query=${orderNumber}`;
+    }
+    case 'amazon':
+      return `https://sellercentral.amazon.com/orders-v3/order/${orderNumber}`;
     default:
       return '#';
   }
