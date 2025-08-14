@@ -644,7 +644,40 @@
         if (error) {
             throw error;
         }
+    // If there is no customer message for an order, set customerMessages to DefaultCustomerMessage from Users table where display_name=Retailer
+    if (supabaseOrders && supabaseOrders.length > 0) {
+        // Build a map of retailers needing a default message
+        const retailersNeedingMessage = supabaseOrders
+            .filter(order => !order.CustomerMessages)
+            .map(order => order.Retailer)
+            .filter((v, i, a) => v && a.indexOf(v) === i);
 
+        let retailerMessageMap = {};
+        if (retailersNeedingMessage.length > 0) {
+            const { data: usersData, error: usersError } = await supabase
+                .from('Users')
+                .select('display_name,DefaultCustomerMessage')
+                .in('display_name', retailersNeedingMessage);
+            if (!usersError && Array.isArray(usersData)) {
+                usersData.forEach(user => {
+                    retailerMessageMap[user.display_name] = user.DefaultCustomerMessage || '';
+                });
+            }
+        }
+
+        // Transform orders and fill missing customerMessages
+        allOrders = supabaseOrders.map(order => {
+            if (!order.CustomerMessages) {
+                order.CustomerMessages = retailerMessageMap[order.Retailer] || '';
+            }
+            return transformSupabaseOrder(order);
+        });
+        showStatus(`Successfully loaded ${allOrders.length} orders from Supabase`, 'success');
+        setTimeout(hideStatus, 3000);
+    } else {
+        showStatus('No orders found in Supabase Orders table', 'success');
+        setTimeout(hideStatus, 3000);
+    }
         if (supabaseOrders && supabaseOrders.length > 0) {
             // Transform Supabase orders to expected format
             allOrders = supabaseOrders.map(transformSupabaseOrder);
@@ -1017,7 +1050,6 @@ async function removeSelectedOrders() {
                         });
                     }
                 });
-
                 // Retailer logo logic
                 let logoUrl = '';
                 let logoAlt = '';
@@ -1032,7 +1064,6 @@ async function removeSelectedOrders() {
                     logoUrl = 'https://www.jnlnaturals.com/cdn/shop/files/JL_PNG_TRAN_BLACK_FINAL_Cropped_outlined.png?v=1697910301&width=300';
                     logoAlt = 'JNL Naturals Logo';
                 }
-
                 packingSlipsHtml += `
                     <div style="font-family: Arial, sans-serif; padding: 20px; background: white; ${index > 0 ? 'page-break-before: always;' : ''}">
                         <div style="display: flex; justify-content: flex-end; align-items: flex-start; min-height: 60px;">
@@ -1076,15 +1107,13 @@ async function removeSelectedOrders() {
                             </table>
                             <p style="margin: 10px 0 0 0; font-size: 14px; font-weight: bold;">Total Items: ${Array.from(orderSkuMap.values()).reduce((sum, qty) => sum + qty, 0)}</p>
                         </div>
-                         ${(order.customerMessages || order.shop === 'J&L Naturals') ? `
-<div style="margin-bottom: 25px;">
+                        <div style="margin-bottom: 25px;">
     <div style="padding: 10px; border: 1px solid #4dba93; ">
         <p style="margin: 0; font-size: 14px; font-weight: 600; color: #ba4d74;">
-        ${order.customerMessages ? order.customerMessages : `Thank you so much for your order, ${order.customer.name}! Hope you enjoy your products as much as we enjoyed creating them for you! If you have a chance please take a second to leave a review, It really helps our small business. www.jnlnaturals.com 💚`}
+        ${order.customerMessages}
         </p>
     </div>
 </div>
-` : ''} 
                     </div>`;
             });
 
