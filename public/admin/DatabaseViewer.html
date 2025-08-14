@@ -193,10 +193,19 @@
                         const col = input.getAttribute('data-col');
                         const oldVal = input.defaultValue;
                         const newVal = input.value;
-                        updateObj[col] = newVal;
-                        if (oldVal !== newVal) {
-                            changes.push({ col, oldVal, newVal });
-                        }
+                            // Convert empty string to null for numeric columns
+                            let valToSave = newVal;
+                            const numericCols = [
+                                'Quantity', 'QuantityPerBin', 'Product Weight(oz)', 'Pack Size',
+                                'Quantity(Lbs/Units)', 'LowInvThreshold'
+                            ];
+                            if (numericCols.includes(col) && newVal === '') {
+                                valToSave = null;
+                            }
+                            updateObj[col] = valToSave;
+                            if (oldVal !== newVal) {
+                                changes.push({ col, oldVal, newVal });
+                            }
                     });
                     let table = columns.includes('ProductSKU') ? 'Products' : 'Ingredients';
                     let idCol = columns.includes('ProductSKU') ? 'ProductSKU' : 'IngredientSKU';
