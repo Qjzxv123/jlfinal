@@ -1039,7 +1039,6 @@ async function removeSelectedOrders() {
                             ${logoUrl ? `<img src="${logoUrl}" alt="${logoAlt}" style="max-width:180px; max-height:80px; margin-bottom:10px; margin-left:auto; display:block;">` : ''}
                         </div>
                         <div style="text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 25px;">
-                            <h1 style="margin: 0; font-size: 28px; font-weight: bold;">PACKING SLIP</h1>
                             <p style="margin: 10px 0 0 0; font-size: 18px; font-weight: bold;">Order #${order.orderNumber}</p>
                             <p style="margin: 5px 0 0 0; font-size: 14px;">Date: ${new Date().toLocaleDateString()}</p>
                             <p style="margin: 5px 0 0 0; font-size: 14px;">Platform: ${order.platform.toUpperCase()} - ${order.shop}</p>
@@ -1051,16 +1050,7 @@ async function removeSelectedOrders() {
                                 ${customerAddress ? `<p style="margin: 0 0 5px 0; font-size: 12px;">${customerAddress}</p>` : '<p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">Address not provided</p>'}
                             </div>
                         </div>
-                       ${(order.customerMessages || order.shop === 'J&L Naturals') ? `
-<div style="margin-bottom: 25px;">
-    <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; background-color: #ba4d74; padding: 8px; border-left: 4px solid #2196f3;">MESSAGE:</h3>
-    <div style="padding: 10px; border: 1px solid #2196f3; background-color: #ba4d74;">
-        <p style="margin: 0; font-size: 14px; font-weight: 600; color: #ba4d74;">
-        ${order.customerMessages ? order.customerMessages : `Thank you so much for your order, ${order.customer.name}! Hope you enjoy your products as much as we enjoyed creating them for you! If you have a chance please take a second to leave a review, It really helps our small business. www.jnlnaturals.com 💚`}
-        </p>
-    </div>
-</div>
-` : ''}                        <div>
+                                             <div>
                             <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; background-color: #e9ecef; padding: 8px;">ITEMS:</h3>
                             <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
                                 <thead>
@@ -1086,6 +1076,15 @@ async function removeSelectedOrders() {
                             </table>
                             <p style="margin: 10px 0 0 0; font-size: 14px; font-weight: bold;">Total Items: ${Array.from(orderSkuMap.values()).reduce((sum, qty) => sum + qty, 0)}</p>
                         </div>
+                         ${(order.customerMessages || order.shop === 'J&L Naturals') ? `
+<div style="margin-bottom: 25px;">
+    <div style="padding: 10px; border: 1px solid #4dba93; ">
+        <p style="margin: 0; font-size: 14px; font-weight: 600; color: #ba4d74;">
+        ${order.customerMessages ? order.customerMessages : `Thank you so much for your order, ${order.customer.name}! Hope you enjoy your products as much as we enjoyed creating them for you! If you have a chance please take a second to leave a review, It really helps our small business. www.jnlnaturals.com 💚`}
+        </p>
+    </div>
+</div>
+` : ''} 
                     </div>`;
             });
 
