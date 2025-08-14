@@ -977,7 +977,7 @@
         // Get current user notification preferences
         const { data: userData, error } = await supabase
           .from('Users')
-          .select('Notifications')
+          .select('Notifications,DefaultCustomerMessage')
           .eq('id', currentUser.id)
           .single();
 
@@ -991,6 +991,7 @@
           taskReminders: true,
           promotions: false
         };
+        const currentDefaultMessage = userData?.DefaultCustomerMessage || '';
 
         // Create modal HTML
         const modalHTML = `
@@ -1017,7 +1018,7 @@
               box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
             ">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-                <h2 style="color: #2d3748; margin: 0; font-size: 1.5rem;">Notification Settings</h2>
+                <h2 style="color: #2d3748; margin: 0; font-size: 1.5rem;">Account Settings</h2>
                 <button onclick="closeNotificationModal()" style="
                   background: none;
                   border: none;
@@ -1030,7 +1031,8 @@
               </div>
               
               <p style="color: #718096; margin-bottom: 25px; line-height: 1.5;">
-                Choose which notifications you'd like to receive to stay updated on your orders and account activity.
+                Choose which notifications you'd like to receive to stay updated on your orders and account activity.<br>
+                <span style="color:#2d3748;font-weight:600;">You can also customize your default message for your customers below.</span>
               </p>
 
               <form id="notificationForm">
@@ -1064,6 +1066,12 @@
                         accent-color: #4dba93;
                       ">
                     </label>
+                  </div>
+
+                  <div style="padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <label for="defaultCustomerMessage" style="font-weight:600;color:#2d3748;display:block;margin-bottom:6px;">Default Customer Message</label>
+                    <textarea id="defaultCustomerMessage" rows="3" style="width:100%;padding:8px;border-radius:6px;border:1px solid #e2e8f0;font-size:1rem;">${currentDefaultMessage}</textarea>
+                    <div style="font-size:0.9rem;color:#718096;margin-top:4px;">This message will be shown to your customers if no custom message is set for an order.</div>
                   </div>
 
                 </div>
@@ -1118,6 +1126,7 @@
           inventoryAlerts: document.getElementById('inventoryAlerts').checked,
           taskReminders: document.getElementById('taskReminders').checked,
         };
+        const defaultCustomerMessage = document.getElementById('defaultCustomerMessage').value;
 
         // First, check if user exists in Users table
         const { data: existingUser, error: checkError } = await supabase
@@ -1133,6 +1142,7 @@
             .from('Users')
             .update({ 
               Notifications: notifications,
+              DefaultCustomerMessage: defaultCustomerMessage,
               email: currentUser.email,
               display_name: currentUser.display_name 
             })
@@ -1146,7 +1156,8 @@
               email: currentUser.email,
               display_name: currentUser.display_name,
               Role: 'client',
-              Notifications: notifications
+              Notifications: notifications,
+              DefaultCustomerMessage: defaultCustomerMessage
             });
         }
 
