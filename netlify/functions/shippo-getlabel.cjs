@@ -45,20 +45,17 @@ exports.handler = async (event) => {
   console.log('[Shippo Label] parcelsArr:', parcelsArr);
 
   // Build address_to
-  let address_to = body.ShippoAddressID && body.ShippoAddressID.trim() !== '' ? body.ShippoAddressID
-: order.toAddressObjectID && order.toAddressObjectID.trim() !== ''
-      ? order.toAddressObjectID
-      : {
-          name: order.customer?.name || '',
-          street1: order.customer?.address1 || '',
-          street2: order.customer?.address2 || '',
-          city: order.customer?.city || '',
-          state: order.customer?.state || '',
-          zip: order.customer?.zipCode || '',
-          country: order.customer?.country || '',
-          phone: order.customer?.phone || '',
-          email: (order.customer?.email || '').substring(0, 50)
-        };
+  let address_to = {
+    name: order.customer?.name || '',
+    street1: order.customer?.address1 || '',
+    street2: order.customer?.address2 || '',
+    city: order.customer?.city || '',
+    state: order.customer?.state || '',
+    zip: order.customer?.zipCode || '',
+    country: order.customer?.country || '',
+    phone: order.customer?.phone || '',
+    email: (order.customer?.email || '').substring(0, 50)
+  };
 
   // Build shipment payload
   const isInternational = order.customer?.country && !["UNITED STATES", "US"].includes(order.customer.country.toUpperCase());
@@ -195,12 +192,6 @@ exports.handler = async (event) => {
       rate: rate_id,
       label_file_type: 'PDF_4x6'
     };
-    // Add address ID if available (optional for transactions)
-    if (body.ShippoAddressID && body.ShippoAddressID.trim() !== '') {
-      transactionBody.address_to = body.ShippoAddressID;
-    } else if (order.toAddressObjectID && order.toAddressObjectID.trim() !== '') {
-      transactionBody.address_to = order.toAddressObjectID;
-    }
     // Add order reference only if it exists and not a Faire order
     const isFaireOrder = order.platform === 'faire' || order.source === 'faire' || 
                         (order.id && order.id.toString().startsWith('faire_'));

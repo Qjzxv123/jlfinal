@@ -154,7 +154,6 @@ exports.handler = async (event) => {
   Link: getPlatformOrderUrl(platformValue, order.order_number, retailerValue),
         Notes: order.notes || null,
         ShippoOrderID: order.object_id || null,
-        ShippoAddressID: order.to_address.object_id || null
       }, { onConflict: ['OrderID'] });
     }
   } catch (e) {

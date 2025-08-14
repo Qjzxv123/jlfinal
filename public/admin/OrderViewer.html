@@ -1494,32 +1494,11 @@ async function processShippingLabelsWithBoxData(orderParcels) {
   showStatus('Generating shipping labels...', 'loading');
   // Track label and rate data for each order for later Faire fulfillment
   const faireFulfillmentQueue = [];
-  for (const {order, parcel} of orderParcels) {
-    // For Faire orders, we don't use ShippoOrderID/ShippoAddressID - use Customer JSONB directly
-    // For other platforms, try to get ShippoOrderID and ShippoAddressID if not present
-    if (order.platform !== 'faire' && (!order.ShippoOrderID || !order.ShippoAddressID) && order.orderNumber) {
-      try {
-        const { data: supaOrder, error } = await supabase
-          .from('Orders')
-          .select('ShippoOrderID,ShippoAddressID')
-          .eq('OrderID', order.orderNumber)
-          .single();
-        if (!error && supaOrder) {
-          if (supaOrder.ShippoOrderID) order.ShippoOrderID = supaOrder.ShippoOrderID;
-          if (supaOrder.ShippoAddressID) order.ShippoAddressID = supaOrder.ShippoAddressID;
-        }
-      } catch (err) {
-        console.error('Error fetching ShippoOrderID/ShippoAddressID from Supabase:', err);
-      }
-    }
+    for (const {order, parcel} of orderParcels) {
     try {
       let ratesResp, ratesData, selectedRate, labelResp, labelData;
       // Use Shippo for all platforms
       const payload = { order, parcel };
-      // Only include ShippoAddressID for non-Faire orders
-      if (order.platform !== 'faire' && order.ShippoAddressID) {
-        payload.ShippoAddressID = order.ShippoAddressID;
-      }
       ratesResp = await fetch('/.netlify/functions/shippo-getlabel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1537,10 +1516,6 @@ async function processShippingLabelsWithBoxData(orderParcels) {
         continue;
       }
       const labelPayload = { order, parcel, rate_id: selectedRate.object_id };
-      // Only include ShippoAddressID for non-Faire orders
-      if (order.platform !== 'faire' && order.ShippoAddressID) {
-        labelPayload.ShippoAddressID = order.ShippoAddressID;
-      }
       labelResp = await fetch('/.netlify/functions/shippo-getlabel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
