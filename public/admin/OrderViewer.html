@@ -1495,34 +1495,50 @@ async function processShippingLabelsWithBoxData(orderParcels) {
   // Track label and rate data for each order for later Faire fulfillment
   const faireFulfillmentQueue = [];
     for (const {order, parcel} of orderParcels) {
-    try {
-      let ratesResp, ratesData, selectedRate, labelResp, labelData;
-      // Use Shippo for all platforms
-      const payload = { order, parcel };
-      ratesResp = await fetch('/.netlify/functions/shippo-getlabel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!ratesResp.ok) throw new Error('Failed to get rates');
-      ratesData = await ratesResp.json();
-      if (!ratesData.rates || !Array.isArray(ratesData.rates) || ratesData.rates.length === 0) {
-        alert('No shipping rates returned for order ' + order.orderNumber);
-        continue;
-      }
-      selectedRate = await showShippoRateSelectionModal(ratesData.rates);
-      if (!selectedRate) {
-        alert('No rate selected for order ' + order.orderNumber);
-        continue;
-      }
-      const labelPayload = { order, parcel, rate_id: selectedRate.object_id };
-      labelResp = await fetch('/.netlify/functions/shippo-getlabel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(labelPayload)
-      });
-      if (!labelResp.ok) {
-        let errorMsg = 'Failed to buy label';
+        // For Faire orders, we don't use ShippoOrderID - use Customer JSONB directly
+        // For other platforms, try to get ShippoOrderID if not present
+        if (order.platform !== 'faire' && (!order.ShippoOrderID) && order.orderNumber) {
+            try {
+                const { data: supaOrder, error } = await supabase
+                    .from('Orders')
+                    .select('ShippoOrderID')
+                    .eq('OrderID', order.orderNumber)
+                    .single();
+                if (!error && supaOrder) {
+                    if (supaOrder.ShippoOrderID) order.ShippoOrderID = supaOrder.ShippoOrderID;
+                }
+            } catch (err) {
+                console.error('Error fetching ShippoOrderID from Supabase:', err);
+            }
+        }
+        try {
+            let ratesResp, ratesData, selectedRate, labelResp, labelData;
+            // Use Shippo for all platforms
+            const payload = { order, parcel };
+            ratesResp = await fetch('/.netlify/functions/shippo-getlabel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!ratesResp.ok) throw new Error('Failed to get rates');
+            ratesData = await ratesResp.json();
+            if (!ratesData.rates || !Array.isArray(ratesData.rates) || ratesData.rates.length === 0) {
+                alert('No shipping rates returned for order ' + order.orderNumber);
+                continue;
+            }
+            selectedRate = await showShippoRateSelectionModal(ratesData.rates);
+            if (!selectedRate) {
+                alert('No rate selected for order ' + order.orderNumber);
+                continue;
+            }
+            const labelPayload = { order, parcel, rate_id: selectedRate.object_id };
+            labelResp = await fetch('/.netlify/functions/shippo-getlabel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(labelPayload)
+            });
+            if (!labelResp.ok) {
+                let errorMsg = 'Failed to buy label';
         try {
           const errorBody = await labelResp.text();
           errorMsg += `: ${errorBody}`;
