@@ -80,6 +80,9 @@ exports.handler = async (event) => {
     }
   };
 
+  // Log shipment payload for debugging
+  console.log('[Shippo Label] shipmentPayload:', JSON.stringify(shipmentPayload, null, 2));
+
   // If international, create customs declaration
   if (isInternational) {
     // Build customs items from products
@@ -106,6 +109,16 @@ exports.handler = async (event) => {
         tariff_number: ''
       });
     }
+    // Log customs declaration payload for debugging
+    const customsPayload = {
+      certify: true,
+      certify_signer: 'J&L Naturals',
+      contents_type: 'MERCHANDISE',
+      eel_pfc: 'NOEEI_30_37_a',
+      non_delivery_option: 'RETURN',
+      items: customsItems
+    };
+    console.log('[Shippo Label] customsPayload:', JSON.stringify(customsPayload, null, 2));
     // Create customs declaration
     try {
       const customsResp = await fetch('https://api.goshippo.com/customs/declarations/', {
@@ -114,16 +127,10 @@ exports.handler = async (event) => {
           'Authorization': `ShippoToken ${SHIPPO_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          certify: true,
-          certify_signer: 'J&L Naturals',
-          contents_type: 'MERCHANDISE',
-          eel_pfc: 'NOEEI_30_37_a',
-          non_delivery_option: 'RETURN',
-          items: customsItems
-        })
+        body: JSON.stringify(customsPayload)
       });
       const customsData = await customsResp.json();
+      console.log('[Shippo Label] customs declaration response:', JSON.stringify(customsData, null, 2));
       if (customsResp.ok && customsData.object_id) {
         customsDeclarationId = customsData.object_id;
         shipmentPayload.customs_declaration = customsDeclarationId;
@@ -149,8 +156,10 @@ exports.handler = async (event) => {
       body: JSON.stringify(shipmentPayload)
     });
     const shipmentText = await shipmentResp.text();
+    console.log('[Shippo Label] shipment response (raw):', shipmentText);
     try {
       shipment = JSON.parse(shipmentText);
+      console.log('[Shippo Label] shipment response (parsed):', JSON.stringify(shipment, null, 2));
     } catch (parseErr) {
       console.error('[Shippo Label] Failed to parse shipment response:', shipmentText);
       return { statusCode: 500, body: 'Error parsing shipment response from Shippo.' };
@@ -237,15 +246,23 @@ exports.handler = async (event) => {
               'Content-Type': 'application/json'
             }
           });
-          pollTransaction = await pollResp.json();
+          const pollText = await pollResp.text();
+          console.log(`[Shippo Label] Polling attempt ${pollCount}:`, pollText);
+          try {
+            pollTransaction = JSON.parse(pollText);
+          } catch (pollParseErr) {
+            console.error(`[Shippo Label] Failed to parse poll response (attempt ${pollCount}):`, pollText);
+            break;
+          }
           if (pollTransaction.status === 'SUCCESS' && pollTransaction.label_url) {
             break;
           }
           if (pollTransaction.status === 'ERROR') {
+            console.error(`[Shippo Label] Polling error status (attempt ${pollCount}):`, pollTransaction);
             break;
           }
         } catch (pollErr) {
-          console.error('[Shippo Label] Polling error:', pollErr);
+          console.error(`[Shippo Label] Polling exception (attempt ${pollCount}):`, pollErr);
           break;
         }
       }
