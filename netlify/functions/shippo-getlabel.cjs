@@ -57,7 +57,7 @@ exports.handler = async (event) => {
           zip: order.customer?.zipCode || '',
           country: order.customer?.country || '',
           phone: order.customer?.phone || '',
-          email: order.customer?.email || ''
+          email: (order.customer?.email || '').substring(0, 50)
         };
 
   // Build shipment payload
