@@ -341,10 +341,40 @@
         <div id="main-container">
             <h2>Customer Order Management</h2>
             <div id="order-interface">
-                <h3>Your Active Orders</h3>
+                <div style="display:flex;gap:1rem;margin-bottom:1.5rem;">
+                    <button id="tabActiveOrders" type="button" style="background:#4DBA93;color:#fff;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:1.1rem;">Active Orders</button>
+                    <button id="tabOrderHistory" type="button" style="background:#e9ecef;color:#333;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:1.1rem;">Order History</button>
+                </div>
                 <div id="active-orders-viewer"></div>
-                <h3 style="margin-top:2.5rem;">Order History</h3>
-                <div id="order-history-viewer"></div>
+                <div id="order-history-viewer" style="display:none;"></div>
+        <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabActiveOrders = document.getElementById('tabActiveOrders');
+            const tabOrderHistory = document.getElementById('tabOrderHistory');
+            const activeOrdersViewer = document.getElementById('active-orders-viewer');
+            const orderHistoryViewer = document.getElementById('order-history-viewer');
+            function showTab(tab) {
+                if (tab === 'active') {
+                    activeOrdersViewer.style.display = '';
+                    orderHistoryViewer.style.display = 'none';
+                    tabActiveOrders.style.background = '#4DBA93';
+                    tabActiveOrders.style.color = '#fff';
+                    tabOrderHistory.style.background = '#e9ecef';
+                    tabOrderHistory.style.color = '#333';
+                } else {
+                    activeOrdersViewer.style.display = 'none';
+                    orderHistoryViewer.style.display = '';
+                    tabOrderHistory.style.background = '#4DBA93';
+                    tabOrderHistory.style.color = '#fff';
+                    tabActiveOrders.style.background = '#e9ecef';
+                    tabActiveOrders.style.color = '#333';
+                }
+            }
+            tabActiveOrders.addEventListener('click', () => showTab('active'));
+            tabOrderHistory.addEventListener('click', () => showTab('history'));
+            showTab('active');
+        });
+        </script>
             </div>
             <!-- Manage Items Modal -->
             <div id="add-item-modal" class="modal" style="display:none;">
@@ -556,7 +586,7 @@
             try {
                 const { data, error } = await supabase
                     .from('Order History')
-                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, ShippedAt')
+                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, ShippedAt, TrackingNumber')
                     .order('ShippedAt', { ascending: false });
                 if (error) throw error;
                 if (!data || data.length === 0) {
@@ -571,6 +601,7 @@
                             <th>Retailer</th>
                             <th>Items</th>
                             <th>Notes</th>
+                            <th>Tracking Number</th>
                             <th>Shipped At</th>
                         </tr>
                 `;
@@ -610,6 +641,9 @@
                             <td>${order.Retailer || 'N/A'}</td>
                             <td>${itemsDisplay}</td>
                             <td><div style="max-width: 150px; word-wrap: break-word;">${notesDisplay}</div></td>
+                                                        <td>
+                                                            ${order.TrackingNumber ? `<a href="https://parcelsapp.com/en/tracking/${order.TrackingNumber}" target="_blank" style="color:#3b82f6;text-decoration:underline;">${order.TrackingNumber}</a>` : 'N/A'}
+                                                        </td>
                             <td>${ShippedAt}</td>
                         </tr>
                     `;
