@@ -934,7 +934,6 @@
       const lot = lotNumber.value.trim();
       const quantity = parseFloat(actualQuantity.value) || 0;
       const expiry = expiryDate.value;
-      const cost = parseFloat(costField.value) || null;
       if (!lot) {
         showReceiveStatus('Lot number required', 'error');
         return;
