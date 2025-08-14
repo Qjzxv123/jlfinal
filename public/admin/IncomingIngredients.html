@@ -263,6 +263,7 @@
             <th style="min-width: 250px;">Ingredient</th>
             <th style="min-width: 150px;">Quantity Ordered</th>
             <th style="min-width: 150px;">Expected Arrival Date</th>
+            <th style="min-width: 120px;">Cost</th>
             <th style="min-width: 100px;">Actions</th>
           </tr>
         </thead>
@@ -300,7 +301,6 @@
               <th>Lot Number</th>
               <th>Actual Quantity</th>
               <th>Expiry Date</th>
-              <th>Cost Per Unit/Lb</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -663,6 +663,9 @@
           <input type="date" class="expected-date" style="width: 100%;" />
         </td>
         <td>
+          <input type="number" class="order-cost" placeholder="Cost" min="0" step="0.01" style="width: 100%;" />
+        </td>
+        <td>
           <button class="btn btn-danger" onclick="removeOrderRow('${rowId}')" style="padding: 0.5rem;">
             <i class="cil-trash"></i>
           </button>
@@ -722,9 +725,11 @@
         const dropdown = row.querySelector('.selected-sku');
         const orderQuantity = row.querySelector('.order-quantity');
         const expectedDate = row.querySelector('.expected-date');
+        const costField = row.querySelector('.order-cost');
         const sku = dropdown ? dropdown.value : '';
         const quantity = parseFloat(orderQuantity.value) || 0;
         const expectedBy = expectedDate.value;
+        const cost = costField ? parseFloat(costField.value) : null;
         if (!sku) {
           results.push(`❌ Row ${successCount + errorCount + 1}: No ingredient selected`);
           errorCount++;
@@ -753,6 +758,26 @@
               'ExpectedBy': expectedBy
             })
             .select();
+          // Save cost to CostLog if cost is provided
+          if (sku && cost !== null && !isNaN(cost)) {
+            const today = new Date();
+            const dateStr = today.toISOString().slice(0,10);
+            let userId = null;
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              userId = user?.id || user?.email || null;
+            } catch (e) {
+              userId = null;
+            }
+            await supabase
+              .from('CostLog')
+              .insert({
+                Date: dateStr,
+                SKU: sku,
+                Cost: cost,
+                UserID: [userId]
+              });
+          }
           if (error || !data || !data[0] || !data[0].id) {
             results.push(`❌ ${sku}: Failed to save order - ${error ? error.message : 'No ID returned'}`);
             errorCount++;
@@ -844,9 +869,6 @@
               <input type="date" class="expiry-date" style="width: 100%;" />
             </td>
             <td>
-              <input type="number" class="cost-field" placeholder="Cost" min="0" step="0.01" style="width: 100%;" />
-            </td>
-            <td>
               <button title="Add Ingredient Batch to Inventory " class="btn btn-success" onclick="processSingleReceivedIngredient(this)" style="padding: 0.5rem; margin-right: 0.5rem;">
                 <i class="cil-check"></i>
               </button>
@@ -909,7 +931,6 @@
       const lotNumber = row.querySelector('.lot-number');
       const actualQuantity = row.querySelector('.actual-quantity');
       const expiryDate = row.querySelector('.expiry-date');
-      const costField = row.querySelector('.cost-field');
       const lot = lotNumber.value.trim();
       const quantity = parseFloat(actualQuantity.value) || 0;
       const expiry = expiryDate.value;
@@ -985,18 +1006,6 @@
             Log: logMessage
           });
           printLabel(order.IngredientSKU, expiry, lot);
-        // Save cost to CostLog if cost is provided
-        if (cost !== null && !isNaN(cost)) {
-          const today = new Date();
-          const dateStr = today.toISOString().slice(0,10);
-          await supabase
-            .from('CostLog')
-            .insert({
-              Date: dateStr,
-              SKU: order.IngredientSKU,
-              Cost: cost
-            });
-        }
         // Remove the order from IngredientOrders table
         const { error: deleteError } = await supabase
           .from('IngredientOrders')
