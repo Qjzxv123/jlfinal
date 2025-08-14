@@ -186,6 +186,7 @@
             .from('Checklist')
             .select('*')
             .contains('UserID', [userId])
+            .eq('Status', 'Incomplete')
             .order('Priority', { ascending: false })
             .order('Deadline', { ascending: true });
         if (error) throw error;
