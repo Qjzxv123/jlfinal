@@ -445,68 +445,37 @@
       const location = ingredient && ingredient.Location ? ingredient.Location : 'No Location';
       
       const labelDiv = document.createElement('div');
-      labelDiv.style.width = '5in';
-      labelDiv.style.height = '3in';
-      labelDiv.style.border = '1px solid #000000';
-      labelDiv.style.margin = '0.2in auto';
-      labelDiv.style.padding = '0.2in';
-      labelDiv.style.display = 'flex';
-      labelDiv.style.flexDirection = 'column';
-      labelDiv.style.justifyContent = 'center';
-      labelDiv.style.alignItems = 'center';
-      labelDiv.style.fontFamily = 'Arial, sans-serif';
+      labelDiv.style.cssText = ['width:5in','height:3in','border:1px solid #000000','margin:0.2in auto','padding:0.2in','display:flex','flex-direction:column','justify-content:center','align-items:center',"font-family:Arial,sans-serif"].join(';');
       
       // Ingredient name at the top
       const nameDiv = document.createElement('div');
-      nameDiv.style.fontSize = '1.6rem';
-      nameDiv.style.fontWeight = 'bold';
-      nameDiv.style.marginBottom = '0.6rem';
-      nameDiv.style.textAlign = 'center';
-      nameDiv.style.color = '#000000';
+      nameDiv.style.cssText = ['font-size:1.6rem','font-weight:bold','margin-bottom:0.6rem','text-align:center','color:#000000'].join(';');
       nameDiv.textContent = ingredientName;
       labelDiv.appendChild(nameDiv);
       
       // Location below name
       const locationDiv = document.createElement('div');
-      locationDiv.style.fontSize = '1.2rem';
-      locationDiv.style.marginBottom = '0.6rem';
-      locationDiv.style.textAlign = 'center';
-      locationDiv.style.color = '#000000';
-      locationDiv.style.fontWeight = '500';
+      locationDiv.style.cssText = ['font-size:1.2rem','margin-bottom:0.6rem','text-align:center','color:#000000','font-weight:500'].join(';');
       locationDiv.textContent = location;
       labelDiv.appendChild(locationDiv);
       
       // Layout: SKU on left, Expiry and Lot stacked on right
       const contentDiv = document.createElement('div');
-      contentDiv.style.display = 'flex';
-      contentDiv.style.flexDirection = 'row';
-      contentDiv.style.justifyContent = 'center';
-      contentDiv.style.alignItems = 'center';
-      contentDiv.style.width = '100%';
+      contentDiv.style.cssText = ['display:flex','flex-direction:row','justify-content:center','align-items:center','width:100%'].join(';');
       
       const leftDiv = document.createElement('div');
-      leftDiv.style.flex = '1';
-      leftDiv.style.display = 'flex';
-      leftDiv.style.flexDirection = 'column';
-      leftDiv.style.justifyContent = 'center';
-      leftDiv.style.alignItems = 'flex-end';
+      leftDiv.style.cssText = ['flex:1','display:flex','flex-direction:column','justify-content:center','align-items:flex-end'].join(';');
       
       const skuDiv = document.createElement('div');
-      skuDiv.style.fontSize = '1.8rem';
-      skuDiv.style.fontWeight = 'bold';
+      skuDiv.style.cssText = ['font-size:1.8rem','font-weight:bold'].join(';');
       skuDiv.textContent = sku;
       leftDiv.appendChild(skuDiv);
       
       const rightDiv = document.createElement('div');
-      rightDiv.style.flex = '2';
-      rightDiv.style.display = 'flex';
-      rightDiv.style.flexDirection = 'column';
-      rightDiv.style.justifyContent = 'center';
-      rightDiv.style.alignItems = 'flex-start';
+      rightDiv.style.cssText = ['flex:2','display:flex','flex-direction:column','justify-content:center','align-items:flex-start'].join(';');
       
       const expiryDiv = document.createElement('div');
-      expiryDiv.style.fontSize = '1.4rem';
-      expiryDiv.style.marginBottom = '0.6rem';
+      expiryDiv.style.cssText = ['font-size:1.4rem','margin-bottom:0.6rem'].join(';');
       expiryDiv.textContent = 'Expiry: ' + expiry;
       rightDiv.appendChild(expiryDiv);
       
