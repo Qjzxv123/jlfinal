@@ -591,19 +591,28 @@
             labelDiv.classList.add('label');
             labelDiv.style.height = '25.4mm'; // 1 inch height for box labels
             labelDiv.style.pageBreakAfter = 'auto'; // Remove page break for box labels
+            labelDiv.style.breakInside = 'avoid'; // Prevent page break inside label
             const topDiv = document.createElement('div');
             topDiv.classList.add('label-top');
             topDiv.style.display = 'flex';
             topDiv.style.alignItems = 'center';
+            topDiv.style.height = '100%';
+            topDiv.style.breakInside = 'avoid'; // Prevent page break inside topDiv
             // QR code on the left
             const qrcodeDiv = document.createElement('div');
             qrcodeDiv.classList.add('qrcode');
+            qrcodeDiv.style.display = 'flex';
+            qrcodeDiv.style.alignItems = 'center';
             topDiv.appendChild(qrcodeDiv);
-            // Dimensions big and bold to the right
+            // Dimensions big and bold to the right, centered vertically
             const dimDiv = document.createElement('div');
             dimDiv.style.fontWeight = 'bold';
-            dimDiv.style.fontSize = '2em';
-            dimDiv.style.marginLeft = '18mm';
+            dimDiv.style.fontSize = '4em';
+            dimDiv.style.marginLeft = '3mm';
+            dimDiv.style.display = 'flex';
+            dimDiv.style.alignItems = 'center';
+            dimDiv.style.height = '100%';
+            dimDiv.style.breakInside = 'avoid'; // Prevent page break inside dimDiv
             dimDiv.textContent = box.Dimensions || '';
             topDiv.appendChild(dimDiv);
             labelDiv.appendChild(topDiv);
