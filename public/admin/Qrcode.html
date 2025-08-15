@@ -304,13 +304,15 @@
     checkPermissions(['service_role', 'employee']);
     setupInactivityTimeout(10);
     let allProducts = [];
+  let allBoxes = [];
     let selectedProducts = new Map(); // SKU -> {product, quantity}
 
     // Initialize the page
     async function initializePage() {
-      await loadAllProducts();
-      setupProductDropdown();
-      updateSelectedProductsList();
+  await loadAllProducts();
+  await loadAllBoxes();
+  setupProductDropdown();
+  updateSelectedProductsList();
     }
 
     // Load all products from Supabase
@@ -333,21 +335,43 @@
       }
     }
 
+    // Load all boxes from Supabase
+    async function loadAllBoxes() {
+      try {
+        const { data: boxes, error } = await supabase
+          .from('Boxes')
+          .select('SKU, Dimensions')
+          .order('SKU');
+        if (error) {
+          console.error('Error loading boxes:', error);
+          return;
+        }
+        allBoxes = boxes || [];
+        console.log(`Loaded ${allBoxes.length} boxes`);
+      } catch (err) {
+        console.error('Error loading boxes:', err);
+      }
+    }
+
     // Setup product dropdown functionality
     function setupProductDropdown() {
       const searchInput = document.getElementById('productSearch');
       const dropdown = document.getElementById('productDropdown');
 
-      // Filter and display products based on search
+      // Filter and display products and boxes based on search
       function updateDropdown(searchTerm = '') {
-        const filtered = allProducts.filter(product => {
+        const filteredProducts = allProducts.filter(product => {
           const searchText = `${product.ProductSKU} ${product.Name || ''}`.toLowerCase();
+          return searchText.includes(searchTerm.toLowerCase());
+        });
+        const filteredBoxes = allBoxes.filter(box => {
+          const searchText = `${box.SKU} ${box.Dimensions || ''}`.toLowerCase();
           return searchText.includes(searchTerm.toLowerCase());
         });
 
         dropdown.innerHTML = '';
-        
-        filtered.slice(0, 20).forEach(product => {
+
+        filteredProducts.slice(0, 20).forEach(product => {
           const option = document.createElement('div');
           option.className = 'product-option';
           option.innerHTML = `
@@ -356,18 +380,31 @@
               Retailer: ${product.Retailer || 'N/A'}${product['Pack Size'] ? ` | Pack Size: ${product['Pack Size']}` : ''}
             </div>
           `;
-          
           option.addEventListener('click', () => {
             addProductToSelection(product);
             searchInput.value = '';
             dropdown.style.display = 'none';
           });
-          
           dropdown.appendChild(option);
         });
 
-        if (filtered.length === 0) {
-          dropdown.innerHTML = '<div class="product-option" style="color: #6b7280; font-style: italic;">No products found</div>';
+        filteredBoxes.slice(0, 20).forEach(box => {
+          const option = document.createElement('div');
+          option.className = 'product-option';
+          option.innerHTML = `
+            <div class="product-name">Box: ${box.SKU}</div>
+            <div class="product-details">Dimensions: ${box.Dimensions || 'N/A'}</div>
+          `;
+          option.addEventListener('click', () => {
+            addBoxToSelection(box);
+            searchInput.value = '';
+            dropdown.style.display = 'none';
+          });
+          dropdown.appendChild(option);
+        });
+
+        if (filteredProducts.length === 0 && filteredBoxes.length === 0) {
+          dropdown.innerHTML = '<div class="product-option" style="color: #6b7280; font-style: italic;">No products or boxes found</div>';
         }
       }
 
@@ -407,6 +444,20 @@
       updateSelectedProductsList();
     }
 
+    // Add a box to the selection
+    function addBoxToSelection(box) {
+      if (selectedProducts.has(box.SKU)) {
+        const existing = selectedProducts.get(box.SKU);
+        existing.quantity += 1;
+      } else {
+        selectedProducts.set(box.SKU, {
+          box: box,
+          quantity: 1
+        });
+      }
+      updateSelectedProductsList();
+    }
+
     // Remove a product from the selection
     function removeProductFromSelection(sku) {
       selectedProducts.delete(sku);
@@ -434,20 +485,44 @@
         return;
       }
 
-      const listHTML = Array.from(selectedProducts.entries()).map(([sku, {product, quantity}]) => `
-        <div class="selected-product-item">
-          <div class="product-info">
-            <div class="product-sku">${product.ProductSKU}</div>
-            <div class="product-name">${product.Name || 'No Name'}</div>
-          </div>
-          <div class="quantity-controls">
-            <label>Qty:</label>
-            <input type="number" class="quantity-input" min="1" value="${quantity}" 
-                   onchange="updateProductQuantity('${sku}', parseInt(this.value))">
-            <button class="remove-btn" onclick="removeProductFromSelection('${sku}')">Remove</button>
-          </div>
-        </div>
-      `).join('');
+      const listHTML = Array.from(selectedProducts.entries()).map(([sku, obj]) => {
+        if (obj.product) {
+          const product = obj.product;
+          const quantity = obj.quantity;
+          return `
+            <div class="selected-product-item">
+              <div class="product-info">
+                <div class="product-sku">${product.ProductSKU}</div>
+                <div class="product-name">${product.Name || 'No Name'}</div>
+              </div>
+              <div class="quantity-controls">
+                <label>Qty:</label>
+                <input type="number" class="quantity-input" min="1" value="${quantity}" 
+                       onchange="updateProductQuantity('${sku}', parseInt(this.value))">
+                <button class="remove-btn" onclick="removeProductFromSelection('${sku}')">Remove</button>
+              </div>
+            </div>
+          `;
+        } else if (obj.box) {
+          const box = obj.box;
+          const quantity = obj.quantity;
+          return `
+            <div class="selected-product-item">
+              <div class="product-info">
+                <div class="product-sku">Box: ${box.SKU}</div>
+                <div class="product-name">Dimensions: ${box.Dimensions || 'N/A'}</div>
+              </div>
+              <div class="quantity-controls">
+                <label>Qty:</label>
+                <input type="number" class="quantity-input" min="1" value="${quantity}" 
+                       onchange="updateProductQuantity('${sku}', parseInt(this.value))">
+                <button class="remove-btn" onclick="removeProductFromSelection('${sku}')">Remove</button>
+              </div>
+            </div>
+          `;
+        }
+        return '';
+      }).join('');
 
       listContainer.innerHTML = listHTML;
     }
@@ -467,53 +542,81 @@
 
       let generatedCount = 0;
 
-      for (const [sku, {product, quantity}] of selectedProducts.entries()) {
-        const productName = product.Name || 'N/A';
-        const Retailer = product.Retailer || 'N/A';
-  const packSize = product['Pack Size'] ? `Pack Size: ${product['Pack Size']}` : '';
-  const quantityPerBin = product.QuantityPerBin ? `Quantity Per Bin: ${product.QuantityPerBin}` : '';
-
-        for (let i = 0; i < quantity; i++) {
-          const labelDiv = document.createElement('div');
-          labelDiv.classList.add('label');
-
-          const topDiv = document.createElement('div');
-          topDiv.classList.add('label-top');
-
-          const qrcodeDiv = document.createElement('div');
-          qrcodeDiv.classList.add('qrcode');
-          topDiv.appendChild(qrcodeDiv);
-
-          const detailsDiv = document.createElement('div');
-          detailsDiv.classList.add('product-details');
-          detailsDiv.innerHTML = `
-            <div><strong>Name:</strong> ${productName}</div>
-            <div><strong>Retailer:</strong> ${Retailer}</div>
-            ${packSize ? `<div><strong>${packSize}</strong></div>` : ''}
-            ${quantityPerBin ? `<div><strong>${quantityPerBin}</strong></div>` : ''}
-          `;
-          topDiv.appendChild(detailsDiv);
-
-          labelDiv.appendChild(topDiv);
-
-          const skuBottomDiv = document.createElement('div');
-          skuBottomDiv.classList.add('sku-bottom');
-          skuBottomDiv.textContent = sku;
-          labelDiv.appendChild(skuBottomDiv);
-
-          labelContainer.appendChild(labelDiv);
-
-          // Generate QR code after appending to DOM
-          new QRCode(qrcodeDiv, {
-            text: sku,
-            width: 150, // Adjust size as needed
-            height: 150,
-            colorDark : "#000000",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.H
-          });
-
-          generatedCount++;
+      for (const [sku, obj] of selectedProducts.entries()) {
+        if (obj.product) {
+          const product = obj.product;
+          const quantity = obj.quantity;
+          const productName = product.Name || 'N/A';
+          const Retailer = product.Retailer || 'N/A';
+          const packSize = product['Pack Size'] ? `Pack Size: ${product['Pack Size']}` : '';
+          const quantityPerBin = product.QuantityPerBin ? `Quantity Per Bin: ${product.QuantityPerBin}` : '';
+          for (let i = 0; i < quantity; i++) {
+            const labelDiv = document.createElement('div');
+            labelDiv.classList.add('label');
+            const topDiv = document.createElement('div');
+            topDiv.classList.add('label-top');
+            const qrcodeDiv = document.createElement('div');
+            qrcodeDiv.classList.add('qrcode');
+            topDiv.appendChild(qrcodeDiv);
+            const detailsDiv = document.createElement('div');
+            detailsDiv.classList.add('product-details');
+            detailsDiv.innerHTML = `
+              <div><strong>Name:</strong> ${productName}</div>
+              <div><strong>Retailer:</strong> ${Retailer}</div>
+              ${packSize ? `<div><strong>${packSize}</strong></div>` : ''}
+              ${quantityPerBin ? `<div><strong>${quantityPerBin}</strong></div>` : ''}
+            `;
+            topDiv.appendChild(detailsDiv);
+            labelDiv.appendChild(topDiv);
+            const skuBottomDiv = document.createElement('div');
+            skuBottomDiv.classList.add('sku-bottom');
+            skuBottomDiv.textContent = sku;
+            labelDiv.appendChild(skuBottomDiv);
+            labelContainer.appendChild(labelDiv);
+            new QRCode(qrcodeDiv, {
+              text: sku,
+              width: 150,
+              height: 150,
+              colorDark : "#000000",
+              colorLight : "#ffffff",
+              correctLevel : QRCode.CorrectLevel.H
+            });
+            generatedCount++;
+          }
+        } else if (obj.box) {
+          const box = obj.box;
+          const quantity = obj.quantity;
+          for (let i = 0; i < quantity; i++) {
+            const labelDiv = document.createElement('div');
+            labelDiv.classList.add('label');
+            const topDiv = document.createElement('div');
+            topDiv.classList.add('label-top');
+            const qrcodeDiv = document.createElement('div');
+            qrcodeDiv.classList.add('qrcode');
+            topDiv.appendChild(qrcodeDiv);
+            const detailsDiv = document.createElement('div');
+            detailsDiv.classList.add('product-details');
+            detailsDiv.innerHTML = `
+              <div><strong>Box SKU:</strong> ${box.SKU}</div>
+              <div><strong>Dimensions:</strong> ${box.Dimensions || 'N/A'}</div>
+            `;
+            topDiv.appendChild(detailsDiv);
+            labelDiv.appendChild(topDiv);
+            const skuBottomDiv = document.createElement('div');
+            skuBottomDiv.classList.add('sku-bottom');
+            skuBottomDiv.textContent = box.SKU;
+            labelDiv.appendChild(skuBottomDiv);
+            labelContainer.appendChild(labelDiv);
+            new QRCode(qrcodeDiv, {
+              text: box.SKU,
+              width: 150,
+              height: 150,
+              colorDark : "#000000",
+              colorLight : "#ffffff",
+              correctLevel : QRCode.CorrectLevel.H
+            });
+            generatedCount++;
+          }
         }
       }
 
