@@ -221,15 +221,15 @@
       box-sizing: border-box;
     }
     .label {
-  width: 100mm; /* Adjust label width */
-  height: 25.4mm; /* 1 inch height for box labels */
-  border: 1px solid #000; /* Optional: border for visual separation */
-  padding: 5mm; /* Padding inside the label */
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  /* page-break-after: always; Removed for box labels */
+      width: 100mm; /* Adjust label width */
+      height: 50mm; /* Adjust label height */
+      border: 1px solid #000; /* Optional: border for visual separation */
+      padding: 5mm; /* Padding inside the label */
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-after: always; /* Ensure each label is on a new page */
     }
     .label-top {
       display: flex;
@@ -553,11 +553,30 @@
           for (let i = 0; i < quantity; i++) {
             const labelDiv = document.createElement('div');
             labelDiv.classList.add('label');
+            // New layout: QR code left, big SKU right, details below SKU
             const topDiv = document.createElement('div');
             topDiv.classList.add('label-top');
+            topDiv.style.display = 'flex';
+            topDiv.style.alignItems = 'flex-start';
+            // QR code
             const qrcodeDiv = document.createElement('div');
             qrcodeDiv.classList.add('qrcode');
             topDiv.appendChild(qrcodeDiv);
+            // SKU and details container
+            const rightDiv = document.createElement('div');
+            rightDiv.style.display = 'flex';
+            rightDiv.style.flexDirection = 'column';
+            rightDiv.style.justifyContent = 'flex-start';
+            rightDiv.style.alignItems = 'flex-start';
+            // Big bold SKU
+            const skuDiv = document.createElement('div');
+            skuDiv.classList.add('sku-bottom');
+            skuDiv.textContent = sku;
+            skuDiv.style.fontSize = '50px';
+            skuDiv.style.fontWeight = 'bold';
+            skuDiv.style.marginBottom = '8px';
+            rightDiv.appendChild(skuDiv);
+            // Details below SKU
             const detailsDiv = document.createElement('div');
             detailsDiv.classList.add('product-details');
             detailsDiv.innerHTML = `
@@ -566,12 +585,9 @@
               ${packSize ? `<div><strong>${packSize}</strong></div>` : ''}
               ${quantityPerBin ? `<div><strong>${quantityPerBin}</strong></div>` : ''}
             `;
-            topDiv.appendChild(detailsDiv);
+            rightDiv.appendChild(detailsDiv);
+            topDiv.appendChild(rightDiv);
             labelDiv.appendChild(topDiv);
-            const skuBottomDiv = document.createElement('div');
-            skuBottomDiv.classList.add('sku-bottom');
-            skuBottomDiv.textContent = sku;
-            labelDiv.appendChild(skuBottomDiv);
             labelContainer.appendChild(labelDiv);
             new QRCode(qrcodeDiv, {
               text: sku,
@@ -586,56 +602,35 @@
         } else if (obj.box) {
           const box = obj.box;
           const quantity = obj.quantity;
+          const boxLabelContainer = document.createElement('div');
+          boxLabelContainer.style.flexDirection = 'column';
+          boxLabelContainer.style.columnGap = '10px';
+          boxLabelContainer.style.fontSize = '1in';
           for (let i = 0; i < quantity; i++) {
-            const labelDiv = document.createElement('div');
-            labelDiv.classList.add('label');
-            labelDiv.style.height = '25.4mm'; // 1 inch height for box labels
-            labelDiv.style.pageBreakAfter = 'auto'; // Remove page break for box labels
-            labelDiv.style.breakInside = 'avoid'; // Prevent page break inside label
-            const topDiv = document.createElement('div');
-            topDiv.classList.add('label-top');
-            topDiv.style.display = 'flex';
-            topDiv.style.alignItems = 'center';
-            topDiv.style.height = '100%';
-            topDiv.style.breakInside = 'avoid'; // Prevent page break inside topDiv
-            // QR code on the left
-            const qrcodeDiv = document.createElement('div');
-            qrcodeDiv.classList.add('qrcode');
-            qrcodeDiv.style.display = 'flex';
-            qrcodeDiv.style.alignItems = 'center';
-            topDiv.appendChild(qrcodeDiv);
-            // Dimensions big and bold to the right, centered vertically
-            const dimDiv = document.createElement('div');
-            dimDiv.style.fontWeight = 'bold';
-            dimDiv.style.fontSize = '4em';
-            dimDiv.style.marginLeft = '3mm';
-            dimDiv.style.display = 'flex';
-            dimDiv.style.alignItems = 'center';
-            dimDiv.style.height = '100%';
-            dimDiv.style.breakInside = 'avoid'; // Prevent page break inside dimDiv
-            dimDiv.textContent = box.Dimensions || '';
-            topDiv.appendChild(dimDiv);
-            labelDiv.appendChild(topDiv);
-            labelContainer.appendChild(labelDiv);
-            new QRCode(qrcodeDiv, {
-              text: box.SKU,
-              width: 100,
-              height: 100,
-              colorDark : "#000000",
-              colorLight : "#ffffff",
-              correctLevel : QRCode.CorrectLevel.H
-            });
+            const labelRow = document.createElement('div');
+            labelRow.style.maxHeight = '1in';
+            labelRow.style.display = 'flex';
+            labelRow.style.alignItems = 'center';
+            const qrImg = document.createElement('img');
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?color=000000&bgcolor=FFFFFF&data=${encodeURIComponent(box.SKU)}&qzone=1&margin=0&ecc=L`;
+            qrImg.style.height = '1in';
+            qrImg.style.padding = '20px';
+            qrImg.alt = 'qr code';
+            labelRow.appendChild(qrImg);
+            const dimSpan = document.createElement('span');
+            dimSpan.textContent = box.Dimensions || '';
+            labelRow.appendChild(dimSpan);
+            boxLabelContainer.appendChild(labelRow);
             generatedCount++;
           }
+          labelContainer.appendChild(boxLabelContainer);
         }
       }
 
       if (generatedCount > 0) {
         output.innerHTML = `<div class="success">Generated ${generatedCount} QR code labels. Opening print dialog...</div>`;
-        // Use a small timeout to ensure QR codes are rendered before printing
         setTimeout(() => {
           window.print();
-          // Clear labels after printing (optional, but good practice)
           labelContainer.innerHTML = '';
           output.innerHTML += '<div class="info">Print dialog closed. Labels cleared.</div>';
         }, 500);
