@@ -173,7 +173,7 @@ function getPlatformOrderUrl(platform, orderNumber, retailerValue) {
       if (retailerValue && retailerValue.toLowerCase().includes('j&l')) {
         domain = 'j-l-naturals';
       }
-      return `https://admin.shopify.com/store/${domain}/orders?query=${orderNumber}`;
+      return `https://admin.shopify.com/store/${domain}/orders?query=${orderNumber.replace("#","")}`;
     }
     case 'amazon':
       return `https://sellercentral.amazon.com/orders-v3/order/${orderNumber}`;
