@@ -598,13 +598,12 @@
             detailsDiv.classList.add('product-details');
             detailsDiv.innerHTML = `
               <div><strong>Box SKU:</strong> ${box.SKU}</div>
-              <div><strong>Dimensions:</strong> ${box.Dimensions || 'N/A'}</div>
             `;
             topDiv.appendChild(detailsDiv);
             labelDiv.appendChild(topDiv);
             const skuBottomDiv = document.createElement('div');
             skuBottomDiv.classList.add('sku-bottom');
-            skuBottomDiv.textContent = box.SKU;
+            skuBottomDiv.textContent = box.Dimensions;
             labelDiv.appendChild(skuBottomDiv);
             labelContainer.appendChild(labelDiv);
             new QRCode(qrcodeDiv, {
