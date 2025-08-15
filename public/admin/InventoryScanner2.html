@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Item Scanout</title>
+    <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+    <link rel="stylesheet" href="/Assets/sidebar.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            color: #333;
+        }
+        .main-content {
+            margin-left: 60px;
+            transition: margin-left 0.3s ease;
+            width: calc(100% - 60px);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        #main-container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+            padding: 2.5rem 2.5rem 2.5rem 2.5rem;
+            margin-top: 3rem;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h2, h3 {
+            color: #2d3748;
+            margin-bottom: 1rem;
+        }
+        form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        input[type="text"], input[type="number"] {
+            width: 90%;
+            padding: 0.7rem;
+            margin: 0.5rem 0;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            font-size: 1rem;
+        }
+        button[type="submit"] {
+            background: #228B22;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.7rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 0.7rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button[type="submit"]:hover {
+            background: #176317;
+        }
+        #message, #sku-message {
+            margin: 1rem 0 0.5rem 0;
+            min-height: 1.5rem;
+            font-size: 1rem;
+            text-align: center;
+        }
+        .error {
+            color: #b91c1c;
+            font-weight: 500;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
+</head>
+<body>
+    <div id="sidebar"></div>
+    <script src="/Assets/sidebar.js"></script>
+    <div class="main-content" id="mainContent">
+      <div id="main-container"></div>
+    </div>
+    
+  <script src="/Assets/CheckAccess.js"></script>
+  <script>
+      checkPermissions(['service_role', 'employee']);
+      setupInactivityTimeout(10);    
+        // Helper to add the SKU update form
+        function addSkuDecrementForm() {
+            const mainContainer = document.getElementById('main-container');
+            mainContainer.innerHTML = '';
+            const skuForm = document.createElement('form');
+            skuForm.id = 'sku-form';
+            skuForm.innerHTML = `
+              <input type="text" id="sku-input" placeholder="Enter SKU to scan out" required style="width:70%;padding:0.5rem;margin-right:0.5rem;" />
+              <input type="number" id="quantity-input" placeholder="Enter quantity to scan out" style="width:70%;padding:0.5rem;margin-right:0.5rem;" />
+              Set Quantity?<input type="checkbox" id="Set"/>
+              <button type="submit">Scan Out</button>
+              <div id="sku-message" style="margin-top:0.5rem;"></div>
+            `;
+            mainContainer.appendChild(skuForm);
+            const skuInput = document.getElementById('sku-input');
+            skuInput.focus();
+            skuForm.addEventListener('submit', handleSkuFormSubmit);
+        }
+
+        // Handler for SKU form submission
+        async function handleSkuFormSubmit(ev) {
+            ev.preventDefault();
+            const skuInput = document.getElementById('sku-input');
+            const qtyInput = document.getElementById('quantity-input');
+            const setCheckbox = document.getElementById('Set');
+            const skuMsg = document.getElementById('sku-message');
+            const submitBtn = skuInput.form.querySelector('button[type="submit"]');
+            const sku = skuInput.value.trim();
+            const qtyValue = Number(qtyInput.value);
+
+            // Cooldown: disable button for 1 second after submit
+            submitBtn.disabled = true;
+
+            if (!sku) {
+                skuMsg.textContent = 'Please enter a SKU.';
+                skuMsg.style.color = 'red';
+                skuInput.focus();
+                setTimeout(() => { submitBtn.disabled = false; }, 1000);
+                return;
+            }
+            // Fetch current QuantityPerBin from Products table
+            const { data: prodData, error: fetchErr } = await supabase
+                .from('Products')
+                .select('QuantityPerBin')
+                .eq('ProductSKU', sku)
+                .single();
+            if (fetchErr || !prodData) {
+                skuMsg.textContent = `SKU ${sku} not found in Products.`;
+                skuMsg.style.color = 'red';
+                skuInput.focus();
+                setTimeout(() => { submitBtn.disabled = false; }, 1000);
+                return;
+            }
+            if (setCheckbox.checked) {
+                // Set QuantityPerBin directly
+                const { error: setErr } = await supabase
+                    .from('Products')
+                    .update({ QuantityPerBin: qtyValue })
+                    .eq('ProductSKU', sku);
+                if (setErr) {
+                    skuMsg.textContent = `Error setting QuantityPerBin for ${sku}: ${setErr.message}`;
+                    skuMsg.style.color = 'red';
+                } else {
+                    skuMsg.textContent = `Set ${sku} QuantityPerBin to ${qtyValue}`;
+                    skuMsg.style.color = 'green';
+                    skuInput.value = '';
+                    qtyInput.value = '';
+                }
+            } else {
+                // Decrement QuantityPerBin
+                const newQty = (parseFloat(prodData.QuantityPerBin) || 0) - qtyValue;
+                const { error: updateErr } = await supabase
+                    .from('Products')
+                    .update({ QuantityPerBin: newQty })
+                    .eq('ProductSKU', sku);
+                if (updateErr) {
+                    skuMsg.textContent = `Error updating QuantityPerBin for ${sku}: ${updateErr.message}`;
+                    skuMsg.style.color = 'red';
+                } else {
+                    skuMsg.textContent = `Updated ${sku} QuantityPerBin to ${newQty}`;
+                    skuMsg.style.color = 'green';
+                    skuInput.value = '';
+                }
+            }
+            skuInput.focus();
+            setTimeout(() => { submitBtn.disabled = false; }, 2000);
+        }
+addSkuDecrementForm();
+    </script>
+</body>
+</html>
