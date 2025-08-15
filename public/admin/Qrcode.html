@@ -548,75 +548,49 @@
           const quantity = obj.quantity;
           const productName = product.Name || 'N/A';
           const Retailer = product.Retailer || 'N/A';
-          const packSize = product['Pack Size'] ? `Pack Size: ${product['Pack Size']}` : '';
-          const quantityPerBin = product.QuantityPerBin ? `Quantity Per Bin: ${product.QuantityPerBin}` : '';
+          const packSize = product['Pack Size'];
+          const quantityPerBin = product.QuantityPerBin;
           for (let i = 0; i < quantity; i++) {
             const labelDiv = document.createElement('div');
             labelDiv.classList.add('label');
-            // New layout: QR code left, big SKU right, details below SKU
             const topDiv = document.createElement('div');
             topDiv.classList.add('label-top');
-            topDiv.style.display = 'flex';
-            topDiv.style.alignItems = 'flex-start';
-            // QR code
             const qrcodeDiv = document.createElement('div');
             qrcodeDiv.classList.add('qrcode');
             topDiv.appendChild(qrcodeDiv);
-            // SKU and details container
-            const rightDiv = document.createElement('div');
-            rightDiv.style.display = 'flex';
-            rightDiv.style.flexDirection = 'column';
-            rightDiv.style.justifyContent = 'flex-start';
-            rightDiv.style.alignItems = 'flex-start';
-            // Big bold SKU
-            const skuDiv = document.createElement('div');
-            skuDiv.classList.add('sku-bottom');
-            skuDiv.textContent = sku;
-            skuDiv.style.fontSize = '50px';
-            skuDiv.style.fontWeight = 'bold';
-            skuDiv.style.marginBottom = '8px';
-            rightDiv.appendChild(skuDiv);
-            // Details below SKU
             const detailsDiv = document.createElement('div');
             detailsDiv.classList.add('product-details');
             detailsDiv.innerHTML = `
               <div><strong>Name:</strong> ${productName}</div>
               <div><strong>Retailer:</strong> ${Retailer}</div>
-              ${packSize ? `<div><strong>${packSize}</strong></div>` : ''}
-              ${quantityPerBin ? `<div><strong>${quantityPerBin}</strong></div>` : ''}
+              ${packSize ? `<div><strong>Pack Size:</strong> ${packSize}</div>` : ''}
+              ${quantityPerBin ? `<div><strong>Quantity Per Bin:</strong> ${quantityPerBin}</div>` : ''}
             `;
-            rightDiv.appendChild(detailsDiv);
-            topDiv.appendChild(rightDiv);
+            topDiv.appendChild(detailsDiv);
             labelDiv.appendChild(topDiv);
+            const skuBottomDiv = document.createElement('div');
+            skuBottomDiv.classList.add('sku-bottom');
+            skuBottomDiv.textContent = sku;
+            labelDiv.appendChild(skuBottomDiv);
             labelContainer.appendChild(labelDiv);
-            new QRCode(qrcodeDiv, {
-              text: sku,
-              width: 150,
-              height: 150,
-              colorDark : "#000000",
-              colorLight : "#ffffff",
-              correctLevel : QRCode.CorrectLevel.H
-            });
+            new QRCode(qrcodeDiv, {text: sku,width: 150,height: 150, colorDark : "#000000",colorLight : "#ffffff",correctLevel : QRCode.CorrectLevel.H});
             generatedCount++;
           }
         } else if (obj.box) {
           const box = obj.box;
           const quantity = obj.quantity;
+          // Create a container for all box labels in the requested format
           const boxLabelContainer = document.createElement('div');
-          boxLabelContainer.style.flexDirection = 'column';
-          boxLabelContainer.style.columnGap = '10px';
-          boxLabelContainer.style.fontSize = '1in';
+          boxLabelContainer.style.cssText = 'display: flex; flex-direction: column; column-gap: 10px; font-size: 1in; font-weight: bold; text-align: center;';
           for (let i = 0; i < quantity; i++) {
             const labelRow = document.createElement('div');
-            labelRow.style.maxHeight = '1in';
-            labelRow.style.display = 'flex';
-            labelRow.style.alignItems = 'center';
+            labelRow.style.cssText = 'max-height: 1in; display: flex; align-items: center;';
+            // Use QR code API for image
             const qrImg = document.createElement('img');
             qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?color=000000&bgcolor=FFFFFF&data=${encodeURIComponent(box.SKU)}&qzone=1&margin=0&ecc=L`;
-            qrImg.style.height = '1in';
-            qrImg.style.padding = '20px';
-            qrImg.alt = 'qr code';
+            qrImg.style.cssText = 'height: 1in; padding: 20px;';
             labelRow.appendChild(qrImg);
+            // Add dimensions text
             const dimSpan = document.createElement('span');
             dimSpan.textContent = box.Dimensions || '';
             labelRow.appendChild(dimSpan);
