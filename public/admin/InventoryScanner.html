@@ -137,6 +137,13 @@
                 setTimeout(() => { submitBtn.disabled = false; }, 1000);
                 return;
             }
+            if (!qtyInput.value || isNaN(qtyValue)) {
+                skuMsg.textContent = 'Please enter a valid quantity.';
+                skuMsg.style.color = 'red';
+                qtyInput.focus();
+                setTimeout(() => { submitBtn.disabled = false; }, 1000);
+                return;
+            }
             // Fetch current quantity - first try Products table, then Boxes table
             let prod = null;
             let isBoxesSku = false;
