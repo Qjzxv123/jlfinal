@@ -587,7 +587,7 @@
             labelRow.style.cssText = 'max-height: 1in; display: flex; align-items: center;';
             // Use QR code API for image
             const qrImg = document.createElement('img');
-            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?color=000000&bgcolor=FFFFFF&data=${encodeURIComponent(box.SKU)}&qzone=1&margin=0&ecc=L`;
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(box.SKU)}`;
             qrImg.style.cssText = 'height: 1in; padding: 20px;';
             labelRow.appendChild(qrImg);
             // Add dimensions text
