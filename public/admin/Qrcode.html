@@ -276,7 +276,6 @@
   <script src="/Assets/sidebar.js"></script>
   <div class="container">
     <h1>QR Code Generator</h1>
-    <button id="printAllBoxesBtn" style="margin-bottom:1em; background:#1976d2; color:white; border:none; border-radius:8px; padding:10px 20px; font-size:1em; cursor:pointer;">Print All Box Labels</button>
     
     <div class="product-selection-container">
       <label for="productSearch">Search and Select Products:</label>
@@ -284,7 +283,7 @@
         <input type="text" id="productSearch" class="product-search" placeholder="Type to search products..." />
         <div id="productDropdown" class="product-dropdown" style="display: none;"></div>
       </div>
-      
+      <button id="printAllBoxesBtn" style="margin-bottom:1em;background:#4DBA93;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:600;">Print All Box Labels</button>
       <div class="selected-products">
         <h3>Selected Products for QR Code Generation:</h3>
         <div id="selectedProductsList">
@@ -614,51 +613,24 @@
       }
     }
 
-    document.getElementById('printAllBoxesBtn').onclick = async function() {
-      const output = document.getElementById('output');
-      const labelContainer = document.getElementById('labelContainer');
-      output.innerHTML = '';
-      labelContainer.innerHTML = '';
-      if (!allBoxes || allBoxes.length === 0) {
-        output.innerHTML = '<div class="error">No boxes found to print.</div>';
-        return;
-      }
-      let generatedCount = 0;
-      const boxLabelContainer = document.createElement('div');
-      boxLabelContainer.style.flexDirection = 'column';
-      boxLabelContainer.style.columnGap = '10px';
-      boxLabelContainer.style.fontSize = '1in';
-      for (const box of allBoxes) {
-        const labelRow = document.createElement('div');
-        labelRow.style.maxHeight = '1in';
-        labelRow.style.display = 'flex';
-        labelRow.style.alignItems = 'center';
-        const qrImg = document.createElement('img');
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(box.SKU)}&qzone=1&margin=0&ecc=L`;
-        qrImg.style.height = '1in';
-        qrImg.alt = 'qr code';
-        labelRow.appendChild(qrImg);
-        const dimSpan = document.createElement('span');
-        dimSpan.textContent = box.Dimensions || '';
-        labelRow.appendChild(dimSpan);
-        boxLabelContainer.appendChild(labelRow);
-        generatedCount++;
-      }
-      labelContainer.appendChild(boxLabelContainer);
-      if (generatedCount > 0) {
-        output.innerHTML = `<div class="success">Generated ${generatedCount} box QR code labels. Opening print dialog...</div>`;
-        setTimeout(() => {
-          window.print();
-          labelContainer.innerHTML = '';
-          output.innerHTML += '<div class="info">Print dialog closed. Labels cleared.</div>';
-        }, 500);
-      } else {
-        output.innerHTML = '<div class="info">No QR codes generated.</div>';
-      }
-    }
-
     // Initialize the page when it loads
     document.addEventListener('DOMContentLoaded', initializePage);
+    // Add event listener for Print All Box Labels button
+    document.addEventListener('DOMContentLoaded', function() {
+      const printAllBoxesBtn = document.getElementById('printAllBoxesBtn');
+      if (printAllBoxesBtn) {
+        printAllBoxesBtn.onclick = function() {
+          // Clear current selection
+          selectedProducts.clear();
+          // Add all boxes to selection with quantity 1
+          (allBoxes || []).forEach(box => {
+            selectedProducts.set(box.SKU, { box: box, quantity: 1 });
+          });
+          updateSelectedProductsList();
+          generateQRCodes();
+        };
+      }
+    });
   </script>
 </body>
 </html>
