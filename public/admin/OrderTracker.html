@@ -595,6 +595,7 @@
             // Fetch current inventory for these ingredients
             const ingredientSKUs = ingredients.map(i => i.sku);
             let inventoryMap = {};
+            let ingredientNameMap = {};
             if (ingredientSKUs.length > 0) {
               const { data: invData } = await supabase
                 .from('Ingredients')
@@ -602,13 +603,17 @@
                 .in('IngredientSKU', ingredientSKUs);
               (invData || []).forEach(row => {
                 inventoryMap[row.IngredientSKU] = row["Quantity(Lbs/Units)"];
+                ingredientNameMap[row.IngredientSKU] = row.Name || row.IngredientSKU;
               });
             }
             // Filter to only low ingredients
             const lowIngredients = ingredients.filter(i => {
               const inv = Number(inventoryMap[i.sku] || 0);
               return inv < i.required;
-            });
+            }).map(i => ({
+              ...i,
+              name: ingredientNameMap[i.sku] || i.name
+            }));
             // Show modal
             let modal = document.getElementById('lowIngredientsModal');
             if (!modal) {
@@ -1268,15 +1273,15 @@
                       IngredientSKU: ing.sku,
                       QuantityChanged: -removalAmount,
                       Updated_By: updatedBy,
-                      Log: `Removed ${removalAmount} from ${ing.sku} for scheduled order ${orderDetails.OrderNumber}`
+                      Log: `Removed ${removalAmount} from ${ingredientNameMap[ing.sku] || ing.sku} (${ing.sku}) for scheduled order ${orderDetails.OrderNumber}`
                     };
                     await supabase.from('IngredientLog').insert([logEntry]);
                     if (!updateError) {
                       rowStatus.status = 'success';
-                      rowStatus.message = `Updated ${ing.sku}: ${currentQty} → ${newQty}`;
+                      rowStatus.message = `Updated ${ingredientNameMap[ing.sku] || ing.sku} (${ing.sku}): ${currentQty} → ${newQty}`;
                     } else {
                       rowStatus.status = 'error';
-                      rowStatus.message = `Error updating ${ing.sku}: ${updateError.message}`;
+                      rowStatus.message = `Error updating ${ingredientNameMap[ing.sku] || ing.sku} (${ing.sku}): ${updateError.message}`;
                     }
                   } else {
                     rowStatus.status = 'error';
@@ -1314,15 +1319,15 @@
                       };
                       await supabase.from('IngredientLog').insert([logEntry]);
                       if (!updateError) {
-                        modalResults.push({ sku: containerSKU, status: 'success', message: `Container ${containerSKU}: ${currentQty} → ${newQty}` });
+                        modalResults.push({ sku: containerSKU, status: 'success', message: `Container ${ingredientNameMap[containerSKU] || containerSKU} (${containerSKU}): ${currentQty} → ${newQty}` });
                       } else {
-                        modalResults.push({ sku: containerSKU, status: 'error', message: `Error updating container ${containerSKU}: ${updateError.message}` });
+                        modalResults.push({ sku: containerSKU, status: 'error', message: `Error updating container ${ingredientNameMap[containerSKU] || containerSKU} (${containerSKU}): ${updateError.message}` });
                       }
                     } else {
-                      modalResults.push({ sku: containerSKU, status: 'error', message: `Error fetching container ${containerSKU} inventory.` });
+                      modalResults.push({ sku: containerSKU, status: 'error', message: `Error fetching container ${ingredientNameMap[containerSKU] || containerSKU} (${containerSKU}) inventory.` });
                     }
                   } catch (e) {
-                    modalResults.push({ sku: containerSKU, status: 'error', message: `Exception for container ${containerSKU}: ${e.message}` });
+                    modalResults.push({ sku: containerSKU, status: 'error', message: `Exception for container ${ingredientNameMap[containerSKU] || containerSKU} (${containerSKU}): ${e.message}` });
                   }
                 }
               }
