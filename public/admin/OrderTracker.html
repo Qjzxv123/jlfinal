@@ -472,14 +472,77 @@
           const progressLower = progress.toLowerCase();
           if (progressLower === 'scheduled') {
             let dateStr = '<span style="color:#888;">(not set)</span>';
+            let rawDate = '';
             if (task.PlannedManufactureDate) {
-              // Fix for timezone offset: always show the date as entered (UTC)
               const d = new Date(task.PlannedManufactureDate);
               const userTimezoneOffset = d.getTimezoneOffset() * 60000;
               const localDate = new Date(d.getTime() + userTimezoneOffset);
               dateStr = localDate.toLocaleDateString();
+              rawDate = localDate.toISOString().split('T')[0];
             }
-            scheduleColHtml = `<span style="font-weight:500; color:#1976d2;">${dateStr}</span>`;
+            scheduleColHtml = `<span style="font-weight:500; color:#1976d2;">${dateStr}</span> <button class="edit-date-btn" data-order-id="${task.OrderNumber}" data-current-date="${rawDate}" style="margin-left:0.5em;background:#e2e8f0;color:#374151;border:none;border-radius:5px;padding:0.2em 0.7em;font-size:0.95em;cursor:pointer;">Edit Date</button>`;
+  // --- Modal for editing planned manufacture date ---
+  function createEditDateModal() {
+    if (document.getElementById('editDateModal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'editDateModal';
+    modal.style = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2800; align-items:center; justify-content:center;';
+    modal.innerHTML = `
+      <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+        <h3 style="margin-top:0;">Edit Planned Manufacture Date</h3>
+        <label for="editDateInput" style="font-weight:600;">New Date</label>
+        <input type="date" id="editDateInput" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em; margin-bottom:1.2em;" />
+        <div style="display:flex; gap:1em; justify-content:flex-end;">
+          <button id="editDateCancelBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
+          <button id="editDateSaveBtn" style="background:#1976d2; color:white; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  // Add event listener for edit date buttons
+  createEditDateModal();
+  newTbody.addEventListener('click', async function(e) {
+    const editBtn = e.target.closest('.edit-date-btn');
+    if (editBtn) {
+      const orderId = editBtn.getAttribute('data-order-id');
+      const currentDate = editBtn.getAttribute('data-current-date');
+      const modal = document.getElementById('editDateModal');
+      const input = modal.querySelector('#editDateInput');
+      input.value = currentDate || '';
+      modal.style.display = 'flex';
+      // Remove previous listeners
+      const newSaveBtn = modal.querySelector('#editDateSaveBtn').cloneNode(true);
+      modal.querySelector('#editDateSaveBtn').replaceWith(newSaveBtn);
+      const newCancelBtn = modal.querySelector('#editDateCancelBtn').cloneNode(true);
+      modal.querySelector('#editDateCancelBtn').replaceWith(newCancelBtn);
+      newSaveBtn.onclick = async function() {
+        const newDate = input.value;
+        if (!newDate) {
+          alert('Please select a date.');
+          return;
+        }
+        // Update in Supabase
+        const { error } = await supabase
+          .from('ManufacturingTasks')
+          .update({ PlannedManufactureDate: newDate })
+          .eq('OrderNumber', orderId);
+        if (!error) {
+          alert('Planned manufacture date updated!');
+          modal.style.display = 'none';
+          loadOrders();
+        } else {
+          alert('Failed to update: ' + error.message);
+        }
+      };
+      newCancelBtn.onclick = function() {
+        modal.style.display = 'none';
+      };
+      modal.onclick = function(e) {
+        if (e.target === modal) modal.style.display = 'none';
+      };
+    }
+  });
           } else if (['completed', 'in production', 'quality checks'].includes(progressLower)) {
             scheduleColHtml = '<span style="color:#888;"></span>';
           } else {
