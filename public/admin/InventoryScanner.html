@@ -123,13 +123,25 @@
             const qtyInput = document.getElementById('quantity-input');
             const setCheckbox = document.getElementById('Set');
             const skuMsg = document.getElementById('sku-message');
+            const submitBtn = skuInput.form.querySelector('button[type="submit"]');
             const sku = skuInput.value.trim();
             const qtyValue = Number(qtyInput.value);
+
+            // Cooldown: disable button for 1 second after submit
+            submitBtn.disabled = true;
 
             if (!sku) {
                 skuMsg.textContent = 'Please enter a SKU.';
                 skuMsg.style.color = 'red';
                 skuInput.focus();
+                setTimeout(() => { submitBtn.disabled = false; }, 1000);
+                return;
+            }
+            if (!qtyInput.value || isNaN(qtyValue)) {
+                skuMsg.textContent = 'Please enter a valid quantity.';
+                skuMsg.style.color = 'red';
+                qtyInput.focus();
+                setTimeout(() => { submitBtn.disabled = false; }, 1000);
                 return;
             }
             // Fetch current quantity - first try Products table, then Boxes table
@@ -227,6 +239,7 @@
                     });
             }
             skuInput.focus();
+            setTimeout(() => { submitBtn.disabled = false; }, 2000);
         }
 addSkuDecrementForm();
     </script>

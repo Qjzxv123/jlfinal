@@ -141,6 +141,7 @@
       const { data, error } = await supabase
         .from('Checklist')
         .select('*')
+        .neq("Status", "Complete")
         .contains('UserID', [userID]);
       if (error) {
         alert('Failed to fetch checklist: ' + error.message);

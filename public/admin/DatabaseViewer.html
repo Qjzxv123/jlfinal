@@ -82,7 +82,10 @@
                 <button id="toggleProducts" type="button" style="background:#e9ecef;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:1.1rem;">Hide</button>
             </div>
             <div id="productsTable"></div>
-            <h2>Ingredients</h2>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                <h2 style="margin:0;">Ingredients</h2>
+                <button id="toggleIngredients" type="button" style="background:#e9ecef;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:1.1rem;">Hide</button>
+            </div>
             <div style="margin-bottom: 12px;">
                 <label style="font-weight:500;">
                     <input type="checkbox" id="lowInvFilter" style="margin-right:6px;vertical-align:middle;" />
@@ -90,6 +93,11 @@
                 </label>
             </div>
             <div id="ingredientsTable"></div>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                <h2 style="margin:0;">Boxes</h2>
+                <button id="toggleBoxes" type="button" style="background:#e9ecef;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:1.1rem;">Hide</button>
+            </div>
+            <div id="boxesTable"></div>
         </div>
     </div>
     <script>
@@ -107,16 +115,23 @@
         // Define columns to request and display for each table
         let columns = [];
         let selectString = '*';
+        let orderCol = '';
         if (tableName === 'Products') {
-                columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'Pack Size', 'Quantity'];
-                selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)","Pack Size",Quantity';
-            } else if (tableName === 'Ingredients') {
-                columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'];
-                selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Supplier,LowInvThreshold';
-            }
-            try {
-                let query = supabase.from(tableName).select(selectString);
-                const { data, error } = await query;
+            columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'Pack Size', 'Quantity', 'QuantityPerBin'];
+            selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)","Pack Size",Quantity,QuantityPerBin';
+            orderCol = 'ProductSKU';
+        } else if (tableName === 'Ingredients') {
+            columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'];
+            selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Supplier,LowInvThreshold';
+            orderCol = 'IngredientSKU';
+        } else if (tableName === 'Boxes') {
+            columns = ['SKU', 'Weight(Lbs)', 'Cost', 'Dimensions', 'Link', 'Price', 'Quantity']; // Removed UserID
+            selectString = 'SKU,"Weight(Lbs)",Cost,Dimensions,Link,Price,Quantity,UserID';
+                orderCol = 'Dimensions';
+        }
+        try {
+            let query = supabase.from(tableName).select(selectString).order(orderCol, { ascending: true });
+            const { data, error } = await query;
                 if (error) throw error;
                 if (!data || data.length === 0) {
                     container.innerHTML = '<div class="error">No data found.</div>';
@@ -155,7 +170,7 @@
             }
             let html = '<table><thead><tr>';
             columns.forEach(col => { html += `<th>${col}</th>`; });
-            html += '</tr></thead><tbody>';
+            html += '<th>Save</th></tr></thead><tbody>';
             filtered.forEach(row => {
                 html += '<tr>';
                 columns.forEach(col => {
@@ -163,25 +178,86 @@
                     if (typeof val === 'object' && val !== null) {
                         val = JSON.stringify(val);
                     }
-                    // Make SKU columns clickable links
-                    if (col === 'ProductSKU' && val) {
-                        html += `<td><a href="ProductInfo.html?sku=${encodeURIComponent(val)}" style="color:#3498db;text-decoration:underline;">${val}</a></td>`;
-                    } else if (col === 'IngredientSKU' && val) {
-                        html += `<td><a href="IngredientInfo.html?sku=${encodeURIComponent(val)}" style="color:#3498db;text-decoration:underline;">${val}</a></td>`;
-                    } else {
-                        html += `<td>${val === null ? '' : val}</td>`;
-                    }
+                    // Make SKU columns clickable links, others editable
+                        if (col === 'ProductSKU' && val) {
+                            html += `<td><a href="ProductInfo.html?sku=${encodeURIComponent(val)}" style="color:#3498db;text-decoration:underline;">${val}</a></td>`;
+                        } else if (col === 'IngredientSKU' && val) {
+                            html += `<td><a href="IngredientInfo.html?sku=${encodeURIComponent(val)}" style="color:#3498db;text-decoration:underline;">${val}</a></td>`;
+                        } else if (col === 'SKU') {
+                            html += `<td>${val === null ? '' : val}</td>`;
+                        } else {
+                            html += `<td><input type="text" value="${val === null ? '' : val}" data-sku="${row['ProductSKU'] || row['IngredientSKU'] || row['SKU']}" data-col="${col}" style="width:100%;padding:4px;border-radius:4px;border:1px solid #e1e5e9;" /></td>`;
+                        }
                 });
+                // Add save button
+                html += `<td><button class="saveRowBtn" data-sku="${row['ProductSKU'] || row['IngredientSKU']}" style="background:#4DBA93;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;">Save</button></td>`;
                 html += '</tr>';
             });
             html += '</tbody></table>';
             container.innerHTML = html;
+
+            // Add event listeners for save buttons
+            container.querySelectorAll('.saveRowBtn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const sku = btn.getAttribute('data-sku');
+                    const rowInputs = btn.closest('tr').querySelectorAll('input[data-sku]');
+                    let updateObj = {};
+                    let changes = [];
+                    rowInputs.forEach(input => {
+                        const col = input.getAttribute('data-col');
+                        const oldVal = input.defaultValue;
+                        const newVal = input.value;
+                            // Convert empty string to null for numeric columns
+                            let valToSave = newVal;
+                            const numericCols = [
+                                'Quantity', 'QuantityPerBin', 'Product Weight(oz)', 'Pack Size',
+                                'Quantity(Lbs/Units)', 'LowInvThreshold'
+                            ];
+                            if (numericCols.includes(col) && newVal === '') {
+                                valToSave = null;
+                            }
+                            updateObj[col] = valToSave;
+                            if (oldVal !== newVal) {
+                                changes.push({ col, oldVal, newVal });
+                            }
+                    });
+                    let table = columns.includes('ProductSKU') ? 'Products' : 'Ingredients';
+                    let idCol = columns.includes('ProductSKU') ? 'ProductSKU' : 'IngredientSKU';
+                    try {
+                        const { error } = await supabase.from(table).update(updateObj).eq(idCol, sku);
+                        if (error) {
+                            alert('Error saving: ' + error.message);
+                        } else {
+                            // Log changes to inventoryupdatelogs
+                            const user = (await supabase.auth.getUser()).data.user;
+                            const updated_by = user?.user_metadata?.display_name || user?.email || null;
+                            for (const change of changes) {
+                                let logMsg = `Updated ${change.col} for ${sku}: ${change.oldVal} → ${change.newVal}`;
+                                let quantityChanged = null;
+                                if (change.col.toLowerCase().includes('quantity')) {
+                                    quantityChanged = parseFloat(change.newVal) - parseFloat(change.oldVal);
+                                }
+                                await supabase.from('inventoryupdatelogs').insert({
+                                    log: logMsg,
+                                    updated_by,
+                                    SKU: sku,
+                                    QuantityChanged: quantityChanged
+                                });
+                            }
+                            alert('Saved!');
+                        }
+                    } catch (e) {
+                        alert('Error saving: ' + e.message);
+                    }
+                });
+            });
         }
 
         async function loadAllTables(searchTerm = '', ingredientLowInvOnly = false) {
             document.getElementById('status').textContent = 'Loading data from Supabase...';
             await fetchAndDisplayTable('Products', 'productsTable', searchTerm);
             await fetchAndDisplayTable('Ingredients', 'ingredientsTable', searchTerm, ingredientLowInvOnly);
+            await fetchAndDisplayTable('Boxes', 'boxesTable', searchTerm);
             document.getElementById('status').textContent = '';
         }
 
@@ -193,7 +269,13 @@
             const searchBar = document.getElementById('searchBar');
             const lowInvFilter = document.getElementById('lowInvFilter');
             const productsTable = document.getElementById('productsTable');
+            const ingredientsTable = document.getElementById('ingredientsTable');
+            const boxesTable = document.getElementById('boxesTable');
             const toggleProducts = document.getElementById('toggleProducts');
+            const toggleIngredients = document.getElementById('toggleIngredients');
+            const toggleBoxes = document.getElementById('toggleBoxes');
+                // Get the container for the low inventory filter checkbox
+                const lowInvFilterContainer = lowInvFilter ? lowInvFilter.closest('div[style]') : null;
             function updateTables() {
                 const term = searchBar ? searchBar.value : '';
                 const lowInv = lowInvFilter && lowInvFilter.checked;
@@ -201,9 +283,16 @@
                 renderTable(
                     allIngredientsData,
                     ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'],
-                    document.getElementById('ingredientsTable'),
+                    ingredientsTable,
                     term,
                     lowInv
+                );
+                // Boxes table does not filter by low inventory
+                renderTable(
+                    window.allBoxesData || [],
+                    ['SKU', 'Weight(Lbs)', 'Cost', 'Dimensions', 'Link', 'Price', 'Quantity'], // Removed UserID
+                    boxesTable,
+                    term
                 );
             }
             if (searchBar) {
@@ -220,6 +309,30 @@
                     } else {
                         productsTable.style.display = 'none';
                         toggleProducts.textContent = 'Show';
+                    }
+                });
+            }
+            if (toggleIngredients && ingredientsTable) {
+                toggleIngredients.addEventListener('click', function() {
+                    if (ingredientsTable.style.display === 'none') {
+                        ingredientsTable.style.display = '';
+                        toggleIngredients.textContent = 'Hide';
+                        if (lowInvFilterContainer) lowInvFilterContainer.style.display = '';
+                    } else {
+                        ingredientsTable.style.display = 'none';
+                        toggleIngredients.textContent = 'Show';
+                        if (lowInvFilterContainer) lowInvFilterContainer.style.display = 'none';
+                    }
+                });
+            }
+            if (toggleBoxes && boxesTable) {
+                toggleBoxes.addEventListener('click', function() {
+                    if (boxesTable.style.display === 'none') {
+                        boxesTable.style.display = '';
+                        toggleBoxes.textContent = 'Hide';
+                    } else {
+                        boxesTable.style.display = 'none';
+                        toggleBoxes.textContent = 'Show';
                     }
                 });
             }

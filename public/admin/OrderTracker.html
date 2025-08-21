@@ -304,7 +304,7 @@
               return;
             }
             // Update order progress and completion date
-            const updateObj = { Progress: progress, CompletionDate: new Date().toISOString() };
+            const updateObj = { Progress: progress, CompletionDate: new Date().toISOString(), Quantity: actualQty };
             const { error } = await supabase
               .from('ManufacturingTasks')
               .update(updateObj)

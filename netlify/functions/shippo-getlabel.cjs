@@ -45,20 +45,17 @@ exports.handler = async (event) => {
   console.log('[Shippo Label] parcelsArr:', parcelsArr);
 
   // Build address_to
-  let address_to = body.ShippoAddressID && body.ShippoAddressID.trim() !== '' ? body.ShippoAddressID
-: order.toAddressObjectID && order.toAddressObjectID.trim() !== ''
-      ? order.toAddressObjectID
-      : {
-          name: order.customer?.name || '',
-          street1: order.customer?.address1 || '',
-          street2: order.customer?.address2 || '',
-          city: order.customer?.city || '',
-          state: order.customer?.state || '',
-          zip: order.customer?.zipCode || '',
-          country: order.customer?.country || '',
-          phone: order.customer?.phone || '',
-          email: order.customer?.email || ''
-        };
+  let address_to = {
+    name: order.customer?.name || '',
+    street1: order.customer?.address1 || '',
+    street2: order.customer?.address2 || '',
+    city: order.customer?.city || '',
+    state: order.customer?.state || '',
+    zip: order.customer?.zipCode || '',
+    country: order.customer?.country || '',
+    phone: order.customer?.phone || '',
+    email: (order.customer?.email || '').substring(0, 50)
+  };
 
   // Build shipment payload
   const isInternational = order.customer?.country && !["UNITED STATES", "US"].includes(order.customer.country.toUpperCase());
@@ -70,7 +67,7 @@ exports.handler = async (event) => {
       state: 'NC',
       zip: '28115',
       country: 'US',
-      phone: '7046777577',
+      phone: '',
       email: 'jenn@jnlnaturals.com'
     },
     address_to,
@@ -79,6 +76,9 @@ exports.handler = async (event) => {
       bypass_address_validation: true
     }
   };
+
+  // Log shipment payload for debugging
+  console.log('[Shippo Label] shipmentPayload:', JSON.stringify(shipmentPayload, null, 2));
 
   // If international, create customs declaration
   if (isInternational) {
@@ -106,6 +106,16 @@ exports.handler = async (event) => {
         tariff_number: ''
       });
     }
+    // Log customs declaration payload for debugging
+    const customsPayload = {
+      certify: true,
+      certify_signer: 'J&L Naturals',
+      contents_type: 'MERCHANDISE',
+      eel_pfc: 'NOEEI_30_37_a',
+      non_delivery_option: 'RETURN',
+      items: customsItems
+    };
+    console.log('[Shippo Label] customsPayload:', JSON.stringify(customsPayload, null, 2));
     // Create customs declaration
     try {
       const customsResp = await fetch('https://api.goshippo.com/customs/declarations/', {
@@ -114,16 +124,10 @@ exports.handler = async (event) => {
           'Authorization': `ShippoToken ${SHIPPO_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          certify: true,
-          certify_signer: 'J&L Naturals',
-          contents_type: 'MERCHANDISE',
-          eel_pfc: 'NOEEI_30_37_a',
-          non_delivery_option: 'RETURN',
-          items: customsItems
-        })
+        body: JSON.stringify(customsPayload)
       });
       const customsData = await customsResp.json();
+      console.log('[Shippo Label] customs declaration response:', JSON.stringify(customsData, null, 2));
       if (customsResp.ok && customsData.object_id) {
         customsDeclarationId = customsData.object_id;
         shipmentPayload.customs_declaration = customsDeclarationId;
@@ -149,8 +153,10 @@ exports.handler = async (event) => {
       body: JSON.stringify(shipmentPayload)
     });
     const shipmentText = await shipmentResp.text();
+    console.log('[Shippo Label] shipment response (raw):', shipmentText);
     try {
       shipment = JSON.parse(shipmentText);
+      console.log('[Shippo Label] shipment response (parsed):', JSON.stringify(shipment, null, 2));
     } catch (parseErr) {
       console.error('[Shippo Label] Failed to parse shipment response:', shipmentText);
       return { statusCode: 500, body: 'Error parsing shipment response from Shippo.' };
@@ -186,12 +192,6 @@ exports.handler = async (event) => {
       rate: rate_id,
       label_file_type: 'PDF_4x6'
     };
-    // Add address ID if available (optional for transactions)
-    if (body.ShippoAddressID && body.ShippoAddressID.trim() !== '') {
-      transactionBody.address_to = body.ShippoAddressID;
-    } else if (order.toAddressObjectID && order.toAddressObjectID.trim() !== '') {
-      transactionBody.address_to = order.toAddressObjectID;
-    }
     // Add order reference only if it exists and not a Faire order
     const isFaireOrder = order.platform === 'faire' || order.source === 'faire' || 
                         (order.id && order.id.toString().startsWith('faire_'));
@@ -237,15 +237,23 @@ exports.handler = async (event) => {
               'Content-Type': 'application/json'
             }
           });
-          pollTransaction = await pollResp.json();
+          const pollText = await pollResp.text();
+          console.log(`[Shippo Label] Polling attempt ${pollCount}:`, pollText);
+          try {
+            pollTransaction = JSON.parse(pollText);
+          } catch (pollParseErr) {
+            console.error(`[Shippo Label] Failed to parse poll response (attempt ${pollCount}):`, pollText);
+            break;
+          }
           if (pollTransaction.status === 'SUCCESS' && pollTransaction.label_url) {
             break;
           }
           if (pollTransaction.status === 'ERROR') {
+            console.error(`[Shippo Label] Polling error status (attempt ${pollCount}):`, pollTransaction);
             break;
           }
         } catch (pollErr) {
-          console.error('[Shippo Label] Polling error:', pollErr);
+          console.error(`[Shippo Label] Polling exception (attempt ${pollCount}):`, pollErr);
           break;
         }
       }

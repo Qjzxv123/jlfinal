@@ -26,6 +26,7 @@ async function checkPermissions(allowedRoles) {
     return;
   }
   const { data: { user } } = await supabase.auth.getUser();
+  window.user = user;
   const userRole = user?.user_metadata?.role;
   if (userRole === 'newuser') {
     window.location.href = '/PendingApproval.html';
@@ -43,7 +44,7 @@ async function checkPermissions(allowedRoles) {
     page = page.replace('.html', '');
     // Always allow index.html
     const pageLower = page.toLowerCase();
-    if (pageLower === 'index' || pageLower === 'employeedashboard') return user;
+    if (pageLower === 'index' || pageLower === 'employeedashboard'|| pageLower === 'customerchecklist') return user;
     const allowedPagesLower = allowedPages.map(p => p.toLowerCase());
     if (!allowedPagesLower.includes(pageLower)) {
       document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied<br><br><a href="/index.html" style="color:#3498db;text-decoration:underline;font-size:1rem;">Return Home</a></div>';

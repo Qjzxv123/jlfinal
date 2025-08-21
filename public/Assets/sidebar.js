@@ -21,7 +21,6 @@ function renderAdminSidebar() {
   <a href="AdminDashboard.html" class="nav-item"><i class="cil-briefcase"></i><span>Admin Dashboard</span></a>
   <a href="EmployeeDashboard.html" class="nav-item"><i class="cil-speedometer"></i><span>Employee Dashboard</span></a>
   <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
-  <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
   <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
   <a href="AddFulfillmentLog.html" class="nav-item"><i class="cil-notes"></i><span>Add Fulfillment Log</span></a>
   <a href="AmazonShipments.html" class="nav-item"><i class="cib-amazon"></i><span>Amazon Shipments</span></a>
@@ -31,13 +30,11 @@ function renderAdminSidebar() {
   <a href="DatabaseViewer.html" class="nav-item"><i class="cil-find-in-page"></i><span>Database Viewer</span></a>
   <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
   <a href="AddItemAdmin.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Item</span></a>
-  <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
   <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
   <a href="Quoting.html" class="nav-item" id="sidebar-quoting"><i class="cil-money"></i><span>Product Quoting</span></a>
   <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
   <a href="UserManagement.html" class="nav-item"><i class="cil-user"></i><span>User Management</span></a>
   <a href="/CustomerChecklist.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
-  <br><br>
   <a class="nav-item" id="sidebar-signout-btn"><i class="cil-account-logout"></i><span>Sign Out</span></a>
     </div>
   `;

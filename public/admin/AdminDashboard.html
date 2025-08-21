@@ -131,11 +131,11 @@
     checkPermissions(['service_role']);
     setupInactivityTimeout(10);
     const sections = [
-  { key: 'AmazonShipments', label: 'Amazon Shipments', columns: ['SKU','Quantity','Notes','display_name'] },
-      { key: 'IngredientOrders', label: 'Ingredient Orders', columns: ['ExpectedBy','IngredientSKU','Quantity(Lbs/Units)'] },
+  { key: 'AmazonShipments', label: 'Amazon Shipments', columns: ['SKU','Quantity','Notes','display_name'], filter: row => row.Status !=="Completed" },
+  { key: 'IngredientOrders', label: 'Ingredient Orders', columns: ['ExpectedBy','IngredientSKU','Quantity(Lbs/Units)'] },
   { key: 'ReceivingLog', label: 'Receiving Log', columns: ['TrackingLink','Retailer','RecievedAt','Status'] },
-      { key: 'Checklist', label: 'Checklist', columns: ['Priority','Task','Status','AssignedTo','Deadline'] },
-      { key: 'ManufacturingTasks', label: 'Manufacturing Tasks', columns: ['OrderNumber','ProductSKU','Quantity','PlannedManufactureDate','Progress'], filter: row => row.Progress !== 'Completed' }
+  { key: 'Checklist', label: 'Checklist', columns: ['Priority','Task','Status','AssignedTo','Deadline'], filter: row => row.Status !== 'completed' },
+  { key: 'ManufacturingTasks', label: 'Manufacturing Tasks', columns: ['OrderNumber','ProductSKU','Quantity','PlannedManufactureDate','Progress'], filter: row => row.Progress !== 'completed' }
     ];
     document.addEventListener('DOMContentLoaded', async function() {
       await loadOrdersCount();
@@ -199,7 +199,7 @@
         }
         document.getElementById(`count-${section.key}`).textContent = `(${filteredData.length})`;
         if (!filteredData.length) {
-          tableContainer.innerHTML = '<div class="empty-state">No data</div>';
+          tableContainer.innerHTML = `<div class="empty-state">No ${section.label} data</div>`;
           return;
         }
         // Render table

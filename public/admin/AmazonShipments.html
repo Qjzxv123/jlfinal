@@ -427,6 +427,7 @@
         <h1>Amazon Shipments Viewer</h1>
         <p>View and manage Amazon shipment orders</p>
       </div>
+      <div id="removalLogs" style="display:none;margin-bottom:20px;padding:16px;background:#f8f9fa;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.07);color:#2c3e50;font-size:1.08em;"></div>
 
       <div class="controls">
         <button class="btn" onclick="loadShipments()" id="refreshBtn">
@@ -478,6 +479,15 @@
             <p>Click "Refresh Shipments" to load Amazon shipment orders</p>
           </div>
         </div>
+        <!-- Collapsible Completed Shipments Table (moved below main table) -->
+        <div id="completedShipmentsSection" style="margin-top:32px;">
+          <div style="display:flex;align-items:center;cursor:pointer;gap:10px;background:#f8f9fa;padding:12px 18px;border-radius:8px 8px 0 0;user-select:none;" onclick="toggleCompletedShipments()">
+            <span id="completedCollapseArrow" style="font-size:1.3em;font-weight:bold;">&#9654;</span>
+            <span style="font-size:1.1em;font-weight:600;color:#2c3e50;">Completed Shipments</span>
+            <span id="completedCount" style="margin-left:8px;color:#4DBA93;font-weight:600;"></span>
+          </div>
+          <div id="completedShipmentsTableContainer" style="display:none;border:1px solid #e1e5e9;border-top:none;border-radius:0 0 8px 8px;overflow-x:auto;background:white;"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -510,6 +520,61 @@
   </div>
 
   <script>
+    // Collapsible Completed Shipments Table logic
+    function renderCompletedShipmentsTable() {
+      const completedShipments = allShipments.filter(s => s.Status === 'Completed');
+      const completedCount = completedShipments.length;
+      document.getElementById('completedCount').textContent = completedCount > 0 ? `(${completedCount})` : '';
+      const container = document.getElementById('completedShipmentsTableContainer');
+      if (completedCount === 0) {
+        container.innerHTML = `<div class=\"no-shipments\"><h3>No completed shipments</h3></div>`;
+        return;
+      }
+      container.innerHTML = `
+        <table class=\"shipments-table\">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>SKU</th>
+              <th>Quantity</th>
+              <th>User</th>
+              <th>Notes</th>
+              <th>Boxes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${completedShipments.map(shipment => `
+              <tr>
+                <td><strong>#${shipment.id}</strong></td>
+                <td>${shipment.SKU}</td>
+                <td>${shipment.Quantity || 0}</td>
+                <td>${shipment.display_name || 'Unknown User'}</td>
+                <td class=\"notes-cell\" title=\"${shipment.Notes || ''}\">${shipment.Notes || '<em style=\"color: #999;\">No notes</em>'}</td>
+                <td>
+                  ${Array.isArray(shipment.Boxes) && shipment.Boxes.length > 0 ?
+                    shipment.Boxes.map(boxObj => {
+                      if (boxObj && typeof boxObj === 'object' && boxObj.sku) {
+                        return `${boxObj.sku} (${boxObj.quantity || 1})`;
+                      }
+                      return '';
+                    }).filter(Boolean).join(', ')
+                    : '<em style="color: #999;">None</em>'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // Toggle completed shipments section
+    window.toggleCompletedShipments = function() {
+      const container = document.getElementById('completedShipmentsTableContainer');
+      const arrow = document.getElementById('completedCollapseArrow');
+      const isOpen = container.style.display === '';
+      container.style.display = isOpen ? 'none' : '';
+      arrow.innerHTML = isOpen ? '&#9654;' : '&#9660;';
+    }
     // Access control and inactivity timeout
     checkPermissions(['service_role','employee']);
     setupInactivityTimeout(10);
@@ -658,36 +723,104 @@
       submitBtn.textContent = '⏳ Processing...';
 
       try {
-        // Create CSV data for shipments only
-        const shipmentCSV = generateShipmentCSV();
-        
+        // Capture box removals before closing modal and resetting selectedBoxes
+        const boxRemovals = Object.entries(selectedBoxes).map(([boxSKU, quantityUsed]) => ({ boxSKU, quantityUsed }));
+
         // Update box quantities directly in the database
         await updateBoxQuantities();
 
-        // Send only shipment data to inventory updater
-        await sendToInventoryUpdater(shipmentCSV);
+        // Update product quantities and log changes
+        const selectedShipmentsData = getSelectedShipmentsData();
+        let displayName = null;
+        if (window.user && window.user.user_metadata && window.user.user_metadata.display_name) {
+          displayName = window.user.user_metadata.display_name;
+        }
+  // Prepare array of box objects for jsonb[] column
+  const selectedBoxObjects = Object.entries(selectedBoxes).map(([sku, quantity]) => ({ sku, quantity }));
+        for (const shipment of selectedShipmentsData) {
+          if (!shipment.SKU || !shipment.Quantity || shipment.Quantity <= 0) continue;
+          // Update existing product quantity only
+          const { data: prod, error: prodErr } = await supabase
+            .from('Products')
+            .select('Quantity')
+            .eq('ProductSKU', shipment.SKU)
+            .maybeSingle();
+          if (prodErr) throw prodErr;
+          if (prod) {
+            const newQty = (prod.Quantity || 0) - shipment.Quantity;
+            const { error: upErr } = await supabase
+              .from('Products')
+              .update({ Quantity: newQty })
+              .eq('ProductSKU', shipment.SKU);
+            if (upErr) throw upErr;
+            // Log the inventory update
+            const logMsg = `Amazon shipment removed ${shipment.Quantity} SKU ${shipment.SKU}`;
+            await supabase
+              .from('inventoryupdatelogs')
+              .insert({
+                log: logMsg,
+                updated_by: displayName || null,
+                SKU: shipment.SKU,
+                QuantityChanged: -shipment.Quantity
+              });
+            // Update the Boxes column for this shipment with array of objects
+            await supabase
+              .from('AmazonShipments')
+              .update({ Boxes: selectedBoxObjects })
+              .eq('id', shipment.id);
+          } else {
+            throw new Error(`Product with SKU ${shipment.SKU} does not exist in Products table.`);
+          }
+        }
+
+        // Show removal logs to user
+        let logsHtml = '<strong>Removal Logs:</strong><ul style="margin-top:8px;">';
+        for (const shipment of selectedShipmentsData) {
+          if (shipment.SKU && shipment.Quantity && shipment.Quantity > 0) {
+            logsHtml += `<li>Product: Removed ${shipment.Quantity} from SKU <b>${shipment.SKU}</b></li>`;
+          }
+        }
+        for (const { boxSKU, quantityUsed } of boxRemovals) {
+          logsHtml += `<li>Box: Removed ${quantityUsed} from SKU <b>${boxSKU}</b></li>`;
+        }
+        logsHtml += '</ul>';
+        const logsDiv = document.getElementById('removalLogs');
+        logsDiv.innerHTML = logsHtml;
+        logsDiv.style.display = 'block';
+        // Scroll to logs for visibility
+        setTimeout(() => {
+          logsDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
 
         // Close modal
         closeBoxModal();
-        
-        // Clear selected shipments since they've been processed
+
+        // Update status of processed shipments to 'Completed'
         const processedShipmentIds = Array.from(selectedShipments);
+        if (processedShipmentIds.length > 0) {
+          const { error: statusErr } = await supabase
+            .from('AmazonShipments')
+            .update({ Status: 'Completed' },{CompletionDate: Date.now()})
+            .in('id', processedShipmentIds);
+          if (statusErr) {
+            console.error('Error updating status:', statusErr);
+          }
+        }
         allShipments = allShipments.filter(shipment => !processedShipmentIds.includes(shipment.id));
         filteredShipments = filteredShipments.filter(shipment => !processedShipmentIds.includes(shipment.id));
         selectedShipments.clear();
-        
+
         // Update display
         displayShipments();
         updateSummary();
         populateUserFilter();
 
-        showStatus('Shipments processed and boxes updated!', 'success');
+        showStatus('Shipments processed, inventory and boxes updated!', 'success');
         setTimeout(hideStatus, 3000);
 
       } catch (error) {
         console.error('Error processing shipments:', error);
         showStatus(`Error processing shipments: ${error.message}`, 'error');
-        
         submitBtn.disabled = false;
         submitBtn.textContent = '📋 Send to Inventory Updater';
       }
@@ -737,14 +870,6 @@
           }
         }
       }
-    }
-
-    async function sendToInventoryUpdater(shipmentCSV) {
-      // Store only shipment CSV in sessionStorage and navigate to InventoryUpdater.html
-      sessionStorage.setItem('inventoryCSV', shipmentCSV);
-      
-      // Navigate to InventoryUpdater.html
-      window.location.href = 'InventoryUpdater.html';
     }
 
     function hideStatus() {
@@ -863,6 +988,8 @@
       summaryDiv.style.display = 'flex';
       actionButtons.style.display = 'flex';
 
+      // Only show non-completed shipments in the main table
+      const nonCompletedShipments = filteredShipments.filter(s => s.Status !== 'Completed');
       const tableHTML = `
         <table class="shipments-table">
           <thead>
@@ -875,12 +1002,12 @@
               <th>Quantity</th>
               <th>User</th>
               <th>Notes</th>
+              <th>Boxes</th>
             </tr>
           </thead>
           <tbody>
-            ${filteredShipments.map(shipment => {
+            ${nonCompletedShipments.map(shipment => {
               const isSelected = selectedShipments.has(shipment.id);
-              
               return `
                 <tr class="${isSelected ? 'selected-row' : ''}" id="shipment-${shipment.id}">
                   <td class="checkbox-cell">
@@ -912,6 +1039,7 @@
       container.innerHTML = tableHTML;
       updateSelectedCount();
       updateSelectAllCheckbox();
+    renderCompletedShipmentsTable();
     }
 
     function updateSummary() {

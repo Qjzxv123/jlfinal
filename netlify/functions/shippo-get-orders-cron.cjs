@@ -46,7 +46,7 @@ exports.handler = async (event) => {
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
     for (const order of orders) {
       // Get first SKU from line_items
-      let retailerValue = "JNL";
+      let retailerValue = "J&L Naturals";
       if (order.line_items && order.line_items.length > 0) {
         let firstSku = order.line_items[0].sku;
         if (firstSku && typeof firstSku === 'string') {
@@ -151,10 +151,9 @@ exports.handler = async (event) => {
         Items: JSON.stringify(parsedItems),
         Customer: customerObj ? JSON.stringify(customerObj) : null,
         Platform: platformValue,
-        Link: getPlatformOrderUrl(platformValue, order.order_number, order.shopify_id, retailerValue),
+  Link: getPlatformOrderUrl(platformValue, order.order_number, retailerValue),
         Notes: order.notes || null,
         ShippoOrderID: order.object_id || null,
-        ShippoAddressID: order.to_address.object_id || null
       }, { onConflict: ['OrderID'] });
     }
   } catch (e) {
@@ -164,14 +163,20 @@ exports.handler = async (event) => {
   return { statusCode: 200, body: `Fetched and saved ${orders.length} Shippo orders.` };
 };
 
-function getPlatformOrderUrl(platform, orderNumber) {
+function getPlatformOrderUrl(platform, orderNumber, retailerValue) {
   switch(platform?.toLowerCase()) {
     case 'etsy':
       return `https://www.etsy.com/your/orders/sold?ref=seller-platform-mcnav&order_id=${orderNumber}`;
-    case 'shopify': 
-      return `N/A`;
-      case 'amazon':
-        return `https://sellercentral.amazon.com/orders-v3/order/${orderNumber}`;
+    case 'shopify':
+    case 'shopify(tiktok)': {
+      let domain = 'river-organics-skincare';
+      if (retailerValue && retailerValue.toLowerCase().includes('j&l')) {
+        domain = 'j-l-naturals';
+      }
+      return `https://admin.shopify.com/store/${domain}/orders?query=${orderNumber.replace("#","")}`;
+    }
+    case 'amazon':
+      return `https://sellercentral.amazon.com/orders-v3/order/${orderNumber}`;
     default:
       return '#';
   }

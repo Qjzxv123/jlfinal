@@ -142,11 +142,14 @@
     <!-- Main Content -->
     <div class="main-content" id="mainContent">
         <div id="main-container">
-        <h2>Inventory Viewer</h2>
-        <div style="margin-bottom: 1em; color: #666; font-style: italic;">
-          Inventory syncs with platforms automatically every 15 minutes.
-        </div>
-        <div id="data-viewer" style="display:none; margin-top:2rem;"></div>
+                <h2>Inventory Viewer</h2>
+                <div style="margin-bottom: 1em; color: #666; font-style: italic;">
+                    Inventory syncs with platforms automatically every 15 minutes.
+                </div>
+                <div style="margin-bottom: 1.5em; width:100%; display:flex; justify-content:center;">
+                    <input id="searchBar" type="text" placeholder="Search SKU or Name..." style="padding:0.6rem 1rem; border-radius:6px; border:1.5px solid #e1e5e9; font-size:1rem; min-width:260px; width:100%; max-width:400px;" />
+                </div>
+                <div id="data-viewer" style="display:none; margin-top:2rem;"></div>
     </div>
     <script>
         // Use shared access control and inactivity timeout
@@ -156,7 +159,12 @@
         const dataViewer = document.getElementById('data-viewer');
 
         // Helper: fetch and display RLS-protected data for the logged-in user
-        async function fetchAndDisplayData(session) {
+        // Store last loaded data for filtering
+        let lastInventoryData = [];
+        let lastSkuList = [];
+        let lastEtsySkuMap = {};
+
+        async function fetchAndDisplayData(session, searchTerm = '') {
             dataViewer.style.display = 'block';
             dataViewer.innerHTML = '<b>Loading your inventory data...</b>';
             // Fetch ProductSKU, Name, Quantity, Retailer columns
@@ -172,17 +180,27 @@
                 dataViewer.innerHTML = '<div>No inventory data found for your account.</div>';
                 return;
             }
+            lastInventoryData = data;
+            // Filter by search term
+            let filtered = data;
+            if (searchTerm && searchTerm.trim() !== '') {
+                const lower = searchTerm.toLowerCase();
+                filtered = data.filter(row =>
+                    (row.ProductSKU && row.ProductSKU.toLowerCase().includes(lower)) ||
+                    (row.Name && row.Name.toLowerCase().includes(lower))
+                );
+            }
             // Render as table with ReserveQuantity column for each SKU
             let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
             html += '<tr>' + ['ReserveQuantity', 'ProductSKU', 'Name', 'Quantity', 'Faire Inventory', 'Etsy Inventory'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
-            data.sort((a, b) => {
+            filtered.sort((a, b) => {
                 if (a.ProductSKU < b.ProductSKU) return -1;
                 if (a.ProductSKU > b.ProductSKU) return 1;
                 return 0;
             });
             const skuList = [];
             const etsySkuMap = {};
-            for (const row of data) {
+            for (const row of filtered) {
                 const quantity = parseInt(row.Quantity) || 0;
                 const reserve = parseInt(row.ReserveQuantity) || 0;
                 let quantityClass = '';
@@ -207,6 +225,8 @@
             }
             html += '</table>';
             dataViewer.innerHTML = html;
+            lastSkuList = skuList;
+            lastEtsySkuMap = etsySkuMap;
 
             // Fetch Faire inventory in batch
             try {
@@ -302,6 +322,13 @@
         window.addEventListener('DOMContentLoaded', async () => {
             fetchAndDisplayData();
             fetchAndDisplayBoxes();
+            // Add search bar event
+            const searchBar = document.getElementById('searchBar');
+            if (searchBar) {
+                searchBar.addEventListener('input', function() {
+                    fetchAndDisplayData(null, searchBar.value);
+                });
+            }
         });
 
         // Fetch and display Boxes table

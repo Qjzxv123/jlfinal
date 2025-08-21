@@ -134,8 +134,9 @@
   <div class="main-content">
     <div class="dashboard-container">
       <div class="dashboard-header">
-  <h1 id="welcomeHeader">Welcome!</h1>
-  <p>Here's your overview for today.</p>
+        <h1 id="welcomeHeader">Welcome!</h1>
+        <p>Here's your overview for today.</p>
+        <div id="ordersCount" style="font-size:1.2rem;font-weight:600;margin-top:10px;"></div>
       </div>
       <div class="section-card">
         <div class="section-header">
@@ -153,14 +154,6 @@
           <div class="loading-state"><div class="loading-spinner"></div>Loading manufacturing tasks...</div>
         </div>
       </div>
-      <div class="section-card">
-        <div class="section-header">
-          <span class="section-title"><i class="cil-truck" style="margin-right:8px;"></i>All Orders</span>
-        </div>
-        <div class="orders-list" id="ordersList">
-          <div class="loading-state"><div class="loading-spinner"></div>Loading orders...</div>
-        </div>
-      </div>
     </div>
   </div>
   <script>
@@ -168,10 +161,10 @@
     setupInactivityTimeout(10);
     document.addEventListener('DOMContentLoaded', async function() {
       await setWelcomeName();
+      await loadOrdersCount();
       await Promise.all([
         loadTasks(),
-        loadManufacturingTasks(),
-        loadOrders()
+        loadManufacturingTasks()
       ]);
     });
 
@@ -193,6 +186,7 @@
             .from('Checklist')
             .select('*')
             .contains('UserID', [userId])
+            .eq('Status', 'Incomplete')
             .order('Priority', { ascending: false })
             .order('Deadline', { ascending: true });
         if (error) throw error;
@@ -247,6 +241,8 @@
         const status = task.Progress || 'Unknown';
         const orderNum = task.OrderNumber || 'N/A';
         const plannedDate = task.PlannedManufactureDate || 'N/A';
+        const sku = task.ProductSKU || 'N/A';
+        const quantity = task.Quantity || 'N/A';
         return `
           <div class="manufacturing-item">
             <div class="item-header">
@@ -254,19 +250,23 @@
               <span class="item-status">${status}</span>
             </div>
             <div class="item-details">Planned Date: ${plannedDate}</div>
+            <div class="item-details">SKU: <b>${sku}</b> &nbsp; | &nbsp; Quantity: <b>${quantity}</b></div>
           </div>
         `;
       }).join('');
     }
-    async function loadOrders() {
+
+    async function loadOrdersCount() {
+      const ordersCountDiv = document.getElementById('ordersCount');
+      ordersCountDiv.innerHTML = '<span class="loading-spinner"></span> Loading order count...';
       try {
         const { count, error } = await supabase
           .from('Orders')
           .select('OrderID', { count: 'exact', head: true });
         if (error) throw error;
-        renderOrderCount(count ?? 0);
+        ordersCountDiv.textContent = `Active Ecommerce Orders: ${count ?? 0}`;
       } catch (e) {
-        document.getElementById('ordersList').innerHTML = '<div class="empty-state">Unable to load orders</div>';
+        ordersCountDiv.textContent = 'Unable to load order count';
       }
     }
     function renderOrderCount(count) {
