@@ -471,7 +471,14 @@
           let scheduleColHtml = '';
           const progressLower = progress.toLowerCase();
           if (progressLower === 'scheduled') {
-            let dateStr = task.PlannedManufactureDate ? new Date(task.PlannedManufactureDate).toLocaleDateString() : '<span style="color:#888;">(not set)</span>';
+            let dateStr = '<span style="color:#888;">(not set)</span>';
+            if (task.PlannedManufactureDate) {
+              // Fix for timezone offset: always show the date as entered (UTC)
+              const d = new Date(task.PlannedManufactureDate);
+              const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+              const localDate = new Date(d.getTime() + userTimezoneOffset);
+              dateStr = localDate.toLocaleDateString();
+            }
             scheduleColHtml = `<span style="font-weight:500; color:#1976d2;">${dateStr}</span>`;
           } else if (['completed', 'in production', 'quality checks'].includes(progressLower)) {
             scheduleColHtml = '<span style="color:#888;"></span>';
