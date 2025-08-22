@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Checklist Viewer</title>
+  <title>Checklist</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
   <link rel="stylesheet" href="/Assets/sidebar.css">
   <style>
@@ -16,7 +16,7 @@
     }
     .main-content {
       margin: 2rem auto;
-      max-width: 900px;
+      max-width: 800px;
       background: #fff;
       border-radius: 16px;
       box-shadow: 0 6px 32px rgba(0,0,0,0.12);
@@ -42,39 +42,110 @@
       font-weight: 600;
       color: #374151;
     }
-    .checklist-table td.completed { background: #d1fae5; color: #065f46; }
-    .checklist-table td.incomplete { background: #fee2e2; color: #b91c1c; }
+    .checklist-table td.status-complete { background: #d1fae5; color: #065f46; }
+    .checklist-table td.status-incomplete { background: #fee2e2; color: #b91c1c; }
+    .checklist-table td button {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      background: #4dba93;
+      color: white;
+      transition: background 0.2s;
+    }
+    .checklist-table td button:hover {
+      background: #379c7a;
+    }
+    .add-task-form {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+      align-items: flex-end;
+    }
+    .add-task-form label {
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+      display: block;
+    }
+    .add-task-form input, .add-task-form select {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 1rem;
+      background: #f8fafc;
+      margin-bottom: 0.5rem;
+    }
+    .add-task-form button {
+      background: #4dba93;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.7rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .add-task-form button:hover {
+      background: #379c7a;
+    }
+    .status-complete { color: #27ae60; }
+    .status-incomplete { color: #e74c3c; }
+    .section-header {
+      background: #f1f5f9;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .collapse-arrow {
+      display: inline-block;
+      transition: transform 0.2s;
+      font-size: 1.2rem;
+    }
+    .section-title {
+      font-weight: 600;
+      color: #374151;
+    }
+    .table-container {
+      margin-bottom: 2rem;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/Assets/CheckAccess.js"></script>
-  <link rel="icon" type="image/x-icon" href="Assets/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
 </head>
   <body>
-  <!-- Sidebar (injected by customer-sidebar.js) -->
+  <!-- Sidebar (injected by sidebar.js) -->
   <div id="sidebar"></div>
   <script src="/Assets/customer-sidebar.js"></script>
-  <div class="main-content">
-    <h1>Your Checklist</h1>
+  <div class="main-content" id="mainContent">
+    <h1>Checklist</h1>
     <button id="openAddTaskModalBtn" style="background:#4dba93; color:white; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-size:1.1rem; font-weight:600; cursor:pointer; margin-bottom:2rem;">Add Task</button>
     <div id="addTaskModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:2200; align-items:center; justify-content:center;">
       <div style="background:white; padding:2em 2em 1.5em 2em; border-radius:12px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
         <h3 style="margin-top:0;">Add New Task</h3>
-        <form id="addTaskForm">
-          <div style="margin-bottom:1em;">
-            <label for="taskDescription" style="font-weight:600;">Task Description</label>
-            <input type="text" id="taskDescription" required placeholder="Task description" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em;">
+        <form class="add-task-form" id="addTaskForm">
+          <div>
+            <label for="task">Task</label>
+            <input type="text" id="task" required placeholder="Task description">
           </div>
-          <div style="margin-bottom:1em;">
-            <label for="Deadline" style="font-weight:600;">Due Date</label>
-            <input type="date" id="Deadline" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em;">
-          </div>
-          <div style="margin-bottom:1em;">
-            <label for="priority" style="font-weight:600;">Priority</label>
-            <select id="priority" style="width:100%; padding:0.7em; border-radius:6px; border:1px solid #cbd5e1; font-size:1.1em;">
-              <option value="Low">Low</option>
+          <div>
+            <label for="priority">Priority</label>
+            <select id="priority">
+                <option value="Low">Low</option>
               <option value="Medium">Medium</option>
-              <option value="High">High</option>
+                <option value="High">High</option>
             </select>
+          </div>
+          <div>
+            <label for="Deadline">Deadline (optional)</label>
+            <input type="date" id="Deadline">
           </div>
           <div style="display:flex; gap:1em; justify-content:flex-end; margin-top:1em;">
             <button type="button" id="closeAddTaskModalBtn" style="background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Cancel</button>
@@ -83,68 +154,61 @@
         </form>
       </div>
     </div>
-    <table class="checklist-table" id="checklistTable">
-      <thead>
-        <tr>
-          <th>Done</th>
-          <th>Task</th>
-          <th>Priority</th>
-          <th>Due Date</th>
-          <th>Remove</th>
-        </tr>
-      </thead>
-      <tbody id="checklistTableBody">
-        <!-- Incomplete tasks will be loaded here -->
-      </tbody>
-    </table>
-    <button id="toggleCompletedBtn" style="margin-bottom:1rem; background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Show Completed Tasks ▼</button>
-    <div id="completedTasksSection" style="display:none;">
-      <table class="checklist-table" id="completedChecklistTable">
-        <thead>
-          <tr>
-            <th>Done</th>
-            <th>Task</th>
-            <th>Priority</th>
-            <th>Due Date</th>
-            <th>Remove</th>
-          </tr>
-        </thead>
-        <tbody id="completedChecklistTableBody">
-          <!-- Completed tasks will be loaded here -->
-        </tbody>
-      </table>
+    <div id="incompleteSection" style="margin-top:2rem;">
+      <div class="section-header" id="header-incomplete">
+        <span><span class="collapse-arrow">&#9654;</span><span class="section-title">Incomplete Tasks</span></span>
+      </div>
+      <div class="table-container" id="table-incomplete">
+        <table class="checklist-table" id="incompleteTable">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Priority</th>
+              <th>Assigned To</th>
+              <th>Assigned By</th>
+              <th>Deadline</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="incompleteTableBody">
+            <!-- Incomplete tasks will be loaded here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div id="awaitingConfirmationSection" style="margin-top:2rem;">
+      <div class="section-header" id="header-awaitingConfirmation">
+        <span><span class="collapse-arrow">&#9654;</span><span class="section-title">Awaiting Confirmation</span></span>
+      </div>
+      <div class="table-container" id="table-awaitingConfirmation">
+        <table class="checklist-table" id="awaitingConfirmationTable">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Priority</th>
+              <th>Assigned To</th>
+              <th>Assigned By</th>
+              <th>Deadline</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="awaitingConfirmationTableBody">
+            <!-- Awaiting confirmation tasks will be loaded here -->
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
   <script>
-    // Access control and inactivity timeout (shared logic)
-    checkPermissions(['service_role', 'client', 'employee']);
-    setupInactivityTimeout(10);
-    loadChecklist();
-    
-    async function getCurrentUserID() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return null;
-      // Try to get the user's UserID from oauth_tokens (if available)
-      const { data, error } = await supabase
-        .from('oauth_tokens')
-        .select('UserID')
-        .eq('user_key', session.user.id)
-        .maybeSingle();
-      if (data && data.UserID) return data.UserID;
-      // fallback to sub/id if not found
-      return session.user.id;
-    }
-
-    async function fetchChecklistForUser(userID) {
-      if (!userID) return [];
-      // Find checklist items where UserID array contains this userID
+// Use shared admin/employee check and inactivity timeout
+    checkPermissions(['service_role','employee', 'client']);
+    setupInactivityTimeout(10);    
+    async function fetchTasks() {
       const { data, error } = await supabase
         .from('Checklist')
         .select('*')
-        .neq("Status", "Complete")
-        .contains('UserID', [userID]);
       if (error) {
-        alert('Failed to fetch checklist: ' + error.message);
+        alert('Failed to fetch tasks: ' + error.message);
         return [];
       }
       return data || [];
@@ -170,7 +234,6 @@
         alert('Failed to update task: ' + error.message);
       }
     }
-
     async function removeTask(id) {
       const { error } = await supabase
         .from('Checklist')
@@ -180,81 +243,111 @@
         alert('Failed to remove task: ' + error.message);
       }
     }
-
-    function renderChecklist(items, userID) {
-      const tbody = document.getElementById('checklistTableBody');
-      const completedTbody = document.getElementById('completedChecklistTableBody');
+    function renderIncompleteTasks(tasks) {
+      const tbody = document.getElementById('incompleteTableBody');
       tbody.innerHTML = '';
-      completedTbody.innerHTML = '';
-      for (const item of items) {
-        const Deadline = item.Deadline ? new Date(item.Deadline).toLocaleDateString() : '';
-        const isCompleted = item.Status === 'completed';
-        const doneCheckbox = `<input type="checkbox" class="done-checkbox" data-id="${item.id}" ${isCompleted ? 'checked' : ''} />`;
-        const removeBtn = `<button class="remove-task-btn" data-id="${item.id}" style="background:#D7444D; color:white; border:none; border-radius:5px; padding:0.3em 0.8em; cursor:pointer; font-size:1em;"><i class='cil-trash'></i></button>`;
-        const rowHtml = `
-          <td>${doneCheckbox}</td>
-          <td>${item.Task || ''}</td>
-          <td>${item.Priority || 'Low'}</td>
-          <td>${Deadline}</td>
-          <td>${removeBtn}</td>
+      for (const task of tasks) {
+        const tr = document.createElement('tr');
+        const deadline = task.Deadline ? new Date(task.Deadline).toLocaleDateString() : '';
+        tr.innerHTML = `
+          <td>${task.Task || ''}</td>
+          <td>${task.Priority || ''}</td>
+          <td>${task.AssignedTo || ''}</td>
+          <td>${task.AssignedBy || ''}</td>
+          <td>${deadline}</td>
+          <td><button class="mark-awaiting-btn" data-id="${task.id}" title="Mark Awaiting Confirmation" style="background:#4dba93;color:white;border:none;border-radius:6px;padding:0.5rem 1rem;font-size:1.2rem;cursor:pointer;"><span style="font-size:1.3em;">&#10003;</span></button></td>
         `;
-        if (isCompleted) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = rowHtml;
-          completedTbody.appendChild(tr);
-        } else {
-          const tr = document.createElement('tr');
-          tr.innerHTML = rowHtml;
-          tbody.appendChild(tr);
-        }
+        tbody.appendChild(tr);
       }
-      // Add event listeners for checkboxes and remove buttons
-      document.querySelectorAll('.done-checkbox').forEach(cb => {
-        cb.addEventListener('change', async function() {
-          const id = this.getAttribute('data-id');
-          const newStatus = this.checked ? 'completed' : 'incomplete';
-          await updateTaskStatus(id, newStatus);
-          loadChecklist();
-        });
-      });
-      document.querySelectorAll('.remove-task-btn').forEach(btn => {
+      // Add event listeners for Mark Awaiting Confirmation
+      document.querySelectorAll('.mark-awaiting-btn').forEach(btn => {
         btn.addEventListener('click', async function() {
           const id = this.getAttribute('data-id');
-          if (confirm('Remove this task?')) {
-            await removeTask(id);
-            loadChecklist();
-          }
+          await updateTaskStatus(id, 'Awaiting Confirmation');
+          loadTasks();
         });
       });
     }
-
-    async function loadChecklist() {
-      const userID = await getCurrentUserID();
-      if (!userID) {
-        document.getElementById('checklistTableBody').innerHTML = '<tr><td colspan="4">Please log in to view your checklist.</td></tr>';
-        document.getElementById('completedChecklistTableBody').innerHTML = '';
+    function renderAwaitingConfirmationTasks(tasks) {
+      const tbody = document.getElementById('awaitingConfirmationTableBody');
+      tbody.innerHTML = '';
+      for (const task of tasks) {
+        const tr = document.createElement('tr');
+        const deadline = task.Deadline ? new Date(task.Deadline).toLocaleDateString() : '';
+        let actionCell = '';
+        if (task.AssignedBy === CurrentUserDisplayName) {
+          actionCell = `<button class="confirm-complete-btn" data-id="${task.id}">Confirm Complete</button> <button class="refuse-confirm-btn" data-id="${task.id}" style="background:#e74c3c;color:white;border:none;border-radius:6px;padding:0.5rem 1rem;">Refuse Confirmation</button>`;
+        }
+        tr.innerHTML = `
+          <td>${task.Task || ''}</td>
+          <td>${task.Priority || ''}</td>
+          <td>${task.AssignedTo || ''}</td>
+          <td>${task.AssignedBy || ''}</td>
+          <td>${deadline}</td>
+          <td>${actionCell}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+      // Add event listeners for Confirm Complete
+      document.querySelectorAll('.confirm-complete-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          const id = this.getAttribute('data-id');
+          // Remove task from table by deleting from database
+          await removeTask(id);
+          loadTasks();
+        });
+      });
+      // Add event listeners for Refuse Confirmation
+      document.querySelectorAll('.refuse-confirm-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          const id = this.getAttribute('data-id');
+          await updateTaskStatus(id, 'Incomplete');
+          loadTasks();
+        });
+      });
+    }
+    async function loadTasks() {
+      const tasks = await fetchTasks();
+      // Only show tasks with status 'Incomplete' in Incomplete Table
+      const incompleteTasks = tasks.filter(t => t.Status === 'Incomplete');
+      renderIncompleteTasks(incompleteTasks);
+      // Only show tasks with status 'Awaiting Confirmation' in Awaiting Confirmation Table
+      const awaitingTasks = tasks.filter(t => t.Status === 'Awaiting Confirmation');
+      renderAwaitingConfirmationTasks(awaitingTasks);
+    }
+    document.getElementById('addTaskForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const task = {
+        Task: document.getElementById('task').value.trim(),
+        Priority: document.getElementById('priority').value,
+        AssignedTo: 'J&L Naturals',
+        AssignedBy: CurrentUserDisplayName,
+        UserID: ["bc4441d2-38e8-4e77-afb4-2609ec6f56f6", CurrentUserID],
+        Deadline: document.getElementById('Deadline').value || null,
+        Status: 'Incomplete'
+      };
+      if (!task.Task) {
+        alert('Please enter a task description.');
         return;
       }
-      const items = await fetchChecklistForUser(userID);
-      if (items.length === 0) {
-        document.getElementById('checklistTableBody').innerHTML = '<tr><td colspan="4">No checklist items found for your account.</td></tr>';
-        document.getElementById('completedChecklistTableBody').innerHTML = '';
-      } else {
-        renderChecklist(items, userID);
-      }
-    }
-
-    // Completed tasks toggle
-    document.getElementById('toggleCompletedBtn').onclick = function() {
-      const section = document.getElementById('completedTasksSection');
-      if (section.style.display === 'none') {
-        section.style.display = '';
-        this.textContent = 'Hide Completed Tasks ▲';
-      } else {
-        section.style.display = 'none';
-        this.textContent = 'Show Completed Tasks ▼';
+      const success = await addTask(task);
+      if (success) {
+        document.getElementById('addTaskForm').reset();
+        loadTasks();
       }
     };
+
+    // Collapsible completed tasks
+    const toggleCompletedBtn = document.getElementById('toggleCompletedBtn');
+    const completedSection = document.getElementById('completedTasksSection');
+    let completedVisible = false;
+    if (toggleCompletedBtn && completedSection) {
+      toggleCompletedBtn.addEventListener('click', function() {
+        completedVisible = !completedVisible;
+        completedSection.style.display = completedVisible ? '' : 'none';
+        toggleCompletedBtn.textContent = completedVisible ? 'Hide Completed Tasks ▲' : 'Show Completed Tasks ▼';
+      });
+    }
 
     // Modal logic for Add Task
     const openAddTaskModalBtn = document.getElementById('openAddTaskModalBtn');
@@ -271,34 +364,58 @@
       if (e.target === addTaskModal) addTaskModal.style.display = 'none';
     };
 
-    document.getElementById('addTaskForm').onsubmit = async function(e) {
-      e.preventDefault();
-      // Get session and userID
-      const { data: { session } } = await supabase.auth.getSession();
-      const userID = await getCurrentUserID();
-      if (!userID || !session) {
-        alert('You must be logged in to add a task.');
-        return;
+    document.addEventListener('DOMContentLoaded', function() {
+      // Collapsible Incomplete Table
+      let incompleteCollapsed = false;
+      const incompleteHeader = document.getElementById('header-incomplete');
+      const incompleteTableContainer = document.getElementById('table-incomplete');
+      const incompleteArrow = incompleteHeader ? incompleteHeader.querySelector('.collapse-arrow') : null;
+      if (incompleteHeader && incompleteTableContainer && incompleteArrow) {
+        incompleteHeader.addEventListener('click', function() {
+          incompleteCollapsed = !incompleteCollapsed;
+          if (incompleteCollapsed) {
+            incompleteTableContainer.style.display = 'none';
+            incompleteHeader.classList.add('collapsed');
+            incompleteArrow.style.transform = 'rotate(-90deg)';
+          } else {
+            incompleteTableContainer.style.display = '';
+            incompleteHeader.classList.remove('collapsed');
+            incompleteArrow.style.transform = '';
+          }
+        });
+        // Expanded by default
+        incompleteTableContainer.style.display = '';
+        incompleteHeader.classList.remove('collapsed');
+        incompleteArrow.style.transform = '';
       }
-      const taskDescription = document.getElementById('taskDescription').value.trim();
-      const Deadline = document.getElementById('Deadline').value;
-      const Priority = document.getElementById('priority') ? document.getElementById('priority').value : 'Low';
-      const assignedTo = session.user && session.user.user_metadata && session.user.user_metadata.display_name ? session.user.user_metadata.display_name : '';
-      const task = {
-        Task: taskDescription,
-        Deadline: Deadline || null,
-        Priority: Priority || 'Low',
-        Status: 'incomplete',
-        UserID: [userID],
-        AssignedTo: assignedTo
-      };
-      const success = await addTask(task);
-      if (success) {
-        document.getElementById('addTaskForm').reset();
-        addTaskModal.style.display = 'none';
-        loadChecklist();
+
+      // Collapsible Awaiting Confirmation Table
+      let awaitingCollapsed = false;
+      const awaitingHeader = document.getElementById('header-awaitingConfirmation');
+      const awaitingTableContainer = document.getElementById('table-awaitingConfirmation');
+      const awaitingArrow = awaitingHeader ? awaitingHeader.querySelector('.collapse-arrow') : null;
+      if (awaitingHeader && awaitingTableContainer && awaitingArrow) {
+        awaitingHeader.addEventListener('click', function() {
+          awaitingCollapsed = !awaitingCollapsed;
+          if (awaitingCollapsed) {
+            awaitingTableContainer.style.display = 'none';
+            awaitingHeader.classList.add('collapsed');
+            awaitingArrow.style.transform = 'rotate(-90deg)';
+          } else {
+            awaitingTableContainer.style.display = '';
+            awaitingHeader.classList.remove('collapsed');
+            awaitingArrow.style.transform = '';
+          }
+        });
+        // Expanded by default
+        awaitingTableContainer.style.display = '';
+        awaitingHeader.classList.remove('collapsed');
+        awaitingArrow.style.transform = '';
       }
-    };
-</script>
+    });
+
+    // Initial load
+    loadTasks();
+  </script>
 </body>
 </html>
