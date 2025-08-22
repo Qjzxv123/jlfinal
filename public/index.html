@@ -92,17 +92,6 @@
     }
     
     checkPermissions(['service_role','client','employee']);
-      async function showLoginOrWelcome() {
-        const { data: { user } } = await supabase.auth.getUser();
-        const loginBar = document.getElementById('login-bar');
-        if (user) {
-          let displayName = (user.user_metadata && user.user_metadata.display_name) ? user.user_metadata.display_name : user.email;
-          loginBar.innerHTML = `<span style=\"color:#4dba93;font-weight:600;font-size:1.05em;\">Welcome, ${displayName}!<\/span>`;
-        } else {
-          loginBar.innerHTML = `<a href=\"Login.html\" style=\"color: #4dba93; font-weight: 600; text-decoration: none; font-size: 1.05em;\">Login<\/a>`;
-        }
-      }
-      showLoginOrWelcome();
   </script>
       <h1 style="margin-bottom: 0.2em;">J&amp;L Naturals System</h1>
       <div class="desc" style="margin-bottom: 1.5em; color: #2d3748; font-size: 1.15rem;">

@@ -313,13 +313,7 @@
         return;
       }
       // Fetch user display_name from auth.users
-      let displayName = '';
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userData && userData.user && userData.user.user_metadata && userData.user.user_metadata.display_name) {
-        displayName = userData.user.user_metadata.display_name;
-      } else {
-        displayName = userID; // fallback
-      }
+      let displayName = CurrentUserDisplayName;
 
       const productSKU = document.getElementById('productSKU').value;
       const quantity = parseInt(document.getElementById('quantity').value);
