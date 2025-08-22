@@ -34,6 +34,7 @@ function renderAdminSidebar() {
   <a href="Quoting.html" class="nav-item" id="sidebar-quoting"><i class="cil-money"></i><span>Product Quoting</span></a>
   <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
   <a href="UserManagement.html" class="nav-item"><i class="cil-user"></i><span>User Management</span></a>
+  <a href="Orders.html" class="nav-item"><i class="cil-beaker"></i><span>Test Orders(Still in Development</span></a>
   <a href="/CustomerChecklist.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
   <a class="nav-item" id="sidebar-signout-btn"><i class="cil-account-logout"></i><span>Sign Out</span></a>
     </div>

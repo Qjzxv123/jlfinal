@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Orders</title>
+    <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+    <link rel="stylesheet" href="/Assets/sidebar.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+            min-height: 100vh;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+        }
+        .main-content {
+            margin-left: 60px;
+            width: calc(100% - 60px);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: indigo;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .order-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            padding: 24px;
+        }
+        .order-link {
+            color: #4DBA93;
+            text-decoration: underline;
+        }
+        .notes {
+            color: #e74c3c;
+            font-style: italic;
+        }
+        .customer-messages {
+            color: #ba4d74;
+        }
+        .items-toggle {
+            cursor: pointer;
+            color: #4DBA93;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .items-list {
+            display: none;
+            margin-top: 8px;
+        }
+        .show {
+            display: block !important;
+        }
+        .selected {
+            border: 2px solid #4DBA93;
+            background-color: #f0f9f0;
+        }
+        .btn {
+            background: #4DBA93;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #3a9b74;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+    <script src="/Assets/CheckAccess.js"></script>
+    <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
+</head>
+<body>
+    <div id="sidebar"></div>
+    <script src="/Assets/sidebar.js"></script>
+    <div class="main-content">
+        <div class="container">
+            <h1>All Orders</h1>
+            <button id="printPicklistPackingBtn" class="btn" style="margin-bottom:20px; padding:12px 24px; border-radius:8px; font-size:16px; font-weight:600; background:#BA4D74; color:white;" onclick="printPicklistAndPackingSlips()">📋 Print Picklist and Packing Slips</button>
+            <div id="ordersTableContainer">
+                <p>Loading orders...</p>
+            </div>
+        </div>
+    </div>
+    <script>
+        checkPermissions(['service_role', 'employee']);
+        setupInactivityTimeout(10);
+        let selectedOrders = new Set();
+        let orders = [];
+        function toggleOrderSelection(orderId) {
+            if (selectedOrders.has(orderId)) {
+                selectedOrders.delete(orderId);
+            } else {
+                selectedOrders.add(orderId);
+            }
+            updateSelectedCount();
+            updateOrderCardSelection();
+        }
+        function updateOrderCardSelection() {
+            orders.forEach((order, idx) => {
+                const card = document.getElementById(`order-card-${idx}`);
+                if (card) {
+                    if (selectedOrders.has(order.OrderID)) {
+                        card.classList.add('selected');
+                    } else {
+                        card.classList.remove('selected');
+                    }
+                }
+            });
+        }
+        function updateSelectedCount() {
+            let countDiv = document.getElementById('selectedCountDiv');
+            if (!countDiv) {
+                countDiv = document.createElement('div');
+                countDiv.id = 'selectedCountDiv';
+                countDiv.style = 'margin-bottom:20px; font-weight:600; color:#4DBA93;';
+                document.querySelector('.container').insertBefore(countDiv, document.getElementById('ordersTableContainer'));
+            }
+            countDiv.innerHTML = `Selected Orders: <span style='font-size:1.1em;'>${selectedOrders.size}</span>`;
+        }
+        async function loadOrders() {
+            const container = document.getElementById('ordersTableContainer');
+            container.innerHTML = '<p>Loading orders...</p>';
+            try {
+                const { data: ordersRaw, error } = await supabase
+                    .from('Orders')
+                    .select('*')
+                    .order('OrderID', { ascending: false });
+                if (error) throw error;
+                if (!ordersRaw || ordersRaw.length === 0) {
+                    container.innerHTML = '<p>No orders found.</p>';
+                    return;
+                }
+                orders = ordersRaw;
+                let cardsHtml = '';
+                orders.forEach((order, idx) => {
+                    // Customer collapsible
+                    let customerToggleId = `customer-toggle-${idx}`;
+                    let customerBlockId = `customer-block-${idx}`;
+                    let customerHtml = '';
+                    try {
+                        const customerObj = typeof order.Customer === 'object' ? order.Customer : JSON.parse(order.Customer);
+                        customerHtml = `<div class='customer-toggle' id='${customerToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px;' onclick=\"document.getElementById('${customerBlockId}').classList.toggle('show');\">▶ Show Customer</div><div id='${customerBlockId}' class='customer-block' style='display:none; margin-top:8px;'>
+                            <div style=\"margin-bottom:4px;\"><strong>Name:</strong> ${customerObj.name || ''}</div>
+                            <div style=\"margin-bottom:4px;\"><strong>Address 1:</strong> ${customerObj.address1 || ''}</div>
+                            ${customerObj.address2 ? `<div style=\\"margin-bottom:4px;\\"><strong>Address 2:</strong> ${customerObj.address2}</div>` : ''}
+                            <div style=\"margin-bottom:4px;\"><strong>City:</strong> ${customerObj.city || ''}</div>
+                            <div style=\"margin-bottom:4px;\"><strong>State:</strong> ${customerObj.state || ''}</div>
+                            <div style=\"margin-bottom:4px;\"><strong>Zip Code:</strong> ${customerObj.zipCode || ''}</div>
+                            <div style=\"margin-bottom:4px;\"><strong>Country:</strong> ${customerObj.country || ''}</div>
+                        </div>`;
+                    } catch (e) {
+                        customerHtml = '<span style="color:#e74c3c;">Error parsing customer</span>';
+                    }
+                    let itemsHtml = '';
+                    let itemsToggleId = `items-toggle-${idx}`;
+                    let itemsListId = `items-list-${idx}`;
+                    try {
+                        const itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items);
+                        if (Array.isArray(itemsArr)) {
+                            itemsHtml = `<div class='items-toggle' id='${itemsToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px;' onclick="document.getElementById('${itemsListId}').classList.toggle('show');">▶ Show Items</div><div id='${itemsListId}' class='items-list' style='display:none; margin-top:8px;'>` +
+                                itemsArr.map(item => `
+                                    <div style=\"margin-bottom:6px; padding:6px; background:#f1f3f4; border-radius:4px;\">
+                                        <strong>SKU:</strong> ${item.SKU || ''}<br>
+                                        <strong>Name:</strong> ${item.Name || ''}<br>
+                                        <strong>Quantity:</strong> ${item.Quantity || 0}
+                                    </div>
+                                `).join('') + '</div>';
+                        } else {
+                            itemsHtml = '<span style="color:#e74c3c;">Invalid items format</span>';
+                        }
+                    } catch (e) {
+                        itemsHtml = '<span style="color:#e74c3c;">Error parsing items</span>';
+                    }
+                    cardsHtml += `<div class="order-card${selectedOrders.has(order.OrderID) ? ' selected' : ''}" id="order-card-${idx}" style="background:white; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-bottom:24px; padding:24px; position:relative;">
+                        <input type="checkbox" style="position:absolute; top:18px; right:18px; width:22px; height:22px;" onclick="toggleOrderSelection('${order.OrderID}')" ${selectedOrders.has(order.OrderID) ? 'checked' : ''} />
+                        <h2 style="margin-top:0; color:#4DBA93; font-size:1.3rem;">
+                            ${order.Link ? `<a href="${order.Link}" target="_blank" class="order-link">Order #${order.OrderID}</a>` : `Order #${order.OrderID}`}
+                        </h2>
+                        <div style="margin-bottom:10px;"><strong>Retailer:</strong> ${order.Retailer || ''}</div>
+                        <div style="margin-bottom:10px;"><strong>Platform:</strong> ${order.Platform || ''}</div>
+                        <div style="margin-bottom:10px;"><strong>Customer:</strong>${customerHtml}</div>
+                        <div style="margin-bottom:10px;"><strong>Items:</strong>${itemsHtml}</div>
+                        <div style="margin-bottom:10px;"><strong>Notes:</strong> <span class="notes">${order.Notes || ''}</span></div>
+                        <div style="margin-bottom:10px;"><strong>Customer Messages:</strong> <span class="customer-messages">${order.CustomerMessages || ''}</span></div>
+                    </div>`;
+                });
+                container.innerHTML = cardsHtml;
+            } catch (err) {
+                container.innerHTML = `<p style="color:red;">Error loading orders: ${err.message}</p>`;
+            }
+        }
+        loadOrders();
+        function printPicklistAndPackingSlips() {
+            if (selectedOrders.size === 0) {
+                alert('Please select at least one order to print.');
+                return;
+            }
+            // --- Master Picklist ---
+            const selectedOrdersData = orders.filter(order => selectedOrders.has(order.OrderID));
+            // Aggregate SKUs split by plus sign and map to product names
+            const skuMap = new Map();
+            const nameMap = new Map();
+            selectedOrdersData.forEach(order => {
+                try {
+                    const itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items);
+                    itemsArr.forEach(item => {
+                        if (item.SKU) {
+                            skuMap.set(item.SKU, (skuMap.get(item.SKU) || 0) + (item.Quantity || 0));
+                            nameMap.set(item.SKU, item.Name || 'Unknown Product');
+                        }
+                    });
+                } catch (e) {}
+            });
+            const picklistItems = Array.from(skuMap.entries()).map(([sku, quantity]) => ({
+                sku: sku,
+                name: nameMap.get(sku) || 'Unknown Product',
+                quantity: quantity
+            }));
+            let picklistHtml = `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background: white;">
+                    <div style="text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 25px;">
+                        <h2 style="margin:0; font-size:2.5rem; color:indigo; text-shadow:2px 2px 4px rgba(0,0,0,0.3);">Master Picklist</h2>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 16px;">
+                        <thead><tr style='background:#f8f9fa;'><th style='padding:12px 8px;'>SKU</th><th style='padding:12px 8px;'>Name</th><th style='padding:12px 8px;'>Quantity</th></tr></thead>
+                        <tbody>
+                            ${picklistItems.map(item => `<tr><td style='padding:12px 8px;'>${item.sku}</td><td style='padding:12px 8px;'>${item.name}</td><td style='padding:12px 8px;'>${item.quantity}</td></tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+            // --- Packing Slips ---
+            let packingSlipsHtml = '';
+            selectedOrdersData.forEach((order, index) => {
+                let customerObj = {};
+                try {
+                    customerObj = typeof order.Customer === 'object' ? order.Customer : JSON.parse(order.Customer);
+                } catch (e) {}
+                let customerAddress = [
+                    customerObj.address1,
+                    customerObj.address2,
+                    customerObj.city,
+                    customerObj.state,
+                    customerObj.zipCode,
+                    customerObj.country
+                ].filter(Boolean).join(', ');
+                let itemsArr = [];
+                try {
+                    itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items);
+                } catch (e) {}
+                // Retailer logo logic
+                let logoUrl = '';
+                let logoAlt = '';
+                const shop = (order.Retailer || '').toLowerCase();
+                if (shop.includes('desesh')) {
+                    logoUrl = 'https://desesh.com/cdn/shop/files/Desesh_Logo_-_Zero_Waste_Plastic_Free_Sustainable_Kitchen_Bathroom_Laundry.png?v=1669413380&width=500';
+                    logoAlt = 'Desesh Logo';
+                } else if (shop.includes('river organics')) {
+                    logoUrl = 'https://riverorganics.org/cdn/shop/files/RO_Secondary_Logos-14_98f44cae-12e5-46ee-9391-5e0e168f2427.png?v=1735735433&width=255';
+                    logoAlt = 'River Organics Logo';
+                } else if (shop.includes('j&l naturals')) {
+                    logoUrl = 'https://www.jnlnaturals.com/cdn/shop/files/JL_PNG_TRAN_BLACK_FINAL_Cropped_outlined.png?v=1697910301&width=300';
+                    logoAlt = 'JNL Naturals Logo';
+                }
+                packingSlipsHtml += `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; background: white; ${index > 0 ? 'page-break-before: always;' : ''}">
+                        <div style="margin-bottom: 25px; position: relative; min-height: 60px;">
+                            ${logoUrl ? `<img src='${logoUrl}' alt='${logoAlt}' style='max-width:180px; position:absolute; top:0; right:0; margin-bottom:12px;' />` : ''}
+                            <h2 style="margin:0; color:indigo; font-size:2rem; text-shadow:2px 2px 4px rgba(0,0,0,0.3);">Packing Slip</h2>
+                            <div style="font-size:1.2rem; font-weight:700; color:#2c3e50;"><strong>Order #${order.OrderID}</strong></div>
+                            <div><strong>Retailer:</strong> ${order.Retailer || ''}</div>
+                            <div><strong>Platform:</strong> ${order.Platform || ''}</div>
+                            <div><strong>Customer:</strong> ${customerObj.name || ''}</div>
+                            <div><strong>Address:</strong> ${customerAddress || ''}</div>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 16px;">
+                            <thead><tr style='background:#f8f9fa;'><th style='padding:12px 8px;'>SKU</th><th style='padding:12px 8px;'>Name</th><th style='padding:12px 8px;'>Quantity</th></tr></thead>
+                            <tbody>
+                                ${itemsArr.map(item => `<tr><td style='padding:12px 8px;'>${item.SKU}</td><td style='padding:12px 8px;'>${item.Name}</td><td style='padding:12px 8px;'>${item.Quantity}</td></tr>`).join('')}
+                            </tbody>
+                        </table>
+                        <div style="padding: 10px;">
+                            <p style="margin: 0; font-size: 14px; font-weight: 600; color: #ba4d74;">
+                                ${order.CustomerMessages || ''}
+                            </p>
+                        </div>
+                    </div>`;
+            });
+            // --- Print both in one window ---
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(picklistHtml + '<div style="page-break-after: always;"></div>' + packingSlipsHtml);
+            printWindow.document.close();
+            printWindow.print();
+        }
+    </script>
+</body>
+</html>
