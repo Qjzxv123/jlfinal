@@ -1289,7 +1289,7 @@
             // Fetch product process and weight
             const { data: productData, error: productError } = await supabase
               .from('Products')
-              .select('Process, "Product Weight(oz)"')
+              .select('Process, "Product Weight(oz)", ContainerSKUs')
               .eq('ProductSKU', orderDetails.ProductSKU)
               .maybeSingle();
             if (!productError && productData && productData.Process && productData["Product Weight(oz)"]) {
@@ -1314,7 +1314,22 @@
                   });
                 }
               });
-              // Subtract each ingredient from inventory and log to IngredientLog
+              // Build list of all SKUs to fetch names for
+              let allSKUs = ingredients.map(i => i.sku);
+              if (productData && productData.ContainerSKUs && Array.isArray(productData.ContainerSKUs)) {
+                allSKUs = allSKUs.concat(productData.ContainerSKUs);
+              }
+              // Fetch names for all SKUs
+              let ingredientNameMap = {};
+              if (allSKUs.length > 0) {
+                const { data: nameData } = await supabase
+                  .from('Ingredients')
+                  .select('IngredientSKU, Name')
+                  .in('IngredientSKU', allSKUs);
+                (nameData || []).forEach(row => {
+                  ingredientNameMap[row.IngredientSKU] = row.Name || row.IngredientSKU;
+                });
+              }
               // Get current user's display_name for Updated_By
               let updatedBy = 'Unknown User';
               try {
@@ -1338,12 +1353,13 @@
                       .update({ "Quantity(Lbs/Units)": newQty })
                       .eq('IngredientSKU', ing.sku);
                     // Log to IngredientLog
+                    const logOrderNum = orderDetails.OrderNumber || orderId || 'unknown';
                     const logEntry = {
                       ChangeTime: new Date().toISOString(),
                       IngredientSKU: ing.sku,
                       QuantityChanged: -removalAmount,
                       Updated_By: updatedBy,
-                      Log: `Removed ${removalAmount} from ${ingredientNameMap[ing.sku] || ing.sku} (${ing.sku}) for scheduled order ${orderDetails.OrderNumber}`
+                      Log: `Removed ${removalAmount} from ${ingredientNameMap[ing.sku] || ing.sku} (${ing.sku}) for scheduled order ${logOrderNum}`
                     };
                     await supabase.from('IngredientLog').insert([logEntry]);
                     if (!updateError) {
@@ -1359,7 +1375,7 @@
                   }
                 } catch (e) {
                   rowStatus.status = 'error';
-                  rowStatus.message = `Exception for ${ing.sku}: ${e.message}`;
+                  rowStatus.message = `Exception for ${ingredientNameMap[ing.sku] || ing.sku} (${ing.sku}): ${e.message}`;
                 }
                 modalResults.push(rowStatus);
               }
@@ -1380,12 +1396,13 @@
                         .update({ "Quantity(Lbs/Units)": newQty })
                         .eq('IngredientSKU', containerSKU);
                       // Log to IngredientLog
+                      const logOrderNum = orderDetails.OrderNumber || orderId || 'unknown';
                       const logEntry = {
                         ChangeTime: new Date().toISOString(),
                         IngredientSKU: containerSKU,
                         QuantityChanged: -1,
                         Updated_By: updatedBy,
-                        Log: `Removed 1 from ${containerSKU} (container) for scheduled order ${orderDetails.OrderNumber}`
+                        Log: `Removed 1 from ${ingredientNameMap[containerSKU] || containerSKU} (container) for scheduled order ${logOrderNum}`
                       };
                       await supabase.from('IngredientLog').insert([logEntry]);
                       if (!updateError) {
