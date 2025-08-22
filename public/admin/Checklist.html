@@ -93,6 +93,28 @@
     }
     .status-complete { color: #27ae60; }
     .status-incomplete { color: #e74c3c; }
+    .section-header {
+      background: #f1f5f9;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .collapse-arrow {
+      display: inline-block;
+      transition: transform 0.2s;
+      font-size: 1.2rem;
+    }
+    .section-title {
+      font-weight: 600;
+      color: #374151;
+    }
+    .table-container {
+      margin-bottom: 2rem;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/Assets/CheckAccess.js"></script>
@@ -138,49 +160,59 @@
         </form>
       </div>
     </div>
-    <table class="checklist-table" id="checklistTable">
-      <thead>
-        <tr>
-          <th>Done</th>
-          <th>Task</th>
-          <th>Priority</th>
-          <th>User</th>
-          <th>Deadline</th>
-          <th>Remove</th>
-        </tr>
-      </thead>
-      <tbody id="checklistTableBody">
-        <!-- Incomplete tasks will be loaded here -->
-      </tbody>
-    </table>
-
-    <button id="toggleCompletedBtn" style="margin-bottom:1rem; background:#e2e8f0; color:#374151; border:none; border-radius:6px; padding:0.6em 1.2em; font-size:1em; cursor:pointer;">Show Completed Tasks ▼</button>
-    <div id="completedTasksSection" style="display:none;">
-      <table class="checklist-table" id="completedChecklistTable">
-        <thead>
-          <tr>
-            <th>Done</th>
-            <th>Task</th>
-            <th>Priority</th>
-            <th>Assigned To</th>
-            <th>Deadline</th>
-            <th>Remove</th>
-          </tr>
-        </thead>
-        <tbody id="completedChecklistTableBody">
-          <!-- Completed tasks will be loaded here -->
-        </tbody>
-      </table>
+    <div id="incompleteSection" style="margin-top:2rem;">
+      <div class="section-header" id="header-incomplete">
+        <span><span class="collapse-arrow">&#9654;</span><span class="section-title">Incomplete Tasks</span></span>
+      </div>
+      <div class="table-container" id="table-incomplete">
+        <table class="checklist-table" id="incompleteTable">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Priority</th>
+              <th>Assigned To</th>
+              <th>Assigned By</th>
+              <th>Deadline</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="incompleteTableBody">
+            <!-- Incomplete tasks will be loaded here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div id="awaitingConfirmationSection" style="margin-top:2rem;">
+      <div class="section-header" id="header-awaitingConfirmation">
+        <span><span class="collapse-arrow">&#9654;</span><span class="section-title">Awaiting Confirmation</span></span>
+      </div>
+      <div class="table-container" id="table-awaitingConfirmation">
+        <table class="checklist-table" id="awaitingConfirmationTable">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Priority</th>
+              <th>Assigned To</th>
+              <th>Assigned By</th>
+              <th>Deadline</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="awaitingConfirmationTableBody">
+            <!-- Awaiting confirmation tasks will be loaded here -->
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
   <script>
 // Use shared admin/employee check and inactivity timeout
     checkPermissions(['service_role','employee']);
-    setupInactivityTimeout(10);    async function fetchTasks() {
+    setupInactivityTimeout(10);    
+    async function fetchTasks() {
       const { data, error } = await supabase
         .from('Checklist')
         .select('*')
-        .order('created_at', { ascending: false });
       if (error) {
         alert('Failed to fetch tasks: ' + error.message);
         return [];
@@ -208,7 +240,6 @@
         alert('Failed to update task: ' + error.message);
       }
     }
-
     async function removeTask(id) {
       const { error } = await supabase
         .from('Checklist')
@@ -218,90 +249,69 @@
         alert('Failed to remove task: ' + error.message);
       }
     }
-
-    function renderTasks(tasks) {
-      const tbody = document.getElementById('checklistTableBody');
-      const completedTbody = document.getElementById('completedChecklistTableBody');
+    function renderIncompleteTasks(tasks) {
+      const tbody = document.getElementById('incompleteTableBody');
       tbody.innerHTML = '';
-      completedTbody.innerHTML = '';
-      // Sort by priority (High > Medium > Low), then deadline (closest first), then task name (A-Z)
-      const priorityOrder = { 'High': 3, 'Medium': 2, 'Low': 1, '': 0, null: 0, undefined: 0 };
-      tasks.sort((a, b) => {
-        // Priority
-        const prioDiff = (priorityOrder[b.Priority] || 0) - (priorityOrder[a.Priority] || 0);
-        if (prioDiff !== 0) return prioDiff;
-        // Deadline (null/empty goes last)
-        const aDeadline = a.Deadline ? new Date(a.Deadline) : null;
-        const bDeadline = b.Deadline ? new Date(b.Deadline) : null;
-        if (aDeadline && bDeadline) {
-          if (aDeadline.getTime() !== bDeadline.getTime()) {
-            return aDeadline.getTime() - bDeadline.getTime();
-          }
-        } else if (aDeadline && !bDeadline) {
-          return -1;
-        } else if (!aDeadline && bDeadline) {
-          return 1;
-        }
-        // Task name A-Z
-        const aTask = (a.Task || '').toLowerCase();
-        const bTask = (b.Task || '').toLowerCase();
-        if (aTask < bTask) return -1;
-        if (aTask > bTask) return 1;
-        return 0;
-      });
       for (const task of tasks) {
         const tr = document.createElement('tr');
-        const checked = task.Status && task.Status.toLowerCase() === 'complete' ? 'checked' : '';
-        // Priority icon logic
-        let priorityIcon = '';
-        if (task.Priority === 'High') {
-          priorityIcon = '<i class="cil-alarm" style="color:#e74c3c;font-size:1.2em;" title="High"></i>';
-        } else if (task.Priority === 'Medium') {
-          priorityIcon = '<i class="cil-warning" style="color:#f1c40f;font-size:1.2em;" title="Medium"></i>';
-        } else if (task.Priority === 'Low') {
-          priorityIcon = '<i class="cil-chevron-circle-down-alt" style="color:#27ae60;font-size:1.2em;" title="Low"></i>';
-        } else {
-          priorityIcon = '';
-        }
         const deadline = task.Deadline ? new Date(task.Deadline).toLocaleDateString() : '';
         tr.innerHTML = `
-          <td style="text-align:center;"><input type="checkbox" class="status-checkbox" data-id="${task.id}" ${checked}></td>
           <td>${task.Task || ''}</td>
-          <td style="text-align:center;">${priorityIcon}</td>
+          <td>${task.Priority || ''}</td>
           <td>${task.AssignedTo || ''}</td>
+          <td>${task.AssignedBy || ''}</td>
           <td>${deadline}</td>
-          <td><button title="Remove Task" class="remove-task-btn" data-id="${task.id}" style="background:#e74c3c;"><i class="cil-trash"></i></button></td>
+          <td><button class="mark-awaiting-btn" data-id="${task.id}" title="Mark Awaiting Confirmation" style="background:#4dba93;color:white;border:none;border-radius:6px;padding:0.5rem 1rem;font-size:1.2rem;cursor:pointer;"><span style="font-size:1.3em;">&#10003;</span></button></td>
         `;
-        if (checked) {
-          completedTbody.appendChild(tr);
-        } else {
-          tbody.appendChild(tr);
-        }
+        tbody.appendChild(tr);
       }
-      // Checkbox event listeners (for both tables)
-      document.querySelectorAll('.status-checkbox').forEach(cb => {
-        cb.addEventListener('change', async function() {
+      // Add event listeners for Mark Awaiting Confirmation
+      document.querySelectorAll('.mark-awaiting-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
           const id = this.getAttribute('data-id');
-          const newStatus = this.checked ? 'Complete' : 'Incomplete';
-          await updateTaskStatus(id, newStatus);
+          await updateTaskStatus(id, 'Awaiting Confirmation');
           loadTasks();
         });
       });
-      // Remove button event listeners (for both tables)
-      document.querySelectorAll('.remove-task-btn').forEach(btn => {
+    }
+    function renderAwaitingConfirmationTasks(tasks) {
+      const tbody = document.getElementById('awaitingConfirmationTableBody');
+      tbody.innerHTML = '';
+      for (const task of tasks) {
+        const tr = document.createElement('tr');
+        const deadline = task.Deadline ? new Date(task.Deadline).toLocaleDateString() : '';
+        let actionCell = '';
+        if (task.AssignedBy === CurrentUserDisplayName) {
+          actionCell = `<button class="confirm-complete-btn" data-id="${task.id}">Confirm Complete</button>`;
+        }
+        tr.innerHTML = `
+          <td>${task.Task || ''}</td>
+          <td>${task.Priority || ''}</td>
+          <td>${task.AssignedTo || ''}</td>
+          <td>${task.AssignedBy || ''}</td>
+          <td>${deadline}</td>
+          <td>${actionCell}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+      // Add event listeners for Confirm Complete
+      document.querySelectorAll('.confirm-complete-btn').forEach(btn => {
         btn.addEventListener('click', async function() {
           const id = this.getAttribute('data-id');
-          if (confirm('Are you sure you want to remove this task?')) {
-            await removeTask(id);
-            loadTasks();
-          }
+          // Remove task from table by deleting from database
+          await removeTask(id);
+          loadTasks();
         });
       });
     }
-
     async function loadTasks() {
       const tasks = await fetchTasks();
-      renderTasks(tasks);
+      // Only show tasks with status 'Incomplete' in Incomplete Table
+      const incompleteTasks = tasks.filter(t => t.Status === 'Incomplete');
+      renderIncompleteTasks(incompleteTasks);
+      // Only show tasks with status 'Awaiting Confirmation' in Awaiting Confirmation Table
+      const awaitingTasks = tasks.filter(t => t.Status === 'Awaiting Confirmation');
+      renderAwaitingConfirmationTasks(awaitingTasks);
     }
 
 
@@ -338,9 +348,10 @@
         Task: document.getElementById('task').value.trim(),
         Priority: document.getElementById('priority').value,
         AssignedTo: assignedObj.display_name,
-        UserID: [assignedObj.id],
+        AssignedBy: CurrentUserDisplayName,
+        UserID: [assignedObj.id, CurrentUserID],
         Deadline: document.getElementById('Deadline').value || null,
-        Status: 'Incomplete'
+        Status: 'Incomplete',
       };
       if (!task.Task) {
         alert('Please enter a task description.');
@@ -350,6 +361,8 @@
       if (success) {
         document.getElementById('addTaskForm').reset();
         loadTasks();
+        // Close modal after adding task
+        document.getElementById('addTaskModal').style.display = 'none';
       }
     };
 
@@ -357,11 +370,13 @@
     const toggleCompletedBtn = document.getElementById('toggleCompletedBtn');
     const completedSection = document.getElementById('completedTasksSection');
     let completedVisible = false;
-    toggleCompletedBtn.addEventListener('click', function() {
-      completedVisible = !completedVisible;
-      completedSection.style.display = completedVisible ? '' : 'none';
-      toggleCompletedBtn.textContent = completedVisible ? 'Hide Completed Tasks ▲' : 'Show Completed Tasks ▼';
-    });
+    if (toggleCompletedBtn && completedSection) {
+      toggleCompletedBtn.addEventListener('click', function() {
+        completedVisible = !completedVisible;
+        completedSection.style.display = completedVisible ? '' : 'none';
+        toggleCompletedBtn.textContent = completedVisible ? 'Hide Completed Tasks ▲' : 'Show Completed Tasks ▼';
+      });
+    }
 
     // Modal logic for Add Task
     const openAddTaskModalBtn = document.getElementById('openAddTaskModalBtn');
@@ -377,6 +392,56 @@
     addTaskModal.onclick = function(e) {
       if (e.target === addTaskModal) addTaskModal.style.display = 'none';
     };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Collapsible Incomplete Table
+      let incompleteCollapsed = false;
+      const incompleteHeader = document.getElementById('header-incomplete');
+      const incompleteTableContainer = document.getElementById('table-incomplete');
+      const incompleteArrow = incompleteHeader ? incompleteHeader.querySelector('.collapse-arrow') : null;
+      if (incompleteHeader && incompleteTableContainer && incompleteArrow) {
+        incompleteHeader.addEventListener('click', function() {
+          incompleteCollapsed = !incompleteCollapsed;
+          if (incompleteCollapsed) {
+            incompleteTableContainer.style.display = 'none';
+            incompleteHeader.classList.add('collapsed');
+            incompleteArrow.style.transform = 'rotate(-90deg)';
+          } else {
+            incompleteTableContainer.style.display = '';
+            incompleteHeader.classList.remove('collapsed');
+            incompleteArrow.style.transform = '';
+          }
+        });
+        // Expanded by default
+        incompleteTableContainer.style.display = '';
+        incompleteHeader.classList.remove('collapsed');
+        incompleteArrow.style.transform = '';
+      }
+
+      // Collapsible Awaiting Confirmation Table
+      let awaitingCollapsed = false;
+      const awaitingHeader = document.getElementById('header-awaitingConfirmation');
+      const awaitingTableContainer = document.getElementById('table-awaitingConfirmation');
+      const awaitingArrow = awaitingHeader ? awaitingHeader.querySelector('.collapse-arrow') : null;
+      if (awaitingHeader && awaitingTableContainer && awaitingArrow) {
+        awaitingHeader.addEventListener('click', function() {
+          awaitingCollapsed = !awaitingCollapsed;
+          if (awaitingCollapsed) {
+            awaitingTableContainer.style.display = 'none';
+            awaitingHeader.classList.add('collapsed');
+            awaitingArrow.style.transform = 'rotate(-90deg)';
+          } else {
+            awaitingTableContainer.style.display = '';
+            awaitingHeader.classList.remove('collapsed');
+            awaitingArrow.style.transform = '';
+          }
+        });
+        // Expanded by default
+        awaitingTableContainer.style.display = '';
+        awaitingHeader.classList.remove('collapsed');
+        awaitingArrow.style.transform = '';
+      }
+    });
 
     // Initial load
     loadTasks();

@@ -14,6 +14,10 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   }
 });
 
+// Global variables for current user info
+var CurrentUserID = '';
+var CurrentUserDisplayName = '';
+
 /**
  * Checks if the current user has one of the allowed roles. Redirects or throws if not.
  * @param {string[]} allowedRoles - Array of allowed role strings (e.g., ['service_role', 'employee'])
@@ -27,6 +31,9 @@ async function checkPermissions(allowedRoles) {
   }
   const { data: { user } } = await supabase.auth.getUser();
   window.user = user;
+  // Set global user info
+  CurrentUserID = user?.id || '';
+  CurrentUserDisplayName = user?.user_metadata?.display_name || '';
   const userRole = user?.user_metadata?.role;
   if (userRole === 'newuser') {
     window.location.href = '/PendingApproval.html';
