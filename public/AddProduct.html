@@ -343,17 +343,28 @@
         }
 
         // Populate all form fields
-        document.getElementById('ProductSKU').value = product.ProductSKU; 
-        document.getElementById('Name').value = product.Name || '';
-        document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
-        document.getElementById('Customer').value = product.Retailer || '';
-        document.getElementById('ShelfLife').value = product.ShelfLife || '';
-        document.getElementById('PackSize').value = product['Pack Size'] || '';
-        document.getElementById('Quantity').value = product.Quantity || '';
-        document.getElementById('ReservedQuantity').value = product.ReserveQuantity || '';
-        document.getElementById('MSRP').value = product.MSRP || '';
-        document.getElementById('ASIN').value = product.ASIN || '';
-        document.getElementById('FNSKU').value = product.FNSKU || '';
+        const skuElem = document.getElementById('ProductSKU');
+        const nameElem = document.getElementById('Name');
+        const sizeElem = document.getElementById('ProductSize');
+        const customerElem = document.getElementById('Customer');
+        const shelfLifeElem = document.getElementById('ShelfLife');
+        const packSizeElem = document.getElementById('PackSize');
+        const quantityElem = document.getElementById('Quantity');
+        const reservedElem = document.getElementById('ReservedQuantity');
+        const msrpElem = document.getElementById('MSRP');
+        const asinElem = document.getElementById('ASIN');
+        const fnskuElem = document.getElementById('FNSKU');
+        if (skuElem) skuElem.value = product.ProductSKU;
+        if (nameElem) nameElem.value = product.Name || '';
+        if (sizeElem) sizeElem.value = product['Product Weight(oz)'] || '';
+        if (customerElem) customerElem.value = product.Retailer || '';
+        if (shelfLifeElem) shelfLifeElem.value = product.ShelfLife || '';
+        if (packSizeElem) packSizeElem.value = product['Pack Size'] || '';
+        if (quantityElem) quantityElem.value = product.Quantity || '';
+        if (reservedElem) reservedElem.value = product.ReserveQuantity || '';
+        if (msrpElem) msrpElem.value = product.MSRP || '';
+        if (asinElem) asinElem.value = product.ASIN || '';
+        if (fnskuElem) fnskuElem.value = product.FNSKU || '';
 
         statusMsg.textContent = 'Product data loaded successfully! You can now modify and save as a new product.';
         statusMsg.className = 'status success';
@@ -399,28 +410,8 @@
       statusMsg.className = 'status';
       
       // Get current user ID and display_name from user metadata
-      let displayName = '';
-      let userId = '';
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData && userData.user) {
-          userId = userData.user.id;
-          if (userData.user.user_metadata && userData.user.user_metadata.display_name) {
-            displayName = userData.user.user_metadata.display_name;
-          }
-        }
-      } catch (e) {
-        console.error('Error getting user data:', e);
-        statusMsg.textContent = 'Error: Unable to get user information';
-        statusMsg.className = 'status error';
-        return;
-      }
-
-      if (!userId) {
-        statusMsg.textContent = 'Error: User not authenticated';
-        statusMsg.className = 'status error';
-        return;
-      }
+      let displayName = CurrentUserDisplayName;
+      let userId = CurrentUserID;
 
       const data = {
         ProductSKU: document.getElementById('ProductSKU').value.trim(),
