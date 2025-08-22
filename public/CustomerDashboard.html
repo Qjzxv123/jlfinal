@@ -653,15 +653,10 @@
 
           <!-- Task Checklist -->
           <div class="section-card">
-            <div class="section-header">
-              <h2 class="section-title">My Tasks</h2>
-            </div>
-            <div class="activity-list" id="checklistItems">
-              <div class="loading-state">
-                <div class="loading-spinner"></div>
-                <p>Loading tasks...</p>
-              </div>
-            </div>
+            
+            <!-- Dynamic counts -->
+            <div id="tasksToReviewCount" style="font-weight: 600; color: #2d3748; margin-top: 10px;"></div>
+            <div id="incompleteTasksCount" style="font-weight: 600; color: #2d3748; margin-top: 5px;"></div>
           </div>
         </div>
       </div>
@@ -972,6 +967,26 @@
       }
     }
 
+    // Replace "My tasks" with dynamic counts
+    async function updateTaskCounts() {
+      // Fetch all tasks
+      const { data, error } = await supabase
+        .from('Checklist')
+        .select('*');
+      if (error) return;
+      // Get current user's display name
+      const currentUserDisplayName = window.CurrentUserDisplayName || '';
+      // Tasks to Review: AssignedBy = current user, Status = Awaiting Confirmation
+      const reviewCount = (data || []).filter(t => t.AssignedBy === currentUserDisplayName && t.Status === 'Awaiting Confirmation').length;
+      // Incomplete Tasks: AssignedTo = current user, Status = Incomplete
+      const incompleteCount = (data || []).filter(t => t.AssignedTo === currentUserDisplayName && t.Status === 'Incomplete').length;
+      // Update UI
+      const reviewElem = document.getElementById('tasksToReviewCount');
+      const incompleteElem = document.getElementById('incompleteTasksCount');
+      if (reviewElem) reviewElem.textContent = `Tasks to Review: ${reviewCount}`;
+      if (incompleteElem) incompleteElem.textContent = `Incomplete Tasks: ${incompleteCount}`;
+    }
+
     async function showNotificationSettings() {
       try {
         // Get current user notification preferences
@@ -1185,6 +1200,14 @@
         modal.remove();
       }
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize dashboard on load
+      initializeDashboard();
+      
+      // Update task counts
+      updateTaskCounts();
+    });
   </script>
 </body>
 </html>
