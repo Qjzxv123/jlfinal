@@ -122,8 +122,8 @@
     <div class="dashboard-container">
       <div class="dashboard-header">
         <h1>Admin Dashboard</h1>
-        <div id="ordersCount" style="font-size:1.2rem;font-weight:600;margin-top:10px;"></div>
       </div>
+      <div id="ordersCount" style="font-size:1.2rem;font-weight:600;margin-top:10px;"></div>
       <div id="adminSections"></div>
     </div>
   </div>
@@ -143,18 +143,33 @@
         await renderCollapsableTable(section);
       }
       await renderLowInventorySection();
+      warnIfTasksToReview();
     });
     async function loadOrdersCount() {
-      const ordersCountDiv = document.getElementById('ordersCount');
-      ordersCountDiv.innerHTML = '<span class="loading-spinner"></span> Loading order count...';
+      let banner = document.getElementById('ordersCountBanner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'ordersCountBanner';
+        banner.style.background = '#e3f6fc';
+        banner.style.color = '#155a7a';
+        banner.style.border = '1px solid #b6e0fe';
+        banner.style.padding = '1em';
+        banner.style.margin = '1em 0';
+        banner.style.borderRadius = '8px';
+        banner.style.fontWeight = '600';
+        banner.style.textAlign = 'center';
+        banner.style.fontSize = '1.1em';
+        document.querySelector('.dashboard-container').prepend(banner);
+      }
+      banner.innerHTML = '<span class="loading-spinner"></span> Loading order count...';
       try {
         const { count, error } = await supabase
           .from('Orders')
           .select('OrderID', { count: 'exact', head: true });
         if (error) throw error;
-        ordersCountDiv.textContent = `Active Ecommerce Orders: ${count ?? 0}`;
+        banner.textContent = `Active Ecommerce Orders: ${count ?? 0}`;
       } catch (e) {
-        ordersCountDiv.textContent = 'Unable to load order count';
+        banner.textContent = 'Unable to load order count';
       }
     }
     async function renderCollapsableTable(section) {
@@ -319,6 +334,29 @@
         ingTableContainer.innerHTML = table;
       } catch (e) {
         ingTableContainer.innerHTML = '<div class="empty-state">Unable to load data</div>';
+      }
+    }
+    // Notification banner for tasks to review
+function showTasksToReviewBanner(count) {
+  let banner = document.getElementById('tasksToReviewBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.style.cssText = `background: #fff3cd;color: #856404;border: 1px solid #ffeeba;padding: 1em; margin: 1em 0;border-radius: 8px;font-weight: 600;text-align: center;font-size: 1.1em;`;
+    banner.id = 'tasksToReviewBanner';
+    document.querySelector('.dashboard-container').prepend(banner);
+  }
+  banner.textContent = `You have ${count} task(s) awaiting your confirmation in the checklist.`;
+}
+    async function warnIfTasksToReview() {
+      const currentUserDisplayName = window.CurrentUserDisplayName || '';
+      const { data, error } = await supabase
+        .from('Checklist')
+        .select('*')
+        .eq('AssignedBy', currentUserDisplayName)
+        .eq('Status', 'Awaiting Confirmation');
+      if (error) return;
+      if ((data || []).length > 0) {
+        showTasksToReviewBanner(data.length);
       }
     }
   </script>
