@@ -517,6 +517,7 @@
                     <span class="platform-badge platform-amazon">Amazon</span>
                     <span id="amazonCount">0</span>
                 </div>
+                <div class="summary-item" id="retailerSummary"></div>
             </div>            <div class="orders-grid" id="ordersGrid">
                 <div class="no-orders">
                     <h3>Ready to load orders</h3>
@@ -861,6 +862,23 @@ function populateRetailerDropdown() {
             document.getElementById('shopifyCount').textContent = counts.shopify;
             document.getElementById('shopifyTiktokCount').textContent = counts.shopifyTiktok;
             document.getElementById('amazonCount').textContent = counts.amazon;
+
+            // Count orders per retailer
+            const retailerCounts = {};
+            filteredOrders.forEach(order => {
+                if (order.shop) {
+                    retailerCounts[order.shop] = (retailerCounts[order.shop] || 0) + 1;
+                }
+            });
+            const retailerSummaryDiv = document.getElementById('retailerSummary');
+            if (Object.keys(retailerCounts).length > 0) {
+                retailerSummaryDiv.innerHTML =
+                    Object.entries(retailerCounts)
+                        .map(([retailer, count]) => `<span style="margin-right:10px;"><b>${retailer}</b>: ${count}</span>`)
+                        .join('');
+            } else {
+                retailerSummaryDiv.innerHTML = '';
+            }
         }        function toggleProducts(orderNumber) {
             const productsList = document.getElementById(`products-${orderNumber}`);
             const toggle = productsList.previousElementSibling;
