@@ -690,7 +690,6 @@
         await Promise.all([
           loadUserInfo(),
           loadProducts(),
-          loadChecklist(),
           checkInventoryLevels()
         ]);        
       } catch (error) {
@@ -867,105 +866,8 @@
           </div>
         </div>
       `).join('');
-      
-      // Since we're showing all warnings, no need for a "View All" link
     }
 
-    async function loadChecklist() {
-      if (!currentUser) return;
-      
-      try {
-        // Get checklist items assigned to current user
-        const { data, error } = await supabase
-          .from('Checklist')
-          .select('*')
-          .overlaps('UserID', [currentUser.id])
-          .order('Priority', { ascending: false })
-          .order('Deadline', { ascending: true });
-          
-        if (error) throw error;
-        
-        renderChecklist(data || []);
-        
-      } catch (error) {
-        console.error('Error loading checklist:', error);
-        document.getElementById('checklistItems').innerHTML = `
-          <div class="empty-state">
-            <i class="cil-list" style="font-size: 2rem; margin-bottom: 10px; color: #a0aec0;"></i>
-            <p>Unable to load tasks</p>
-          </div>
-        `;
-      }
-    }
-
-    function renderChecklist(tasks) {
-      const container = document.getElementById('checklistItems');
-      
-      // Filter to only show incomplete tasks
-      const incompleteTasks = tasks.filter(task => {
-        const status = task.Status || 'Incomplete';
-        return status === 'Incomplete';
-      });
-      
-      if (incompleteTasks.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <i class="cil-check-circle" style="font-size: 2rem; margin-bottom: 10px; color: #059669;"></i>
-            <p>No incomplete tasks</p>
-          </div>
-        `;
-        return;
-      }
-      
-      // Sort tasks by priority and deadline
-      const sortedTasks = incompleteTasks.sort((a, b) => {
-        // Priority: High > Medium > Low
-        const priorityOrder = { 'High': 0, 'Medium': 1, 'Low': 2 };
-        const priorityDiff = (priorityOrder[a.Priority] || 2) - (priorityOrder[b.Priority] || 2);
-        if (priorityDiff !== 0) return priorityDiff;
-        
-        // Deadline: earlier first
-        if (a.Deadline && b.Deadline) {
-          return new Date(a.Deadline) - new Date(b.Deadline);
-        }
-        return 0;
-      });
-      
-      container.innerHTML = sortedTasks.slice(0, 8).map(task => {
-        const priority = task.Priority || 'Low';
-        const deadline = task.Deadline ? new Date(task.Deadline).toLocaleDateString() : 'No deadline';
-        
-        // Priority indicator
-        const priorityColor = priority === 'High' ? '#dc2626' : priority === 'Medium' ? '#d97706' : '#059669';
-        
-        return `
-          <div class="activity-item">
-            <div class="activity-content" style="margin-left: 0; width: 100%;">
-              <div class="activity-title" style="display: flex; align-items: center; justify-content: space-between;">
-                <span>${task.Task || 'Untitled Task'}</span>
-                <span style="background: ${priorityColor}; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
-                  ${priority}
-                </span>
-              </div>
-              <div class="activity-description">
-                Due: ${deadline}
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-      
-      // Add view all link if there are more tasks
-      if (incompleteTasks.length > 8) {
-        container.innerHTML += `
-          <div style="text-align: center; margin-top: 15px;">
-            <a href="CustomerChecklist.html" style="color: #4dba93; text-decoration: none; font-weight: 600;">
-              View All ${incompleteTasks.length} Incomplete Tasks →
-            </a>
-          </div>
-        `;
-      }
-    }
 
     // Replace "My tasks" with dynamic counts
     async function updateTaskCounts() {
@@ -983,7 +885,7 @@
       // Update UI
       const reviewElem = document.getElementById('tasksToReviewCount');
       const incompleteElem = document.getElementById('incompleteTasksCount');
-      if (reviewElem) reviewElem.textContent = `Tasks to Review: ${reviewCount}`;
+      if (reviewElem) reviewElem.textContent = `Tasks Awaiting Your Approval: ${reviewCount}`;
       if (incompleteElem) incompleteElem.textContent = `Incomplete Tasks: ${incompleteCount}`;
     }
 
