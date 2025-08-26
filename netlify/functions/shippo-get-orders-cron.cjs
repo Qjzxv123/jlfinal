@@ -6,7 +6,7 @@ exports.handler = async (event) => {
   // Clear Orders table before inserting new ones
   const { createClient } = require('@supabase/supabase-js');
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-  await supabase.from('Orders').delete().neq('Platform', 'Faire');
+  await supabase.from('Orders').delete().neq('Platform', 'Faire').eq("Notes", null).eq("CustomerMessages", null);
   console.log('[Shippo Cron] Function invoked');
 
   const SHIPPO_API_KEY = process.env.SHIPPO_API_KEY;
