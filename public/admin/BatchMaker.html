@@ -3,6 +3,7 @@
 <head>
   <title>Batch Maker - Ingredient Subtraction</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <link rel="stylesheet" href="/Assets/sidebar.css">
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -13,98 +14,7 @@
       display: flex;
       color: #333;
     }
-    
-    /* Sidebar Styles */
-    .sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 60px;
-      height: 100vh;
-      background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
-      color: white;
-      z-index: 1000;
-      transition: width 0.3s ease;
-      overflow-x: hidden;
-      overflow-y: hidden;
-      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-    }
-    
-    .sidebar:hover {
-      width: 250px;
-    }
-    
-    .sidebar-header {
-      padding-top: 0.75rem;
-      border-bottom: 1px solid #34495e;
-      text-align: center;
-      white-space: nowrap;
-    }
-    
-    .sidebar-header h2 {
-      margin: 0;
-      font-size: 1rem;
-      color: #ecf0f1;
-      opacity: 1;
-      transition: opacity 0.3s ease;
-    }
-    
-    .sidebar:not(:hover) .sidebar-header h2 {
-      opacity: 0;
-    }
-    
-    .sidebar:hover .sidebar-header h2 {
-      font-size: 1.3rem;
-    }
-    
-    .sidebar-nav {
-      padding: 0.5rem 0;
-    }
-    
-    .nav-item {
-      display: flex;
-      align-items: center;
-      padding: 0.5rem;
-      color: #ecf0f1;
-      text-decoration: none;
-      transition: all 0.3s ease;
-      border-left: 3px solid transparent;
-      white-space: nowrap;
-    }
-    
-    .nav-item:hover {
-      background: rgba(255,255,255,0.1);
-      border-left-color: #4DBA93;
-      color: white;
-    }
-    
-    .nav-item.active {
-      background: rgba(77,186,147,0.2);
-      border-left-color: #4DBA93;
-      color: white;
-    }
-    
-    .nav-item i {
-      margin-right: 0.5rem;
-      width: 20px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-    
-    .nav-item span {
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    
-    .sidebar:hover .nav-item span {
-      opacity: 1;
-    }
-    
-    .sidebar:hover .nav-item {
-      padding: 0.5rem 1.5rem;
-    }
-    
-    /* Main content adjustments */
+    /* Only non-sidebar, non-shared styles remain here */
     .main-content {
       margin-left: 60px;
       transition: margin-left 0.3s ease;
@@ -210,8 +120,7 @@
       color: #4DBA93;
       font-weight: 600;
     }
-    
-    /* Modal styles for adding missing ingredients */
+    /* Modal styles for adding missing ingredients, etc. remain here */
     .modal {
       display: none;
       position: fixed;
@@ -222,7 +131,6 @@
       height: 100%;
       background-color: rgba(0,0,0,0.5);
     }
-    
     .modal-content {
       background-color: #fff;
       margin: 5% auto;
@@ -232,25 +140,21 @@
       max-width: 500px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.2);
     }
-    
     .modal-header {
       margin-bottom: 1.5rem;
       color: #2c3e50;
       font-size: 1.2rem;
       font-weight: 600;
     }
-    
     .modal-form-group {
       margin: 1rem 0;
     }
-    
     .modal-form-group label {
       display: block;
       margin-bottom: 0.5rem;
       font-weight: 600;
       color: #2c3e50;
     }
-    
     .modal-form-group input {
       width: 100%;
       padding: 0.75rem;
@@ -261,19 +165,16 @@
       box-sizing: border-box;
       transition: border-color 0.3s ease;
     }
-    
     .modal-form-group input:focus {
       outline: none;
       border-color: #4DBA93;
     }
-    
     .modal-buttons {
       display: flex;
       justify-content: flex-end;
       gap: 1rem;
       margin-top: 2rem;
     }
-    
     .modal-btn {
       padding: 0.75rem 1.5rem;
       border: none;
@@ -284,22 +185,18 @@
       transition: all 0.3s ease;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    
     .modal-btn:hover {
       transform: translateY(-1px);
       box-shadow: 0 3px 6px rgba(0,0,0,0.2);
     }
-    
     .modal-btn-cancel {
       background: #6b7280;
       color: white;
     }
-    
     .modal-btn-save {
       background: #4DBA93;
       color: white;
     }
-    
     .add-ingredient-btn {
       background: #f59e0b;
       color: white;
@@ -311,17 +208,14 @@
       cursor: pointer;
       margin-left: 1rem;
     }
-    
     .add-ingredient-btn:hover {
       background: #d97706;
     }
-    
-    /* Ingredient dropdown styles */
+    /* Ingredient dropdown styles, etc. remain here */
     .ingredient-dropdown-container {
       position: relative;
       width: 100%;
     }
-    
     .ingredient-search {
       width: 100%;
       padding: 0.75rem;
@@ -331,13 +225,11 @@
       font-size: 1rem;
       box-sizing: border-box;
     }
-    
     .ingredient-search:focus {
       outline: none;
       border-color: #4DBA93;
       background: #fff;
     }
-    
     .ingredient-dropdown {
       position: absolute;
       top: 100%;
@@ -352,128 +244,28 @@
       z-index: 1001;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
-    
     .ingredient-dropdown div {
       padding: 0.5rem;
       cursor: pointer;
       border-bottom: 1px solid #e5e7eb;
       transition: background-color 0.2s;
     }
-    
     .ingredient-dropdown div:hover {
       background-color: #f3f4f6;
     }
-    
     .ingredient-dropdown div:last-child {
       border-bottom: none;
     }
-    
-    /* Ingredient table row hover effect */
     .ingredient-row:hover {
       background-color: rgba(255, 255, 255, 0.3) !important;
     }
-    @media (max-width: 600px) {
-      .sidebar {
-        width: 0;
-        overflow: hidden;
-      }
-      
-      .sidebar:hover {
-        width: 250px;
-      }
-      
-      .main-content {
-        margin-left: 0;
-        width: 100%;
-      }
-      
-      #main-container {
-        padding: 1rem;
-        max-width: 98vw;
-        margin-top: 1rem;
-      }
-      .form-group {
-        max-width: 100%;
-      }
-      #output {
-        max-width: 100%;
-      }
-      .modal-content {
-        margin: 1% auto !important;
-        max-height: 95vh !important;
-        width: 98% !important;
-        padding: 1rem !important;
-      }
-      #processJsonEditor {
-        height: 40vh !important;
-        min-height: 250px !important;
-        font-size: 11px !important;
-      }
-      .modal-form-group button {
-        width: 100% !important;
-        margin: 0.25rem 0 !important;
-      }
-      /* Responsive table styles */
-      table {
-        font-size: 0.8rem !important;
-      }
-      th, td {
-        padding: 0.5rem 0.25rem !important;
-      }
-      th:nth-child(1), td:nth-child(1) {
-        min-width: 80px;
-      }
-      th:nth-child(2), td:nth-child(2) {
-        min-width: 60px;
-      }
-      th:nth-child(3), td:nth-child(3) {
-        min-width: 40px;
-      }
-      th:nth-child(4), td:nth-child(4) {
-        min-width: 50px;
-      }
-      th:nth-child(5), td:nth-child(5) {
-        min-width: 50px;
-      }
-      th:nth-child(6), td:nth-child(6) {
-        min-width: 50px;
-      }
-      th:nth-child(7), td:nth-child(7) {
-        min-width: 50px;
-      }
-      .add-ingredient-btn {
-        padding: 0.2rem 0.4rem !important;
-        font-size: 0.7rem !important;
-      }
-    }
   </style>
-  <link rel="icon" href="/Assets/favicon.ico" type="image/x-icon">
+  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
 </head>
 <body>
-  <!-- Sidebar -->
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <h2>J&L Tools</h2>
-    </div>
-    <nav class="sidebar-nav">
-      <a href="BatchMaker.html" class="nav-item active"><i class="cil-factory"></i><span>Batch Maker</span></a>
-      <a href="OrderViewer.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
-      <a href="OrderTracker.html" class="nav-item"><i class="cil-list"></i><span>Order Tracker</span></a>
-      <a href="InventoryUpdater.html" class="nav-item"><i class="cil-chart"></i><span>Inventory Updater</span></a>
-      <a href="ProductIngredientViewer.html" class="nav-item"><i class="cil-columns"></i><span>Product Ingredients</span></a>
-      <a href="AddProductAdmin.html" class="nav-item"><i class="cil-note-add"></i><span>Add/Update Product</span></a>
-      <a href="AddIngredient.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Ingredient</span></a>
-      <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
-      <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
-      <a href="Quoting.html" class="nav-item"><i class="cil-money"></i><span>Product Quoting</span></a>
-      <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
-      <a href="DatabaseViewer.html" class="nav-item"><i class="cil-spreadsheet"></i><span>Database Viewer</span></a>
-      <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
-      <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
-      <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-      <a href="/public/InventoryViewer.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>    
-    </nav>
-  </div>
+  <!-- Sidebar (injected by sidebar.js) -->
+  <div id="sidebar"></div>
+  <script src="/Assets/sidebar.js"></script>
   
   <!-- Main Content -->
   <div class="main-content" id="mainContent">
@@ -517,6 +309,7 @@
       <div class="modal-buttons">
         <button class="modal-btn modal-btn-cancel" onclick="closeAddIngredientModal()">Cancel</button>
         <button class="modal-btn modal-btn-save" onclick="saveNewIngredient()">Add Ingredient</button>
+  <button class="modal-btn modal-btn-save" disabled title="Disabled in informational mode">Add Ingredient</button>
       </div>
     </div>
   </div>
@@ -544,33 +337,17 @@
       <div class="modal-buttons">
         <button class="modal-btn modal-btn-cancel" onclick="closeUpdateQuantityModal()">Cancel</button>
         <button class="modal-btn modal-btn-save" onclick="saveUpdatedQuantity()">Update Quantity</button>
+  <button class="modal-btn modal-btn-save" disabled title="Disabled in informational mode">Update Quantity</button>
       </div>
     </div>
   </div>
-
-
-
-  <script type="module">
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-    
-    const supabaseUrl = 'https://ypvyrophqkfqwpefuigi.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwdnlyb3BocWtmcXdwZWZ1aWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMjQzMjAsImV4cCI6MjA2MzYwMDMyMH0.fDY3ZA-sVDoEK-_CgrgdjlUtVdH3YwULSAKjK9oFRbQ';
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    async function checkAdmin() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = '/public/Login.html';
-        return;
-      }
-      const { data: { user } } = await supabase.auth.getUser();
-      // Adjust this check to match your Supabase user admin logic
-      if (!user || !user.user_metadata || user.user_metadata.role !== 'service_role') {
-        console.log(user.user_metadata);
-        document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied: Admins only</div>';
-        throw new Error('Not admin');
-      }
-    }
-    checkAdmin();
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+  <script>
+    // Use shared admin check and inactivity timeout
+    checkPermissions(['service_role']);
+    setupInactivityTimeout(10);
+    // ...rest of your page logic...
     const output = document.getElementById('output');
     const batchSizeInput = document.getElementById('batchSize');
     const previewBtn = document.getElementById('previewBtn');
@@ -898,6 +675,7 @@
       try {
         // Insert the ingredient in the Ingredients table (fail if SKU exists)
         const { data, error } = await supabase
+    // saveNewIngredient removed: informational only, no DB changes allowed
           .from('Ingredients')
           .insert([{
             'IngredientSKU': sku,
@@ -948,6 +726,7 @@
       try {
         // Update the ingredient quantity in the Ingredients table
         const { error } = await supabase
+    // saveUpdatedQuantity removed: informational only, no DB changes allowed
           .from('Ingredients')
           .update({ 'Quantity(Lbs/Units)': newQuantity })
           .eq('IngredientSKU', sku);
@@ -1036,9 +815,6 @@
         return [];
       }
     }
-
-    // Batch size choice prompt removed
-
     async function previewBatch() {
       const productSKU = productDropdownInstance ? productDropdownInstance.getSKU() : '';
       const batchSize = parseInt(batchSizeInput.value);
@@ -1176,6 +952,7 @@
         for (let phaseIndex = 0; phaseIndex < sortedPhases.length; phaseIndex++) {
           const phase = sortedPhases[phaseIndex];
           const ingredients = ingredientsByPhase.get(phase);
+        // makeBatch removed: informational only, no DB changes allowed
           const phaseColor = phaseColors[phaseIndex % phaseColors.length];
           
           previewHTML += `
@@ -1299,16 +1076,12 @@
             </div>
           `;
           
-          // Only show Make Batch button (scheduling removed)
           previewHTML += `
             <div style="display: flex; align-items: center; justify-content: center; margin: 1rem 0;">
               <button onclick="makeBatch()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; border: none; padding: 1rem 2rem; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(72,187,120,0.3); transition: all 0.3s ease;">Make Batch</button>
             </div>
           `;
 
-    // Schedule Batch Modal logic
-
-    // ...existing code...
         } else {
           previewHTML += `
             <div style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); color: white; padding: 1.5rem; border-radius: 12px; margin: 1.5rem 0; text-align: center; box-shadow: 0 4px 12px rgba(245,101,101,0.3);">
@@ -1406,7 +1179,7 @@
 
         // Generate random lot number (6-digit number)
         batchNumber = Math.floor(100000 + Math.random() * 900000);
-        batchTimestamp = new Date().toISOString();
+        batchTimestamp = new Date().toISOString().substring(0, 10); // YYYY-MM-DD only
 
         // Generate custom lot number with shelf life lookup
         async function generatelotNumber() {
@@ -1459,12 +1232,12 @@
           .from('Products')
           .update({ 
             LastBatchNumber: batchNumber,
-            LastBatch: batchTimestamp
+            LastBatch: batchTimestamp // Already YYYY-MM-DD
           })
           .eq('ProductSKU', currentProduct.ProductSKU);
 
         if (!productUpdateError) {
-          results.push(`<div class="success">📦 Batch Number: ${batchNumber} | Lot Number: ${lotNumber} | Batch Time: ${new Date(batchTimestamp).toLocaleString()}</div>`);
+          results.push(`<div class="success">📦 Batch Number: ${batchNumber} | Lot Number: ${lotNumber} | Batch Date: ${batchTimestamp}</div>`);
 
           // Log the product addition with lot number
           const productLogEntry = `${new Date().toISOString().substring(0, 10)},${currentProduct.ProductSKU},${batchSize},BATCH_PRODUCTION:BATCH${batchNumber}\n`;
@@ -1529,7 +1302,6 @@
               sku,
               batch: batchNumber,
               lot: lotNumber,
-              batchtime: batchTimestamp,
               batchSize: batchSize // Pass batch size through URL
             });
             window.open(('manufacturingInstructions.html' + '?' + params.toString()), '_blank');
@@ -1617,12 +1389,15 @@
     // Make functions globally available
     window.previewBatch = previewBatch;
     window.makeBatch = makeBatch;
+    // window.makeBatch removed: informational only
     window.openAddIngredientModal = openAddIngredientModal;
     window.closeAddIngredientModal = closeAddIngredientModal;
     window.saveNewIngredient = saveNewIngredient;
+    // window.saveNewIngredient removed: informational only
     window.openUpdateQuantityModal = openUpdateQuantityModal;
     window.closeUpdateQuantityModal = closeUpdateQuantityModal;
     window.saveUpdatedQuantity = saveUpdatedQuantity;
+    // window.saveUpdatedQuantity removed: informational only
 
     // Add Enter key support
     batchSizeInput.addEventListener('keypress', function(e) {
