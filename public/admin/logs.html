@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantity Update Logs Viewer</title>
+    <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+    <link rel="stylesheet" href="/Assets/sidebar.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            color: #333;
+        }
+        .main-content {
+            margin-left: 60px;
+            transition: margin-left 0.3s ease;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 32px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 32px;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 40px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 32px;
+        }
+        th, td {
+            border: 1px solid #e1e5e9;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background: #e9ecef;
+            color: #2c3e50;
+        }
+        tr:nth-child(even) {
+            background: #f4f6f8;
+        }
+        .loading, .error {
+            text-align: center;
+            margin: 20px 0;
+            color: #e67e22;
+        }
+        .success {
+            color: #27ae60;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+    <script src="/Assets/CheckAccess.js"></script>
+    <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
+</head>
+<body>
+    <div id="sidebar"></div>
+    <script src="/Assets/sidebar.js"></script>
+    <div class="main-content">
+        <div class="container">
+            <h1>Quantity Update Logs Viewer</h1>
+            <div id="status" class="loading">Loading logs from Supabase...</div>
+            <div style="margin-bottom: 24px; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                <input id="searchBar" type="text" placeholder="Search logs..." style="padding: 0.5rem 1rem; border-radius: 6px; border: 1.5px solid #e1e5e9; font-size: 1rem; min-width: 260px; flex: 1;" />
+                <label style="font-weight:500;">Start Date: <input type="date" id="startDate" style="margin-left:6px;vertical-align:middle;" /></label>
+                <label style="font-weight:500;">End Date: <input type="date" id="endDate" style="margin-left:6px;vertical-align:middle;" /></label>
+            </div>
+            <div style="margin-bottom: 24px;">
+                <button id="tab-ingredient" type="button" style="background:#3498db;color:#fff;border:none;border-radius:6px;padding:8px 24px;cursor:pointer;font-size:1.1rem;margin-right:8px;">Ingredient Log</button>
+                <button id="tab-inventory" type="button" style="background:#e9ecef;color:#2c3e50;border:none;border-radius:6px;padding:8px 24px;cursor:pointer;font-size:1.1rem;">Inventory Update Logs</button>
+            </div>
+            <div id="ingredientLogTab">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <h2 style="margin:0;">Ingredient Logs</h2>
+                </div>
+                <div id="ingredientLogTable"></div>
+            </div>
+            <div id="inventoryUpdateLogsTab" style="display:none;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <h2 style="margin:0;">Product Logs</h2>
+                </div>
+                <div id="inventoryUpdateLogsTable"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+    checkPermissions(['service_role', 'employee']);
+    setupInactivityTimeout(10);
+
+    let allIngredientLogData = [];
+    let allInventoryUpdateLogsData = [];
+
+    async function fetchAndDisplayLogs(tableName, containerId, searchTerm = '') {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '<div class="loading">Loading...</div>';
+        let columns = [];
+        let selectString = '*';
+        let orderCol = '';
+        if (tableName === 'IngredientLog') {
+            columns = ['id', 'ChangeTime', 'IngredientSKU', 'QuantityChanged', 'Updated_By', 'Log'];
+            selectString = 'id,ChangeTime,IngredientSKU,QuantityChanged,Updated_By,Log';
+            orderCol = 'ChangeTime';
+        } else if (tableName === 'inventoryupdatelogs') {
+            columns = ['id', 'created_at', 'SKU', 'QuantityChanged', 'updated_by', 'log'];
+            selectString = 'id,created_at,SKU,QuantityChanged,updated_by,log';
+            orderCol = 'created_at';
+        }
+        try {
+            let query = supabase.from(tableName).select(selectString).order(orderCol, { ascending: false });
+            const { data, error } = await query;
+            if (error) throw error;
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="error">No logs found.</div>';
+                if (tableName === 'IngredientLog') allIngredientLogData = [];
+                if (tableName === 'inventoryupdatelogs') allInventoryUpdateLogsData = [];
+                return;
+            }
+            if (tableName === 'IngredientLog') allIngredientLogData = data;
+            if (tableName === 'inventoryupdatelogs') allInventoryUpdateLogsData = data;
+            renderLogTable(data, columns, container, searchTerm);
+        } catch (err) {
+            container.innerHTML = `<div class="error">Error loading logs: ${err.message}</div>`;
+        }
+    }
+
+    function renderLogTable(data, columns, container, searchTerm = '') {
+        let filtered = data;
+        // Date filter logic
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        let startDate = startDateInput && startDateInput.value ? new Date(startDateInput.value) : null;
+        let endDate = endDateInput && endDateInput.value ? new Date(endDateInput.value) : null;
+        // Use ChangeTime or created_at for filtering
+        let dateCol = columns.includes('ChangeTime') ? 'ChangeTime' : (columns.includes('created_at') ? 'created_at' : null);
+        if (dateCol && (startDate || endDate)) {
+            filtered = filtered.filter(row => {
+                let d = row[dateCol] ? new Date(row[dateCol]) : null;
+                if (!d || isNaN(d.getTime())) return false;
+                if (startDate && d < startDate) return false;
+                if (endDate) {
+                    // Include the whole end day
+                    let endOfDay = new Date(endDate.getTime());
+                    endOfDay.setHours(23,59,59,999);
+                    if (d > endOfDay) return false;
+                }
+                return true;
+            });
+        }
+        if (searchTerm && searchTerm.trim() !== '') {
+            const lower = searchTerm.toLowerCase();
+            filtered = filtered.filter(row =>
+                columns.some(col => (row[col] + '').toLowerCase().includes(lower))
+            );
+        }
+        if (!filtered.length) {
+            container.innerHTML = '<div class="error">No logs found.</div>';
+            return;
+        }
+        // Group by SKU/IngredientSKU
+        let skuKey = columns.includes('IngredientSKU') ? 'IngredientSKU' : 'SKU';
+        let grouped = {};
+        filtered.forEach(row => {
+            let key = row[skuKey] || '(none)';
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(row);
+        });
+        // Build summary table
+        let html = `<table><thead><tr><th>${skuKey}</th><th>Total Quantity Change</th><th>Details</th></tr></thead><tbody>`;
+        Object.keys(grouped).forEach((sku, idx) => {
+            const logs = grouped[sku];
+            const totalQty = logs.reduce((sum, r) => sum + (parseFloat(r.QuantityChanged) || 0), 0);
+            const roundedQty = Math.round(totalQty * 1000) / 1000;
+            const dropdownId = `log-dropdown-${skuKey}-${idx}`;
+            html += `<tr>
+                <td>${sku}</td>
+                <td>${roundedQty}</td>
+                <td><button class="show-details-btn" data-dropdown="${dropdownId}" style="background:#4dba93;color:#fff;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;">Show Details</button></td>
+            </tr>`;
+            // Hidden details table
+            html += `<tr id="${dropdownId}" class="details-row" style="display:none;"><td colspan="3">
+                <table style="width:100%;background:#f8fafc;margin:8px 0;">
+                    <thead><tr>${columns.map(col => `<th>${col}</th>`).join('')}</tr></thead><tbody>`;
+            logs.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    let val = row[col];
+                    // Format ChangeTime for IngredientLog
+                    if (col === 'ChangeTime' && val) {
+                        try {
+                            const d = new Date(val);
+                            if (!isNaN(d.getTime())) {
+                                const yyyy = d.getFullYear();
+                                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                                const dd = String(d.getDate()).padStart(2, '0');
+                                const hh = String(d.getHours()).padStart(2, '0');
+                                const min = String(d.getMinutes()).padStart(2, '0');
+                                const ss = String(d.getSeconds()).padStart(2, '0');
+                                val = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+                            }
+                        } catch (e) {}
+                    }
+                    if (typeof val === 'object' && val !== null) {
+                        val = JSON.stringify(val);
+                    }
+                    html += `<td>${val === null ? '' : val}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table></td></tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        // Add dropdown event listeners
+        setTimeout(() => {
+            container.querySelectorAll('.show-details-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = btn.getAttribute('data-dropdown');
+                    const detailsRow = document.getElementById(id);
+                    if (detailsRow.style.display === 'none') {
+                        detailsRow.style.display = '';
+                        btn.textContent = 'Hide Details';
+                    } else {
+                        detailsRow.style.display = 'none';
+                        btn.textContent = 'Show Details';
+                    }
+                });
+            });
+        }, 0);
+    }
+
+    async function loadAllLogs(searchTerm = '') {
+        document.getElementById('status').textContent = 'Loading logs from Supabase...';
+        await fetchAndDisplayLogs('IngredientLog', 'ingredientLogTable', searchTerm);
+        await fetchAndDisplayLogs('inventoryupdatelogs', 'inventoryUpdateLogsTable', searchTerm);
+        document.getElementById('status').textContent = '';
+    }
+
+    loadAllLogs();
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchBar = document.getElementById('searchBar');
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const tabIngredient = document.getElementById('tab-ingredient');
+        const tabInventory = document.getElementById('tab-inventory');
+        const ingredientLogTab = document.getElementById('ingredientLogTab');
+        const inventoryUpdateLogsTab = document.getElementById('inventoryUpdateLogsTab');
+        function updateTables() {
+            const term = searchBar ? searchBar.value : '';
+            if (ingredientLogTab.style.display !== 'none') {
+                renderLogTable(allIngredientLogData, ['id', 'ChangeTime', 'IngredientSKU', 'QuantityChanged', 'Updated_By', 'Log'], document.getElementById('ingredientLogTable'), term);
+            }
+            if (inventoryUpdateLogsTab.style.display !== 'none') {
+                renderLogTable(allInventoryUpdateLogsData, ['id', 'created_at', 'SKU', 'QuantityChanged', 'updated_by', 'log'], document.getElementById('inventoryUpdateLogsTable'), term);
+            }
+        }
+        if (searchBar) {
+            searchBar.addEventListener('input', updateTables);
+        }
+        if (startDateInput) {
+            startDateInput.addEventListener('change', updateTables);
+        }
+        if (endDateInput) {
+            endDateInput.addEventListener('change', updateTables);
+        }
+        if (tabIngredient && tabInventory && ingredientLogTab && inventoryUpdateLogsTab) {
+            tabIngredient.addEventListener('click', function() {
+                tabIngredient.style.background = '#3498db';
+                tabIngredient.style.color = '#fff';
+                tabInventory.style.background = '#e9ecef';
+                tabInventory.style.color = '#2c3e50';
+                ingredientLogTab.style.display = '';
+                inventoryUpdateLogsTab.style.display = 'none';
+                updateTables();
+            });
+            tabInventory.addEventListener('click', function() {
+                tabInventory.style.background = '#3498db';
+                tabInventory.style.color = '#fff';
+                tabIngredient.style.background = '#e9ecef';
+                tabIngredient.style.color = '#2c3e50';
+                ingredientLogTab.style.display = 'none';
+                inventoryUpdateLogsTab.style.display = '';
+                updateTables();
+            });
+        }
+        // Show IngredientLog tab by default
+        tabIngredient.click();
+    });
+    </script>
+</body>
+</html>

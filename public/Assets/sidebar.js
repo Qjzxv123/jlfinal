@@ -29,6 +29,7 @@ function renderAdminSidebar() {
   <a href="BatchMaker.html" class="nav-item"><i class="cil-cog"></i><span>Batch Card</span></a>
   <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
   <a href="DatabaseViewer.html" class="nav-item"><i class="cil-find-in-page"></i><span>Database Viewer</span></a>
+  <a href="logs.html" class="nav-item"><i class="cil-history"></i><span>Quantity Update Logs</span></a>
   <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
   <a href="AddItemAdmin.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Item</span></a>
   <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
