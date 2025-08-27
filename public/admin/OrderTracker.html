@@ -553,9 +553,15 @@
           // --- Ingredient & Container check logic (BatchMaker style) ---
           let highlightRed = false;
           if ((task.Progress || '').toLowerCase() === 'requested') {
-            const ingredients = orderIngredientsMap[task.OrderNumber] || [];
+            const productData = productDataMap[task.ProductSKU];
+            let ingredients = orderIngredientsMap[task.OrderNumber] || [];
+            // If product has no process, mark as 'No Process'
+            let noProcess = false;
+            if (!productData || !productData.Process) {
+              noProcess = true;
+            }
             // Check ingredients as before
-            if (ingredients.length > 0) {
+            if (!noProcess && ingredients.length > 0) {
               for (const ing of ingredients) {
                 const invQty = ingredientInventoryMap[ing.sku];
                 if (invQty === undefined || Number(invQty) < ing.totalAmount) {
@@ -565,8 +571,7 @@
               }
             }
             // Check ContainerSKUs
-            if (!highlightRed) {
-              const productData = productDataMap[task.ProductSKU];
+            if (!highlightRed && !noProcess) {
               if (productData && Array.isArray(productData.ContainerSKUs) && productData.ContainerSKUs.length > 0) {
                 // For each container SKU, check if inventory is at least task.Quantity
                 for (const containerSKU of productData.ContainerSKUs) {
@@ -577,6 +582,10 @@
                   }
                 }
               }
+            }
+            // If no process, highlight and show button as 'No Process'
+            if (noProcess) {
+              batchMakerButton = `<button title="No Process Defined" class="low-ingredients-btn" data-productsku="${task.ProductSKU}" data-quantity="${task.Quantity}" style="margin-left: 10px; display: inline-block; background: #D7444D; color: white; padding: 0.2rem 0.5rem; border: none; border-radius: 4px; font-size: 0.8rem; cursor:pointer;">No Process</button>`;
             }
           }
 
