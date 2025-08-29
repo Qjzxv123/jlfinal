@@ -609,7 +609,7 @@
             }
             vesselDataAttr = ` data-vessel='${JSON.stringify(vesselArr)}'`;
           }
-          if (task.Progress && task.Progress.toLowerCase() === 'scheduled' && task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
+          if (task.Progress && task.Progress.toLowerCase() === 'scheduled' || task.Progress.toLowerCase() === 'in production' && task.ProductSKU && task.PlannedManufactureDate && task.Quantity) {
             instructionsBtn = `<button class="instructions-btn" data-productsku="${task.ProductSKU}" data-batchtime="${task.PlannedManufactureDate}" data-batchsize="${task.Quantity}"${vesselDataAttr} style="${instructionsBtnStyle}"><i class=\"cil-list-numbered\"></i></button>`;
           } else {
             instructionsBtn = `<span style=\"color:#888;\"></span>`;
