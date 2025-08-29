@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manufacturing Instructions</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style> 
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; margin: 0; padding: 0; }
+    .container { max-width: 700px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); padding: 32px; }
+    h1 { color: #4DBA93; text-align: center; margin-bottom: 32px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    th, td { padding: 12px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+    th { background: #4DBA93; color: #fff; }
+    .step-title { font-weight: bold; color: #4d6dba; }
+    .ingredient-list { margin: 0; padding-left: 18px; }
+    .step-row { background: #f6f8fa; }
+    .icon { color: #4DBA93; margin-right: 8px; }
+  </style>
+  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+</head>
+<body>
+  <div class="container">
+  <!-- Manufacturing Instructions header removed -->
+    <div id="instructions"></div>
+  </div>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderNumber = urlParams.get('ordernumber');
+    const instructionsDiv = document.getElementById('instructions');
+    if (!orderNumber) {
+      instructionsDiv.innerHTML = '<p style="color:red;">No order number provided.</p>';
+    } else {
+      (async function() {
+        // Use supabase client from CheckAccess.js
+        // Fetch ManufacturingTasks row
+        // Use the supabase client from CheckAccess.js
+        const supabaseClient = typeof supabase !== 'undefined' ? supabase : (window.supabaseClient || window.supabase);
+        if (!supabaseClient || typeof supabaseClient.from !== 'function') {
+          instructionsDiv.innerHTML = '<p style="color:red;">Supabase client not initialized. Please reload the page.</p>';
+          return;
+        }
+        const { data: orderData, error: orderError } = await supabaseClient
+          .from('ManufacturingTasks')
+          .select('ProductSKU, Quantity, Progress')
+          .eq('OrderNumber', orderNumber)
+          .single();
+        if (orderError || !orderData) {
+          instructionsDiv.innerHTML = '<p style="color:red;">Order not found.</p>';
+          return;
+        }
+        // Fetch Product with ManufacturingSteps
+        const { data: productData, error: prodError } = await supabaseClient
+          .from('Products')
+          .select('Name, ManufacturingSteps')
+          .eq('ProductSKU', orderData.ProductSKU)
+          .single();
+        if (prodError || !productData) {
+          instructionsDiv.innerHTML = '<p style="color:red;">Product not found.</p>';
+          return;
+        }
+        const steps = productData.ManufacturingSteps?.Steps || productData.ManufacturingSteps || [];
+        if (!Array.isArray(steps) || steps.length === 0) {
+          instructionsDiv.innerHTML = '<p>No manufacturing steps found for this product.</p>';
+          return;
+        }
+        // Find step index from Progress column
+        let currentStep = 0;
+        let foundStep = false;
+        if (orderData.Progress) {
+          const progressTitle = orderData.Progress.trim().toLowerCase();
+          for (let i = 0; i < steps.length; i++) {
+            const stepTitle = (steps[i]["Step Title"] || steps[i].StepTitle || `Step ${i+1}`).trim().toLowerCase();
+            if (stepTitle === progressTitle) {
+              currentStep = i;
+              foundStep = true;
+              break;
+            }
+          }
+        }
+        if (!foundStep && steps.length > 0) {
+          // Update Progress column to first step title
+          const firstStepTitle = steps[0]["Step Title"] || steps[0].StepTitle || `Step 1`;
+          await supabaseClient
+            .from('ManufacturingTasks')
+            .update({ Progress: firstStepTitle })
+            .eq('OrderNumber', orderNumber);
+        }
+        // Lot number generation (same as other files):
+        function generateLotNumber(orderNumber) {
+          // Example: JL-{orderNumber}-{YYYYMMDD}
+          const now = new Date();
+          const yyyy = now.getFullYear();
+          const mm = String(now.getMonth()+1).padStart(2,'0');
+          const dd = String(now.getDate()).padStart(2,'0');
+          return `JL-${orderNumber}-${yyyy}${mm}${dd}`;
+        }
+  async function renderStep(idx) {
+          const step = steps[idx];
+          const batchNumber = orderNumber;
+          const lotNumber = generateLotNumber(orderNumber);
+          const batchDate = new Date().toLocaleDateString();
+          let html = `<div style='font-size:1.1em;color:#333;margin-bottom:18px;text-align:center;'>Batch Number: <strong>${batchNumber}</strong> &nbsp; | &nbsp; Lot Number: <strong>${lotNumber}</strong> &nbsp; | &nbsp; Batch Date: <strong>${batchDate}</strong></div>`;
+          html += `<h2 style='color:#4d6dba;'>${productData.Name || orderData.ProductSKU} <span style='font-size:0.8em;color:#333;font-weight:normal;'>(Qty: ${orderData.Quantity})</span></h2>`;
+          html += `<div class='step-card' style='background:#f6f8fa;border-radius:10px;padding:24px;margin-bottom:24px;'>`;
+          html += `<div class='step-title' style='font-size:1.3em;color:#4d6dba;font-weight:bold;margin-bottom:10px;'>${step["Step Title"] || step.StepTitle || `Step ${idx+1}`}</div>`;
+          html += `<div style='margin-bottom:10px;'><strong>Duration:</strong> ${step["Step Duration (Minutes)"] || step.StepDuration || ''} min</div>`;
+          html += `<div style='margin-bottom:10px;'><strong>Ingredients:</strong></div>`;
+          if (Array.isArray(step["Step Ingredients"])) {
+            // Fetch ingredient names and locations from Supabase
+            const ingredientSKUs = step["Step Ingredients"].map(ing => ing.IngredientSKU);
+            let nameMap = {};
+            let locationMap = {};
+            if (ingredientSKUs.length > 0) {
+              const { data: ingredients, error } = await supabaseClient
+                .from('Ingredients')
+                .select('IngredientSKU,Name,Location')
+                .in('IngredientSKU', ingredientSKUs);
+              if (!error && ingredients) {
+                ingredients.forEach(row => {
+                  nameMap[row.IngredientSKU] = row.Name;
+                  locationMap[row.IngredientSKU] = row.Location || '';
+                });
+              }
+            }
+            html += `<div style='overflow-x:auto;'><table style='width:100%; border-collapse:collapse; margin-top:0.3em; font-size:1em;'>`;
+            html += `<colgroup>
+                <col style='width:28%;'>
+                <col style='width:15%;'>
+                <col style='width:15%;'>
+                <col style='width:17%;'>
+                <col style='width:15%;'>
+            </colgroup>`;
+            html += `<thead><tr>
+                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Ingredient</th>
+                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>SKU</th>
+                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Amount</th>
+                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Location</th>
+                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Initials</th>
+            </tr></thead><tbody>`;
+            step["Step Ingredients"].forEach(ing => {
+              html += `<tr>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${nameMap[ing.IngredientSKU] || ''}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${ing.IngredientSKU}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${ing.ingredientPercent}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${locationMap[ing.IngredientSKU] || ''}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'></td>` +
+              `</tr>`;
+            });
+            html += `</tbody></table></div>`;
+          } else {
+            html += '—';
+          }
+          html += `<div style='margin-bottom:10px;'><strong>Instructions:</strong><br>${step["Step Instructions"] || step.StepInstructions || ''}</div>`;
+          html += `</div>`;
+          html += `<div style='text-align:center;margin-top:18px;'>`;
+          html += `<span>Step ${idx+1} of ${steps.length}</span>`;
+          html += `<button id='nextStep' style='margin-left:16px;'>${idx === steps.length-1 ? 'Finish' : 'Complete Step'}</button>`;
+          html += `</div>`;
+          instructionsDiv.innerHTML = html;
+          document.getElementById('nextStep').onclick = async function() {
+            if (currentStep < steps.length-1) {
+              currentStep++;
+              // Update Progress column in ManufacturingTasks to the new step title
+              const newProgress = steps[currentStep]["Step Title"] || steps[currentStep].StepTitle || `Step ${currentStep+1}`;
+              await supabaseClient
+                .from('ManufacturingTasks')
+                .update({ Progress: newProgress })
+                .eq('OrderNumber', orderNumber);
+              await renderStep(currentStep);
+            } else {
+              // Last step: set progress to Completed and set CompletionDate, then redirect
+              const today = new Date();
+              const yyyy = today.getFullYear();
+              const mm = String(today.getMonth()+1).padStart(2,'0');
+              const dd = String(today.getDate()).padStart(2,'0');
+              const completionDate = `${yyyy}-${mm}-${dd}`;
+              await supabaseClient
+                .from('ManufacturingTasks')
+                .update({ Progress: 'Completed', CompletionDate: completionDate })
+                .eq('OrderNumber', orderNumber);
+              window.location.href = 'Manufacturing.html';
+            }
+          };
+        }
+        await renderStep(currentStep);
+      })();
+    }
+  </script>
+</body>
+</html>

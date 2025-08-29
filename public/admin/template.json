@@ -4,9 +4,9 @@
         "Step Instructions": "Combine all ingredients in a suitable mixing vessel. Heat to 30°C while stirring until all ingredients are fully melted and the mixture is homogeneous.",
         "Step Duration (Minutes)": 15,
         "Step Ingredients":[
-            {"IngredientSKU": "WAX123", "IngredientAmount": 100},
-            {"IngredientSKU": "OIL456", "IngredientAmount": 200},
-            {"IngredientSKU": "FRAG789", "IngredientAmount": 5}
+            {"IngredientSKU": "WAX123", "ingredientPercent": 100},
+            {"IngredientSKU": "OIL456", "ingredientPercent": 200},
+            {"IngredientSKU": "FRAG789", "ingredientPercent": 5}
         ]
     },
     {
@@ -14,7 +14,15 @@
         "Step Instructions": "Remove from heat and allow to cool to 25°C while stirring gently. Pour into molds or containers and allow to solidify at room temperature.",
         "Step Duration (Minutes)": 30,
         "Step Ingredients":[
-            {"IngredientSKU": "PRES012", "IngredientAmount": 1}
+            {"IngredientSKU": "PRES012", "ingredientPercent": 1}
+        ]
+    },
+    {
+        "Step Title": "Phase 3",
+        "Step Instructions": "Once solidified, remove from molds and package as desired.",
+        "Step Duration (Minutes)": 10,
+        "Step Ingredients":[
+            {"IngredientSKU": "PACK345", "ingredientPercent": 1}
         ]
     }
 

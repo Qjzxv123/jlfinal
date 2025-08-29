@@ -380,7 +380,6 @@
           <label>Product SKU*<input type="text" id="ProductSKU" required></label>
           <label>Name<input type="text" id="Name"></label>
           <label>Product Weight(oz)<input type="text" id="ProductSize" placeholder="e.g., 4, 8, 16, etc."></label>
-          <label>Microbial Testing <input type="checkbox" id="MicrobialTesting"></label>
           <label>Archived <input type="checkbox" id="Archived"></label>
           <label>Retailer<input type="text" id="Customer"></label>
           <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
@@ -614,38 +613,18 @@
         if (!product) throw new Error('Product not found');
 
         // Populate form fields
-        document.getElementById('ProductSKU').value = product.ProductSKU || '';
-        document.getElementById('Name').value = product.Name || '';
-        document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
-        document.getElementById('ProductType').value = product['Product Type'] || '';
-        document.getElementById('MicrobialTesting').checked = product['Microbial Testing'] || false;
-  loadContainersFromString(product.ContainerSKUs);
-  // Ensure the container dropdown is rebuilt after loading containers
-  await createContainerDropdown();
-        document.getElementById('Archived').checked = product.Archived || false;
-        document.getElementById('Customer').value = product.Retailer || '';
-        document.getElementById('ShelfLife').value = product.ShelfLife || '';
-        document.getElementById('PackSize').value = product['Pack Size'] || '';
-        document.getElementById('Quantity').value = product.Quantity || '';
-        document.getElementById('QuantityPerBin').value = product.QuantityPerBin || '';
-        document.getElementById('MSRP').value = product.MSRP || '';
-        document.getElementById('PourTemperature').value = product['Pour Temperature'] || '';
-        document.getElementById('PourConsistency').value = product['Pour Consistency'] || '';
-        document.getElementById('Aroma').value = product.Aroma || '';
-        document.getElementById('ASIN').value = product.ASIN || '';
-        document.getElementById('FNSKU').value = product.FNSKU || '';
-
-        // Manufacturing Instructions
-        const miCheckbox = document.getElementById('useCustomInstructions');
-        const miContainer = document.getElementById('manufacturingInstructionsContainer');
-        if (product.ManufacturingInstructions && String(product.ManufacturingInstructions).trim() !== "") {
-          miCheckbox.checked = true;
-          miContainer.style.display = 'block';
-          document.getElementById('ManufacturingInstructions').value = product.ManufacturingInstructions;
-        } else {
-          miCheckbox.checked = false;
-          miContainer.style.display = 'none';
-        }
+  document.getElementById('ProductSKU').value = product.ProductSKU || '';
+  document.getElementById('Name').value = product.Name || '';
+  document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
+  document.getElementById('Archived').checked = product.Archived || false;
+  document.getElementById('Customer').value = product.Retailer || '';
+  document.getElementById('ShelfLife').value = product.ShelfLife || '';
+  document.getElementById('PackSize').value = product['Pack Size'] || '';
+  document.getElementById('Quantity').value = product.Quantity || '';
+  document.getElementById('QuantityPerBin').value = product.QuantityPerBin || '';
+  document.getElementById('MSRP').value = product.MSRP || '';
+  document.getElementById('ASIN').value = product.ASIN || '';
+  document.getElementById('FNSKU').value = product.FNSKU || '';
 
         // Load process data - using exact same logic as original AddProductAdmin.html
         if (product.Process && typeof product.Process === 'object') {
@@ -735,7 +714,6 @@
         createDropdown('loadFromIngredientDropdown', allIngredients, 'IngredientSKU', ['IngredientSKU', 'Name', 'Supplier'], loadIngredientData);
         
         // Also create container dropdown for products
-        createContainerDropdown();
       } catch (error) {
         console.error('Error fetching ingredients:', error);
       }
@@ -842,203 +820,32 @@
       statusElement.className = `status ${type}`;
     }
 
-    // Container management functions
-    async function createContainerDropdown() {
-      const container = document.getElementById('containerDropdown');
-      if (!container || allIngredients.length === 0) return;
-
-      const dropdownHTML = `
-        <div class="dropdown-container">
-          <input type="text" class="search-input" placeholder="Type to search containers..." />
-          <div class="dropdown"></div>
-          <input type="hidden" class="selected-sku" value="" />
-        </div>
-        <button type="button" onclick="addSelectedContainer()" style="margin-top: 5px; padding: 5px 10px; background: #4DBA93; color: white; border: none; border-radius: 4px; cursor: pointer;">Add Container</button>
-      `;
-
-      container.innerHTML = dropdownHTML;
-
-      const searchInput = container.querySelector('.search-input');
-      const dropdown = container.querySelector('.dropdown');
-      const hiddenSKU = container.querySelector('.selected-sku');
-
-      function updateDropdown(searchTerm = '') {
-        const filtered = allIngredients.filter(ingredient => {
-          const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
-          return searchText.includes(searchTerm.toLowerCase());
-        });
-
-        dropdown.innerHTML = '';
-        
-        filtered.slice(0, 10).forEach(ingredient => {
-          const option = document.createElement('div');
-          option.className = 'dropdown-option';
-          option.innerHTML = `
-            <div class="item-name">${ingredient.Name}</div>
-            <div class="item-details">SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'}</div>
-          `;
-          
-          option.addEventListener('click', () => {
-            searchInput.value = `${ingredient.Name} (${ingredient.IngredientSKU})`;
-            hiddenSKU.value = ingredient.IngredientSKU;
-            dropdown.style.display = 'none';
-          });
-          
-          dropdown.appendChild(option);
-        });
-
-        if (filtered.length === 0) {
-          dropdown.innerHTML = '<div class="dropdown-option" style="color: #6b7280; font-style: italic;">No ingredients found</div>';
-        }
-      }
-
-      searchInput.addEventListener('focus', () => {
-        updateDropdown(searchInput.value);
-        dropdown.style.display = 'block';
-      });
-
-      searchInput.addEventListener('input', (e) => {
-        updateDropdown(e.target.value);
-        dropdown.style.display = 'block';
-        hiddenSKU.value = '';
-      });
-
-      document.addEventListener('click', (e) => {
-        if (!container.contains(e.target)) {
-          dropdown.style.display = 'none';
-        }
-      });
-    }
-
-    function addSelectedContainer() {
-      const containerDropdown = document.querySelector('#containerDropdown .selected-sku');
-      const containerSearch = document.querySelector('#containerDropdown .search-input');
-      
-      if (!containerDropdown || !containerSearch) return;
-
-      const sku = containerDropdown.value;
-      const name = containerSearch.value;
-
-      if (!sku) {
-        alert('Please select a container from the dropdown');
-        return;
-      }
-
-      if (selectedContainerSKUs.includes(sku)) {
-        alert('This container is already added');
-        return;
-      }
-
-      selectedContainerSKUs.push(sku);
-      updateSelectedContainersDisplay();
-      
-      // Clear the dropdown
-      containerSearch.value = '';
-      containerDropdown.value = '';
-      
-      // Update hidden input
-      document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
-    }
-
-    function updateSelectedContainersDisplay() {
-      const container = document.getElementById('selectedContainers');
-      if (!container) return;
-
-      if (selectedContainerSKUs.length === 0) {
-        container.innerHTML = '<div style="color: #666; font-style: italic;">No containers selected</div>';
-        return;
-      }
-
-      const containersHTML = selectedContainerSKUs.map((sku, index) => {
-        return `
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 4px; margin-bottom: 5px;">
-            <span>${sku}</span>
-            <button type="button" onclick="removeContainerAtIndex(${index})" style="background: #e74c3c; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 0.8rem;">Remove</button>
-          </div>
-        `;
-      }).join('');
-
-      container.innerHTML = containersHTML;
-    }
-
-    function removeContainerAtIndex(index) {
-      selectedContainerSKUs.splice(index, 1);
-      updateSelectedContainersDisplay();
-      document.getElementById('ContainerSKUs').value = selectedContainerSKUs.join(',');
-    }
-
-    function loadContainersFromString(containerData) {
-      if (!containerData) {
-        selectedContainerSKUs = [];
-      } else if (Array.isArray(containerData)) {
-        selectedContainerSKUs = containerData.filter(Boolean);
-      } else if (typeof containerData === 'string') {
-        // Try to parse as JSON array, fallback to comma split
-        try {
-          const arr = JSON.parse(containerData);
-          if (Array.isArray(arr)) {
-            selectedContainerSKUs = arr.filter(Boolean);
-          } else {
-            selectedContainerSKUs = containerData.split(',').map(s => s.trim()).filter(s => s);
-          }
-        } catch {
-          selectedContainerSKUs = containerData.split(',').map(s => s.trim()).filter(s => s);
-        }
-      } else {
-        selectedContainerSKUs = [];
-      }
-      updateSelectedContainersDisplay();
-      // Store as JSON array string for consistency
-      document.getElementById('ContainerSKUs').value = JSON.stringify(selectedContainerSKUs);
-    }
-
     // Process editor functions
     function renderProcessTableEditor() {
       const container = document.getElementById('processTableEditor');
       if (!container) return;
-      
       container.innerHTML = '';
-      
       if (!processTableData.length) {
         container.innerHTML = '<div style="color:#888;">No phases. Click "Add Phase" to begin.</div>';
         return;
       }
-
-      // Calculate total percent across all phases
-      let totalPercent = 0;
-      processTableData.forEach(phase => {
-        if (Array.isArray(phase.ingredients)) {
-          totalPercent += phase.ingredients.reduce((sum, ing) => {
-            const val = parseFloat(ing.percent);
-            return sum + (!isNaN(val) ? val : 0);
-          }, 0);
-        }
-      });
-
       processTableData.forEach((phase, phaseIdx) => {
         const phaseDiv = document.createElement('div');
         phaseDiv.style = 'border:1px solid #cbd5e1; border-radius:8px; margin-bottom:1.5rem; background:#f8fafc; padding:1rem;';
-
         phaseDiv.innerHTML = `
-          <div style="display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:0.5rem;align-items:center;margin-bottom:1rem;">
+          <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0.5rem;align-items:center;margin-bottom:1rem;">
             <input type="text" value="${phase.name}" style="font-weight:600;font-size:1.1rem;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseName(${phaseIdx}, this.value)">
-            <input type="number" value="${phase.temp || ''}" placeholder="Temp (°C)" style="width:100px;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseField(${phaseIdx},'temp',this.value)">
-            <select onchange="updatePhaseField(${phaseIdx},'timeType',this.value)" style="padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;">
-              <option value="Melt" ${phase.timeType==="Melt"?"selected":""}>Melt Time</option>
-              <option value="Mix" ${phase.timeType==="Mix"?"selected":""}>Mix Time</option>
-            </select>
-            <input type="text" value="${phase.mixTime || ''}" placeholder="Time (Minutes)" style="width:110px;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseField(${phaseIdx},'mixTime',this.value)">
+            <input type="number" value="${phase.duration || ''}" placeholder="Duration (Minutes)" style="width:110px;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseField(${phaseIdx},'duration',this.value)">
             <button type="button" class="remove-btn" onclick="removePhaseRow(${phaseIdx})">Remove Phase</button>
           </div>
           <div style="margin-bottom:1rem;">
-            <label style="display:block;font-weight:600;margin-bottom:0.25rem;">Consistency:</label>
-            <input type="text" value="${phase.consistency || ''}" placeholder="Enter consistency details..." style="width:100%;padding:0.5rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updatePhaseField(${phaseIdx},'consistency',this.value)">
+            <textarea rows="4" style="width:100%;padding:0.7rem 0.9rem;border-radius:4px;border:1px solid #cbd5e1;resize:vertical;" placeholder="Instructions" onchange="updatePhaseField(${phaseIdx},'instructions',this.value)">${phase.instructions || ''}</textarea>
           </div>
           <table style="width:100%;margin-top:1rem;border-collapse:collapse;">
             <thead>
               <tr style="background:#e2e8f0;">
-                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;">Ingredient Name</th>
-                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Percentage %</th>
+                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;">Ingredient SKU</th>
+                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Amount</th>
                 <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Actions</th>
               </tr>
             </thead>
@@ -1046,30 +853,32 @@
           </table>
           <button type="button" class="add-btn" onclick="addIngredientRow(${phaseIdx})">Add Ingredient</button>
         `;
-        
         container.appendChild(phaseDiv);
-        
-        // Render ingredient rows
         const tbody = phaseDiv.querySelector(`#phase-ingredients-${phaseIdx}`);
         phase.ingredients.forEach((ing, ingIdx) => {
+          // Default to percent if not set
+          if (!('unitType' in ing)) ing.unitType = 'percent';
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td style="padding:0.5rem;border:1px solid #cbd5e1;position:relative;">
+            <td style="padding:0.5rem;border:1px solid #cbd5e1;">
               <div id="ingredient-dropdown-${phaseIdx}-${ingIdx}"></div>
             </td>
-            <td style="padding:0.5rem;border:1px solid #cbd5e1;">
-              <input type="number" value="${ing.percent || ''}" min="0" step="0.01" oninput="updateIngredientField(${phaseIdx},${ingIdx},'percent',this.value);" style="width:100%;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;">
+            <td style="padding:0.5rem;border:1px solid #cbd5e1;display:flex;gap:4px;align-items:center;">
+              <input type="number" value="${ing.amount || ''}" min="0" step="any" placeholder="Amount" style="width:70%;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'amount',this.value);">
+              <select style="width:30%;padding:0.3rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'unitType',this.value)">
+                <option value="percent" ${ing.unitType === 'percent' ? 'selected' : ''}>%</option>
+                <option value="units" ${ing.unitType === 'units' ? 'selected' : ''}>units</option>
+              </select>
             </td>
             <td style="padding:0.5rem;border:1px solid #cbd5e1;">
               <button type="button" class="remove-btn" onclick="removeIngredientRow(${phaseIdx},${ingIdx})">Remove</button>
             </td>
           `;
           tbody.appendChild(tr);
-          
-          // Create ingredient dropdown for this row - use setTimeout to ensure DOM is ready
+          // Render dropdown for ingredient selection
           setTimeout(() => {
             createIngredientDropdown(`ingredient-dropdown-${phaseIdx}-${ingIdx}`, ing.name || '', ing.sku || '');
-          }, 50 * (phaseIdx + ingIdx + 1)); // Stagger the creation slightly
+          }, 0);
         });
       });
     }
@@ -1172,11 +981,9 @@
     function addPhaseRow() {
       processTableData.push({ 
         name: `Phase ${processTableData.length + 1}`, 
-        ingredients: [],
-        temp: '',
-        timeType: 'Melt',
-        mixTime: '',
-        consistency: ''
+        instructions: '',
+        duration: '',
+        ingredients: []
       });
       renderProcessTableEditor();
     }
@@ -1187,7 +994,7 @@
     }
 
     function addIngredientRow(phaseIdx) {
-      processTableData[phaseIdx].ingredients.push({ name: '', sku: '', percent: '' });
+      processTableData[phaseIdx].ingredients.push({ sku: '', amount: '', unitType: 'percent' });
       renderProcessTableEditor();
     }
 
@@ -1209,55 +1016,37 @@
     }
 
     function getProcessFromTableEditor() {
-      const process = {};
+      const steps = [];
       processTableData.forEach(phase => {
         if (phase.name && phase.ingredients.length > 0) {
-          const phaseData = {};
-          
-          // Add temperature if provided
-          if (phase.temp && String(phase.temp).trim() !== '') {
-            phaseData[`${phase.name} Temperature(C)`] = parseFloat(phase.temp);
-          }
-          
-          // Add time based on timeType
-          if (phase.mixTime && String(phase.mixTime).trim() !== '') {
-            const timeValue = parseFloat(phase.mixTime) / 60; // Convert minutes to hours
-            if (phase.timeType === 'Melt') {
-              phaseData[`${phase.name} Melt Time(Hours)`] = timeValue;
-            } else {
-              phaseData[`${phase.name} Mix Time(Hours)`] = timeValue;
-            }
-          }
-          
-          // Add consistency if provided
-          if (phase.consistency && String(phase.consistency).trim() !== '') {
-            phaseData[`${phase.name} Consistency`] = phase.consistency;
-          }
-          
-          // Add ingredients with the correct format
-          const validIngredients = phase.ingredients.filter(ing => (ing.name || ing.sku) && ing.percent);
-          if (validIngredients.length > 0) {
-            phaseData[`${phase.name} Ingredients`] = validIngredients.map(ing => ({
-              IngredientSKU: ing.sku || '',
-              'Ingredient Quantity(%)': parseFloat(ing.percent) || 0
-            }));
-          }
-          
-          // Only add phase if it has any data
-          if (Object.keys(phaseData).length > 0) {
-            process[phase.name] = phaseData;
-          }
+          const validIngredients = phase.ingredients.filter(ing => ing.sku && ing.amount);
+          steps.push({
+            "Step Title": phase.name,
+            "Step Instructions": phase.instructions || '',
+            "Step Duration (Minutes)": phase.duration ? parseInt(phase.duration) : 0,
+            "Step Ingredients": validIngredients.map(ing => {
+              if (ing.unitType === 'units') {
+                return {
+                  IngredientSKU: ing.sku,
+                  ingredientUnits: parseFloat(ing.amount)
+                };
+              } else {
+                return {
+                  IngredientSKU: ing.sku,
+                  ingredientPercent: parseFloat(ing.amount)
+                };
+              }
+            })
+          });
         }
       });
-      return Object.keys(process).length > 0 ? process : null;
+      return steps.length > 0 ? { Steps: steps } : null;
     }
 
     // Form submission handlers
     document.getElementById('productForm').onsubmit = async function(e) {
       e.preventDefault();
       
-      const useCustom = document.getElementById('useCustomInstructions').checked;
-      const miValue = document.getElementById('ManufacturingInstructions').value.trim();
       
       const data = {
         ProductSKU: document.getElementById('ProductSKU').value.trim(),
@@ -1265,9 +1054,6 @@
         ClientPrice: document.getElementById('ClientPrice').value ? parseFloat(document.getElementById('ClientPrice').value) : null,
         UPC: document.getElementById('UPC').value.trim(),
         'Product Weight(oz)': document.getElementById('ProductSize').value.trim(),
-        'Product Type': document.getElementById('ProductType').value,
-        'Microbial Testing': document.getElementById('MicrobialTesting').checked,
-        ContainerSKUs: selectedContainerSKUs.length > 0 ? selectedContainerSKUs : null,
         Archived: document.getElementById('Archived').checked,
         Retailer: document.getElementById('Customer').value.trim(),
         ShelfLife: document.getElementById('ShelfLife').value ? parseFloat(document.getElementById('ShelfLife').value) : null,
@@ -1275,13 +1061,9 @@
         Quantity: document.getElementById('Quantity').value ? parseInt(document.getElementById('Quantity').value) : null,
         QuantityPerBin: document.getElementById('QuantityPerBin').value ? parseInt(document.getElementById('QuantityPerBin').value) : null,
         MSRP: document.getElementById('MSRP').value ? parseFloat(document.getElementById('MSRP').value) : null,
-        'Pour Temperature': document.getElementById('PourTemperature').value ? parseFloat(document.getElementById('PourTemperature').value) : null,
-        'Pour Consistency': document.getElementById('PourConsistency').value.trim(),
-        Aroma: document.getElementById('Aroma').value.trim(),
         ASIN: document.getElementById('ASIN').value.trim(),
         FNSKU: document.getElementById('FNSKU').value.trim(),
-        ManufacturingInstructions: useCustom && miValue ? miValue : null,
-        Process: getProcessFromTableEditor()
+        ManufacturingSteps: getProcessFromTableEditor()
       };
 
       // Remove empty string values
@@ -1522,15 +1304,9 @@
 
 
     // Manufacturing instructions toggle
-    document.getElementById('useCustomInstructions').addEventListener('change', function() {
-      const container = document.getElementById('manufacturingInstructionsContainer');
-      container.style.display = this.checked ? 'block' : 'none';
-    });
 
     // Make functions globally available
     window.switchTab = switchTab;
-    window.addSelectedContainer = addSelectedContainer;
-    window.removeContainerAtIndex = removeContainerAtIndex;
     window.addPhaseRow = addPhaseRow;
     window.removePhaseRow = removePhaseRow;
     window.addIngredientRow = addIngredientRow;
@@ -1549,7 +1325,6 @@
       await populateBoxUserDropdown();
       // Initialize product tab components
       renderProcessTableEditor();
-      updateSelectedContainersDisplay();
     });
   </script>
 </body>
