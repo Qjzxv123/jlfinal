@@ -177,8 +177,11 @@
 	<script src="/Assets/sidebar.js"></script>
 	<div class="main-content">
 		<div class="container">
-			<h1>Manufacturing Orders</h1>
-			<div style="margin-bottom:24px; text-align:center; display:flex; flex-wrap:wrap; justify-content:center; gap:16px;">
+			<div style="margin-bottom:24px; text-align:center;">
+				<h1 style="text-align:center;">Manufacturing Orders</h1>
+			</div>
+			<div style="margin-bottom:24px; text-align:center; display:flex; flex-wrap:wrap; justify-content:center; gap:16px; align-items:center;">
+				<button id="createOrderBtn" class="btn" style="padding:10px 24px;font-size:1em;">+ Create New Order</button>
 				<div>
 					<label for="progressFilter" style="font-weight:600; color:#4DBA93; margin-right:8px;">Filter by Progress:</label>
 					<select id="progressFilter" style="padding:8px 16px; border-radius:8px; font-size:1em;">
@@ -196,9 +199,121 @@
 			<div id="manufacturingOrdersContainer">
 				<p>Loading manufacturing orders...</p>
 			</div>
+			<!-- Create Order Modal -->
+			<div id="createOrderModal" class="modal">
+				<div class="modal-content" style="max-width:500px;">
+					<span class="close-modal" id="closeCreateOrderModal">&times;</span>
+					<h2>Create New Manufacturing Order</h2>
+					<form id="createOrderForm">
+						<label for="newOrderProductSKU" style="font-weight:600;">Product SKU:</label>
+						<select id="newOrderProductSKU" required style="width:100%;margin-bottom:12px;"></select>
+						<label for="newOrderCustomer" style="font-weight:600;">Customer:</label>
+						<select id="newOrderCustomer" required style="width:100%;margin-bottom:12px;"></select>
+						<label for="newOrderQuantity" style="font-weight:600;">Quantity:</label>
+						<input type="number" id="newOrderQuantity" min="1" required style="width:100%;margin-bottom:12px;" />
+						<!-- Progress field removed, always set to 'requested' -->
+						<label for="newOrderDeadline" style="font-weight:600;">Deadline (optional):</label>
+						<input type="date" id="newOrderDeadline" style="width:100%;margin-bottom:18px;" />
+						<button type="submit" class="btn" style="width:100%;">Create Order</button>
+					</form>
+					<div id="createOrderStatus" style="margin-top:10px;text-align:center;font-weight:600;"></div>
+				</div>
+			</div>
 		</div>
 	</div>
 	<script>
+		// Modal logic for creating new order
+		document.addEventListener('DOMContentLoaded', function() {
+			const createOrderBtn = document.getElementById('createOrderBtn');
+			const createOrderModal = document.getElementById('createOrderModal');
+			const closeCreateOrderModal = document.getElementById('closeCreateOrderModal');
+			const createOrderForm = document.getElementById('createOrderForm');
+			const createOrderStatus = document.getElementById('createOrderStatus');
+			const productSelect = document.getElementById('newOrderProductSKU');
+			const customerSelect = document.getElementById('newOrderCustomer');
+			// Populate ProductSKU dropdown
+			async function populateProductDropdown() {
+				productSelect.innerHTML = '<option value="">Loading...</option>';
+				const { data: products, error } = await supabase.from('Products').select('ProductSKU, Name');
+				if (error || !products) {
+					productSelect.innerHTML = '<option value="">Error loading products</option>';
+					return;
+				}
+				productSelect.innerHTML = '';
+				products.forEach(prod => {
+					const opt = document.createElement('option');
+					opt.value = prod.ProductSKU;
+					opt.textContent = prod.ProductSKU + (prod.Name ? ` - ${prod.Name}` : '');
+					productSelect.appendChild(opt);
+				});
+			}
+			// Populate Customer dropdown
+			async function populateCustomerDropdown() {
+				customerSelect.innerHTML = '<option value="">Loading...</option>';
+				const { data: users, error } = await supabase.from('Users').select('id, display_name, email').in('Role', ['client', 'service_role']);
+				if (error || !users) {
+					customerSelect.innerHTML = '<option value="">Error loading users</option>';
+					return;
+				}
+				customerSelect.innerHTML = '';
+				users.forEach(user => {
+					const opt = document.createElement('option');
+					opt.value = user.display_name;
+					opt.textContent = user.display_name ? `${user.display_name} (${user.email})` : user.email;
+					customerSelect.appendChild(opt);
+				});
+			}
+			createOrderBtn.onclick = async function() {
+				createOrderStatus.textContent = '';
+				await populateProductDropdown();
+				await populateCustomerDropdown();
+				createOrderModal.style.display = 'block';
+			};
+			closeCreateOrderModal.onclick = function() {
+				createOrderModal.style.display = 'none';
+			};
+			window.onclick = function(event) {
+				if (event.target === createOrderModal) {
+					createOrderModal.style.display = 'none';
+				}
+			};
+			createOrderForm.onsubmit = async function(e) {
+				e.preventDefault();
+				const ProductSKU = productSelect.value;
+				const Customer = customerSelect.value;
+				const Quantity = parseInt(document.getElementById('newOrderQuantity').value);
+				const Progress = 'requested';
+				const Deadline = document.getElementById('newOrderDeadline').value;
+				if (!ProductSKU || !Customer || !Quantity || !Progress) {
+					createOrderStatus.textContent = 'Please fill all required fields.';
+					createOrderStatus.style.color = '#e74c3c';
+					return;
+				}
+				createOrderStatus.textContent = 'Creating order...';
+				createOrderStatus.style.color = '#333';
+				try {
+					const { error } = await supabase.from('ManufacturingTasks').insert([
+						{
+							ProductSKU,
+							Customer,
+							Quantity,
+							Progress,
+							Deadline: Deadline || null
+						}
+					]);
+					if (error) throw error;
+					createOrderStatus.textContent = 'Order created successfully!';
+					createOrderStatus.style.color = '#27ae60';
+					setTimeout(() => {
+						createOrderModal.style.display = 'none';
+						loadManufacturingOrders(currentProgressFilter, currentSearchTerm);
+					}, 1200);
+				} catch (err) {
+					createOrderStatus.textContent = 'Error creating order: ' + err.message;
+					createOrderStatus.style.color = '#e74c3c';
+				}
+			};
+		});
 		checkPermissions(['service_role', 'employee']);
 		setupInactivityTimeout(10);
 		let orders = [];
@@ -225,8 +340,14 @@
 						if (progressFilter === 'production') {
 							return progress !== 'requested' && progress !== 'scheduled' && progress !== 'completed';
 						}
+						if (progressFilter === 'completed') {
+							return progress === 'completed';
+						}
 						return progress === progressFilter;
 					});
+				} else {
+					// Default: omit completed orders
+					filteredOrders = filteredOrders.filter(order => (order.Progress || '').toLowerCase() !== 'completed');
 				}
 				if (searchTerm && searchTerm.trim() !== "") {
 					const term = searchTerm.trim().toLowerCase();
@@ -245,7 +366,7 @@
 				if (productSKUs.length > 0) {
 					const { data: productsData, error: prodError } = await supabase
 						.from('Products')
-						.select('ProductSKU, ManufacturingSteps')
+						.select('ProductSKU, ManufacturingSteps, "Product Weight(oz)"')
 						.in('ProductSKU', productSKUs);
 					if (!prodError && productsData) {
 						productsData.forEach(prod => {
@@ -315,53 +436,37 @@
 					// --- Warning badge logic ---
 					let showWarning = false;
 					let warningText = '';
-					   let showIngredientWarning = false;
-					   let ingredientWarningText = '';
+					let showIngredientWarning = false;
+					let ingredientWarningText = '';
 					let product = productsMap[order.ProductSKU];
-					if (!product || !product.ManufacturingSteps || (Array.isArray(product.ManufacturingSteps) ? product.ManufacturingSteps.length === 0 : Object.keys(product.ManufacturingSteps).length === 0)) {
+					// Only expect ManufacturingSteps format
+					if (!product || !product.ManufacturingSteps || !Array.isArray(product.ManufacturingSteps.Steps) || product.ManufacturingSteps.Steps.length === 0) {
 						showWarning = true;
 						warningText = 'No manufacturing steps';
-					} else if (ingredientFetchEmpty && allIngredientSKUs.size > 0) {
-						showWarning = true;
-						warningText = 'Invalid ingredient(s)';
 					} else {
 						try {
-							let steps = Array.isArray(product.ManufacturingSteps) ? product.ManufacturingSteps : product.ManufacturingSteps.Steps;
-							if (!steps || steps.length === 0) {
-								showWarning = true;
-								warningText = 'No manufacturing steps';
+							let steps = product.ManufacturingSteps.Steps;
+							let insufficientIngredients = [];
+							let ProductWeightOz = product['Product Weight(oz)'] ? parseFloat(product['Product Weight(oz)']) : 0;
+							let QuantityBeingMade = order.Quantity || 1;
+							for (let i = 0; i < steps.length; i++) {
+								const step = steps[i];
+								let stepIngredients = Array.isArray(step["Step Ingredients"]) ? step["Step Ingredients"] : [];
+								for (let j = 0; j < stepIngredients.length; j++) {
+									const ing = stepIngredients[j];
+									const dbQty = ingredientsMap[ing.IngredientSKU] || 0;
+									if (ing.IngredientQuantity !== undefined) {
+										let neededQty = ing.IngredientQuantity * QuantityBeingMade;
+										if (dbQty < neededQty) {
+											insufficientIngredients.push(ing.IngredientSKU);
+										}
+									}
+								}
 							}
-							   // --- Insufficient ingredient badge logic ---
-							   let insufficientIngredients = [];
-							   let ProductWeightOz = order.ProductWeightOz || product.ProductWeightOz || 0;
-							   let QuantityBeingMade = order.Quantity || 1;
-							   if (steps && steps.length > 0) {
-								   for (let i = 0; i < steps.length; i++) {
-									   const step = steps[i];
-									   let stepIngredients = step.StepIngredients || step["Step Ingredients"];
-									   if (stepIngredients && Array.isArray(stepIngredients)) {
-										   for (let j = 0; j < stepIngredients.length; j++) {
-											   const ing = stepIngredients[j];
-											   const dbQty = ingredientsMap[ing.IngredientSKU] || 0;
-											   if (ing.ingredientUnits !== undefined) {
-												   if (dbQty < ing.ingredientUnits) {
-													   insufficientIngredients.push(ing.IngredientSKU);
-												   }
-											   }
-											   if (ing.ingredientPercent !== undefined && ProductWeightOz > 0) {
-												   let neededLbs = ((ing.ingredientPercent / 100) * ProductWeightOz * QuantityBeingMade * 1.1) / 453.6;
-												   if (dbQty < neededLbs) {
-													   insufficientIngredients.push(ing.IngredientSKU);
-												   }
-											   }
-										   }
-									   }
-								   }
-							   }
-							   if (insufficientIngredients.length > 0) {
-								   showIngredientWarning = true;
-								   ingredientWarningText = `Insufficient ingredients: ${insufficientIngredients.join(", ")}`;
-							   }
+							if (insufficientIngredients.length > 0) {
+								showIngredientWarning = true;
+								ingredientWarningText = `Insufficient ingredients: ${insufficientIngredients.join(", ")}`;
+							}
 						} catch (e) {
 							showWarning = true;
 							warningText = 'Step check error';
@@ -388,22 +493,23 @@
 					];
 					cardsHtml += `<div class=\"order-card\" id=\"order-card-${idx}\">
 						<span class=\"progress-badge ${badgeClass}\">${progressRaw}</span>
-						<div style=\"display:flex;align-items:center;gap:10px;\">
-							<h2 style=\"margin-top:0; color:#4DBA93; font-size:1.3rem; margin-bottom:0;\">Order #${order.OrderNumber}</h2>
+						<div style=\"display:flex;align-items:center;gap:14px;\">
+							<h2 style=\"margin-top:0; color:#4DBA93; font-size:1.3rem; margin-bottom:0;display:flex;align-items:center;gap:10px;\">
+								<span>Order #${order.OrderNumber}</span>
+								<span style=\"background:#f7f7fa;border-radius:8px;padding:4px 14px;font-size:1.08rem;color:#4d6dba;font-weight:600;box-shadow:0 1px 4px rgba(77,109,186,0.07);border:1px solid #e1e5e9;\">
+									${order.ProductSKU || ''} <span style=\"color:#888;\">×</span> ${order.Quantity || ''}
+								</span>
+							</h2>
 							${showWarning ? `<span class=\"warning-badge\" style=\"position:static;\"><i class=\"cil-warning\"></i> ${warningText}</span>` : ''}
-							   ${showIngredientWarning ? `<span class=\"warning-badge\" style=\"position:static;background:#e74c3c;\"><i class=\"cil-warning\"></i> ${ingredientWarningText}</span>` : ''}
+							${showIngredientWarning ? `<span class=\"warning-badge\" style=\"position:static;background:#e74c3c;\"><i class=\"cil-warning\"></i> ${ingredientWarningText}</span>` : ''}
 						</div>
-						<div style=\"margin-bottom:10px;\"><strong>Customer:</strong> ${order.Customer || ''} &nbsp; <strong>SKU:</strong> ${order.ProductSKU || ''} &nbsp; <strong>Qty:</strong> ${order.Quantity || ''}</div>
-						<div style=\"margin-bottom:10px;\"><strong>Planned Manufacture Date:</strong> ${order.PlannedManufactureDate || ''}</div>
+						<div style=\"margin-bottom:10px;\"><strong>Customer:</strong> ${order.Customer || ''}</div>
+						${order.PlannedManufactureDate ? `<div style=\"margin-bottom:10px;\"><strong>Planned Manufacture Date:</strong> ${order.PlannedManufactureDate}</div>` : ''}
 						${deadlineHtml}
 						${completionHtml}
 						<button class=\"update-progress-btn\" onclick=\"openProgressModal(${order.OrderNumber}, '${progressRaw.replace(/'/g, "&#39;")}', ${JSON.stringify(progressOptions).replace(/"/g, '&quot;')})\">Update Progress</button>
 						<button class=\"delete-btn\" title=\"Delete Order\" onclick=\"deleteOrder(${order.OrderNumber})\"><i class=\"cil-trash\"></i></button>
 						<a href=\"Instructions.html?ordernumber=${order.OrderNumber}\" class=\"update-progress-btn\" style=\"height:40px;width:40px;display:inline-flex;align-items:center;justify-content:center;padding:0;text-decoration:none;\"><i class=\"cil-list-numbered\" style=\"font-size:1.7em;\"></i></a>
-					   // Declare these once per order
-					   let insufficientIngredients = [];
-					   let ProductWeightOz = order.ProductWeightOz || (productsMap[order.ProductSKU] && productsMap[order.ProductSKU].ProductWeightOz) || 0;
-					   let QuantityBeingMade = order.Quantity || 1;
 					</div>`;
 		// Modal HTML
 		if (!document.getElementById('progressModal')) {
@@ -419,6 +525,9 @@
 						<select id="modalProgressSelect" class="progress-select" style="width:100%;margin-top:8px;">
 							<option value="requested">Requested</option>
 							<option value="scheduled">Scheduled</option>
+              <option value="in production">In Production</option>
+							<option value="completed">Completed</option>
+						</select>
 					<div id="plannedDateContainer" style="display:none;margin-top:12px;">
 						<label for="plannedManufactureDate" style="font-weight:600;">Planned Manufacture Date:</label><br>
 						<input type="date" id="plannedManufactureDate" style="width:100%;margin-top:8px;" />
