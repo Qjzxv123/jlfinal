@@ -456,20 +456,6 @@
   </div>
 
   <script>
-  const InstructionTemplate = `1. Preparation & Sanitization\n• Wear PPE (gloves, hairnet, lab coat, and face mask) to prevent contamination.\n\nEquipment Needed:\n- Ingredient cups\n- Spatula\n- Agitator\n\n✅ Clean & Sanitize Equipment:\n- Ensure all containers, utensils, and mixing vessels are cleaned and sanitized with alcohol or an approved cleaning solution.\n- Ensure there is no oil residue on any equipment, tools, or workspace.\n- Ensure the production area meets GMP requirements.\n- Ensure scale is working properly.\n\n✅ Weigh all ingredients\nFor each ingredient in the formula:\n- Place the container on the scale and tare it to zero.\n- Slowly add the ingredient until the exact required amount is reached. (Aim for ±0.1% accuracy or tighter if required.)\n- Close the container and place the pre-printed label for that ingredient on it.\n- For critical or expensive ingredients, have a second person verify.\n\n\nPhase instructions here, e.g. Phase 1, Phase 2, etc.\n\n\n8. Set temperature to Pour Temperature°C.\n\n\n9. Filling Process\n- Ensure temperature has reached Pour Temperature°C.\n- Confirm container SKU Container SKUs\n- Dispense product directly into proper containers.\n- Place filled containers on a tray to cool.\n\n10. Cooling Process\nLet products cool undisturbed, controlled environment for a minimum of 10 minutes or until fully solidified. Avoid contamination.\n\n11. In-Process Quality Control Checks\nPerform the following QC checks on at least 3 random units:\n- Texture and consistency: Pour Consistency\n- Aroma: Aroma\n- Visual inspection: Check for separation, graininess, air bubbles, or irregularities.\nIf deviations are observed, document immediately and notify supervisor before proceeding.\n\n\n12. Post-Fill Actions\n- Cap all containers securely using appropriate closures.\n- Inspect closures for proper application (tightness, alignment).\n- Shut down all filling equipment and clean per cleaning SOP.\n- Record number of containers filled.`;
-
-    document.addEventListener('DOMContentLoaded', function() {
-      const btn = document.getElementById('insertGeneralInstructionsTemplate');
-      if (btn) {
-        btn.addEventListener('click', function() {
-          const textarea = document.getElementById('ManufacturingInstructions');
-          if (textarea) {
-            textarea.value = InstructionTemplate;
-            textarea.focus();
-          }
-        });
-      }
-    });
     // Access control and inactivity timeout
     checkPermissions(['service_role','employee']);
     setupInactivityTimeout(10);
@@ -638,13 +624,12 @@
               ingredients: Array.isArray(step["Step Ingredients"]) ? step["Step Ingredients"].map(ing => {
                 const ingredientData = allIngredients.find(ai => ai.IngredientSKU === ing.IngredientSKU);
                 let name = ingredientData ? ingredientData.Name : ing.IngredientSKU;
-                let unitType = ing.ingredientUnits !== undefined ? 'units' : 'percent';
-                let amount = ing.ingredientUnits !== undefined ? ing.ingredientUnits : ing.ingredientPercent !== undefined ? ing.ingredientPercent : '';
+                let IngredientQuantity = ing.IngredientQuantity !== undefined ? ing.IngredientQuantity : '';
                 return {
                   name,
                   sku: ing.IngredientSKU,
-                  amount,
-                  unitType
+                  amount: IngredientQuantity,
+                  unitType: 'units'
                 };
               }) : []
             };
@@ -980,6 +965,7 @@
 
     function getProcessFromTableEditor() {
       const steps = [];
+      const productWeightOz = document.getElementById('ProductSize').value ? parseFloat(document.getElementById('ProductSize').value) : 0;
       processTableData.forEach(phase => {
         if (phase.name && phase.ingredients.length > 0) {
           const validIngredients = phase.ingredients.filter(ing => ing.sku && ing.amount);
@@ -988,17 +974,16 @@
             "Step Instructions": phase.instructions || '',
             "Step Duration (Minutes)": phase.duration ? parseInt(phase.duration) : 0,
             "Step Ingredients": validIngredients.map(ing => {
-              if (ing.unitType === 'units') {
-                return {
-                  IngredientSKU: ing.sku,
-                  ingredientUnits: parseFloat(ing.amount)
-                };
+              let qty = 0;
+              if (ing.unitType === 'percent' && productWeightOz > 0) {
+                qty = 1.1 * (parseFloat(ing.amount) / 100) * productWeightOz;
               } else {
-                return {
-                  IngredientSKU: ing.sku,
-                  ingredientPercent: parseFloat(ing.amount)
-                };
+                qty = parseFloat(ing.amount);
               }
+              return {
+                IngredientSKU: ing.sku,
+                IngredientQuantity: qty
+              };
             })
           });
         }
@@ -1032,70 +1017,9 @@
       // Remove empty string values
       Object.keys(data).forEach(k => { if (data[k] === '') data[k] = null; });
 
-      // Calculate total percent across all phases for validation
-      let totalPercent = 0;
-      processTableData.forEach(phase => {
-        if (Array.isArray(phase.ingredients)) {
-          totalPercent += phase.ingredients.reduce((sum, ing) => {
-            const val = parseFloat(ing.percent);
-            return sum + (!isNaN(val) ? val : 0);
-          }, 0);
-        }
-      });
-
-      // Validate percentage if there are ingredients
-      if (Math.abs(totalPercent - 100) > 0.01 && totalPercent > 0) {
-        showPercentModal(totalPercent, () => saveProduct(data));
-        return;
-      } else {
-        await saveProduct(data);
-      }
+  await saveProduct(data);
     };
 
-    // Modal for percent warning
-    function showPercentModal(totalPercent, callback) {
-      let modal = document.getElementById('percentModal');
-      if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'percentModal';
-        modal.style.cssText = `
-          position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-          background: rgba(0,0,0,0.5); display: flex; align-items: center; 
-          justify-content: center; z-index: 10000;
-        `;
-        modal.innerHTML = `
-          <div style="background: white; padding: 2rem; border-radius: 8px; max-width: 400px; text-align: center;">
-            <h3 style="color: #e74c3c; margin-bottom: 1rem;">⚠️ Percentage Warning</h3>
-            <p style="margin-bottom: 1.5rem;">
-              Total ingredient percentages add up to <strong>${totalPercent.toFixed(2)}%</strong> instead of 100%.
-              <br><br>
-              Do you want to continue anyway?
-            </p>
-            <div style="display: flex; gap: 1rem; justify-content: center;">
-              <button id="percentModalContinue" style="background: #4DBA93; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Continue</button>
-              <button id="percentModalCancel" style="background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Cancel</button>
-            </div>
-          </div>
-        `;
-        document.body.appendChild(modal);
-      } else {
-        modal.querySelector('p').innerHTML = `
-          Total ingredient percentages add up to <strong>${totalPercent.toFixed(2)}%</strong> instead of 100%.
-          <br><br>
-          Do you want to continue anyway?
-        `;
-        modal.style.display = 'flex';
-      }
-      
-      // Button listeners
-      modal.querySelector('#percentModalContinue').onclick = function() {
-        modal.style.display = 'none';
-        callback();
-      };
-      modal.querySelector('#percentModalCancel').onclick = function() {
-        modal.style.display = 'none';
-      };
-    }
 
     async function saveProduct(data) {
       try {
@@ -1103,9 +1027,8 @@
         if (error) throw error;
 
         showStatus('productStatusMsg', 'Product saved successfully!', 'success');
-        
-        // Refresh products list
-        await fetchAllProducts();
+        // Reload the page to refresh all data and UI
+        setTimeout(() => { window.location.reload(); }, 500);
       } catch (error) {
         showStatus('productStatusMsg', 'Error saving product: ' + error.message, 'error');
       }
@@ -1264,10 +1187,6 @@
         select.innerHTML = '<option value="">Error loading users</option>';
       }
     }
-
-
-    // Manufacturing instructions toggle
-
     // Make functions globally available
     window.switchTab = switchTab;
     window.addPhaseRow = addPhaseRow;
@@ -1277,7 +1196,6 @@
     window.updatePhaseName = updatePhaseName;
     window.updatePhaseField = updatePhaseField;
     window.updateIngredientField = updateIngredientField;
-    window.showPercentModal = showPercentModal;
     window.saveProduct = saveProduct;
 
     // Initialize the page
