@@ -381,7 +381,12 @@
           <label>Name<input type="text" id="Name"></label>
           <label>Product Weight(oz)<input type="text" id="ProductSize" placeholder="e.g., 4, 8, 16, etc."></label>
           <label>Archived <input type="checkbox" id="Archived"></label>
-          <label>Retailer<input type="text" id="Customer"></label>
+          <label>Retailer
+            <select id="Customer" style="width:100%;padding:8px;margin-top:4px;border-radius:6px;border:1.5px solid #cbd5e1;">
+              <option value="">Loading...</option>
+            </select>
+            <div style="font-size:0.9rem;color:#6b7280;margin-top:0.25rem;">Select the retailer for this product.</div>
+          </label>
           <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
           <label>Pack Size<input type="number" id="PackSize" min="0" step="1"></label>
           <label>Quantity<input type="number" id="Quantity" step="1"></label>
@@ -588,29 +593,28 @@
 
       try {
         showStatus('productStatusMsg', 'Loading product data...', '');
-        
         const { data: product, error } = await supabase
           .from('Products')
           .select('*')
           .eq('ProductSKU', sku)
           .single();
-
         if (error) throw error;
         if (!product) throw new Error('Product not found');
 
         // Populate form fields
-  document.getElementById('ProductSKU').value = product.ProductSKU || '';
-  document.getElementById('Name').value = product.Name || '';
-  document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
-  document.getElementById('Archived').checked = product.Archived || false;
-  document.getElementById('Customer').value = product.Retailer || '';
-  document.getElementById('ShelfLife').value = product.ShelfLife || '';
-  document.getElementById('PackSize').value = product['Pack Size'] || '';
-  document.getElementById('Quantity').value = product.Quantity || '';
-  document.getElementById('QuantityPerBin').value = product.QuantityPerBin || '';
-  document.getElementById('MSRP').value = product.MSRP || '';
-  document.getElementById('ASIN').value = product.ASIN || '';
-  document.getElementById('FNSKU').value = product.FNSKU || '';
+        document.getElementById('ProductSKU').value = product.ProductSKU || '';
+        document.getElementById('Name').value = product.Name || '';
+        document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
+        document.getElementById('Archived').checked = product.Archived || false;
+        // Set retailer dropdown value
+        document.getElementById('Customer').value = product.UserID[1] || '';
+        document.getElementById('ShelfLife').value = product.ShelfLife || '';
+        document.getElementById('PackSize').value = product['Pack Size'] || '';
+        document.getElementById('Quantity').value = product.Quantity || '';
+        document.getElementById('QuantityPerBin').value = product.QuantityPerBin || '';
+        document.getElementById('MSRP').value = product.MSRP || '';
+        document.getElementById('ASIN').value = product.ASIN || '';
+        document.getElementById('FNSKU').value = product.FNSKU || '';
     document.getElementById('ClientPrice').value = product.ClientPrice || '';
     document.getElementById('UPC').value = product.UPC || '';
 
@@ -1003,7 +1007,7 @@
         UPC: document.getElementById('UPC').value.trim(),
         'Product Weight(oz)': document.getElementById('ProductSize').value.trim(),
         Archived: document.getElementById('Archived').checked,
-        Retailer: document.getElementById('Customer').value.trim(),
+        Retailer: document.getElementById('Customer').options[document.getElementById('Customer').selectedIndex].text,
         ShelfLife: document.getElementById('ShelfLife').value ? parseFloat(document.getElementById('ShelfLife').value) : null,
         'Pack Size': document.getElementById('PackSize').value ? parseInt(document.getElementById('PackSize').value) : null,
         Quantity: document.getElementById('Quantity').value ? parseInt(document.getElementById('Quantity').value) : null,
@@ -1011,9 +1015,9 @@
         MSRP: document.getElementById('MSRP').value ? parseFloat(document.getElementById('MSRP').value) : null,
         ASIN: document.getElementById('ASIN').value.trim(),
         FNSKU: document.getElementById('FNSKU').value.trim(),
-        ManufacturingSteps: getProcessFromTableEditor()
+        ManufacturingSteps: getProcessFromTableEditor(),
+        UserID: [CurrentUserID,document.getElementById('Customer').value]
       };
-
       // Remove empty string values
       Object.keys(data).forEach(k => { if (data[k] === '') data[k] = null; });
 
@@ -1187,7 +1191,33 @@
         select.innerHTML = '<option value="">Error loading users</option>';
       }
     }
+    // Populate retailer dropdown for products
+    async function populateRetailerDropdown() {
+      const select = document.getElementById('Customer');
+      if (!select) return;
+      select.innerHTML = '<option value="">Loading...</option>';
+      try {
+        const { data: users, error } = await supabase
+          .from('Users')
+          .select('id, display_name')
+          .in('Role', ['client','service_role'])
+          .order('display_name', { ascending: true });
+        if (error) throw error;
+        select.innerHTML = '';
+        (users || []).forEach(user => {
+          const label = user.display_name ? user.display_name : user.id;
+          const opt = document.createElement('option');
+          opt.value = user.id;
+          opt.textContent = label;
+          select.appendChild(opt);
+        });
+      } catch (e) {
+        select.innerHTML = '<option value="">Error loading retailers</option>';
+      }
+    }
+
     // Make functions globally available
+    
     window.switchTab = switchTab;
     window.addPhaseRow = addPhaseRow;
     window.removePhaseRow = removePhaseRow;
@@ -1197,6 +1227,7 @@
     window.updatePhaseField = updatePhaseField;
     window.updateIngredientField = updateIngredientField;
     window.saveProduct = saveProduct;
+    window.populateRetailerDropdown = populateRetailerDropdown;
 
     // Initialize the page
     window.addEventListener('DOMContentLoaded', async () => {
@@ -1204,6 +1235,7 @@
       await fetchAllProducts();
       await fetchAllIngredients();
       await populateBoxUserDropdown();
+      await populateRetailerDropdown();
       // Initialize product tab components
       renderProcessTableEditor();
     });
