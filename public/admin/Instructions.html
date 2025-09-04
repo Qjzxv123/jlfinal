@@ -27,6 +27,8 @@
     <div id="instructions"></div>
   </div>
   <script>
+    checkPermissions(['service_role', 'employee']);
+    setupInactivityTimeout(10);  
     const urlParams = new URLSearchParams(window.location.search);
     const orderNumber = urlParams.get('ordernumber');
     const instructionsDiv = document.getElementById('instructions');
@@ -34,15 +36,8 @@
       instructionsDiv.innerHTML = '<p style="color:red;">No order number provided.</p>';
     } else {
       (async function() {
-        // Use supabase client from CheckAccess.js
-        // Fetch ManufacturingTasks row
-        // Use the supabase client from CheckAccess.js
-        const supabaseClient = typeof supabase !== 'undefined' ? supabase : (window.supabaseClient || window.supabase);
-        if (!supabaseClient || typeof supabaseClient.from !== 'function') {
-          instructionsDiv.innerHTML = '<p style="color:red;">Supabase client not initialized. Please reload the page.</p>';
-          return;
-        }
-        const { data: orderData, error: orderError } = await supabaseClient
+       
+        const { data: orderData, error: orderError } = await supabase
           .from('ManufacturingTasks')
           .select('ProductSKU, Quantity, Progress')
           .eq('OrderNumber', orderNumber)
@@ -52,9 +47,9 @@
           return;
         }
         // Fetch Product with ManufacturingSteps
-        const { data: productData, error: prodError } = await supabaseClient
+        const { data: productData, error: prodError } = await supabase
           .from('Products')
-          .select('Name, ManufacturingSteps')
+          .select('Name, ManufacturingSteps, Quantity')
           .eq('ProductSKU', orderData.ProductSKU)
           .single();
         if (prodError || !productData) {
@@ -83,7 +78,7 @@
         if (!foundStep && steps.length > 0) {
           // Update Progress column to first step title
           const firstStepTitle = steps[0]["Step Title"] || steps[0].StepTitle || `Step 1`;
-          await supabaseClient
+          await supabase
             .from('ManufacturingTasks')
             .update({ Progress: firstStepTitle })
             .eq('OrderNumber', orderNumber);
@@ -100,7 +95,7 @@
   async function renderStep(idx) {
           const step = steps[idx];
           const batchNumber = orderNumber;
-          const lotNumber = generateLotNumber(orderNumber);
+          const lotNumber = await generatelotNumber(productData);
           const batchDate = new Date().toLocaleDateString();
           let html = `<div style='font-size:1.1em;color:#333;margin-bottom:18px;text-align:center;'>Batch Number: <strong>${batchNumber}</strong> &nbsp; | &nbsp; Lot Number: <strong>${lotNumber}</strong> &nbsp; | &nbsp; Batch Date: <strong>${batchDate}</strong></div>`;
           html += `<h2 style='color:#4d6dba;'>${productData.Name || orderData.ProductSKU} <span style='font-size:0.8em;color:#333;font-weight:normal;'>(Qty: ${orderData.Quantity})</span></h2>`;
@@ -114,7 +109,7 @@
             let nameMap = {};
             let locationMap = {};
             if (ingredientSKUs.length > 0) {
-              const { data: ingredients, error } = await supabaseClient
+              const { data: ingredients, error } = await supabase
                 .from('Ingredients')
                 .select('IngredientSKU,Name,Location')
                 .in('IngredientSKU', ingredientSKUs);
@@ -136,24 +131,35 @@
             html += `<thead><tr>
                 <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Ingredient</th>
                 <th style='padding:4px 8px; border:1px solid #b2d8a6;'>SKU</th>
-                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Amount</th>
+                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Amount(Lbs/Units)</th>
                 <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Location</th>
-                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Initials</th>
             </tr></thead><tbody>`;
             step["Step Ingredients"].forEach(ing => {
               html += `<tr>` +
                 `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${nameMap[ing.IngredientSKU] || ''}</td>` +
                 `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${ing.IngredientSKU}</td>` +
-                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${ing.ingredientPercent}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${ing.IngredientQuantity !== undefined ? ing.IngredientQuantity : ''}</td>` +
                 `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${locationMap[ing.IngredientSKU] || ''}</td>` +
-                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'></td>` +
               `</tr>`;
             });
             html += `</tbody></table></div>`;
           } else {
             html += '—';
           }
-          html += `<div style='margin-bottom:10px;'><strong>Instructions:</strong><br>${step["Step Instructions"] || step.StepInstructions || ''}</div>`;
+          // Replace [n] in instructions with corresponding ingredient info
+          let instructionsText = step["Step Instructions"] || step.StepInstructions || '';
+          if (Array.isArray(step["Step Ingredients"])) {
+            instructionsText = instructionsText.replace(/\[(\d+)\]/g, (match, p1) => {
+              const n = parseInt(p1, 10);
+              const ing = step["Step Ingredients"][n];
+              if (ing) {
+                let qty = ing.IngredientQuantity !== undefined ? Math.round(ing.IngredientQuantity * 1000) / 1000 : '';
+                return `${ing.IngredientSKU} (${qty})`;
+              }
+              return match;
+            });
+          }
+          html += `<div style='margin-bottom:10px;'><strong>Instructions:</strong><br>${instructionsText}</div>`;
           html += `</div>`;
           html += `<div style='text-align:center;margin-top:18px;'>`;
           html += `<span>Step ${idx+1} of ${steps.length}</span>`;
@@ -165,28 +171,81 @@
               currentStep++;
               // Update Progress column in ManufacturingTasks to the new step title
               const newProgress = steps[currentStep]["Step Title"] || steps[currentStep].StepTitle || `Step ${currentStep+1}`;
-              await supabaseClient
+              await supabase
                 .from('ManufacturingTasks')
                 .update({ Progress: newProgress })
                 .eq('OrderNumber', orderNumber);
               await renderStep(currentStep);
             } else {
-              // Last step: set progress to Completed and set CompletionDate, then redirect
+              // Last step: set progress to Completed and set CompletionDate, then update Products table and redirect
               const today = new Date();
               const yyyy = today.getFullYear();
               const mm = String(today.getMonth()+1).padStart(2,'0');
               const dd = String(today.getDate()).padStart(2,'0');
               const completionDate = `${yyyy}-${mm}-${dd}`;
-              await supabaseClient
+              await supabase
                 .from('ManufacturingTasks')
                 .update({ Progress: 'Completed', CompletionDate: completionDate })
                 .eq('OrderNumber', orderNumber);
+              // Update LastBatch and LastBatchNumber in Products table
+              await supabase
+                .from('Products')
+                .update({ LastBatch: completionDate, LastBatchNumber: orderNumber, Quantity: productData.Quantity + orderData.Quantity})
+                .eq('ProductSKU', orderData.ProductSKU);
+              await supabase
+                .from('inventoryupdatelogs')
+                .insert({ created_at: new Date(), log: `Completed manufacturing order ${orderNumber} for product ${orderData.ProductSKU}, added ${orderData.Quantity} to inventory.`,updated_by: window.CurrentUserDisplayName, SKU:orderData.ProductSKU,QuantityChanged: -orderData.Quantity});
+              console.log('Manufacturing completed for order', orderNumber);
               window.location.href = 'Manufacturing.html';
             }
           };
         }
         await renderStep(currentStep);
       })();
+    }
+        async function generatelotNumber(currentProduct) {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1; // 1-12
+      const day = now.getDate();
+      // Fetch shelf life from Products table
+      let shelfLifeYears = 3; // Default fallback
+      try {
+        const { data: productShelfData, error: shelfError } = await supabase
+          .from('Products')
+          .select('ShelfLife')
+          .eq('ProductSKU', currentProduct.ProductSKU)
+          .maybeSingle();
+        if (!shelfError && productShelfData && productShelfData.ShelfLife) {
+          shelfLifeYears = productShelfData.ShelfLife;
+        }
+      } catch (error) {
+        console.warn('Failed to fetch shelf life, using default of 3 years:', error);
+      }
+      // Month letter (a-l for Jan-Dec)
+      const monthLetters = 'abcdefghijkl';
+      const monthLetter = monthLetters[month - 1];
+      // 3rd digit of year (from the right, e.g., 2024 -> 2)
+      const thirdDigitYear = Math.floor((year % 100) / 10);
+      // Last digit of year
+      const lastDigitYear = year % 10;
+      // Expiration month calculation
+      let expirationMonth = month;
+      let expirationYear = year + shelfLifeYears; // Current year + shelf life
+      if (day >= 15) {
+        expirationMonth = month + 1;
+        if (expirationMonth > 12) {
+          expirationMonth = 1;
+          expirationYear = year + shelfLifeYears + 1; // Account for month rollover
+        }
+      }
+      // Format expiration month (01-12)
+      const formattedExpMonth = expirationMonth.toString().padStart(2, '0');
+      // Last 2 digits of expiration year
+      const expYearLastTwo = (expirationYear % 100).toString().padStart(2, '0');
+      // Combine: monthLetter + "-" + thirdDigitYear + day + lastDigitYear + expMonth + expYearLastTwo
+      const lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
+      return lot;
     }
   </script>
 </body>
