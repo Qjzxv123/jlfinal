@@ -625,67 +625,30 @@
   document.getElementById('MSRP').value = product.MSRP || '';
   document.getElementById('ASIN').value = product.ASIN || '';
   document.getElementById('FNSKU').value = product.FNSKU || '';
+    document.getElementById('ClientPrice').value = product.ClientPrice || '';
+    document.getElementById('UPC').value = product.UPC || '';
 
-        // Load process data - using exact same logic as original AddProductAdmin.html
-        if (product.Process && typeof product.Process === 'object') {
-          processTableData = [];
-          
-          Object.keys(product.Process)
-            .filter(phaseName => phaseName.toLowerCase().includes('phase'))
-            .forEach(phaseName => {
-            const phaseData = product.Process[phaseName];
-            const phase = {
-              name: phaseName,
-              temp: '',
-              timeType: 'Mix',
-              mixTime: '',
-              consistency: '',
-              ingredients: []
-            };
-
-            // Extract temperature
-            const tempKey = Object.keys(phaseData).find(key => key.includes('Temperature'));
-            if (tempKey) {
-              phase.temp = phaseData[tempKey];
-            }
-
-            // Extract time and time type
-            const timeKey = Object.keys(phaseData).find(key => key.includes('Time'));
-            if (timeKey) {
-              // Convert hours back to minutes for display (multiply by 60)
-              const timeValueInHours = phaseData[timeKey];
-              phase.mixTime = timeValueInHours ? (timeValueInHours * 60) : '';
-              if (timeKey.includes('Melt')) {
-                phase.timeType = 'Melt';
-              } else if (timeKey.includes('Mix')) {
-                phase.timeType = 'Mix';
-              }
-            }
-
-            // Extract consistency
-            const consistencyKey = Object.keys(phaseData).find(key => key.includes('Consistency'));
-            if (consistencyKey) {
-              phase.consistency = phaseData[consistencyKey];
-            }
-
-            // Extract ingredients
-            const ingredientsKey = Object.keys(phaseData).find(key => key.includes('Ingredients'));
-            if (ingredientsKey && Array.isArray(phaseData[ingredientsKey])) {
-              phase.ingredients = phaseData[ingredientsKey].map(ing => {
-                // Find ingredient name from SKU
+        // Only load process data from ManufacturingSteps
+        if (product.ManufacturingSteps && typeof product.ManufacturingSteps === 'object' && Array.isArray(product.ManufacturingSteps.Steps)) {
+          processTableData = product.ManufacturingSteps.Steps.map(step => {
+            return {
+              name: step["Step Title"] || '',
+              instructions: step["Step Instructions"] || '',
+              duration: step["Step Duration (Minutes)"] || '',
+              ingredients: Array.isArray(step["Step Ingredients"]) ? step["Step Ingredients"].map(ing => {
                 const ingredientData = allIngredients.find(ai => ai.IngredientSKU === ing.IngredientSKU);
+                let name = ingredientData ? ingredientData.Name : ing.IngredientSKU;
+                let unitType = ing.ingredientUnits !== undefined ? 'units' : 'percent';
+                let amount = ing.ingredientUnits !== undefined ? ing.ingredientUnits : ing.ingredientPercent !== undefined ? ing.ingredientPercent : '';
                 return {
-                  name: ingredientData ? ingredientData.Name : ing.IngredientSKU,
+                  name,
                   sku: ing.IngredientSKU,
-                  percent: ing['Ingredient Quantity(%)']
+                  amount,
+                  unitType
                 };
-              });
-            }
-
-            processTableData.push(phase);
+              }) : []
+            };
           });
-
-          // Render the process table editor immediately after setting up the data
           renderProcessTableEditor();
         } else {
           processTableData = [];
@@ -864,8 +827,8 @@
               <div id="ingredient-dropdown-${phaseIdx}-${ingIdx}"></div>
             </td>
             <td style="padding:0.5rem;border:1px solid #cbd5e1;display:flex;gap:4px;align-items:center;">
-              <input type="number" value="${ing.amount || ''}" min="0" step="any" placeholder="Amount" style="width:70%;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'amount',this.value);">
-              <select style="width:30%;padding:0.3rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'unitType',this.value)">
+              <input type="number" value="${ing.amount || ''}" min="0" step="any" placeholder="Amount" style="width:100px;min-width:100px;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'amount',this.value);">
+              <select style="width:60px;min-width:60px;padding:0.3rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'unitType',this.value)">
                 <option value="percent" ${ing.unitType === 'percent' ? 'selected' : ''}>%</option>
                 <option value="units" ${ing.unitType === 'units' ? 'selected' : ''}>units</option>
               </select>
