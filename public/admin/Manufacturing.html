@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -465,7 +464,7 @@
 							}
 							if (insufficientIngredients.length > 0) {
 								showIngredientWarning = true;
-								ingredientWarningText = `Insufficient ingredients: ${insufficientIngredients.join(", ")}`;
+								ingredientWarningText = insufficientIngredients;
 							}
 						} catch (e) {
 							showWarning = true;
@@ -501,7 +500,7 @@
 								</span>
 							</h2>
 							${showWarning ? `<span class=\"warning-badge\" style=\"position:static;\"><i class=\"cil-warning\"></i> ${warningText}</span>` : ''}
-							${showIngredientWarning ? `<span class=\"warning-badge\" style=\"position:static;background:#e74c3c;\"><i class=\"cil-warning\"></i> ${ingredientWarningText}</span>` : ''}
+							${showIngredientWarning ? `<button onclick="showInsufficientIngredientsModal(${JSON.stringify(ingredientWarningText).replace(/"/g, '&quot;')})" class="warning-badge" style="position:static;background:#e74c3c;"><i class="cil-warning"></i>Insufficient Ingredients</button>` : ''}
 						</div>
 						<div style=\"margin-bottom:10px;\"><strong>Customer:</strong> ${order.Customer || ''}</div>
 						${order.PlannedManufactureDate ? `<div style=\"margin-bottom:10px;\"><strong>Planned Manufacture Date:</strong> ${order.PlannedManufactureDate}</div>` : ''}
@@ -648,6 +647,40 @@
 		}
 
 		loadManufacturingOrders();
+	</script>
+	<!-- Add modal for insufficient ingredients -->
+	<div id="ingredientModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.35);z-index:9999;align-items:center;justify-content:center;">
+		<div style="background:#fff;padding:32px 24px;border-radius:12px;max-width:480px;width:90vw;box-shadow:0 4px 24px rgba(0,0,0,0.18);position:relative;">
+			<h2 style="margin-top:0;color:#e74c3c;text-align:center;font-size:1.3em;">Insufficient Ingredients</h2>
+			<div id="ingredientModalContent" style="margin-top:18px;"></div>
+			<button id="closeIngredientModal" style="margin-top:24px;width:100%;background:#4DBA93;color:#fff;border:none;padding:10px 0;border-radius:8px;font-size:1em;cursor:pointer;">Close</button>
+		</div>
+	</div>
+	<script>
+		document.getElementById('closeIngredientModal').onclick = function() {
+  document.getElementById('ingredientModal').style.display = 'none';
+};
+
+// Function to show modal with ingredient info
+async function showInsufficientIngredientsModal(insufficientSKUs) {
+  if (!Array.isArray(insufficientSKUs) || insufficientSKUs.length === 0) return;
+  const { data: ingredients, error } = await supabase
+    .from('Ingredients')
+    .select('IngredientSKU, Name, Link')
+    .in('IngredientSKU', insufficientSKUs);
+  let html = '<table style="width:100%;border-collapse:collapse;">';
+  html += '<thead><tr><th>Name</th><th>SKU</th><th>Link</th></tr></thead><tbody>';
+  (ingredients || []).forEach(ing => {
+    html += `<tr>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.Name || ''}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.IngredientSKU}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.Link ? `<a href="${ing.Link}" target="_blank">Link</a>` : ''}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('ingredientModalContent').innerHTML = html;
+  document.getElementById('ingredientModal').style.display = 'flex';
+}
 	</script>
 </body>
 </html>
