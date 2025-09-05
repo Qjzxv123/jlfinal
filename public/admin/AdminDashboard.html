@@ -144,22 +144,13 @@
       }
       await renderLowInventorySection();
       warnIfTasksToReview();
+      Alerts();
     });
     async function loadOrdersCount() {
       let banner = document.getElementById('ordersCountBanner');
       if (!banner) {
-        banner = document.createElement('div');
+        banner = createBanner('');
         banner.id = 'ordersCountBanner';
-        banner.style.background = '#e3f6fc';
-        banner.style.color = '#155a7a';
-        banner.style.border = '1px solid #b6e0fe';
-        banner.style.padding = '1em';
-        banner.style.margin = '1em 0';
-        banner.style.borderRadius = '8px';
-        banner.style.fontWeight = '600';
-        banner.style.textAlign = 'center';
-        banner.style.fontSize = '1.1em';
-        document.querySelector('.dashboard-container').prepend(banner);
       }
       banner.innerHTML = '<span class="loading-spinner"></span> Loading order count...';
       try {
@@ -337,15 +328,34 @@
       }
     }
     // Notification banner for tasks to review
+function createBanner(text) {
+  let bannerContainer = document.getElementById('banner-container');
+  if (!bannerContainer) {
+    bannerContainer = document.createElement('div');
+    bannerContainer.id = 'banner-container';
+    // Insert at top of dashboard-container
+    const dash = document.querySelector('.dashboard-container');
+    if (dash) {
+      dash.prepend(bannerContainer);
+    } else {
+      document.body.prepend(bannerContainer);
+    }
+  }
+  const banner = document.createElement('div');
+  banner.style.cssText = `background: #fff3cd;color: #856404;border: 1px solid #ffeeba;padding: 1em; margin: 1em 0;border-radius: 8px;font-weight: 600;text-align: center;font-size: 1.1em;`;
+  banner.textContent = text;
+  bannerContainer.appendChild(banner);
+  return banner;
+}
+
 function showTasksToReviewBanner(count) {
   let banner = document.getElementById('tasksToReviewBanner');
   if (!banner) {
-    banner = document.createElement('div');
-    banner.style.cssText = `background: #fff3cd;color: #856404;border: 1px solid #ffeeba;padding: 1em; margin: 1em 0;border-radius: 8px;font-weight: 600;text-align: center;font-size: 1.1em;`;
+    banner = createBanner(`You have ${count} task(s) awaiting your confirmation in the checklist.`);
     banner.id = 'tasksToReviewBanner';
-    document.querySelector('.dashboard-container').prepend(banner);
+  } else {
+    banner.textContent = `You have ${count} task(s) awaiting your confirmation in the checklist.`;
   }
-  banner.textContent = `You have ${count} task(s) awaiting your confirmation in the checklist.`;
 }
     async function warnIfTasksToReview() {
       const currentUserDisplayName = window.CurrentUserDisplayName || '';
@@ -357,6 +367,42 @@ function showTasksToReviewBanner(count) {
       if (error) return;
       if ((data || []).length > 0) {
         showTasksToReviewBanner(data.length);
+      }
+    }
+    async function Alerts() {
+      const currentUserDisplayName = window.CurrentUserDisplayName || '';
+      const { data, error } = await supabase
+        .from('Users')
+        .select('Alerts')
+        .eq('display_name', currentUserDisplayName);
+      if (error) return;
+      for (const i of data) {
+        if (i.Alerts) {
+          let alertsArr = Array.isArray(i.Alerts) ? i.Alerts : [i.Alerts];
+          for (let idx = 0; idx < alertsArr.length; idx++) {
+            const alertText = alertsArr[idx];
+            if (alertText && typeof alertText === 'string') {
+              const alertBanner = createBanner(alertText);
+              alertBanner.classList.add('user-alert-banner');
+              // Add close button
+              const closeBtn = document.createElement('button');
+              closeBtn.textContent = '×';
+              closeBtn.style.cssText = 'margin-left:16px;background:none;border:none;color:#856404;font-size:1.3em;cursor:pointer;float:right;';
+              closeBtn.title = 'Dismiss';
+              closeBtn.onclick = async function() {
+                alertBanner.remove();
+                // Remove from alertsArr and update in Supabase
+                alertsArr.splice(idx, 1);
+                // Update Alerts in Supabase for this user
+                await supabase
+                  .from('Users')
+                  .update({ Alerts: alertsArr })
+                  .eq('display_name', currentUserDisplayName);
+              };
+              alertBanner.appendChild(closeBtn);
+            }
+          }
+        }
       }
     }
   </script>
