@@ -1,0 +1,3 @@
+Delete BatchMaker.html, OrderTracker.html, ManufacturingInstructions.html, AddItemAdmin
+Update Permissions for new pages
+Delete Columns from Products table: Process, ManufacturingInstructions, Product Type, ContainerSKUs, Pour Temperature, Pour Consistency, Aroma
