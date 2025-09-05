@@ -964,6 +964,27 @@
     }
 
     function updateIngredientField(phaseIdx, ingIdx, field, val) {
+      // If switching unitType and there is a value, convert it
+      if (field === 'unitType') {
+        const ing = processTableData[phaseIdx].ingredients[ingIdx];
+        const prevType = ing.unitType;
+        const prevAmount = parseFloat(ing.amount);
+        const productWeightOz = document.getElementById('ProductSize').value ? parseFloat(document.getElementById('ProductSize').value) : 0;
+        if (!isNaN(prevAmount) && prevType && val && prevType !== val && productWeightOz > 0) {
+          if (prevType === 'percent' && val === 'units') {
+            // Convert percent to units
+            ing.amount = 1.1 * (prevAmount / 100) * productWeightOz;
+          } else if (prevType === 'units' && val === 'percent') {
+            // Convert units to percent
+            ing.amount = (prevAmount / (1.1 * productWeightOz)) * 100;
+          }
+          // Round to 3 decimals
+          ing.amount = Math.round(ing.amount * 1000) / 1000;
+        }
+        ing.unitType = val;
+        renderProcessTableEditor();
+        return;
+      }
       processTableData[phaseIdx].ingredients[ingIdx][field] = val;
     }
 

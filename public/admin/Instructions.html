@@ -177,12 +177,52 @@
                 .eq('OrderNumber', orderNumber);
               await renderStep(currentStep);
             } else {
-              // Last step: set progress to Completed and set CompletionDate, then update Products table and redirect
               const today = new Date();
               const yyyy = today.getFullYear();
               const mm = String(today.getMonth()+1).padStart(2,'0');
               const dd = String(today.getDate()).padStart(2,'0');
               const completionDate = `${yyyy}-${mm}-${dd}`;
+              // If last step, prompt for actual quantity made
+              let ActualQuantity=null;
+              while(ActualQuantity===null || isNaN(ActualQuantity) || ActualQuantity<0){
+                ActualQuantity=prompt("How many pieces were Actually made?");
+              }
+              if(ActualQuantity<orderData.Quantity){
+                if(confirm(`You entered ${ActualQuantity}, which is less than the ordered quantity of ${orderData.Quantity}. If you will be making the remaining product for this order again press "OK"`)){
+                  //if they wish to make more later, set progress to "Requested" and update quantity to remaining amount, then update Products table and log and redirect
+                  await supabase
+                .from('ManufacturingTasks')
+                .update({ Quantity: orderData.Quantity-ActualQuantity, Progress: 'requested' })
+                .eq('OrderNumber', orderNumber);
+                await supabase
+                .from('Products')
+                .update({ LastBatch: completionDate, LastBatchNumber: orderNumber, Quantity: productData.Quantity + ActualQuantity})
+                .eq('ProductSKU', orderData.ProductSKU);
+              await supabase
+                .from('inventoryupdatelogs')
+                .insert({ created_at: new Date(), log: `Partially completed manufacturing order ${orderNumber} for product ${orderData.ProductSKU}, added ${ActualQuantity} to inventory.`,updated_by: window.CurrentUserDisplayName, SKU:orderData.ProductSKU,QuantityChanged: -ActualQuantity});
+              window.location.href = 'Manufacturing.html';
+                }
+              }
+              if(ActualQuantity!=orderData.Quantity){
+                // Send alert to admin user of Quantity discrepancy
+                const { data: userRow, error } = await supabase
+                .from('Users')
+                .select('Alerts')
+                .eq('id', "bc4441d2-38e8-4e77-afb4-2609ec6f56f6")
+                .maybeSingle();
+              let alertsArr = [];
+              if (!error && userRow && Array.isArray(userRow.Alerts)) {
+                alertsArr = userRow.Alerts;
+              }
+              alertsArr.push(`${new Date().toLocaleString()}: Quantity discrepancy detected. Manufactured ${ActualQuantity} for order ${orderNumber}, which differs from the ordered quantity of ${orderData.Quantity}. Please investigate.`);
+              await supabase
+                .from('Users')
+                .update({ Alerts: alertsArr })
+                .eq('id', "bc4441d2-38e8-4e77-afb4-2609ec6f56f6");
+              }
+              // Last step: set progress to Completed and set CompletionDate, then update Products table and redirect
+              
               await supabase
                 .from('ManufacturingTasks')
                 .update({ Progress: 'Completed', CompletionDate: completionDate })

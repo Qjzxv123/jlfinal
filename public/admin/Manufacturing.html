@@ -603,20 +603,6 @@
 				loadManufacturingOrders(currentProgressFilter, currentSearchTerm);
 			}
 		};
-		async function updateOrderProgress(orderNumber) {
-			const select = document.getElementById(`progress-select-${orderNumber}`);
-			if (!select) return;
-			const newProgress = select.value;
-			const { error } = await supabase
-				.from('ManufacturingTasks')
-				.update({ Progress: newProgress })
-				.eq('OrderNumber', orderNumber);
-			if (error) {
-				alert('Error updating progress: ' + error.message);
-			} else {
-				loadManufacturingOrders(currentProgressFilter, currentSearchTerm);
-			}
-		}
 				});
 				container.innerHTML = cardsHtml;
 			} catch (err) {

@@ -111,6 +111,11 @@
         <label for="quantity">Quantity</label>
         <input type="number" id="quantity" required min="1" placeholder="Quantity" class="styled-input">
       </div>
+        <div>
+        <label for="Deadline">Deadline</label>
+        <input type="date" id="Deadline" class="styled-input">
+      </div>
+
       <div>
         <button type="submit" class="styled-btn">Request Order</button>
       </div>
@@ -313,6 +318,7 @@
 
       const productSKU = document.getElementById('productSKU').value;
       const quantity = parseInt(document.getElementById('quantity').value);
+      const deadline = document.getElementById('Deadline').value || new Date(Date.now() + 12096e5).toISOString().split('T')[0];
       if (!productSKU || !quantity) {
         alert('Please select a product and enter quantity.');
         return;
@@ -322,6 +328,7 @@
         ProductSKU: productSKU,
         Quantity: quantity,
         Progress: 'requested',
+        Deadline: deadline,
         UserID: [userID]
       };
       const success = await addOrder(task);
