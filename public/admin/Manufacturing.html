@@ -221,6 +221,30 @@
 		</div>
 	</div>
 	<script>
+// DRY: Shared function to parse steps and calculate ingredient usage
+function getIngredientUsage(product, order) {
+	let steps = [];
+	if (Array.isArray(product.ManufacturingSteps)) {
+		steps = product.ManufacturingSteps;
+	} else if (product.ManufacturingSteps && Array.isArray(product.ManufacturingSteps.Steps)) {
+		steps = product.ManufacturingSteps.Steps;
+	}
+	let QuantityBeingMade = order.Quantity || 1;
+	let usage = {};
+	for (let i = 0; i < steps.length; i++) {
+		const step = steps[i];
+		let stepIngredients = Array.isArray(step["Step Ingredients"]) ? step["Step Ingredients"] : [];
+		for (let j = 0; j < stepIngredients.length; j++) {
+			const ing = stepIngredients[j];
+			if (ing.IngredientSKU && ing.IngredientQuantity !== undefined) {
+				let neededQty = ing.IngredientQuantity * QuantityBeingMade;
+				if (!usage[ing.IngredientSKU]) usage[ing.IngredientSKU] = 0;
+				usage[ing.IngredientSKU] += neededQty;
+			}
+		}
+	}
+	return usage;
+}
 		// Modal logic for creating new order
 		document.addEventListener('DOMContentLoaded', function() {
 			const createOrderBtn = document.getElementById('createOrderBtn');
@@ -432,45 +456,39 @@
 					let deadlineHtml = order.Deadline ? `<div style=\"margin-bottom:10px;\"><strong>Deadline:</strong> ${order.Deadline}</div>` : '';
 					let completionHtml = order.CompletionDate ? `<div style=\"margin-bottom:10px;\"><strong>Completion Date:</strong> ${order.CompletionDate}</div>` : '';
 
-					// --- Warning badge logic ---
-					let showWarning = false;
-					let warningText = '';
-					let showIngredientWarning = false;
-					let ingredientWarningText = '';
-					let product = productsMap[order.ProductSKU];
-					// Only expect ManufacturingSteps format
-					if (!product || !product.ManufacturingSteps || !Array.isArray(product.ManufacturingSteps.Steps) || product.ManufacturingSteps.Steps.length === 0) {
-						showWarning = true;
-						warningText = 'No manufacturing steps';
-					} else {
-						try {
-							let steps = product.ManufacturingSteps.Steps;
-							let insufficientIngredients = [];
-							let ProductWeightOz = product['Product Weight(oz)'] ? parseFloat(product['Product Weight(oz)']) : 0;
-							let QuantityBeingMade = order.Quantity || 1;
-							for (let i = 0; i < steps.length; i++) {
-								const step = steps[i];
-								let stepIngredients = Array.isArray(step["Step Ingredients"]) ? step["Step Ingredients"] : [];
-								for (let j = 0; j < stepIngredients.length; j++) {
-									const ing = stepIngredients[j];
-									const dbQty = ingredientsMap[ing.IngredientSKU] || 0;
-									if (ing.IngredientQuantity !== undefined) {
-										let neededQty = ing.IngredientQuantity * QuantityBeingMade;
-										if (dbQty < neededQty) {
-											insufficientIngredients.push(ing.IngredientSKU);
+					// --- DRY ingredient sufficiency logic ---
+										let showWarning = false;
+										let warningText = '';
+										let showIngredientWarning = false;
+										let ingredientWarningText = '';
+										let product = productsMap[order.ProductSKU];
+										// DRY: Use shared function for ingredient check
+										   function getInsufficientIngredients(product, order, ingredientsMap) {
+											   if (!product || !product.ManufacturingSteps) {
+												   return { error: 'No manufacturing steps', insufficient: [] };
+											   }
+											   try {
+												   let usage = getIngredientUsage(product, order);
+												   let insufficientIngredients = [];
+												   for (let sku in usage) {
+													   const dbQty = ingredientsMap[sku] || 0;
+													   if (dbQty < usage[sku]) {
+														   insufficientIngredients.push(sku);
+													   }
+												   }
+												   return { error: null, insufficient: insufficientIngredients };
+											   } catch (e) {
+												   return { error: 'Step check error', insufficient: [] };
+											   }
+										   }
+										const checkResult = getInsufficientIngredients(product, order, ingredientsMap);
+										if (checkResult.error) {
+											showWarning = true;
+											warningText = checkResult.error;
+										} else if (checkResult.insufficient.length > 0) {
+											showIngredientWarning = true;
+											ingredientWarningText = checkResult.insufficient;
 										}
-									}
-								}
-							}
-							if (insufficientIngredients.length > 0) {
-								showIngredientWarning = true;
-								ingredientWarningText = insufficientIngredients;
-							}
-						} catch (e) {
-							showWarning = true;
-							warningText = 'Step check error';
-						}
-					}
 
 					// Get step titles for this product
 					let stepTitles = [];
@@ -501,6 +519,8 @@
 							</h2>
 							${showWarning ? `<span class=\"warning-badge\" style=\"position:static;\"><i class=\"cil-warning\"></i> ${warningText}</span>` : ''}
 							${showIngredientWarning ? `<button onclick="showInsufficientIngredientsModal(${JSON.stringify(ingredientWarningText).replace(/"/g, '&quot;')})" class="warning-badge" style="position:static;background:#e74c3c;"><i class="cil-warning"></i>Insufficient Ingredients</button>` : ''}
+							${order.IngredientsRemoved ? `<button onclick="restoreIngredients(${order.OrderNumber})" style=\"background:#4DBA93;color:#fff;border-radius:8px;padding:4px 10px;font-size:0.98em;margin-left:10px;display:inline-block;vertical-align:middle;\"><i class="cil-history"></i> Add Back Ingredients</button>` : ''}
+									</h2>
 						</div>
 						<div style=\"margin-bottom:10px;\"><strong>Customer:</strong> ${order.Customer || ''}</div>
 						${order.PlannedManufactureDate ? `<div style=\"margin-bottom:10px;\"><strong>Planned Manufacture Date:</strong> ${order.PlannedManufactureDate}</div>` : ''}
@@ -584,6 +604,15 @@
 			const newProgress = select.value;
 			let updateObj = { Progress: newProgress };
 			if (newProgress === 'scheduled') {
+				// DRY: Use shared function for ingredient warning
+				let order = orders.find(o => o.OrderNumber === modalOrderNumber);
+				let product = order && order.ProductSKU && productsMap[order.ProductSKU] ? productsMap[order.ProductSKU] : null;
+				const checkResult = getInsufficientIngredients(product, order, ingredientsMap);
+				let confirmed = true;
+				if (checkResult.insufficient && checkResult.insufficient.length > 0) {
+					confirmed = confirm('Warning: There are insufficient ingredients for this order. Are you sure you want to schedule it?');
+					if (!confirmed) return;
+				}
 				const plannedDateInput = document.getElementById('plannedManufactureDate');
 				if (!plannedDateInput.value) {
 					alert('Please enter a Planned Manufacture Date.');
@@ -591,6 +620,49 @@
 					return;
 				}
 				updateObj.PlannedManufactureDate = plannedDateInput.value;
+				// Do not subtract ingredients if IngredientsRemoved is already true
+				if (!order.IngredientsRemoved && confirmed && product && product.ManufacturingSteps) {
+					let ingredientUsage = getIngredientUsage(product, order);
+					// Fetch current quantities for all used ingredients
+					const usedSKUs = Object.keys(ingredientUsage);
+					if (usedSKUs.length > 0) {
+						const { data: currentIngredients, error: fetchError } = await supabase
+							.from('Ingredients')
+							.select('IngredientSKU, "Quantity(Lbs/Units)"')
+							.in('IngredientSKU', usedSKUs);
+						if (!fetchError && currentIngredients) {
+							// Prepare updates
+							let updates = [];
+							currentIngredients.forEach(ing => {
+								let newQty = (ing["Quantity(Lbs/Units)"] || 0) - (ingredientUsage[ing.IngredientSKU] || 0);
+								if (newQty < 0) newQty = 0;
+								updates.push({ IngredientSKU: ing.IngredientSKU, "Quantity(Lbs/Units)": newQty });
+							});
+							// Update all in parallel
+							for (let upd of updates) {
+								// Update ingredient quantity
+								await supabase
+									.from('Ingredients')
+									.update({ "Quantity(Lbs/Units)": upd["Quantity(Lbs/Units)"] })
+									.eq('IngredientSKU', upd.IngredientSKU);
+								// Log the removal
+								await supabase
+									.from('IngredientLog')
+									.insert([
+										{
+											ChangeTime: new Date().toISOString(),
+											IngredientSKU: upd.IngredientSKU,
+											QuantityChanged: -ingredientUsage[upd.IngredientSKU],
+											Updated_By: window.CurrentUserDisplayName,
+											Log: `Scheduled order #${order.OrderNumber} for product ${order.ProductSKU}`
+										}
+									]);
+							}
+						}
+					}
+					// Set IngredientsRemoved if ingredients were subtracted
+					updateObj.IngredientsRemoved = true;
+				}
 			}
 			const { error } = await supabase
 				.from('ManufacturingTasks')
@@ -631,7 +703,75 @@
 				loadManufacturingOrders(currentProgressFilter, currentSearchTerm);
 			}
 		}
-
+		async function restoreIngredients(orderNumber){
+					// Fetch order info (ProductSKU, Quantity)
+					const { data: order, error: orderError } = await supabase
+						.from('ManufacturingTasks')
+						.select('ProductSKU, Quantity')
+						.eq('OrderNumber', orderNumber)
+						.single();
+					if (!order || orderError) {
+						alert('Could not find order.');
+						return;
+					}
+					// Fetch product steps
+					const { data: product, error: prodError } = await supabase
+						.from('Products')
+						.select('ManufacturingSteps')
+						.eq('ProductSKU', order.ProductSKU)
+						.single();
+					if (!product || prodError || !product.ManufacturingSteps) {
+						alert('Could not find product steps.');
+						return;
+					}
+					let ingredientUsage = getIngredientUsage(product, order);
+					// Fetch current ingredient quantities
+					const usedSKUs = Object.keys(ingredientUsage);
+					if (usedSKUs.length === 0) {
+						alert('No ingredients to restore.');
+						return;
+					}
+					const { data: currentIngredients, error: fetchError } = await supabase
+						.from('Ingredients')
+						.select('IngredientSKU, "Quantity(Lbs/Units)"')
+						.in('IngredientSKU', usedSKUs);
+					if (fetchError || !currentIngredients) {
+						alert('Could not fetch ingredient data.');
+						return;
+					}
+					// Prepare updates
+					let updates = [];
+					currentIngredients.forEach(ing => {
+						let newQty = (ing["Quantity(Lbs/Units)"] || 0) + (ingredientUsage[ing.IngredientSKU] || 0);
+						updates.push({ IngredientSKU: ing.IngredientSKU, "Quantity(Lbs/Units)": newQty });
+					});
+					// Update all in parallel
+					for (let upd of updates) {
+						await supabase
+							.from('Ingredients')
+							.update({ "Quantity(Lbs/Units)": upd["Quantity(Lbs/Units)"] })
+							.eq('IngredientSKU', upd.IngredientSKU);
+						// Log the restoration
+						await supabase
+							.from('IngredientLog')
+							.insert([
+								{
+									ChangeTime: new Date().toISOString(),
+									IngredientSKU: upd.IngredientSKU,
+									QuantityChanged: ingredientUsage[upd.IngredientSKU],
+									Updated_By: window.CurrentUserDisplayName,
+									Log: `Restored for order #${orderNumber} (undo removal)`
+								}
+							]);
+					}
+					// Set IngredientsRemoved to false
+					await supabase
+						.from('ManufacturingTasks')
+						.update({ IngredientsRemoved: false })
+						.eq('OrderNumber', orderNumber);
+					alert('Ingredients restored.');
+					loadManufacturingOrders(currentProgressFilter, currentSearchTerm);
+				}
 		loadManufacturingOrders();
 	</script>
 	<!-- Add modal for insufficient ingredients -->
