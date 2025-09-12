@@ -106,8 +106,7 @@
         }
         html += '<table style="width:100%;margin:auto;text-align:left;font-size:1rem;">';
         const hiddenFields = [
-          'UserID', 'Process', 'ManufacturingInstructions', 'Microbial Testing', 'Product Type',
-          'ContainerSKUs', 'Pour Temperature', 'Pour Consistency', 'Aroma', 'imageurl'
+          'UserID', 'ManufacturingSteps'
         ];
         for (const key in data) {
           if (hiddenFields.includes(key)) continue;
@@ -124,6 +123,48 @@
         // Add Faire Inventory row (async fetch)
         html += `<tr><td style='font-weight:600;padding:6px 10px;'>Faire Inventory</td><td style='padding:6px 10px;' id='faire-inv-cell'>Loading...</td></tr>`;
         html += '</table>';
+
+        // Add Manufacturing Steps section if it exists
+        if (data.ManufacturingSteps) {
+          html += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Manufacturing Steps</div>`;
+          let steps = null;
+          try {
+            steps = typeof data.ManufacturingSteps === 'string' ? JSON.parse(data.ManufacturingSteps) : data.ManufacturingSteps;
+          } catch (e) {
+            html += `<div style='color:#e74c3c;'>Error parsing manufacturing steps</div>`;
+          }
+          
+          if (steps && steps.Steps && Array.isArray(steps.Steps)) {
+            html += `<div style='background:#f8f9fa;border-radius:8px;padding:16px;'>`;
+            steps.Steps.forEach((step, index) => {
+              html += `<div style='margin-bottom:16px;${index > 0 ? 'border-top:1px solid #e2e8f0;padding-top:16px;' : ''}'>`;
+              html += `<h4 style='margin:0 0 8px 0;color:#4DBA93;'>${step['Step Title'] || `Step ${index + 1}`}</h4>`;
+              
+              if (step['Step Instructions']) {
+                html += `<p style='margin:0 0 8px 0;color:#666;'><strong>Instructions:</strong> ${step['Step Instructions']}</p>`;
+              }
+              
+              if (step['Step Duration (Minutes)'] !== undefined && step['Step Duration (Minutes)'] !== null) {
+                html += `<p style='margin:0 0 8px 0;color:#666;'><strong>Duration:</strong> ${step['Step Duration (Minutes)']} minutes</p>`;
+              }
+              
+              if (step['Step Ingredients'] && Array.isArray(step['Step Ingredients']) && step['Step Ingredients'].length > 0) {
+                html += `<div style='margin-top:8px;'><strong>Ingredients:</strong></div>`;
+                html += `<ul style='margin:4px 0 0 20px;'>`;
+                step['Step Ingredients'].forEach(ing => {
+                  html += `<li style='margin:2px 0;'>${ing.IngredientSKU}: ${ing.IngredientQuantity}</li>`;
+                });
+                html += `</ul>`;
+              }
+              
+              html += `</div>`;
+            });
+            html += `</div>`;
+          } else {
+            html += `<div style='color:#888;'>No manufacturing steps defined</div>`;
+          }
+        }
+
         // Render table immediately so user sees loading state
         detailsDiv.innerHTML = html;
 

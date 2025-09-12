@@ -996,10 +996,10 @@
         if (!isNaN(prevAmount) && prevType && val && prevType !== val && productWeightOz > 0) {
           if (prevType === 'percent' && val === 'units') {
             // Convert percent to units
-            ing.amount = 1.1 * (prevAmount / 100) * productWeightOz;
+            ing.amount = 1.1 * (prevAmount / 100) * productWeightOz/16;
           } else if (prevType === 'units' && val === 'percent') {
             // Convert units to percent
-            ing.amount = (prevAmount / (1.1 * productWeightOz)) * 100;
+            ing.amount = (prevAmount / (1.1 * productWeightOz/16)) * 100;
           }
           // Round to 3 decimals
           ing.amount = Math.round(ing.amount * 1000) / 1000;
@@ -1024,7 +1024,7 @@
             "Step Ingredients": validIngredients.map(ing => {
               let qty = 0;
               if (ing.unitType === 'percent' && productWeightOz > 0) {
-                qty = 1.1 * (parseFloat(ing.amount) / 100) * productWeightOz;
+                qty = 1.1 * (parseFloat(ing.amount) / 100) * productWeightOz/16;
               } else {
                 qty = parseFloat(ing.amount);
               }
@@ -1075,9 +1075,7 @@
         if (error) throw error;
 
         showStatus('productStatusMsg', 'Product saved successfully!', 'success');
-        // Reload the page to refresh all data and UI
-        setTimeout(() => { window.location.reload(); }, 500);
-      } catch (error) {
+        } catch (error) {
         showStatus('productStatusMsg', 'Error saving product: ' + error.message, 'error');
       }
     }
