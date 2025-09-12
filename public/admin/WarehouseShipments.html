@@ -410,6 +410,99 @@
       justify-content: space-between;
       margin-bottom: 5px;
     }
+
+    /* SKU Search Styles */
+    .sku-search-container {
+      position: relative;
+      flex: 2;
+    }
+
+    .sku-search-input {
+      width: 100%;
+      padding: 8px;
+      border: 1.5px solid #e1e5e9;
+      border-radius: 7px;
+      font-size: 14px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      box-sizing: border-box;
+    }
+
+    .sku-search-input:focus {
+      outline: none;
+      border-color: #4DBA93;
+      box-shadow: 0 0 0 3px rgba(77, 186, 147, 0.1);
+    }
+
+    .sku-suggestions {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 2px solid #4DBA93;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 1000;
+      animation: slideDown 0.2s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .sku-suggestion-item {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background-color 0.2s;
+      font-size: 0.9em;
+    }
+
+    .sku-suggestion-item:last-child {
+      border-bottom: none;
+    }
+
+    .sku-suggestion-item:hover {
+      background-color: #f0f9f0;
+    }
+
+    .sku-suggestion-item strong {
+      color: #4DBA93;
+      font-weight: 600;
+    }
+
+    .sku-suggestion-item .sku-type {
+      color: #666;
+      font-size: 0.8em;
+      background: #f8f9fa;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+
+    .sku-suggestion-item .sku-name {
+      color: #666;
+      font-size: 0.85em;
+      margin-top: 2px;
+    }
+
+    /* Retailer select styling */
+    #retailerSelect:focus {
+      outline: none;
+      border-color: #4DBA93;
+      box-shadow: 0 0 0 3px rgba(77, 186, 147, 0.1);
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
@@ -429,6 +522,9 @@
       </div>
 
       <div class="controls">        
+        <button class="btn" onclick="openCreateOrderModal()" id="createOrderBtn" style="background: #4DBA93;">
+          ➕ Create New Order
+        </button>
         <button class="btn" onclick="openReceiveModal()" id="receiveBtn" style="background: #4DBA93;">
           ⚙️ Process Shipments
         </button>
@@ -485,7 +581,7 @@
 
   <!-- Receive Shipment Modal -->
   <div id="receiveModal" class="modal">
-    <div class="modal-content" style="max-width: 420px; padding: 32px 28px; border-radius: 18px; box-shadow: 0 6px 24px rgba(0,0,0,0.18);">
+    <div class="modal-content" style="max-width: 600px; padding: 32px 28px; border-radius: 18px; box-shadow: 0 6px 24px rgba(0,0,0,0.18);">
       <div class="modal-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
         <h2 style="font-size: 1.5rem; color: #2c3e50; margin: 0;">Process Shipment</h2>
         <span class="close" onclick="closeReceiveModal()" style="top: 18px; right: 18px;">&times;</span>
@@ -507,6 +603,46 @@
     </div>
   </div>
 
+  <!-- Create Order Modal -->
+  <div id="createOrderModal" class="modal">
+    <div class="modal-content" style="max-width: 700px; padding: 32px 28px; border-radius: 18px; box-shadow: 0 6px 24px rgba(0,0,0,0.18);">
+      <div class="modal-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
+        <h2 style="font-size: 1.5rem; color: #2c3e50; margin: 0;">Create New Shipment Order</h2>
+        <span class="close" onclick="closeCreateOrderModal()" style="top: 18px; right: 18px;">&times;</span>
+      </div>
+      <form id="createOrderForm" onsubmit="submitCreateOrder(event)" style="margin-top: 18px;">
+        <div style="margin-bottom: 22px;">
+          <label for="retailerSelect" style="font-weight:600; margin-bottom: 6px; display: block; color: #34495e;">Retailer/Customer</label>
+          <select id="retailerSelect" style="width:100%;font-size:1.08rem;padding:10px;border:1.5px solid #e1e5e9;border-radius:7px;box-sizing:border-box;transition:border-color 0.2s,box-shadow 0.2s;background:#fff;" required>
+            <option value="">Loading...</option>
+          </select>
+        </div>
+        <div style="margin-bottom: 22px;">
+          <label for="trackingLinkInput" style="font-weight:600; margin-bottom: 6px; display: block; color: #34495e;">Tracking Link (Optional)</label>
+          <input id="trackingLinkInput" type="url" style="width:100%;font-size:1.08rem;padding:10px;border:1.5px solid #e1e5e9;border-radius:7px;box-sizing:border-box;transition:border-color 0.2s,box-shadow 0.2s;" placeholder="https://..." />
+        </div>
+        <div style="margin-bottom: 22px;">
+          <label style="font-weight:600; margin-bottom: 6px; display: block; color: #34495e;">Items to Ship</label>
+          <div id="itemsContainer">
+            <div class="item-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+              <div class="sku-search-container">
+                <input type="text" class="sku-search-input" placeholder="🔍 Search SKU or name..." required />
+                <div class="sku-suggestions"></div>
+              </div>
+              <input type="number" class="item-quantity" placeholder="Qty" min="1" style="flex: 1; padding: 8px; border: 1.5px solid #e1e5e9; border-radius: 7px;" required />
+              <button type="button" class="btn" onclick="removeItemRow(this)" style="background: #e74c3c; padding: 8px 12px; font-size: 14px;">✕</button>
+            </div>
+          </div>
+          <button type="button" class="btn" onclick="addItemRow()" style="background: #4DBA93; padding: 8px 16px; font-size: 14px; margin-top: 10px;">+ Add Item</button>
+        </div>
+        <div style="display: flex; gap: 12px; justify-content: center; margin-top: 18px;">
+          <button class="btn" type="submit" id="submitCreateOrderBtn" style="background: #4DBA93; min-width: 140px;">Create Order</button>
+          <button class="btn" type="button" onclick="closeCreateOrderModal()" style="background:#b0b0b0; min-width: 100px;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     // Access control and inactivity timeout
     checkPermissions(['service_role','employee']);
@@ -517,6 +653,8 @@
     let selectedShipments = new Set();
     let availableBoxes = [];
     let selectedBoxes = {};
+    let allSKUs = []; // Store all SKUs from Products and Ingredients
+    let allRetailers = []; // Store all retailers from Users table
 
     function showStatus(message, type = 'loading') {
       const statusDiv = document.getElementById('statusDiv');
@@ -527,6 +665,314 @@
 
     function hideStatus() {
       document.getElementById('statusDiv').style.display = 'none';
+    }
+
+    // --- Create Order Logic ---
+    async function loadAllRetailers() {
+      try {
+        const { data: users, error } = await supabase
+          .from('Users')
+          .select('id, display_name, email')
+          .in('Role', ['client', 'service_role'])
+          .order('display_name', { ascending: true });
+
+        if (error) throw error;
+
+        allRetailers = users || [];
+        console.log(`Loaded ${allRetailers.length} retailers`);
+
+        // Populate the select dropdown
+        const select = document.getElementById('retailerSelect');
+        if (select) {
+          select.innerHTML = '<option value="">Select a retailer...</option>';
+          allRetailers.forEach(user => {
+            const opt = document.createElement('option');
+            opt.value = user.display_name || user.email;
+            opt.textContent = user.display_name ? `${user.display_name} (${user.email})` : user.email;
+            select.appendChild(opt);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading retailers:', error);
+        showStatus(`Error loading retailers: ${error.message}`, 'error');
+        
+        // Set error state in dropdown
+        const select = document.getElementById('retailerSelect');
+        if (select) {
+          select.innerHTML = '<option value="">Error loading retailers</option>';
+        }
+      }
+    }
+
+    async function loadAllSKUs() {
+      try {
+        // Load Products
+        const { data: products, error: prodError } = await supabase
+          .from('Products')
+          .select('ProductSKU, Name');
+        
+        // Load Ingredients
+        const { data: ingredients, error: ingError } = await supabase
+          .from('Ingredients')
+          .select('IngredientSKU, Name');
+
+        // Load Boxes
+        const { data: boxes, error: boxError } = await supabase
+          .from('Boxes')
+          .select('SKU, Dimensions');
+
+        if (prodError) throw prodError;
+        if (ingError) throw ingError;
+        if (boxError) throw boxError;
+
+        allSKUs = [];
+        
+        // Add products
+        if (products) {
+          products.forEach(prod => {
+            allSKUs.push({
+              sku: prod.ProductSKU,
+              name: prod.Name || '',
+              type: 'Product'
+            });
+          });
+        }
+        
+        // Add ingredients
+        if (ingredients) {
+          ingredients.forEach(ing => {
+            allSKUs.push({
+              sku: ing.IngredientSKU,
+              name: ing.Name || '',
+              type: 'Ingredient'
+            });
+          });
+        }
+
+        // Add boxes
+        if (boxes) {
+          boxes.forEach(box => {
+            allSKUs.push({
+              sku: box.SKU,
+              name: box.Dimensions || '',
+              type: 'Box'
+            });
+          });
+        }
+        
+        console.log(`Loaded ${allSKUs.length} SKUs (${products?.length || 0} products, ${ingredients?.length || 0} ingredients, ${boxes?.length || 0} boxes)`);
+      } catch (error) {
+        console.error('Error loading SKUs:', error);
+        showStatus(`Error loading SKUs: ${error.message}`, 'error');
+      }
+    }
+
+    function showSKUSuggestions(inputElement, searchTerm) {
+      const suggestionsDiv = inputElement.parentElement.querySelector('.sku-suggestions');
+      
+      if (!searchTerm || searchTerm.length < 1) {
+        suggestionsDiv.style.display = 'none';
+        return;
+      }
+      
+      const filtered = allSKUs.filter(item => 
+        item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      
+      if (filtered.length === 0) {
+        suggestionsDiv.innerHTML = '<div class="sku-suggestion-item" style="color:#999;cursor:default;"><em>No SKUs found</em></div>';
+        suggestionsDiv.style.display = 'block';
+        return;
+      }
+      
+      let html = '';
+      filtered.slice(0, 10).forEach(item => { // Limit to 10 suggestions
+        html += `<div class="sku-suggestion-item" 
+          onclick="selectSKU('${item.sku}', '${(item.name || '').replace(/'/g, "&#39;")}', this)"
+        >
+          <strong>${item.sku}</strong>
+          <span class="sku-type">${item.type}</span>
+          ${item.name ? `<div class="sku-name">${item.name}</div>` : ''}
+        </div>`;
+      });
+      
+      suggestionsDiv.innerHTML = html;
+      suggestionsDiv.style.display = 'block';
+    }
+
+    function selectSKU(sku, name, element) {
+      const suggestionsDiv = element.parentElement;
+      const inputElement = suggestionsDiv.parentElement.querySelector('.sku-search-input');
+      
+      inputElement.value = sku;
+      inputElement.dataset.selectedSku = sku;
+      suggestionsDiv.style.display = 'none';
+    }
+
+    function setupSKUSearch(container) {
+      const input = container.querySelector('.sku-search-input');
+      const suggestions = container.querySelector('.sku-suggestions');
+      
+      input.addEventListener('input', function() {
+        delete this.dataset.selectedSku; // Reset selection when typing
+        showSKUSuggestions(this, this.value);
+      });
+      
+      // Hide suggestions when clicking outside
+      document.addEventListener('click', function(e) {
+        if (!container.contains(e.target)) {
+          suggestions.style.display = 'none';
+        }
+      });
+    }
+
+    function openCreateOrderModal() {
+      // Load data if not already loaded
+      if (allSKUs.length === 0) {
+        loadAllSKUs();
+      }
+      if (allRetailers.length === 0) {
+        loadAllRetailers();
+      }
+      
+      // Clear form
+      document.getElementById('retailerSelect').value = '';
+      document.getElementById('trackingLinkInput').value = '';
+      
+      // Reset items container to one row
+      const container = document.getElementById('itemsContainer');
+      container.innerHTML = `
+        <div class="item-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+          <div class="sku-search-container">
+            <input type="text" class="sku-search-input" placeholder="🔍 Search SKU or name..." required />
+            <div class="sku-suggestions"></div>
+          </div>
+          <input type="number" class="item-quantity" placeholder="Qty" min="1" style="flex: 1; padding: 8px; border: 1.5px solid #e1e5e9; border-radius: 7px;" required />
+          <button type="button" class="btn" onclick="removeItemRow(this)" style="background: #e74c3c; padding: 8px 12px; font-size: 14px;">✕</button>
+        </div>
+      `;
+      
+      // Setup SKU search for the initial row
+      setupSKUSearch(container.querySelector('.item-row'));
+      
+      document.getElementById('createOrderModal').style.display = 'block';
+    }
+
+    function closeCreateOrderModal() {
+      document.getElementById('createOrderModal').style.display = 'none';
+    }
+
+    function addItemRow() {
+      const container = document.getElementById('itemsContainer');
+      const newRow = document.createElement('div');
+      newRow.className = 'item-row';
+      newRow.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; align-items: center;';
+      newRow.innerHTML = `
+        <div class="sku-search-container">
+          <input type="text" class="sku-search-input" placeholder="🔍 Search SKU or name..." required />
+          <div class="sku-suggestions"></div>
+        </div>
+        <input type="number" class="item-quantity" placeholder="Qty" min="1" style="flex: 1; padding: 8px; border: 1.5px solid #e1e5e9; border-radius: 7px;" required />
+        <button type="button" class="btn" onclick="removeItemRow(this)" style="background: #e74c3c; padding: 8px 12px; font-size: 14px;">✕</button>
+      `;
+      container.appendChild(newRow);
+      
+      // Setup SKU search for the new row
+      setupSKUSearch(newRow);
+    }
+
+    function removeItemRow(button) {
+      const container = document.getElementById('itemsContainer');
+      if (container.children.length > 1) {
+        button.parentElement.remove();
+      } else {
+        alert('At least one item is required.');
+      }
+    }
+
+    async function submitCreateOrder(event) {
+      event.preventDefault();
+      const btn = document.getElementById('submitCreateOrderBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Creating...';
+
+      try {
+        const retailer = document.getElementById('retailerSelect').value.trim();
+        const trackingLink = document.getElementById('trackingLinkInput').value.trim();
+        
+        if (!retailer) {
+          throw new Error('Please select a retailer/customer.');
+        }
+        
+        // Collect items
+        const itemRows = document.querySelectorAll('.item-row');
+        const items = [];
+        
+        for (const row of itemRows) {
+          const skuInput = row.querySelector('.sku-search-input');
+          const sku = skuInput.dataset.selectedSku || skuInput.value.trim();
+          const quantity = parseInt(row.querySelector('.item-quantity').value);
+          
+          if (sku && quantity > 0) {
+            // Validate that the SKU exists in our loaded data
+            const skuExists = allSKUs.some(item => item.sku === sku);
+            if (skuExists) {
+              items.push({ sku, quantity });
+            } else {
+              throw new Error(`Invalid SKU: ${sku}. Please select a valid SKU from the suggestions.`);
+            }
+          }
+        }
+
+        if (items.length === 0) {
+          throw new Error('Please add at least one item with valid SKU and quantity.');
+        }
+
+        // Create the shipment order
+        const { data, error } = await supabase
+          .from('ReceivingLog')
+          .insert({
+            Retailer: retailer,
+            TrackingLink: trackingLink || null,
+            AllegedContents: { items },
+            Status: 'Pending'
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Add to local arrays
+        const newShipment = {
+          id: data.id,
+          TrackingLink: data.TrackingLink,
+          UserID: data.UserID,
+          Retailer: data.Retailer,
+          ReceivingHours: data.ReceivingHours,
+          ActualContents: data.ActualContents,
+          RecievedAt: data.RecievedAt,
+          Status: data.Status || 'Pending',
+          items: items
+        };
+
+        allShipments.unshift(newShipment);
+        filteredShipments = [...allShipments];
+        
+        displayShipments();
+        updateSummary();
+        populateUserFilter();
+        closeCreateOrderModal();
+        
+        showStatus('Shipment order created successfully!', 'success');
+        setTimeout(hideStatus, 3000);
+
+      } catch (error) {
+        showStatus(`Error creating order: ${error.message}`, 'error');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Create Order';
     }
 
 
@@ -632,20 +1078,25 @@ async function submitReceiveShipment(event) {
     }
     for (const item of items) {
       if (!item.sku || !item.quantity || item.quantity <= 0) continue;
-      // Update existing product quantity only
+      
+      // Try to update Products table first
       const { data: prod, error: prodErr } = await supabase
         .from('Products')
         .select('Quantity')
         .eq('ProductSKU', item.sku)
         .maybeSingle();
+      
       if (prodErr) throw prodErr;
+      
       if (prod) {
+        // Update Products table
         const newQty = (prod.Quantity || 0) + item.quantity;
         const { error: upErr } = await supabase
           .from('Products')
           .update({ Quantity: newQty })
           .eq('ProductSKU', item.sku);
         if (upErr) throw upErr;
+        
         // Log the inventory update
         const logMsg = `Received ${item.quantity} SKU ${item.sku}`;
         await supabase
@@ -657,7 +1108,37 @@ async function submitReceiveShipment(event) {
             QuantityChanged: item.quantity
           });
       } else {
-        throw new Error(`Product with SKU ${item.sku} does not exist in Products table.`);
+        // Try to update Boxes table
+        const { data: box, error: boxErr } = await supabase
+          .from('Boxes')
+          .select('Quantity')
+          .eq('SKU', item.sku)
+          .maybeSingle();
+        
+        if (boxErr) throw boxErr;
+        
+        if (box) {
+          // Update Boxes table
+          const newQty = (box.Quantity || 0) + item.quantity;
+          const { error: upBoxErr } = await supabase
+            .from('Boxes')
+            .update({ Quantity: newQty })
+            .eq('SKU', item.sku);
+          if (upBoxErr) throw upBoxErr;
+          
+          // Log the inventory update
+          const logMsg = `Received ${item.quantity} Box SKU ${item.sku}`;
+          await supabase
+            .from('inventoryupdatelogs')
+            .insert({
+              log: logMsg,
+              updated_by: displayName || shipment.Retailer || null,
+              SKU: item.sku,
+              QuantityChanged: item.quantity
+            });
+        } else {
+          throw new Error(`SKU ${item.sku} does not exist in Products or Boxes tables.`);
+        }
       }
     }
 
@@ -1112,17 +1593,33 @@ async function submitReceiveShipment(event) {
     window.openReceiveModal = openReceiveModal;
     window.closeReceiveModal = closeReceiveModal;
     window.submitReceiveShipment = submitReceiveShipment;
+    window.openCreateOrderModal = openCreateOrderModal;
+    window.closeCreateOrderModal = closeCreateOrderModal;
+    window.addItemRow = addItemRow;
+    window.removeItemRow = removeItemRow;
+    window.submitCreateOrder = submitCreateOrder;
+    window.selectSKU = selectSKU;
+    window.loadAllSKUs = loadAllSKUs;
+    window.loadAllRetailers = loadAllRetailers;
 
     // Initialize the page
     window.addEventListener('DOMContentLoaded', () => {
       loadShipments();
+      loadAllSKUs(); // Load SKUs for the create order modal
+      loadAllRetailers(); // Load retailers for the create order modal
     });
 
     // Close modal when clicking outside of it
     window.addEventListener('click', (event) => {
-      const modal = document.getElementById('receiveModal');
-      if (event.target === modal) {
+      const receiveModal = document.getElementById('receiveModal');
+      const createModal = document.getElementById('createOrderModal');
+      
+      if (event.target === receiveModal) {
         closeReceiveModal();
+      }
+      
+      if (event.target === createModal) {
+        closeCreateOrderModal();
       }
     });
   </script>
