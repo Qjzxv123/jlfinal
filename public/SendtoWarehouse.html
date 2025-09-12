@@ -139,9 +139,9 @@
       background: #f8f9fa;
       border-radius: 8px;
     }
-    .item-row select {
+    .item-row .sku-search-container {
       flex: 2;
-      margin: 0;
+      position: relative;
     }
     .item-row input {
       flex: 1;
@@ -158,6 +158,87 @@
       font-weight: 600;
       color: #34495e;
       margin-bottom: 10px;
+    }
+
+    /* SKU Search Styles */
+    .sku-search-input {
+      width: 100%;
+      padding: 8px;
+      border: 1.5px solid #e1e5e9;
+      border-radius: 7px;
+      font-size: 14px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      box-sizing: border-box;
+    }
+
+    .sku-search-input:focus {
+      outline: none;
+      border-color: #4DBA93;
+      box-shadow: 0 0 0 3px rgba(77, 186, 147, 0.1);
+    }
+
+    .sku-suggestions {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 2px solid #4DBA93;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 1000;
+      animation: slideDown 0.2s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .sku-suggestion-item {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background-color 0.2s;
+      font-size: 0.9em;
+    }
+
+    .sku-suggestion-item:last-child {
+      border-bottom: none;
+    }
+
+    .sku-suggestion-item:hover {
+      background-color: #f0f9f0;
+    }
+
+    .sku-suggestion-item strong {
+      color: #4DBA93;
+      font-weight: 600;
+    }
+
+    .sku-suggestion-item .sku-type {
+      color: #666;
+      font-size: 0.8em;
+      background: #f8f9fa;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+
+    .sku-suggestion-item .sku-name {
+      color: #666;
+      font-size: 0.85em;
+      margin-top: 2px;
     }
     #shipmentsTable {
       width: 100%;
@@ -193,9 +274,10 @@
           <div class="items-header">Order Items</div>
           <div id="itemsContainer">
             <div class="item-row">
-              <select class="product-select" required>
-                <option value="">Select a product...</option>
-              </select>
+              <div class="sku-search-container">
+                <input type="text" class="sku-search-input" placeholder="Search SKU or name..." required />
+                <div class="sku-suggestions"></div>
+              </div>
               <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
               <button type="button" class="btn remove-item" onclick="removeItemRow(this)" style="display: none;">Remove</button>
             </div>
@@ -232,26 +314,151 @@
     const statusMsg = document.getElementById('statusMsg');
     const shipmentsTableBody = document.querySelector('#shipmentsTable tbody');
     let allProducts = [];
+    let allIngredients = [];
+    let allBoxes = [];
+    let allSKUs = [];
 
-    // Fetch all products for dropdown
+    // Fetch all products, ingredients, and boxes for dropdown
     async function fetchAllProducts() {
       try {
-        const { data: products, error } = await supabase
+        // Load Products
+        const { data: products, error: prodError } = await supabase
           .from('Products')
           .select('ProductSKU, Name, "Product Weight(oz)"')
           .order('ProductSKU');
 
-        if (error) {
-          console.error('Error fetching products:', error);
+        // Load Ingredients
+        const { data: ingredients, error: ingError } = await supabase
+          .from('Ingredients')
+          .select('IngredientSKU, Name')
+          .order('IngredientSKU');
+
+        // Load Boxes
+        const { data: boxes, error: boxError } = await supabase
+          .from('Boxes')
+          .select('SKU, Dimensions')
+          .order('SKU');
+
+        if (prodError) {
+          console.error('Error fetching products:', prodError);
+          return;
+        }
+        if (ingError) {
+          console.error('Error fetching ingredients:', ingError);
+          return;
+        }
+        if (boxError) {
+          console.error('Error fetching boxes:', boxError);
           return;
         }
 
         allProducts = products || [];
-        console.log(`Loaded ${allProducts.length} products`);
-        populateProductDropdowns();
+        allIngredients = ingredients || [];
+        allBoxes = boxes || [];
+
+        // Combine all SKUs for dropdown
+        allSKUs = [];
+        
+        // Add products
+        allProducts.forEach(product => {
+          allSKUs.push({
+            sku: product.ProductSKU,
+            name: product.Name || 'No Name',
+            weight: product['Product Weight(oz)'],
+            type: 'Product'
+          });
+        });
+
+        // Add ingredients
+        allIngredients.forEach(ingredient => {
+          allSKUs.push({
+            sku: ingredient.IngredientSKU,
+            name: ingredient.Name || 'No Name',
+            type: 'Ingredient'
+          });
+        });
+
+        // Add boxes
+        allBoxes.forEach(box => {
+          allSKUs.push({
+            sku: box.SKU,
+            name: box.Dimensions || 'No Dimensions',
+            type: 'Box'
+          });
+        });
+
+        console.log(`Loaded ${allProducts.length} products, ${allIngredients.length} ingredients, ${allBoxes.length} boxes`);
+        setupSKUSearchForAllInputs();
       } catch (error) {
-        console.error('Error fetching products:', error);
+        console.error('Error fetching SKUs:', error);
       }
+    }
+
+    function showSKUSuggestions(inputElement, searchTerm) {
+      const suggestionsDiv = inputElement.parentElement.querySelector('.sku-suggestions');
+      
+      if (!searchTerm || searchTerm.length < 1) {
+        suggestionsDiv.style.display = 'none';
+        return;
+      }
+      
+      const filtered = allSKUs.filter(item => 
+        item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      
+      if (filtered.length === 0) {
+        suggestionsDiv.innerHTML = '<div class="sku-suggestion-item" style="color:#999;cursor:default;"><em>No SKUs found</em></div>';
+        suggestionsDiv.style.display = 'block';
+        return;
+      }
+      
+      let html = '';
+      filtered.slice(0, 10).forEach(item => { // Limit to 10 suggestions
+        html += `<div class="sku-suggestion-item" 
+          onclick="selectSKU('${item.sku}', '${(item.name || '').replace(/'/g, "&#39;")}', this)"
+        >
+          <strong>${item.sku}</strong>
+          <span class="sku-type">${item.type}</span>
+          ${item.name ? `<div class="sku-name">${item.name}${item.weight ? ` (${item.weight}oz)` : ''}</div>` : ''}
+        </div>`;
+      });
+      
+      suggestionsDiv.innerHTML = html;
+      suggestionsDiv.style.display = 'block';
+    }
+
+    function selectSKU(sku, name, element) {
+      const suggestionsDiv = element.parentElement;
+      const inputElement = suggestionsDiv.parentElement.querySelector('.sku-search-input');
+      
+      inputElement.value = sku;
+      inputElement.dataset.selectedSku = sku;
+      suggestionsDiv.style.display = 'none';
+    }
+
+    function setupSKUSearch(container) {
+      const input = container.querySelector('.sku-search-input');
+      const suggestions = container.querySelector('.sku-suggestions');
+      
+      input.addEventListener('input', function() {
+        delete this.dataset.selectedSku; // Reset selection when typing
+        showSKUSuggestions(this, this.value);
+      });
+      
+      // Hide suggestions when clicking outside
+      document.addEventListener('click', function(e) {
+        if (!container.contains(e.target)) {
+          suggestions.style.display = 'none';
+        }
+      });
+    }
+
+    function setupSKUSearchForAllInputs() {
+      const containers = document.querySelectorAll('.sku-search-container');
+      containers.forEach(container => {
+        setupSKUSearch(container);
+      });
     }
 
     // Fetch recent shipments from ReceivingLog
@@ -267,7 +474,7 @@
         const { data: logs, error } = await supabase
           .from('ReceivingLog')
           .select('AllegedContents, RecievedAt, Status')
-          .eq('UserID', userId)
+          .contains('UserID', [userId])
           .order('id', { ascending: false })
           .limit(10);
 
@@ -324,45 +531,23 @@
       }
     }
 
-    // Populate all product dropdowns
-    function populateProductDropdowns() {
-      const selects = document.querySelectorAll('.product-select');
-      selects.forEach(select => {
-        // Clear existing options except the first
-        select.innerHTML = '<option value="">Select a product...</option>';
-        
-        // Add products
-        allProducts.forEach(product => {
-          const option = document.createElement('option');
-          option.value = product.ProductSKU;
-          option.textContent = `${product.ProductSKU} - ${product.Name || 'No Name'}${product['Product Weight(oz)'] ? ` (${product['Product Weight(oz)']}oz)` : ''}`;
-          select.appendChild(option);
-        });
-      });
-    }
-
     // Add new item row
     function addItemRow() {
       const container = document.getElementById('itemsContainer');
       const newRow = document.createElement('div');
       newRow.className = 'item-row';
       newRow.innerHTML = `
-        <select class="product-select" required>
-          <option value="">Select a product...</option>
-        </select>
+        <div class="sku-search-container">
+          <input type="text" class="sku-search-input" placeholder="Search SKU or name..." required />
+          <div class="sku-suggestions"></div>
+        </div>
         <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
         <button type="button" class="btn remove-item" onclick="removeItemRow(this)">Remove</button>
       `;
       container.appendChild(newRow);
       
-      // Populate the new dropdown
-      const newSelect = newRow.querySelector('.product-select');
-      allProducts.forEach(product => {
-        const option = document.createElement('option');
-        option.value = product.ProductSKU;
-        option.textContent = `${product.ProductSKU} - ${product.Name || 'No Name'}${product['Product Weight(oz)'] ? ` (${product['Product Weight(oz)']}oz)` : ''}`;
-        newSelect.appendChild(option);
-      });
+      // Setup SKU search for the new row
+      setupSKUSearch(newRow.querySelector('.sku-search-container'));
 
       // Show remove buttons for all rows if more than one
       updateRemoveButtons();
@@ -393,6 +578,7 @@
     // Make functions globally available
     window.addItemRow = addItemRow;
     window.removeItemRow = removeItemRow;
+    window.selectSKU = selectSKU;
 
     // Initialize the page
     window.addEventListener('DOMContentLoaded', async () => {
@@ -426,13 +612,23 @@
         const itemRows = document.querySelectorAll('.item-row');
         const items = [];
         for (let row of itemRows) {
-          const select = row.querySelector('.product-select');
+          const skuInput = row.querySelector('.sku-search-input');
+          const sku = skuInput.dataset.selectedSku || skuInput.value.trim();
           const quantityInput = row.querySelector('.quantity-input');
-          if (select.value && quantityInput.value) {
-            items.push({
-              sku: select.value,
-              quantity: parseInt(quantityInput.value)
-            });
+          
+          if (sku && quantityInput.value) {
+            // Validate that the SKU exists in our loaded data
+            const skuExists = allSKUs.some(item => item.sku === sku);
+            if (skuExists) {
+              items.push({
+                sku: sku,
+                quantity: parseInt(quantityInput.value)
+              });
+            } else {
+              statusMsg.textContent = `Invalid SKU: ${sku}. Please select a valid SKU from the suggestions.`;
+              statusMsg.className = 'status error';
+              return;
+            }
           }
         }
         if (items.length === 0) {
@@ -461,19 +657,11 @@
         } else {
           statusMsg.textContent = 'Successfully created receiving log!';
           statusMsg.className = 'status success';
-          form.reset();
-          // Reset items container to single row
-          const container = document.getElementById('itemsContainer');
-          container.innerHTML = `
-            <div class="item-row">
-              <select class="product-select" required>
-                <option value="">Select a product...</option>
-              </select>
-              <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
-              <button type="button" class="btn remove-item" onclick="removeItemRow(this)" style="display: none;">Remove</button>
-            </div>
-          `;
-          populateProductDropdowns();
+          
+          // Reload the page after a brief delay to show the success message
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
         }
       } catch (error) {
         statusMsg.textContent = 'Error: ' + error.message;
