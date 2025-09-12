@@ -607,17 +607,31 @@
         document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
         document.getElementById('Archived').checked = product.Archived || false;
         
-        // Set retailer dropdown value - ensure dropdown is populated first
+        // Set retailer dropdown value - use the Retailer field directly
         const customerSelect = document.getElementById('Customer');
-        const retailerID = product.UserID && product.UserID[1] ? product.UserID[1] : '';
+        const retailerName = product.Retailer || '';
         
-        // If dropdown is not populated yet, wait for it
-        if (customerSelect.options.length <= 1 && customerSelect.options[0]?.textContent === 'Loading...') {
-          await populateRetailerDropdown();
+        // Set the dropdown to show the retailer name directly
+        if (retailerName) {
+          // Find if the retailer exists in the dropdown options
+          let optionFound = false;
+          for (let i = 0; i < customerSelect.options.length; i++) {
+            if (customerSelect.options[i].textContent === retailerName) {
+              customerSelect.value = customerSelect.options[i].value;
+              optionFound = true;
+              break;
+            }
+          }
+          
+          // If not found in existing options, add it as a new option and select it
+          if (!optionFound) {
+            const newOption = document.createElement('option');
+            newOption.value = retailerName; // Use name as value
+            newOption.textContent = retailerName;
+            customerSelect.appendChild(newOption);
+            customerSelect.value = retailerName;
+          }
         }
-        
-        // Set the value after ensuring dropdown is populated
-        customerSelect.value = retailerID;
         
         document.getElementById('ShelfLife').value = product.ShelfLife || '';
         document.getElementById('PackSize').value = product['Pack Size'] || '';
