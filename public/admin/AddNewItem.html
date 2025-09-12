@@ -992,7 +992,7 @@
       const steps = [];
       const productWeightOz = document.getElementById('ProductSize').value ? parseFloat(document.getElementById('ProductSize').value) : 0;
       processTableData.forEach(phase => {
-        if (phase.name && phase.ingredients.length > 0) {
+        if (phase.name) {
           const validIngredients = phase.ingredients.filter(ing => ing.sku && ing.amount);
           steps.push({
             "Step Title": phase.name,
