@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar</title>
+    <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+    <link rel="stylesheet" href="/Assets/sidebar.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            color: #333;
+        }
+        .main-content {
+            margin-left: 60px;
+            transition: margin-left 0.3s ease;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        .calendar-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 32px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e1e5e9;
+            border-radius: 12px 12px 0 0;
+        }
+        .month-nav {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .nav-btn {
+            background: #4dba93;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-btn:hover {
+            background: #3a9b7a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .current-month {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+            min-width: 200px;
+            text-align: center;
+        }
+        .time-off-btn {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+        }
+        .time-off-btn:hover {
+            background: linear-gradient(135deg, #219a52 0%, #27ae60 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+        }
+        .time-off-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(39, 174, 96, 0.3);
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background: #e1e5e9;
+            margin: 0;
+        }
+        .calendar-header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 10px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .calendar-day {
+            background: white;
+            min-height: 120px;
+            padding: 8px;
+            position: relative;
+            transition: all 0.3s ease;
+            border: none;
+            display: flex;
+            flex-direction: column;
+        }
+        .calendar-day:hover {
+            background: #f8f9fa;
+        }
+        .calendar-day.other-month {
+            background: #f8f9fa;
+            color: #adb5bd;
+        }
+        .calendar-day.today {
+            background: #e8f5e8;
+            color: #2c3e50;
+            font-weight: 500;
+            border: 2px solid #4dba93;
+        }
+        .calendar-day.selected {
+            background: #3498db;
+            color: white;
+        }
+        .day-number {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .day-events {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .event {
+            background: #3498db;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .event.manufacturing {
+            background: #e74c3c;
+        }
+        .event.ingredient {
+            background: #f39c12;
+        }
+        .event.checklist {
+            background: #9b59b6;
+        }
+        .event.timeoff {
+            background: #27ae60;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #4dba93 0%, #3a9b7a 100%);
+            color: white;
+            padding: 20px 25px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 5px;
+            transition: all 0.3s ease;
+        }
+
+        .close:hover {
+            opacity: 0.7;
+            transform: scale(1.1);
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+
+        .event-detail {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #4dba93;
+        }
+
+        .event-detail strong {
+            display: inline-block;
+            min-width: 100px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .event-detail span {
+            color: #555;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+    <script src="/Assets/CheckAccess.js"></script>
+    <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
+</head>
+<body>
+    <div id="sidebar"></div>
+    <script src="/Assets/sidebar.js"></script>
+    
+    <div class="main-content">
+        <div class="container">
+            <div class="calendar-controls">
+                <div class="month-nav">
+                    <button class="nav-btn" onclick="previousMonth()">
+                        <i class="cil-chevron-left"></i>
+                    </button>
+                    <div class="current-month" id="currentMonth">
+                        Loading...
+                    </div>
+                    <button class="nav-btn" onclick="nextMonth()">
+                        <i class="cil-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 20px; margin-bottom: 10px;">
+                <div class="legend" style="display: flex; gap: 15px; font-size: 12px; flex-wrap: wrap; margin: 0;">
+                    <span style="display: flex; align-items: center; gap: 5px;">
+                        <div style="width: 12px; height: 12px; background: #9b59b6; border-radius: 2px;"></div>
+                        My Checklist Tasks
+                    </span>
+                    <span style="display: flex; align-items: center; gap: 5px;">
+                        <div style="width: 12px; height: 12px; background: #f39c12; border-radius: 2px;"></div>
+                        Ingredient Deliveries
+                    </span>
+                    <span style="display: flex; align-items: center; gap: 5px;">
+                        <div style="width: 12px; height: 12px; background: #e74c3c; border-radius: 2px;"></div>
+                        Manufacturing Tasks
+                    </span>
+                    <span style="display: flex; align-items: center; gap: 5px;">
+                        <div style="width: 12px; height: 12px; background: #27ae60; border-radius: 2px;"></div>
+                        Time Off
+                    </span>
+                </div>
+                
+                <button class="time-off-btn" onclick="openTimeOffModal()">
+                    <i class="cil-calendar-plus" style="margin-right: 6px;"></i>
+                    Request Time Off
+                </button>
+            </div>
+            
+            <div id="calendarContainer">
+                <div class="loading">Loading calendar...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Details Modal -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Event Details</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="event-detail">
+                    <strong>Title:</strong>
+                    <span id="modalEventTitle"></span>
+                </div>
+                <div class="event-detail">
+                    <strong>Date:</strong>
+                    <span id="modalEventDate"></span>
+                </div>
+                <div class="event-detail">
+                    <strong>Type:</strong>
+                    <span id="modalEventType"></span>
+                </div>
+                <div class="event-detail">
+                    <strong>Description:</strong>
+                    <span id="modalEventDescription"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Time Off Request Modal -->
+    <div id="timeOffModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Request Time Off</h2>
+                <span class="close" onclick="closeTimeOffModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="timeOffDate" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Select Date:</label>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                        ⚠️ Time off requests must be submitted at least one week in advance
+                    </p>
+                    <input type="date" id="timeOffDate" style="width: 100%; padding: 10px; border: 2px solid #e1e5e9; border-radius: 6px; font-size: 14px;">
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="closeTimeOffModal()" style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+                        Cancel
+                    </button>
+                    <button onclick="submitTimeOffRequest()" style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+                        Request Time Off
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- All Day Events Modal -->
+    <div id="allDayEventsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="allDayEventsTitle">All Events</h2>
+                <span class="close" onclick="closeAllDayEventsModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="allDayEventsBody" style="max-height: 400px; overflow-y: auto;">
+                <!-- Events will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Access control
+        checkPermissions(['service_role', 'employee']);
+        let currentDate = new Date();
+        let events = [];
+        let selectedEvent = null;
+
+        function initializeCalendar() {
+            // Start with empty events array
+            events = [];
+            loadCalendarData();
+        }
+
+        async function loadCalendarData() {
+            try {
+                // Get current user's display name and ID
+                const currentUserDisplayName = CurrentUserDisplayName;
+                const currentUserId = CurrentUserID;
+                
+                // Fetch Checklist items with deadlines for current user only (exclude Awaiting Confirmation)
+                const { data: checklists, error: checklistError } = await supabase
+                    .from('Checklist')
+                    .select('id, Task, Priority, Status, AssignedTo, Deadline')
+                    .not('Deadline', 'is', null)
+                    .eq('AssignedTo', currentUserDisplayName)
+                    .neq('Status', 'Awaiting Confirmation');
+
+                // Fetch Ingredient Orders
+                const { data: ingredientOrders, error: ingredientError } = await supabase
+                    .from('IngredientOrders')
+                    .select('id, ExpectedBy, IngredientSKU, "Quantity(Lbs/Units)"');
+
+                // Fetch Manufacturing Tasks (exclude completed ones)
+                const { data: manufacturingTasks, error: manufacturingError } = await supabase
+                    .from('ManufacturingTasks')
+                    .select('OrderNumber, ProductSKU, Quantity, PlannedManufactureDate, Deadline, Customer, Progress')
+                    .neq('Progress', 'completed');
+
+                // Fetch Time Off for all users
+                const { data: users, error: usersError } = await supabase
+                    .from('Users')
+                    .select('id, display_name, TimeOff')
+                    .not('TimeOff', 'is', null);
+
+                if (checklistError) throw checklistError;
+                if (ingredientError) throw ingredientError;
+                if (manufacturingError) throw manufacturingError;
+                if (usersError) throw usersError;
+
+                events = [];
+
+                // Add Checklist items as events
+                if (checklists) {
+                    checklists.forEach(item => {
+                        events.push({
+                            id: `checklist-${item.id}`,
+                            title: item.Task || 'Checklist Task',
+                            type: 'checklist',
+                            date: item.Deadline,
+                            description: `Priority: ${item.Priority}, Assigned to: ${item.AssignedTo || 'Unassigned'}, Status: ${item.Status}`
+                        });
+                    });
+                }
+
+                // Add Time Off events
+                if (users) {
+                    users.forEach(user => {
+                        if (user.TimeOff && user.TimeOff.length > 0) {
+                            user.TimeOff.forEach(timeOffDate => {
+                                events.push({
+                                    id: `timeoff-${user.id}-${timeOffDate}`,
+                                    title: `${user.display_name} - Time Off`,
+                                    type: 'timeoff',
+                                    date: timeOffDate,
+                                    description: `${user.display_name} is taking time off on this date.`
+                                });
+                            });
+                        }
+                    });
+                }
+
+                // Add Ingredient Orders as events
+                if (ingredientOrders) {
+                    ingredientOrders.forEach(order => {
+                        events.push({
+                            id: `ingredient-${order.id}`,
+                            title: `${order.IngredientSKU || 'Ingredient'} Delivery`,
+                            type: 'ingredient',
+                            date: order.ExpectedBy,
+                            description: `Expected: ${order['Quantity(Lbs/Units)'] || 'Unknown'} units of ${order.IngredientSKU || 'ingredient'}`
+                        });
+                    });
+                }
+
+                // Add Manufacturing Tasks as events
+                if (manufacturingTasks) {
+                    manufacturingTasks.forEach(task => {
+                        // Add planned manufacture date event
+                        if (task.PlannedManufactureDate) {
+                            events.push({
+                                id: `manufacturing-${task.OrderNumber}`,
+                                title: `Manufacture ${task.ProductSKU || 'Product'}`,
+                                type: 'manufacturing',
+                                date: task.PlannedManufactureDate,
+                                description: `Order #${task.OrderNumber}, Qty: ${task.Quantity || 'Unknown'}, Customer: ${task.Customer || 'Unknown'}, Progress: ${task.Progress || 'Not Started'}`
+                            });
+                        }
+
+                        // Add deadline event if different from planned date
+                        if (task.Deadline && task.Deadline !== task.PlannedManufactureDate) {
+                            events.push({
+                                id: `deadline-${task.OrderNumber}`,
+                                title: `Deadline: ${task.ProductSKU || 'Product'}`,
+                                type: 'manufacturing',
+                                date: task.Deadline,
+                                description: `Order #${task.OrderNumber} deadline, Customer: ${task.Customer || 'Unknown'}`
+                            });
+                        }
+                    });
+                }
+
+                updateCalendarDisplay();
+            } catch (error) {
+                console.error('Error loading calendar data:', error);
+            }
+        }
+
+        function updateCalendarDisplay() {
+            updateMonthHeader();
+            renderMonthView();
+        }
+
+        function updateMonthHeader() {
+            const monthNames = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ];
+            
+            const monthHeader = document.getElementById('currentMonth');
+            monthHeader.textContent = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+        }
+
+        function renderMonthView() {
+            const container = document.getElementById('calendarContainer');
+            
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            const startDate = new Date(firstDay);
+            startDate.setDate(startDate.getDate() - firstDay.getDay());
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let html = '<div class="calendar-grid">';
+            
+            // Day headers
+            const dayHeaders = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            dayHeaders.forEach(day => {
+                html += `<div class="calendar-header">${day}</div>`;
+            });
+
+            // Calendar days
+            const currentMonth = currentDate.getMonth();
+            for (let i = 0; i < 42; i++) {
+                const cellDate = new Date(startDate);
+                cellDate.setDate(startDate.getDate() + i);
+                
+                const isToday = cellDate.getTime() === today.getTime();
+                const isOtherMonth = cellDate.getMonth() !== currentMonth;
+                
+                const dayEvents = events.filter(event => {
+                    const eventDate = new Date(event.date);
+                    return eventDate.toDateString() === cellDate.toDateString();
+                });
+
+                let dayClass = 'calendar-day';
+                if (isToday) dayClass += ' today';
+                if (isOtherMonth) dayClass += ' other-month';
+
+                html += `<div class="${dayClass}">`;
+                html += `<div class="day-number">${cellDate.getDate()}</div>`;
+                html += '<div class="day-events">';
+                
+                dayEvents.slice(0, 3).forEach(event => {
+                    html += `<div class="event ${event.type}" onclick="openEventModal('${event.id}')">`;
+                    html += event.title.length > 20 ? event.title.substring(0, 20) + '...' : event.title;
+                    html += '</div>';
+                });
+                
+                if (dayEvents.length > 3) {
+                    const dateStr = cellDate.toISOString().split('T')[0];
+                    html += `<div class="event" style="background: #95a5a6; cursor: pointer;" onclick="showAllDayEvents('${dateStr}')" title="Click to see all events">+${dayEvents.length - 3} more</div>`;
+                }
+                
+                html += '</div>';
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function previousMonth() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            updateCalendarDisplay();
+        }
+
+        function nextMonth() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            updateCalendarDisplay();
+        }
+
+        function openEventModal(eventId) {
+            const event = events.find(e => e.id === eventId);
+            if (!event) return;
+
+            // Populate modal content
+            document.getElementById('modalEventTitle').textContent = event.title;
+            document.getElementById('modalEventDate').textContent = new Date(event.date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            // Format the event type for display
+            let typeDisplay = event.type;
+            switch(event.type) {
+                case 'checklist':
+                    typeDisplay = 'My Checklist Task';
+                    break;
+                case 'ingredient':
+                    typeDisplay = 'Ingredient Delivery';
+                    break;
+                case 'manufacturing':
+                    typeDisplay = 'Manufacturing Task';
+                    break;
+                case 'timeoff':
+                    typeDisplay = 'Time Off';
+                    break;
+            }
+            document.getElementById('modalEventType').textContent = typeDisplay;
+            document.getElementById('modalEventDescription').textContent = event.description || 'No additional details available.';
+
+            // Add Instructions link for manufacturing events
+            const modalBody = document.querySelector('#eventModal .modal-body');
+            
+            // Remove any existing instructions link
+            const existingLink = modalBody.querySelector('.instructions-link');
+            if (existingLink) {
+                existingLink.remove();
+            }
+
+            // Add instructions link for manufacturing events (only for today or past dates)
+            if (event.type === 'manufacturing' && event.id.startsWith('manufacturing-')) {
+                const eventDate = new Date(event.date);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+                eventDate.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+                
+                if (eventDate <= today) {
+                    const orderNumber = event.id.replace('manufacturing-', '');
+                    const instructionsLink = document.createElement('div');
+                    instructionsLink.className = 'instructions-link';
+                    instructionsLink.innerHTML = `
+                        <div class="event-detail" style="margin-top: 15px;">
+                            <strong>Manufacturing Instructions:</strong>
+                            <a href="Instructions.html?ordernumber=${orderNumber}" target="_blank" style="color: #4dba93; text-decoration: none; margin-left: 10px; font-weight: 600;">
+                                📋 View Instructions
+                            </a>
+                        </div>
+                    `;
+                    modalBody.appendChild(instructionsLink);
+                }
+            }
+
+            // Show modal
+            document.getElementById('eventModal').style.display = 'block';
+        }
+
+        function openEventModalFromAllDay(eventId) {
+            // Close the all-day events modal first
+            closeAllDayEventsModal();
+            // Then open the event details modal
+            openEventModal(eventId);
+        }
+
+        function closeEventModal() {
+            document.getElementById('eventModal').style.display = 'none';
+        }
+
+        function openTimeOffModal() {
+            // Set minimum date to one week from today
+            const today = new Date();
+            const oneWeekFromToday = new Date(today);
+            oneWeekFromToday.setDate(today.getDate() + 7);
+            
+            const minDate = oneWeekFromToday.toISOString().split('T')[0];
+            document.getElementById('timeOffDate').setAttribute('min', minDate);
+            
+            document.getElementById('timeOffModal').style.display = 'block';
+        }
+
+        function closeTimeOffModal() {
+            document.getElementById('timeOffModal').style.display = 'none';
+        }
+
+        function showAllDayEvents(dateStr) {
+            const selectedDate = new Date(dateStr + 'T00:00:00');
+            
+            // Filter events for the selected date
+            const dayEvents = events.filter(event => {
+                const eventDate = new Date(event.date);
+                return eventDate.toDateString() === selectedDate.toDateString();
+            });
+
+            // Set modal title
+            const formattedDate = selectedDate.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            document.getElementById('allDayEventsTitle').textContent = `All Events - ${formattedDate}`;
+
+            // Generate events list
+            const modalBody = document.getElementById('allDayEventsBody');
+            let html = '';
+
+            if (dayEvents.length === 0) {
+                html = '<p style="text-align: center; color: #666; padding: 20px;">No events on this date.</p>';
+            } else {
+                dayEvents.forEach(event => {
+                    let typeColor = '#3498db';
+                    let typeLabel = 'Event';
+                    
+                    switch(event.type) {
+                        case 'checklist':
+                            typeColor = '#9b59b6';
+                            typeLabel = 'My Checklist Task';
+                            break;
+                        case 'ingredient':
+                            typeColor = '#f39c12';
+                            typeLabel = 'Ingredient Delivery';
+                            break;
+                        case 'manufacturing':
+                            typeColor = '#e74c3c';
+                            typeLabel = 'Manufacturing Task';
+                            break;
+                        case 'timeoff':
+                            typeColor = '#27ae60';
+                            typeLabel = 'Time Off';
+                            break;
+                    }
+
+                    html += `
+                        <div class="all-day-event-item" style="margin-bottom: 15px; padding: 15px; border-left: 4px solid ${typeColor}; background: #f8f9fa; border-radius: 6px; cursor: pointer;" onclick="openEventModalFromAllDay('${event.id}')">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                                <h4 style="margin: 0; color: #2c3e50; font-size: 16px;">${event.title}</h4>
+                                <span style="background: ${typeColor}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${typeLabel}</span>
+                            </div>
+                            <p style="margin: 0; color: #555; font-size: 14px;">${event.description || 'No additional details available.'}</p>
+                        </div>
+                    `;
+                });
+            }
+
+            modalBody.innerHTML = html;
+            document.getElementById('allDayEventsModal').style.display = 'block';
+        }
+
+        function closeAllDayEventsModal() {
+            document.getElementById('allDayEventsModal').style.display = 'none';
+        }
+
+        async function submitTimeOffRequest() {
+            const selectedDate = document.getElementById('timeOffDate').value;
+            if (!selectedDate) {
+                alert('Please select a date for your time off request.');
+                return;
+            }
+
+            // Validate that the date is at least one week in advance
+            const selectedDateTime = new Date(selectedDate);
+            const today = new Date();
+            const oneWeekFromToday = new Date(today);
+            oneWeekFromToday.setDate(today.getDate() + 7);
+
+            if (selectedDateTime < oneWeekFromToday) {
+                alert('Time off requests must be submitted at least one week in advance. Please select a date that is at least 7 days from today.');
+                return;
+            }
+
+            try {
+                const currentUserId = CurrentUserID;
+                
+                // Get current user's time off array
+                const { data: currentUser, error: fetchError } = await supabase
+                    .from('Users')
+                    .select('TimeOff')
+                    .eq('id', currentUserId)
+                    .single();
+
+                if (fetchError) throw fetchError;
+
+                // Add new date to time off array
+                const currentTimeOff = currentUser.TimeOff || [];
+                if (currentTimeOff.includes(selectedDate)) {
+                    alert('You already have time off requested for this date.');
+                    return;
+                }
+
+                const updatedTimeOff = [...currentTimeOff, selectedDate];
+
+                // Update user's time off
+                const { error: updateError } = await supabase
+                    .from('Users')
+                    .update({ TimeOff: updatedTimeOff })
+                    .eq('id', currentUserId);
+
+                if (updateError) throw updateError;
+
+                // Get all service_role users to send alerts
+                const { data: serviceRoleUsers, error: serviceRoleError } = await supabase
+                    .from('Users')
+                    .select('id, Alerts')
+                    .eq('Role', 'service_role');
+
+                if (serviceRoleError) throw serviceRoleError;
+
+                // Create alert message
+                const alertMessage = `${CurrentUserDisplayName} has requested time off for ${new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+
+                // Update alerts for all service_role users
+                if (serviceRoleUsers && serviceRoleUsers.length > 0) {
+                    const updatePromises = serviceRoleUsers.map(user => {
+                        const currentAlerts = user.Alerts || [];
+                        const updatedAlerts = [...currentAlerts, alertMessage];
+                        
+                        return supabase
+                            .from('Users')
+                            .update({ Alerts: updatedAlerts })
+                            .eq('id', user.id);
+                    });
+
+                    await Promise.all(updatePromises);
+                }
+
+                alert('Time off request submitted successfully!');
+                closeTimeOffModal();
+                document.getElementById('timeOffDate').value = '';
+                loadCalendarData(); // Refresh calendar
+            } catch (error) {
+                console.error('Error submitting time off request:', error);
+                alert('Failed to submit time off request. Please try again.');
+            }
+        }
+
+        // Modal event listeners
+        window.addEventListener('DOMContentLoaded', function() {
+            // Close modal when clicking the X
+            document.querySelector('.close').addEventListener('click', closeEventModal);
+            
+            // Close modal when clicking outside of it
+            document.getElementById('eventModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeEventModal();
+                }
+            });
+
+            // Close time off modal when clicking outside of it
+            document.getElementById('timeOffModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeTimeOffModal();
+                }
+            });
+
+            // Close all day events modal when clicking outside of it
+            document.getElementById('allDayEventsModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeAllDayEventsModal();
+                }
+            });
+
+            // Close modal with Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeEventModal();
+                    closeTimeOffModal();
+                    closeAllDayEventsModal();
+                }
+            });
+
+            initializeCalendar();
+        });
+
+        // Make functions globally available
+        window.previousMonth = previousMonth;
+        window.nextMonth = nextMonth;
+        window.openEventModal = openEventModal;
+        window.openEventModalFromAllDay = openEventModalFromAllDay;
+        window.closeEventModal = closeEventModal;
+        window.openTimeOffModal = openTimeOffModal;
+        window.closeTimeOffModal = closeTimeOffModal;
+        window.submitTimeOffRequest = submitTimeOffRequest;
+        window.showAllDayEvents = showAllDayEvents;
+        window.closeAllDayEventsModal = closeAllDayEventsModal;
+    </script>
+</body>
+</html>
