@@ -166,6 +166,109 @@
 		.btn:hover {
 			background: #3a9b74;
 		}
+		.product-search-input {
+			width: 100%;
+			margin-bottom: 4px;
+			padding: 12px 16px;
+			border: 2px solid #e1e5e9;
+			border-radius: 8px;
+			font-size: 1em;
+			transition: border-color 0.3s, box-shadow 0.3s;
+			box-sizing: border-box;
+		}
+		.product-search-input:focus {
+			outline: none;
+			border-color: #4DBA93;
+			box-shadow: 0 0 0 3px rgba(77, 186, 147, 0.1);
+		}
+		.form-input {
+			width: 100%;
+			margin-bottom: 12px;
+			padding: 12px 16px;
+			border: 2px solid #e1e5e9;
+			border-radius: 8px;
+			font-size: 1em;
+			transition: border-color 0.3s, box-shadow 0.3s;
+			box-sizing: border-box;
+			background-color: #fff;
+		}
+		.form-input:focus {
+			outline: none;
+			border-color: #4DBA93;
+			box-shadow: 0 0 0 3px rgba(77, 186, 147, 0.1);
+		}
+		.form-select {
+			width: 100%;
+			margin-bottom: 12px;
+			padding: 12px 16px;
+			border: 2px solid #e1e5e9;
+			border-radius: 8px;
+			font-size: 1em;
+			transition: border-color 0.3s, box-shadow 0.3s;
+			box-sizing: border-box;
+			background-color: #fff;
+			cursor: pointer;
+		}
+		.form-select:focus {
+			outline: none;
+			border-color: #4DBA93;
+			box-shadow: 0 0 0 3px rgba(77, 186, 147, 0.1);
+		}
+		.form-label {
+			font-weight: 600;
+			color: #333;
+			margin-bottom: 6px;
+			display: block;
+			font-size: 0.95em;
+		}
+		.product-suggestions {
+			display: none;
+			position: absolute;
+			top: 100%;
+			left: 0;
+			right: 0;
+			max-height: 200px;
+			overflow-y: auto;
+			border: 2px solid #4DBA93;
+			border-top: none;
+			border-radius: 0 0 8px 8px;
+			background: #fff;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+			z-index: 1000;
+			animation: slideDown 0.2s ease-out;
+		}
+		@keyframes slideDown {
+			from {
+				opacity: 0;
+				transform: translateY(-5px);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+		.suggestion-item {
+			padding: 12px 16px;
+			cursor: pointer;
+			border-bottom: 1px solid #f0f0f0;
+			transition: background-color 0.2s;
+			font-size: 0.95em;
+		}
+		.suggestion-item:last-child {
+			border-bottom: none;
+		}
+		.suggestion-item:hover {
+			background-color: #f0f9f0;
+		}
+		.suggestion-item strong {
+			color: #4DBA93;
+			font-weight: 600;
+		}
+		.suggestion-item .product-name {
+			color: #666;
+			font-size: 0.9em;
+			margin-top: 2px;
+		}
 	</style>
 	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 	<script src="/Assets/CheckAccess.js"></script>
@@ -204,15 +307,20 @@
 					<span class="close-modal" id="closeCreateOrderModal">&times;</span>
 					<h2>Create New Manufacturing Order</h2>
 					<form id="createOrderForm">
-						<label for="newOrderProductSKU" style="font-weight:600;">Product SKU:</label>
-						<select id="newOrderProductSKU" required style="width:100%;margin-bottom:12px;"></select>
-						<label for="newOrderCustomer" style="font-weight:600;">Customer:</label>
-						<select id="newOrderCustomer" required style="width:100%;margin-bottom:12px;"></select>
-						<label for="newOrderQuantity" style="font-weight:600;">Quantity:</label>
-						<input type="number" id="newOrderQuantity" min="1" required style="width:100%;margin-bottom:12px;" />
+						<label for="newOrderProductSKU" class="form-label">Product SKU:</label>
+						<div style="position:relative;">
+							<input type="text" id="newOrderProductSKU" class="product-search-input" placeholder="Search for product SKU or name..." required />
+							<div id="productSuggestions" class="product-suggestions"></div>
+						</div>
+						<label for="newOrderCustomer" class="form-label">Customer:</label>
+						<select id="newOrderCustomer" class="form-select" required>
+							<option value="">Select a customer...</option>
+						</select>
+						<label for="newOrderQuantity" class="form-label">Quantity:</label>
+						<input type="number" id="newOrderQuantity" class="form-input" min="1" placeholder="Enter quantity..." required />
 						<!-- Progress field removed, always set to 'requested' -->
-						<label for="newOrderDeadline" style="font-weight:600;">Deadline (optional):</label>
-						<input type="date" id="newOrderDeadline" style="width:100%;margin-bottom:18px;" />
+						<label for="newOrderDeadline" class="form-label">Deadline (optional):</label>
+						<input type="date" id="newOrderDeadline" class="form-input" style="margin-bottom:18px;" />
 						<button type="submit" class="btn" style="width:100%;">Create Order</button>
 					</form>
 					<div id="createOrderStatus" style="margin-top:10px;text-align:center;font-weight:600;"></div>
@@ -252,23 +360,78 @@ function getIngredientUsage(product, order) {
 			const closeCreateOrderModal = document.getElementById('closeCreateOrderModal');
 			const createOrderForm = document.getElementById('createOrderForm');
 			const createOrderStatus = document.getElementById('createOrderStatus');
-			const productSelect = document.getElementById('newOrderProductSKU');
+			const productInput = document.getElementById('newOrderProductSKU');
+			const productSuggestions = document.getElementById('productSuggestions');
 			const customerSelect = document.getElementById('newOrderCustomer');
-			// Populate ProductSKU dropdown
-			async function populateProductDropdown() {
-				productSelect.innerHTML = '<option value="">Loading...</option>';
+			
+			let allProducts = [];
+			let selectedProductSKU = null;
+			
+			// Load all products for search
+			async function loadAllProducts() {
 				const { data: products, error } = await supabase.from('Products').select('ProductSKU, Name');
 				if (error || !products) {
-					productSelect.innerHTML = '<option value="">Error loading products</option>';
+					console.error('Error loading products:', error);
 					return;
 				}
-				productSelect.innerHTML = '';
-				products.forEach(prod => {
-					const opt = document.createElement('option');
-					opt.value = prod.ProductSKU;
-					opt.textContent = prod.ProductSKU + (prod.Name ? ` - ${prod.Name}` : '');
-					productSelect.appendChild(opt);
+				allProducts = products;
+			}
+			
+			// Filter and display product suggestions
+			function showProductSuggestions(searchTerm) {
+				if (!searchTerm || searchTerm.length < 1) {
+					productSuggestions.style.display = 'none';
+					return;
+				}
+				
+				const filtered = allProducts.filter(prod => 
+					prod.ProductSKU.toLowerCase().includes(searchTerm.toLowerCase()) ||
+					(prod.Name && prod.Name.toLowerCase().includes(searchTerm.toLowerCase()))
+				);
+				
+				if (filtered.length === 0) {
+					productSuggestions.innerHTML = '<div class="suggestion-item" style="color:#999;cursor:default;"><em>No products found</em></div>';
+					productSuggestions.style.display = 'block';
+					return;
+				}
+				
+				let html = '';
+				filtered.slice(0, 10).forEach(prod => { // Limit to 10 suggestions
+					html += `<div class="suggestion-item" 
+						onclick="selectProduct('${prod.ProductSKU}', '${(prod.Name || '').replace(/'/g, "&#39;")}')"
+					>
+						<strong>${prod.ProductSKU}</strong>
+						${prod.Name ? `<div class="product-name">${prod.Name}</div>` : ''}
+					</div>`;
 				});
+				
+				productSuggestions.innerHTML = html;
+				productSuggestions.style.display = 'block';
+			}
+			
+			// Handle product selection
+			window.selectProduct = function(sku, name) {
+				selectedProductSKU = sku;
+				productInput.value = sku + (name ? ` - ${name}` : '');
+				productSuggestions.style.display = 'none';
+			};
+			
+			// Add input event listener for search
+			productInput.addEventListener('input', function() {
+				selectedProductSKU = null; // Reset selection when typing
+				showProductSuggestions(this.value);
+			});
+			
+			// Hide suggestions when clicking outside
+			document.addEventListener('click', function(e) {
+				if (!productInput.contains(e.target) && !productSuggestions.contains(e.target)) {
+					productSuggestions.style.display = 'none';
+				}
+			});
+			
+			// Populate ProductSKU dropdown - now loads all products for search
+			async function populateProductDropdown() {
+				await loadAllProducts();
 			}
 			// Populate Customer dropdown
 			async function populateCustomerDropdown() {
@@ -288,6 +451,9 @@ function getIngredientUsage(product, order) {
 			}
 			createOrderBtn.onclick = async function() {
 				createOrderStatus.textContent = '';
+				selectedProductSKU = null;
+				productInput.value = '';
+				productSuggestions.style.display = 'none';
 				await populateProductDropdown();
 				await populateCustomerDropdown();
 				createOrderModal.style.display = 'block';
@@ -302,13 +468,20 @@ function getIngredientUsage(product, order) {
 			};
 			createOrderForm.onsubmit = async function(e) {
 				e.preventDefault();
-				const ProductSKU = productSelect.value;
+				const ProductSKU = selectedProductSKU || productInput.value.split(' - ')[0]; // Use selected SKU or extract from input
 				const Customer = customerSelect.value;
 				const Quantity = parseInt(document.getElementById('newOrderQuantity').value);
 				const Progress = 'requested';
 				const Deadline = document.getElementById('newOrderDeadline').value;
 				if (!ProductSKU || !Customer || !Quantity || !Progress) {
 					createOrderStatus.textContent = 'Please fill all required fields.';
+					createOrderStatus.style.color = '#e74c3c';
+					return;
+				}
+				// Validate that the product SKU exists
+				const productExists = allProducts.some(prod => prod.ProductSKU === ProductSKU);
+				if (!productExists) {
+					createOrderStatus.textContent = 'Please select a valid product SKU from the suggestions.';
 					createOrderStatus.style.color = '#e74c3c';
 					return;
 				}
