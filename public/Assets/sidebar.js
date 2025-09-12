@@ -25,18 +25,16 @@ function renderAdminSidebar() {
   <a href="AddFulfillmentLog.html" class="nav-item"><i class="cil-notes"></i><span>Add Fulfillment Log</span></a>
   <a href="AmazonShipments.html" class="nav-item"><i class="cib-amazon"></i><span>Amazon Shipments</span></a>
   <a href="WarehouseShipments.html" class="nav-item"><i class="cil-truck"></i><span>Warehouse Shipments</span></a>
-  <a href="OrderTracker.html" class="nav-item"><i class="cil-factory"></i><span>Manufacturing Tracker</span></a>
-  <a href="BatchMaker.html" class="nav-item"><i class="cil-cog"></i><span>Batch Card</span></a>
+  <a href="Manufacturing.html" class="nav-item"><i class="cil-factory"></i><span>Manufacturing Tracker</span></a>
   <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
   <a href="DatabaseViewer.html" class="nav-item"><i class="cil-find-in-page"></i><span>Database Viewer</span></a>
   <a href="logs.html" class="nav-item"><i class="cil-history"></i><span>Quantity Update Logs</span></a>
   <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
-  <a href="AddItemAdmin.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Item</span></a>
+  <a href="AddNewItem.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Item</span></a>
   <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
   <a href="Quoting.html" class="nav-item" id="sidebar-quoting"><i class="cil-money"></i><span>Product Quoting</span></a>
   <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
   <a href="UserManagement.html" class="nav-item"><i class="cil-user"></i><span>User Management</span></a>
-  <a href="AddNewItem.html" class="nav-item"><i class="cil-beaker"></i><span>Add New Processes</span></a>
   <a href="/CustomerChecklist.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
   <a class="nav-item" id="sidebar-signout-btn"><i class="cil-account-logout"></i><span>Sign Out</span></a>
     </div>
