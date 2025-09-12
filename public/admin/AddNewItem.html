@@ -606,8 +606,19 @@
         document.getElementById('Name').value = product.Name || '';
         document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
         document.getElementById('Archived').checked = product.Archived || false;
-        // Set retailer dropdown value
-        document.getElementById('Customer').value = product.UserID[1] || '';
+        
+        // Set retailer dropdown value - ensure dropdown is populated first
+        const customerSelect = document.getElementById('Customer');
+        const retailerID = product.UserID && product.UserID[1] ? product.UserID[1] : '';
+        
+        // If dropdown is not populated yet, wait for it
+        if (customerSelect.options.length <= 1 && customerSelect.options[0]?.textContent === 'Loading...') {
+          await populateRetailerDropdown();
+        }
+        
+        // Set the value after ensuring dropdown is populated
+        customerSelect.value = retailerID;
+        
         document.getElementById('ShelfLife').value = product.ShelfLife || '';
         document.getElementById('PackSize').value = product['Pack Size'] || '';
         document.getElementById('Quantity').value = product.Quantity || '';
