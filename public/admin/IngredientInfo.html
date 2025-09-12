@@ -60,7 +60,6 @@
     <div class="Ingredient-sku" id="skuDisplay"></div>
     <div class="Ingredient-details" id="IngredientDetails">Loading...</div>
   </div>
-      // Inactivity timeout and access control via CheckAccess.js
   <script src="/Assets/CheckAccess.js"></script>
   <script>
     checkPermissions(['service_role','client','employee']);
@@ -186,29 +185,31 @@
         try {
           const { data: products, error: prodError } = await supabase
             .from('Products')
-            .select('Name,ProductSKU,Process')
+            .select('Name,ProductSKU,ManufacturingSteps')
             .order('Name');
           let usingProducts = [];
           if (products && Array.isArray(products)) {
             for (const prod of products) {
-              if (!prod.Process) continue;
-              let processObj = null;
+              if (!prod.ManufacturingSteps) continue;
+              let stepsObj = null;
               try {
-                processObj = typeof prod.Process === 'string' ? JSON.parse(prod.Process) : prod.Process;
+                stepsObj = typeof prod.ManufacturingSteps === 'string' ? JSON.parse(prod.ManufacturingSteps) : prod.ManufacturingSteps;
               } catch (e) {
                 continue;
               }
-              // Check all phases for this ingredient
-              for (const phase in processObj) {
-                const phaseData = processObj[phase];
-                if (phaseData && Array.isArray(phaseData['Phase 1 Ingredients'])) {
-                  for (const ing of phaseData['Phase 1 Ingredients']) {
-                    if (ing.IngredientSKU === sku) {
-                      usingProducts.push({
-                        name: prod.Name,
-                        sku: prod.ProductSKU,
-                        percent: ing['Ingredient Quantity(%)']
-                      });
+              // Check all steps for this ingredient
+              if (stepsObj && Array.isArray(stepsObj.Steps)) {
+                for (const step of stepsObj.Steps) {
+                  if (step && Array.isArray(step['Step Ingredients'])) {
+                    for (const ing of step['Step Ingredients']) {
+                      if (ing.IngredientSKU === sku) {
+                        usingProducts.push({
+                          name: prod.Name,
+                          sku: prod.ProductSKU,
+                          quantity: ing.IngredientQuantity,
+                          stepTitle: step['Step Title']
+                        });
+                      }
                     }
                   }
                 }
@@ -217,9 +218,9 @@
           }
           productsHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Products Using This Ingredient</div>`;
           if (usingProducts.length) {
-            productsHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Name</th><th style='padding:6px 10px;text-align:left;'>SKU</th><th style='padding:6px 10px;text-align:left;'>Percent</th></tr></thead><tbody>`;
+            productsHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Name</th><th style='padding:6px 10px;text-align:left;'>SKU</th><th style='padding:6px 10px;text-align:left;'>Quantity</th><th style='padding:6px 10px;text-align:left;'>Step</th></tr></thead><tbody>`;
             for (const prod of usingProducts) {
-              productsHtml += `<tr><td style='padding:6px 10px;'>${prod.name}</td><td style='padding:6px 10px;'>${prod.sku}</td><td style='padding:6px 10px;'>${prod.percent}</td></tr>`;
+              productsHtml += `<tr><td style='padding:6px 10px;'>${prod.name}</td><td style='padding:6px 10px;'>${prod.sku}</td><td style='padding:6px 10px;'>${prod.quantity}</td><td style='padding:6px 10px;'>${prod.stepTitle || 'N/A'}</td></tr>`;
             }
             productsHtml += '</tbody></table>';
           } else {
