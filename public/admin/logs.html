@@ -80,7 +80,8 @@
             </div>
             <div style="margin-bottom: 24px;">
                 <button id="tab-ingredient" type="button" style="background:#3498db;color:#fff;border:none;border-radius:6px;padding:8px 24px;cursor:pointer;font-size:1.1rem;margin-right:8px;">Ingredient Log</button>
-                <button id="tab-inventory" type="button" style="background:#e9ecef;color:#2c3e50;border:none;border-radius:6px;padding:8px 24px;cursor:pointer;font-size:1.1rem;">Product Logs</button>
+                <button id="tab-inventory" type="button" style="background:#e9ecef;color:#2c3e50;border:none;border-radius:6px;padding:8px 24px;cursor:pointer;font-size:1.1rem;margin-right:8px;">Product Logs</button>
+                <button id="tab-manufacturing" type="button" style="background:#e9ecef;color:#2c3e50;border:none;border-radius:6px;padding:8px 24px;cursor:pointer;font-size:1.1rem;">Manufacturing Log</button>
             </div>
             <div id="ingredientLogTab">
                 <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -94,6 +95,12 @@
                 </div>
                 <div id="inventoryUpdateLogsTable"></div>
             </div>
+            <div id="manufacturingLogTab" style="display:none;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <h2 style="margin:0;">Manufacturing Logs</h2>
+                </div>
+                <div id="manufacturingLogTable"></div>
+            </div>
         </div>
     </div>
     <script>
@@ -102,6 +109,7 @@
 
     let allIngredientLogData = [];
     let allInventoryUpdateLogsData = [];
+    let allManufacturingLogData = [];
 
     async function fetchAndDisplayLogs(tableName, containerId, searchTerm = '') {
         const container = document.getElementById(containerId);
@@ -117,6 +125,10 @@
             columns = ['id', 'created_at', 'SKU', 'QuantityChanged', 'updated_by', 'log'];
             selectString = 'id,created_at,SKU,QuantityChanged,updated_by,log';
             orderCol = 'created_at';
+        } else if (tableName === 'ManufacturingLog') {
+            columns = ['id', 'OrderNumber', 'ProductSKU', 'Step', 'FinishedAt', 'display_name'];
+            selectString = 'id,OrderNumber,ProductSKU,Step,FinishedAt,display_name';
+            orderCol = 'FinishedAt';
         }
         try {
             let query = supabase.from(tableName).select(selectString).order(orderCol, { ascending: false });
@@ -130,6 +142,7 @@
             }
             if (tableName === 'IngredientLog') allIngredientLogData = data;
             if (tableName === 'inventoryupdatelogs') allInventoryUpdateLogsData = data;
+            if (tableName === 'ManufacturingLog') allManufacturingLogData = data;
             renderLogTable(data, columns, container, searchTerm);
         } catch (err) {
             container.innerHTML = `<div class="error">Error loading logs: ${err.message}</div>`;
@@ -143,8 +156,8 @@
         const endDateInput = document.getElementById('endDate');
         let startDate = startDateInput && startDateInput.value ? new Date(startDateInput.value) : null;
         let endDate = endDateInput && endDateInput.value ? new Date(endDateInput.value) : null;
-        // Use ChangeTime or created_at for filtering
-        let dateCol = columns.includes('ChangeTime') ? 'ChangeTime' : (columns.includes('created_at') ? 'created_at' : null);
+        // Use ChangeTime or created_at or FinishedAt for filtering
+        let dateCol = columns.includes('ChangeTime') ? 'ChangeTime' : (columns.includes('created_at') ? 'created_at' : (columns.includes('FinishedAt') ? 'FinishedAt' : null));
         if (dateCol && (startDate || endDate)) {
             filtered = filtered.filter(row => {
                 let d = row[dateCol] ? new Date(row[dateCol]) : null;
@@ -169,8 +182,8 @@
             container.innerHTML = '<div class="error">No logs found.</div>';
             return;
         }
-        // Group by SKU/IngredientSKU
-        let skuKey = columns.includes('IngredientSKU') ? 'IngredientSKU' : 'SKU';
+        // Group by SKU/IngredientSKU/ProductSKU
+        let skuKey = columns.includes('IngredientSKU') ? 'IngredientSKU' : (columns.includes('SKU') ? 'SKU' : 'ProductSKU');
         let grouped = {};
         filtered.forEach(row => {
             let key = row[skuKey] || '(none)';
@@ -178,15 +191,22 @@
             grouped[key].push(row);
         });
         // Build summary table
-        let html = `<table><thead><tr><th>${skuKey}</th><th>Total Quantity Change</th><th>Details</th></tr></thead><tbody>`;
+        let summaryHeader = columns.includes('QuantityChanged') ? 'Total Quantity Change' : 'Entry Count';
+        let html = `<table><thead><tr><th>${skuKey}</th><th>${summaryHeader}</th><th>Details</th></tr></thead><tbody>`;
         Object.keys(grouped).forEach((sku, idx) => {
             const logs = grouped[sku];
-            const totalQty = logs.reduce((sum, r) => sum + (parseFloat(r.QuantityChanged) || 0), 0);
-            const roundedQty = Math.round(totalQty * 1000) / 1000;
+            // For ManufacturingLog, show count instead of quantity sum
+            let summaryValue;
+            if (columns.includes('QuantityChanged')) {
+                const totalQty = logs.reduce((sum, r) => sum + (parseFloat(r.QuantityChanged) || 0), 0);
+                summaryValue = Math.round(totalQty * 1000) / 1000;
+            } else {
+                summaryValue = `${logs.length} entries`;
+            }
             const dropdownId = `log-dropdown-${skuKey}-${idx}`;
             html += `<tr>
                 <td>${sku}</td>
-                <td>${roundedQty}</td>
+                <td>${summaryValue}</td>
                 <td><button class="show-details-btn" data-dropdown="${dropdownId}" style="background:#4dba93;color:#fff;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;">Show Details</button></td>
             </tr>`;
             // Hidden details table
@@ -197,8 +217,8 @@
                 html += '<tr>';
                 columns.forEach(col => {
                     let val = row[col];
-                    // Format ChangeTime for IngredientLog
-                    if (col === 'ChangeTime' && val) {
+                    // Format ChangeTime for IngredientLog and FinishedAt for ManufacturingLog
+                    if ((col === 'ChangeTime' || col === 'FinishedAt') && val) {
                         try {
                             const d = new Date(val);
                             if (!isNaN(d.getTime())) {
@@ -245,6 +265,7 @@
         document.getElementById('status').textContent = 'Loading logs from Supabase...';
         await fetchAndDisplayLogs('IngredientLog', 'ingredientLogTable', searchTerm);
         await fetchAndDisplayLogs('inventoryupdatelogs', 'inventoryUpdateLogsTable', searchTerm);
+        await fetchAndDisplayLogs('ManufacturingLog', 'manufacturingLogTable', searchTerm);
         document.getElementById('status').textContent = '';
     }
 
@@ -256,8 +277,10 @@
         const endDateInput = document.getElementById('endDate');
         const tabIngredient = document.getElementById('tab-ingredient');
         const tabInventory = document.getElementById('tab-inventory');
+        const tabManufacturing = document.getElementById('tab-manufacturing');
         const ingredientLogTab = document.getElementById('ingredientLogTab');
         const inventoryUpdateLogsTab = document.getElementById('inventoryUpdateLogsTab');
+        const manufacturingLogTab = document.getElementById('manufacturingLogTab');
         function updateTables() {
             const term = searchBar ? searchBar.value : '';
             if (ingredientLogTab.style.display !== 'none') {
@@ -265,6 +288,9 @@
             }
             if (inventoryUpdateLogsTab.style.display !== 'none') {
                 renderLogTable(allInventoryUpdateLogsData, ['id', 'created_at', 'SKU', 'QuantityChanged', 'updated_by', 'log'], document.getElementById('inventoryUpdateLogsTable'), term);
+            }
+            if (manufacturingLogTab.style.display !== 'none') {
+                renderLogTable(allManufacturingLogData, ['id', 'OrderNumber', 'ProductSKU', 'Step', 'FinishedAt', 'display_name'], document.getElementById('manufacturingLogTable'), term);
             }
         }
         if (searchBar) {
@@ -276,23 +302,38 @@
         if (endDateInput) {
             endDateInput.addEventListener('change', updateTables);
         }
-        if (tabIngredient && tabInventory && ingredientLogTab && inventoryUpdateLogsTab) {
-            tabIngredient.addEventListener('click', function() {
-                tabIngredient.style.background = '#3498db';
-                tabIngredient.style.color = '#fff';
+        if (tabIngredient && tabInventory && tabManufacturing && ingredientLogTab && inventoryUpdateLogsTab && manufacturingLogTab) {
+            function resetTabStyles() {
+                tabIngredient.style.background = '#e9ecef';
+                tabIngredient.style.color = '#2c3e50';
                 tabInventory.style.background = '#e9ecef';
                 tabInventory.style.color = '#2c3e50';
-                ingredientLogTab.style.display = '';
+                tabManufacturing.style.background = '#e9ecef';
+                tabManufacturing.style.color = '#2c3e50';
+                ingredientLogTab.style.display = 'none';
                 inventoryUpdateLogsTab.style.display = 'none';
+                manufacturingLogTab.style.display = 'none';
+            }
+            
+            tabIngredient.addEventListener('click', function() {
+                resetTabStyles();
+                tabIngredient.style.background = '#3498db';
+                tabIngredient.style.color = '#fff';
+                ingredientLogTab.style.display = '';
                 updateTables();
             });
             tabInventory.addEventListener('click', function() {
+                resetTabStyles();
                 tabInventory.style.background = '#3498db';
                 tabInventory.style.color = '#fff';
-                tabIngredient.style.background = '#e9ecef';
-                tabIngredient.style.color = '#2c3e50';
-                ingredientLogTab.style.display = 'none';
                 inventoryUpdateLogsTab.style.display = '';
+                updateTables();
+            });
+            tabManufacturing.addEventListener('click', function() {
+                resetTabStyles();
+                tabManufacturing.style.background = '#3498db';
+                tabManufacturing.style.color = '#fff';
+                manufacturingLogTab.style.display = '';
                 updateTables();
             });
         }
