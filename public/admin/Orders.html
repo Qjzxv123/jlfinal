@@ -266,6 +266,19 @@
         .platform-shopify { background: #95bf47; }
         .platform-shopify-tiktok { background: #ff0050; }
         .platform-amazon { background: #ff9900; }
+        /* Inventory Removed badge */
+        .inv-removed-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #6b7280;
+            color: #fff;
+            font-weight: 600;
+            font-size: 12px;
+            line-height: 1;
+            letter-spacing: .2px;
+            user-select: none;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
     <script src="/Assets/CheckAccess.js"></script>
@@ -304,7 +317,8 @@
                     📋 Print Daily Manifest
                 </button>
                 <button id="printPicklistPackingBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#BA4D74; color:white;" onclick="printPicklistAndPackingSlips()">📋 Print Picklist and Packing Slips</button>
-                <button id="removeSelectedOrdersBtn" class="btn" title="Remove Selected Orders" aria-label="Remove Selected Orders" style="padding:0; width:44px; height:44px; border-radius:8px; font-size:20px; background:#e74c3c; color:white; display:inline-flex; align-items:center; justify-content:center;" onclick="removeSelectedOrders()">
+                <button id="removeInventoryBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#e67e22; color:white;" onclick="removeProductsFromInventory()" disabled>📊 Remove Products From Inventory</button>
+                <button id="removeSelectedOrdersBtn" class="btn" aria-label="Remove Selected Orders" style="padding:0; width:44px; height:44px; border-radius:8px; font-size:20px; background:#e74c3c; color:white; display:inline-flex; align-items:center; justify-content:center;" onclick="removeSelectedOrders()">
                     <i class="cil-trash" style="margin:0; line-height:1;"></i>
                 </button>
             </div>
@@ -361,16 +375,40 @@
             // Remove legacy standalone selected count (moved into banner)
             const old = document.getElementById('selectedCountDiv');
             if (old && old.parentNode) old.parentNode.removeChild(old);
-            // Enable/disable the remove button based on selection
-            const removeBtn = document.getElementById('removeSelectedOrdersBtn');
-            if (removeBtn) {
-                const hasSel = selectedOrders.size > 0;
-                removeBtn.disabled = !hasSel;
-                removeBtn.style.opacity = hasSel ? '1' : '0.6';
-                removeBtn.style.cursor = hasSel ? 'pointer' : 'not-allowed';
-            }
+            // DRY: enable/disable action buttons based on selection
+            updateActionButtons();
             // Refresh stats banner to reflect selected count
             renderOrderStatsBanner();
+        }
+
+        // Helpers for DRY button state logic
+        function getSelectionInfo() {
+            const hasSelection = selectedOrders.size > 0;
+            let hasEligibleForInventory = false;
+            if (hasSelection) {
+                const selectedIdSet = new Set(Array.from(selectedOrders).map(String));
+                for (const o of orders) {
+                    if (selectedIdSet.has(String(o.OrderID)) && !o.InventoryRemoved) { hasEligibleForInventory = true; break; }
+                }
+            }
+            return { hasSelection, hasEligibleForInventory };
+        }
+        function setBtnState(btn, enabled) {
+            if (!btn) return;
+            btn.disabled = !enabled;
+            btn.style.opacity = enabled ? '1' : '0.6';
+            btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+        }
+        function updateActionButtons() {
+            const { hasSelection, hasEligibleForInventory } = getSelectionInfo();
+            // Buttons
+            const printBtn = document.getElementById('printPicklistPackingBtn');
+            const removeInvBtn = document.getElementById('removeInventoryBtn');
+            const removeOrdersBtn = document.getElementById('removeSelectedOrdersBtn');
+            // Manifest button excluded from gating per request
+            setBtnState(printBtn, hasSelection);
+            setBtnState(removeOrdersBtn, hasSelection);
+            setBtnState(removeInvBtn, hasEligibleForInventory);
         }
         let filteredOrders = [];
         async function loadOrders() {
@@ -466,7 +504,7 @@
                         itemsHtml = `<div class='items-toggle' id='${itemsToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px; display:inline-block;' onclick="toggleSection('${itemsListId}','${itemsToggleId}-arrow')">Items<span id='${itemsToggleId}-arrow' class='toggle-arrow'>▼</span></div><div id='${itemsListId}' class='items-list' style='display:none; margin-top:8px;'>` +
                             itemsArr.map(item => `
                                 <div style=\"margin-bottom:6px; padding:6px; background:#f1f3f4; border-radius:4px;\">
-                                    <strong>SKU:</strong> ${item.SKU || ''}<br>
+                                    <strong>SKU:</strong> ${item.SKU ? `<a href=\"/admin/ProductInfo.html?sku=${encodeURIComponent(item.SKU)}\" target=\"_blank\">${item.SKU}</a>` : ''}<br>
                                     <strong>Name:</strong> ${item.Name || ''}<br>
                                     <strong>Quantity:</strong> ${item.Quantity || 0}
                                 </div>
@@ -478,7 +516,7 @@
                     itemsHtml = '<span style="color:#e74c3c;">Error parsing items</span>';
                 }
                 cardsHtml += `<div class="order-card${selectedOrders.has(order.OrderID) ? ' selected' : ''}" id="order-card-${idx}" data-order-id="${order.OrderID}" style="background:white; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-bottom:24px; padding:24px; position:relative;">
-                    ${getPlatformBadgeHtml(order.Platform) ? `<span style="position:absolute; top:14px; right:18px; z-index:1;">${getPlatformBadgeHtml(order.Platform)}</span>` : ''}
+                    ${(order.InventoryRemoved || getPlatformBadgeHtml(order.Platform)) ? `<span style=\"position:absolute; top:14px; right:18px; z-index:1; display:flex; gap:8px; align-items:center;\">${order.InventoryRemoved ? `<span class=\"inv-removed-badge\" title=\"Inventory already decremented\">Inventory Removed</span>` : ''}${getPlatformBadgeHtml(order.Platform) || ''}</span>` : ''}
                     <h2 style="margin-top:0; color:#4DBA93; font-size:1.3rem;">
                         ${order.Link ? `<a href="${order.Link}" target="_blank" class="order-link">Order #${order.OrderID}</a>` : `Order #${order.OrderID}`}
                     </h2>
@@ -727,7 +765,7 @@
                     <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 16px;">
                         <thead><tr style='background:#f8f9fa;'><th style='padding:12px 8px;'>SKU</th><th style='padding:12px 8px;'>Name</th><th style='padding:12px 8px;'>Quantity</th></tr></thead>
                         <tbody>
-                            ${picklistItems.map(item => `<tr><td style='padding:12px 8px;'>${item.sku}</td><td style='padding:12px 8px;'>${item.name}</td><td style='padding:12px 8px;'>${item.quantity}</td></tr>`).join('')}
+                            ${picklistItems.map(item => `<tr><td style='padding:12px 8px;'><a href="/admin/ProductInfo.html?sku=${encodeURIComponent(item.sku)}" target="_blank">${item.sku}</a></td><td style='padding:12px 8px;'>${item.name}</td><td style='padding:12px 8px;'>${item.quantity}</td></tr>`).join('')}
                         </tbody>
                     </table>
                 </div>`;
@@ -779,7 +817,7 @@
                         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 16px;">
                             <thead><tr style='background:#f8f9fa;'><th style='padding:12px 8px;'>SKU</th><th style='padding:12px 8px;'>Name</th><th style='padding:12px 8px;'>Quantity</th></tr></thead>
                             <tbody>
-                                ${itemsArr.map(item => `<tr><td style='padding:12px 8px;'>${item.SKU}</td><td style='padding:12px 8px;'>${item.Name}</td><td style='padding:12px 8px;'>${item.Quantity}</td></tr>`).join('')}
+                                ${itemsArr.map(item => `<tr><td style='padding:12px 8px;'><a href="/admin/ProductInfo.html?sku=${encodeURIComponent(item.SKU)}" target="_blank">${item.SKU}</a></td><td style='padding:12px 8px;'>${item.Name}</td><td style='padding:12px 8px;'>${item.Quantity}</td></tr>`).join('')}
                             </tbody>
                         </table>
                         <div style="padding: 10px;">
@@ -836,8 +874,14 @@
         // Close modals on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' || e.key === 'Esc') {
+                const resultsModal = document.getElementById('invRemovalResultsModal');
                 const editModal = document.getElementById('editOrderModal');
                 const addModal = document.getElementById('addItemModal');
+                // Priority: close results modal first
+                if (resultsModal && resultsModal.style.display !== 'none') {
+                    closeInvRemovalResultsModal();
+                    return;
+                }
                 // If Add Item modal is open, close only it (do not close Edit modal behind it)
                 if (addModal && addModal.style.display !== 'none') {
                     closeAddItemModal();
@@ -849,6 +893,157 @@
                 }
             }
         });
+
+        // Inventory removal results modal helpers
+        function showInvRemovalResultsModal(results, successCount, errorCount, issues) {
+            const modal = document.getElementById('invRemovalResultsModal');
+            const body = document.getElementById('invRemovalResultsBody');
+            if (!modal || !body) return;
+            // Build summary and table
+            const total = results.length;
+            const summaryHtml = `<div style="margin-bottom:12px;font-weight:600;color:#2c3e50;">Processed ${total} SKU(s). Successes: ${successCount}, Errors: ${errorCount}</div>`;
+            let tableHtml = '<div style="max-height:50vh;overflow:auto;border:1px solid #eee;border-radius:8px;">';
+            tableHtml += '<table style="width:100%;border-collapse:collapse;font-size:0.98rem;">';
+            tableHtml += '<thead><tr style="background:#f8f9fa;"><th style="padding:8px 10px;text-align:left;">SKU</th><th style="padding:8px 10px;text-align:left;">Removed</th><th style="padding:8px 10px;text-align:left;">From → To</th><th style="padding:8px 10px;text-align:left;">Orders</th><th style="padding:8px 10px;text-align:left;">Status</th><th style="padding:8px 10px;text-align:left;">Message</th></tr></thead><tbody>';
+            results.forEach(r => {
+                const fromTo = (r.fromQty === null || r.toQty === null) ? '—' : `${r.fromQty} → ${r.toQty}`;
+                const statusColor = r.status === 'success' ? '#16a34a' : '#dc2626';
+                const ordersStr = (r.orderIds && r.orderIds.length) ? r.orderIds.join(', ') : '';
+                const skuLink = r.sku ? `<a href="/admin/ProductInfo.html?sku=${encodeURIComponent(r.sku)}" target="_blank">${r.sku}</a>` : '';
+                tableHtml += `<tr style="border-top:1px solid #eee;"><td style="padding:8px 10px;">${skuLink}</td><td style="padding:8px 10px;">${r.removed ?? ''}</td><td style="padding:8px 10px;">${fromTo}</td><td style="padding:8px 10px;">${ordersStr}</td><td style="padding:8px 10px;color:${statusColor};font-weight:600;">${r.status}</td><td style="padding:8px 10px;">${r.message || ''}</td></tr>`;
+            });
+            tableHtml += '</tbody></table></div>';
+            const issuesHtml = (issues && issues.length) ? `<div style="margin-top:10px;color:#6b7280;">Additional issues: ${issues.join('; ')}</div>` : '';
+            body.innerHTML = summaryHtml + tableHtml + issuesHtml;
+            modal.style.display = 'block';
+        }
+        function closeInvRemovalResultsModal() {
+            const modal = document.getElementById('invRemovalResultsModal');
+            if (modal) modal.style.display = 'none';
+        }
+        // Decrement inventory quantities based on selected orders
+        async function removeProductsFromInventory() {
+            if (selectedOrders.size === 0) {
+                alert('Please select at least one order to remove products from inventory.');
+                return;
+            }
+            if (!confirm('Decrease inventory for all items in the selected orders?')) {
+                return;
+            }
+            // Build SKU -> array of { orderID, quantity }
+            const skuMap = new Map();
+            // Consider only selected orders that have not yet had inventory removed
+            const selected = orders.filter(o => (selectedOrders.has(o.OrderID) || selectedOrders.has(String(o.OrderID))));
+            const skippedAlreadyRemoved = [];
+            const eligible = selected.filter(o => {
+                if (o.InventoryRemoved) { skippedAlreadyRemoved.push(o.OrderID); return false; }
+                return true;
+            });
+            if (eligible.length === 0) {
+                alert('All selected orders already have inventory removed. Nothing to do.');
+                return;
+            }
+            eligible.forEach(order => {
+                let itemsArr = [];
+                try { itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items||'[]'); } catch {}
+                (itemsArr||[]).forEach(it => {
+                    const sku = it?.SKU;
+                    const qty = Number(it?.Quantity) || 0;
+                    if (!sku || qty <= 0) return;
+                    if (!skuMap.has(sku)) skuMap.set(sku, []);
+                    skuMap.get(sku).push({ orderID: order.OrderID, quantity: qty });
+                });
+            });
+            if (skuMap.size === 0) {
+                alert('No SKUs found in selected orders.');
+                return;
+            }
+            // Batch fetch products by SKU with Quantity column
+            const allSkus = Array.from(skuMap.keys());
+            const { data: productsData, error: productsError } = await supabase
+                .from('Products')
+                .select('ProductSKU,Quantity,Name')
+                .in('ProductSKU', allSkus);
+            if (productsError) {
+                alert('Error loading products: ' + (productsError.message || String(productsError)));
+                return;
+            }
+            const productLookup = new Map();
+            (productsData || []).forEach(prod => productLookup.set(prod.ProductSKU, prod));
+            let successCount = 0;
+            let errorCount = 0;
+            const issues = [];
+            const results = [];
+            const logRows = [];
+            const updatedBy = (typeof CurrentUserDisplayName !== 'undefined' && CurrentUserDisplayName) ? CurrentUserDisplayName : ((window.user && (window.user.user_metadata?.display_name || window.user.email)) || '');
+            for (const [sku, removals] of skuMap.entries()) {
+                const totalToRemove = removals.reduce((sum, r) => sum + (Number(r.quantity)||0), 0);
+                if (!totalToRemove) continue;
+                const prod = productLookup.get(sku);
+                const orderIds = Array.from(new Set(removals.map(r => r.orderID)));
+                if (!prod) {
+                    errorCount++;
+                    issues.push(`${sku}: not found`);
+                    results.push({ sku, removed: totalToRemove, fromQty: null, toQty: null, orderIds, status: 'error', message: 'Product not found' });
+                    continue;
+                }
+                const currentQty = Number(prod.Quantity) || 0;
+                const newQuantity = currentQty - totalToRemove; // mirror OrderViewer logic (no clamp)
+                const { error: updateError } = await supabase
+                    .from('Products')
+                    .update({ Quantity: newQuantity })
+                    .eq('ProductSKU', sku);
+                if (updateError) {
+                    errorCount++;
+                    issues.push(`${sku}: ${updateError.message || String(updateError)}`);
+                    results.push({ sku, removed: totalToRemove, fromQty: currentQty, toQty: currentQty, orderIds, status: 'error', message: updateError.message || String(updateError) });
+                } else {
+                    successCount++;
+                    // Queue inventory update log (negative change, include order IDs)
+                    const orderIdsStr = orderIds.join(', ');
+                    logRows.push({
+                        log: `Decremented inventory by ${totalToRemove} due to orders: ${orderIdsStr}`,
+                        updated_by: updatedBy,
+                        SKU: sku,
+                        QuantityChanged: -totalToRemove
+                    });
+                    results.push({ sku, removed: totalToRemove, fromQty: currentQty, toQty: newQuantity, orderIds, status: 'success', message: 'Updated successfully' });
+                }
+            }
+            // Insert inventory logs if any successful updates
+            if (logRows.length > 0) {
+                const { error: logError } = await supabase
+                    .from('inventoryupdatelogs')
+                    .insert(logRows);
+                if (logError) {
+                    issues.push(`Log insert failed: ${logError.message || String(logError)}`);
+                }
+            }
+            if (skippedAlreadyRemoved.length) {
+                issues.push(`Skipped orders already flagged InventoryRemoved: ${skippedAlreadyRemoved.join(', ')}`);
+            }
+            // Flag eligible selected orders as InventoryRemoved = true
+            try {
+                const selectedIds = eligible.map(o => o.OrderID);
+                if (selectedIds.length > 0) {
+                    const { error: orderFlagError } = await supabase
+                        .from('Orders')
+                        .update({ InventoryRemoved: true })
+                        .in('OrderID', selectedIds);
+                    if (orderFlagError) {
+                        issues.push(`Failed to update InventoryRemoved on orders: ${orderFlagError.message || String(orderFlagError)}`);
+                    } else {
+                        // Update local cache
+                        const idSet = new Set(selectedIds.map(String));
+                        orders.forEach(o => { if (idSet.has(String(o.OrderID))) o.InventoryRemoved = true; });
+                    }
+                }
+            } catch (e) {
+                issues.push(`Error flagging orders as InventoryRemoved: ${e?.message || String(e)}`);
+            }
+            // Show results modal with detailed rows
+            showInvRemovalResultsModal(results, successCount, errorCount, issues);
+        }
     </script>
 </script>
 
@@ -913,6 +1108,19 @@
       <button class="btn" style="padding:9px 26px;font-size:15px;border-radius:7px;background:#4DBA93;box-shadow:none;" onclick="confirmAddItem()">Add</button>
     </div>
   </div>
+</div>
+
+<!-- Inventory Removal Results Modal -->
+<div id="invRemovalResultsModal" style="display:none; position:fixed; z-index:3500; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.35);">
+    <div style="background:white; max-width:860px; margin:60px auto; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:22px 22px 16px 22px; position:relative; max-height:80vh; overflow:auto;">
+        <span onclick="closeInvRemovalResultsModal()" style="position:absolute; top:12px; right:14px; font-size:26px; color:#888; cursor:pointer;">&times;</span>
+        <h3 style="margin:0 0 12px 0; color:#4DBA93; font-size:1.25rem;">Inventory Removal Results</h3>
+        <div id="invRemovalResultsBody">Loading...</div>
+        <div style="margin-top:14px; display:flex; justify-content:flex-end;">
+            <button class="btn" style="padding:8px 18px; border-radius:6px;" onclick="closeInvRemovalResultsModal()">Close</button>
+        </div>
+    </div>
+  
 </div>
 <script>
     let productsList = [];
