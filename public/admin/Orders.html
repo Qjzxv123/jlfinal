@@ -91,6 +91,7 @@
     <div class="main-content">
         <div class="container">
             <h1>All Orders</h1>
+            <input id="orderSearchInput" type="text" placeholder="Search orders..." style="width:100%;max-width:400px;margin-bottom:18px;padding:10px 14px;font-size:16px;border-radius:8px;border:1.5px solid #e1e5e9;box-shadow:0 1px 2px rgba(0,0,0,0.03);outline:none;" oninput="filterOrders()" />
             <button id="printPicklistPackingBtn" class="btn" style="margin-bottom:20px; padding:12px 24px; border-radius:8px; font-size:16px; font-weight:600; background:#BA4D74; color:white;" onclick="printPicklistAndPackingSlips()">📋 Print Picklist and Packing Slips</button>
             <div id="ordersTableContainer">
                 <p>Loading orders...</p>
@@ -133,6 +134,7 @@
             }
             countDiv.innerHTML = `Selected Orders: <span style='font-size:1.1em;'>${selectedOrders.size}</span>`;
         }
+        let filteredOrders = [];
         async function loadOrders() {
             const container = document.getElementById('ordersTableContainer');
             container.innerHTML = '<p>Loading orders...</p>';
@@ -147,65 +149,161 @@
                     return;
                 }
                 orders = ordersRaw;
-                let cardsHtml = '';
-                orders.forEach((order, idx) => {
-                    // Customer collapsible
-                    let customerToggleId = `customer-toggle-${idx}`;
-                    let customerBlockId = `customer-block-${idx}`;
-                    let customerHtml = '';
-                    try {
-                        const customerObj = typeof order.Customer === 'object' ? order.Customer : JSON.parse(order.Customer);
-                        customerHtml = `<div class='customer-toggle' id='${customerToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px;' onclick=\"document.getElementById('${customerBlockId}').classList.toggle('show');\">▶ Show Customer</div><div id='${customerBlockId}' class='customer-block' style='display:none; margin-top:8px;'>
-                            <div style=\"margin-bottom:4px;\"><strong>Name:</strong> ${customerObj.name || ''}</div>
-                            <div style=\"margin-bottom:4px;\"><strong>Address 1:</strong> ${customerObj.address1 || ''}</div>
-                            ${customerObj.address2 ? `<div style=\\"margin-bottom:4px;\\"><strong>Address 2:</strong> ${customerObj.address2}</div>` : ''}
-                            <div style=\"margin-bottom:4px;\"><strong>City:</strong> ${customerObj.city || ''}</div>
-                            <div style=\"margin-bottom:4px;\"><strong>State:</strong> ${customerObj.state || ''}</div>
-                            <div style=\"margin-bottom:4px;\"><strong>Zip Code:</strong> ${customerObj.zipCode || ''}</div>
-                            <div style=\"margin-bottom:4px;\"><strong>Country:</strong> ${customerObj.country || ''}</div>
-                        </div>`;
-                    } catch (e) {
-                        customerHtml = '<span style="color:#e74c3c;">Error parsing customer</span>';
-                    }
-                    let itemsHtml = '';
-                    let itemsToggleId = `items-toggle-${idx}`;
-                    let itemsListId = `items-list-${idx}`;
-                    try {
-                        const itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items);
-                        if (Array.isArray(itemsArr)) {
-                            itemsHtml = `<div class='items-toggle' id='${itemsToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px;' onclick="document.getElementById('${itemsListId}').classList.toggle('show');">▶ Show Items</div><div id='${itemsListId}' class='items-list' style='display:none; margin-top:8px;'>` +
-                                itemsArr.map(item => `
-                                    <div style=\"margin-bottom:6px; padding:6px; background:#f1f3f4; border-radius:4px;\">
-                                        <strong>SKU:</strong> ${item.SKU || ''}<br>
-                                        <strong>Name:</strong> ${item.Name || ''}<br>
-                                        <strong>Quantity:</strong> ${item.Quantity || 0}
-                                    </div>
-                                `).join('') + '</div>';
-                        } else {
-                            itemsHtml = '<span style="color:#e74c3c;">Invalid items format</span>';
-                        }
-                    } catch (e) {
-                        itemsHtml = '<span style="color:#e74c3c;">Error parsing items</span>';
-                    }
-                    cardsHtml += `<div class="order-card${selectedOrders.has(order.OrderID) ? ' selected' : ''}" id="order-card-${idx}" style="background:white; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-bottom:24px; padding:24px; position:relative;">
-                        <input type="checkbox" style="position:absolute; top:18px; right:18px; width:22px; height:22px;" onclick="toggleOrderSelection('${order.OrderID}')" ${selectedOrders.has(order.OrderID) ? 'checked' : ''} />
-                        <h2 style="margin-top:0; color:#4DBA93; font-size:1.3rem;">
-                            ${order.Link ? `<a href="${order.Link}" target="_blank" class="order-link">Order #${order.OrderID}</a>` : `Order #${order.OrderID}`}
-                        </h2>
-                        <div style="margin-bottom:10px;"><strong>Retailer:</strong> ${order.Retailer || ''}</div>
-                        <div style="margin-bottom:10px;"><strong>Platform:</strong> ${order.Platform || ''}</div>
-                        <div style="margin-bottom:10px;"><strong>Customer:</strong>${customerHtml}</div>
-                        <div style="margin-bottom:10px;"><strong>Items:</strong>${itemsHtml}</div>
-                        <div style="margin-bottom:10px;"><strong>Notes:</strong> <span class="notes">${order.Notes || ''}</span></div>
-                        <div style="margin-bottom:10px;"><strong>Customer Messages:</strong> <span class="customer-messages">${order.CustomerMessages || ''}</span></div>
-                    </div>`;
-                });
-                container.innerHTML = cardsHtml;
+                filteredOrders = ordersRaw;
+                renderOrders();
             } catch (err) {
                 container.innerHTML = `<p style="color:red;">Error loading orders: ${err.message}</p>`;
             }
         }
+
+        function filterOrders() {
+            const query = document.getElementById('orderSearchInput').value.trim().toLowerCase();
+            if (!query) {
+                filteredOrders = orders;
+            } else {
+                filteredOrders = orders.filter(order => {
+                    let customerName = '';
+                    try {
+                        const customerObj = typeof order.Customer === 'object' ? order.Customer : JSON.parse(order.Customer);
+                        customerName = customerObj.name || '';
+                    } catch {}
+                    return (
+                        (order.OrderID && order.OrderID.toString().toLowerCase().includes(query)) ||
+                        (order.Retailer && order.Retailer.toLowerCase().includes(query)) ||
+                        (order.Platform && order.Platform.toLowerCase().includes(query)) ||
+                        (customerName && customerName.toLowerCase().includes(query))
+                    );
+                });
+            }
+            renderOrders();
+        }
+
+        function renderOrders() {
+            const container = document.getElementById('ordersTableContainer');
+            let cardsHtml = '';
+            filteredOrders.forEach((order, idx) => {
+                // Customer collapsible
+                let customerToggleId = `customer-toggle-${idx}`;
+                let customerBlockId = `customer-block-${idx}`;
+                let customerHtml = '';
+                try {
+                    const customerObj = typeof order.Customer === 'object' ? order.Customer : JSON.parse(order.Customer);
+                    customerHtml = `<div class='customer-toggle' id='${customerToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px;' onclick=\"document.getElementById('${customerBlockId}').classList.toggle('show');\">▶ Show Customer</div><div id='${customerBlockId}' class='customer-block' style='display:none; margin-top:8px;'>
+                        <div style=\"margin-bottom:4px;\"><strong>Name:</strong> ${customerObj.name || ''}</div>
+                        <div style=\"margin-bottom:4px;\"><strong>Address 1:</strong> ${customerObj.address1 || ''}</div>
+                        ${customerObj.address2 ? `<div style=\\"margin-bottom:4px;\\"><strong>Address 2:</strong> ${customerObj.address2}</div>` : ''}
+                        <div style=\"margin-bottom:4px;\"><strong>City:</strong> ${customerObj.city || ''}</div>
+                        <div style=\"margin-bottom:4px;\"><strong>State:</strong> ${customerObj.state || ''}</div>
+                        <div style=\"margin-bottom:4px;\"><strong>Zip Code:</strong> ${customerObj.zipCode || ''}</div>
+                        <div style=\"margin-bottom:4px;\"><strong>Country:</strong> ${customerObj.country || ''}</div>
+                    </div>`;
+                } catch (e) {
+                    customerHtml = '<span style="color:#e74c3c;">Error parsing customer</span>';
+                }
+                let itemsHtml = '';
+                let itemsToggleId = `items-toggle-${idx}`;
+                let itemsListId = `items-list-${idx}`;
+                try {
+                    const itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items);
+                    if (Array.isArray(itemsArr)) {
+                        itemsHtml = `<div class='items-toggle' id='${itemsToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px;' onclick="document.getElementById('${itemsListId}').classList.toggle('show');">▶ Show Items</div><div id='${itemsListId}' class='items-list' style='display:none; margin-top:8px;'>` +
+                            itemsArr.map(item => `
+                                <div style=\"margin-bottom:6px; padding:6px; background:#f1f3f4; border-radius:4px;\">
+                                    <strong>SKU:</strong> ${item.SKU || ''}<br>
+                                    <strong>Name:</strong> ${item.Name || ''}<br>
+                                    <strong>Quantity:</strong> ${item.Quantity || 0}
+                                </div>
+                            `).join('') + '</div>';
+                    } else {
+                        itemsHtml = '<span style="color:#e74c3c;">Invalid items format</span>';
+                    }
+                } catch (e) {
+                    itemsHtml = '<span style="color:#e74c3c;">Error parsing items</span>';
+                }
+                cardsHtml += `<div class="order-card${selectedOrders.has(order.OrderID) ? ' selected' : ''}" id="order-card-${idx}" style="background:white; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-bottom:24px; padding:24px; position:relative;">
+                    <input type="checkbox" style="position:absolute; top:18px; right:18px; width:22px; height:22px;" onclick="toggleOrderSelection('${order.OrderID}')" ${selectedOrders.has(order.OrderID) ? 'checked' : ''} />
+                    <h2 style="margin-top:0; color:#4DBA93; font-size:1.3rem;">
+                        ${order.Link ? `<a href="${order.Link}" target="_blank" class="order-link">Order #${order.OrderID}</a>` : `Order #${order.OrderID}`}
+                    </h2>
+                    <div style="margin-bottom:10px;"><strong>Retailer:</strong> ${order.Retailer || ''}</div>
+                    <div style="margin-bottom:10px;"><strong>Platform:</strong> ${order.Platform || ''}</div>
+                    <div style="margin-bottom:10px;"><strong>Customer:</strong>${customerHtml}</div>
+                    <div style="margin-bottom:10px;"><strong>Items:</strong>${itemsHtml}</div>
+                    <div style="margin-bottom:10px;"><strong>Notes:</strong> <span class="notes">${order.Notes || ''}</span></div>
+                    <div style="margin-bottom:10px;">
+                        <strong>Customer Message:</strong>
+                        <span class="customer-messages">${order.CustomerMessages || ''}</span>
+                    </div>
+                    <button class="btn" style="position:absolute; bottom:18px; right:18px; padding:6px 18px; font-size:15px; border-radius:6px; background:#3498db;" onclick="openEditOrderModal('${order.OrderID}')">Edit</button>
+                </div>`;
+            });
+            container.innerHTML = cardsHtml;
+        }
         loadOrders();
+
+        // Modal for editing order
+        let currentEditOrder = null;
+        async function openEditOrderModal(orderId) {
+            const order = orders.find(o => o.OrderID == orderId);
+            if (!order) return;
+            currentEditOrder = order;
+            // Fetch retailer options from Users table
+            const retailerSelect = document.getElementById('editRetailer');
+            retailerSelect.innerHTML = '<option value="">Loading...</option>';
+            let retailerOptions = '';
+            try {
+                const { data: users, error } = await supabase
+                    .from('Users')
+                    .select('display_name, Role')
+                    .in('Role', ['service_role', 'client']);
+                if (error) throw error;
+                if (users && users.length > 0) {
+                    retailerOptions = users.map(u => `<option value="${u.display_name}">${u.display_name}</option>`).join('');
+                }
+            } catch (e) {
+                retailerOptions = '';
+            }
+            retailerSelect.innerHTML = `<option value="">-- Select Retailer --</option>` + retailerOptions;
+            retailerSelect.value = order.Retailer || '';
+            // Fill other modal fields
+            document.getElementById('editOrderID').value = order.OrderID;
+            document.getElementById('editPlatform').value = order.Platform || '';
+            document.getElementById('editNotes').value = order.Notes || '';
+            document.getElementById('editCustomerMessages').value = order.CustomerMessages || '';
+            document.getElementById('editOrderModal').style.display = 'block';
+        }
+
+        async function saveEditOrder() {
+            if (!currentEditOrder) return;
+            const orderId = currentEditOrder.OrderID;
+            const retailer = document.getElementById('editRetailer').value;
+            const platform = document.getElementById('editPlatform').value;
+            const notes = document.getElementById('editNotes').value;
+            const customerMessages = document.getElementById('editCustomerMessages').value;
+            document.getElementById('editOrderSaveStatus').textContent = 'Saving...';
+            try {
+                const { error } = await supabase
+                    .from('Orders')
+                    .update({ Retailer: retailer, Platform: platform, Notes: notes, CustomerMessages: customerMessages })
+                    .eq('OrderID', orderId);
+                if (error) throw error;
+                document.getElementById('editOrderSaveStatus').textContent = 'Saved!';
+                setTimeout(() => { document.getElementById('editOrderSaveStatus').textContent = ''; }, 1500);
+                // Update local data and re-render
+                currentEditOrder.Retailer = retailer;
+                currentEditOrder.Platform = platform;
+                currentEditOrder.Notes = notes;
+                currentEditOrder.CustomerMessages = customerMessages;
+                renderOrders();
+                closeEditOrderModal();
+            } catch (err) {
+                document.getElementById('editOrderSaveStatus').textContent = 'Error saving!';
+            }
+        }
+
+        function closeEditOrderModal() {
+            document.getElementById('editOrderModal').style.display = 'none';
+        }
         function printPicklistAndPackingSlips() {
             if (selectedOrders.size === 0) {
                 alert('Please select at least one order to print.');
@@ -308,5 +406,28 @@
             printWindow.print();
         }
     </script>
+</script>
+
+<!-- Edit Order Modal -->
+<div id="editOrderModal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.35);">
+    <div style="background:white; max-width:420px; margin:60px auto; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:32px 28px 24px 28px; position:relative;">
+        <span onclick="closeEditOrderModal()" style="position:absolute; top:16px; right:18px; font-size:28px; color:#888; cursor:pointer;">&times;</span>
+        <h2 style="margin-top:0; color:#3498db; font-size:1.3rem; margin-bottom:18px;">Edit Order</h2>
+        <label style="font-weight:600; color:#2c3e50;">Order ID</label>
+        <input id="editOrderID" type="text" readonly style="width:100%; margin-bottom:12px; padding:8px; border-radius:6px; border:1px solid #e1e5e9; background:#f8f9fa; color:#888;" />
+        <label style="font-weight:600; color:#2c3e50;">Retailer</label>
+        <select id="editRetailer" style="width:100%; margin-bottom:12px; padding:8px; border-radius:6px; border:1px solid #e1e5e9;"></select>
+        <label style="font-weight:600; color:#2c3e50;">Platform</label>
+        <input id="editPlatform" type="text" style="width:100%; margin-bottom:12px; padding:8px; border-radius:6px; border:1px solid #e1e5e9;" />
+        <label style="font-weight:600; color:#2c3e50;">Notes</label>
+        <textarea id="editNotes" style="width:100%; min-height:40px; margin-bottom:12px; padding:8px; border-radius:6px; border:1px solid #e1e5e9;"></textarea>
+        <label style="font-weight:600; color:#2c3e50;">Customer Message</label>
+        <textarea id="editCustomerMessages" style="width:100%; min-height:40px; margin-bottom:18px; padding:8px; border-radius:6px; border:1px solid #e1e5e9;"></textarea>
+        <div style="display:flex; align-items:center; justify-content:flex-end; gap:10px;">
+            <span id="editOrderSaveStatus" style="font-size:13px; color:#4DBA93;"></span>
+            <button class="btn" style="padding:8px 22px; font-size:15px; border-radius:6px; background:#3498db;" onclick="saveEditOrder()">Save</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
