@@ -115,6 +115,23 @@
     .table-container {
       margin-bottom: 2rem;
     }
+    /* Inline editable task styling */
+    .editable-task {
+      display: inline-block;
+      min-width: 200px;
+      outline: none;
+      padding: 2px 4px;
+      border-radius: 4px;
+      border: 1px dashed transparent;
+      border-color: #cbd5e1;
+      background: #f8fafc;
+      cursor: text;
+    }
+    .editable-task:focus {
+      border-color: #4dba93;
+      background: #f0fdf4;
+      box-shadow: 0 0 0 2px rgba(77,186,147,0.15);
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/Assets/CheckAccess.js"></script>
@@ -240,6 +257,23 @@
         alert('Failed to update task: ' + error.message);
       }
     }
+    async function updateTaskText(id, taskText) {
+      const { error } = await supabase
+        .from('Checklist')
+        .update({ Task: taskText })
+        .eq('id', id);
+      if (error) {
+        throw error;
+      }
+    }
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
     async function removeTask(id) {
       const { error } = await supabase
         .from('Checklist')
@@ -255,8 +289,12 @@
       for (const task of tasks) {
         const tr = document.createElement('tr');
         const deadline = task.Deadline ? new Date(task.Deadline).toLocaleDateString() : '';
+        const isEditable = task.AssignedBy === CurrentUserDisplayName;
+        const taskCellHtml = isEditable
+          ? `<div class="editable-task" contenteditable="true" data-id="${task.id}" data-original="${escapeHtml(task.Task || '')}" title="Click to edit; press Enter or click outside to save">${escapeHtml(task.Task || '')}</div>`
+          : `${escapeHtml(task.Task || '')}`;
         tr.innerHTML = `
-          <td>${task.Task || ''}</td>
+          <td>${taskCellHtml}</td>
           <td>${task.Priority || ''}</td>
           <td>${task.AssignedTo || ''}</td>
           <td>${task.AssignedBy || ''}</td>
@@ -284,8 +322,12 @@
         if (task.AssignedBy === CurrentUserDisplayName) {
           actionCell = `<button class="confirm-complete-btn" data-id="${task.id}">Confirm Complete</button>`;
         }
+        const isEditable = task.AssignedBy === CurrentUserDisplayName;
+        const taskCellHtml = isEditable
+          ? `<div class="editable-task" contenteditable="true" data-id="${task.id}" data-original="${escapeHtml(task.Task || '')}" title="Click to edit; press Enter or click outside to save">${escapeHtml(task.Task || '')}</div>`
+          : `${escapeHtml(task.Task || '')}`;
         tr.innerHTML = `
-          <td>${task.Task || ''}</td>
+          <td>${taskCellHtml}</td>
           <td>${task.Priority || ''}</td>
           <td>${task.AssignedTo || ''}</td>
           <td>${task.AssignedBy || ''}</td>
@@ -442,6 +484,38 @@
         awaitingArrow.style.transform = '';
       }
     });
+
+    // Inline editing handlers for task text
+    document.addEventListener('keydown', function(e) {
+      if (e.target && e.target.classList && e.target.classList.contains('editable-task')) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.target.blur();
+        }
+      }
+    });
+    document.addEventListener('blur', async function(e) {
+      if (e.target && e.target.classList && e.target.classList.contains('editable-task')) {
+        const el = e.target;
+        const id = el.getAttribute('data-id');
+        const original = (el.getAttribute('data-original') || '').trim();
+        const updated = (el.textContent || '').trim();
+        if (!id) return;
+        if (updated.length === 0) {
+          alert('Task cannot be empty.');
+          el.textContent = original;
+          return;
+        }
+        if (updated === original) return; // no change
+        try {
+          await updateTaskText(id, updated);
+          el.setAttribute('data-original', escapeHtml(updated));
+        } catch (err) {
+          alert('Failed to update task: ' + err.message);
+          el.textContent = original;
+        }
+      }
+    }, true);
 
     // Initial load
     loadTasks();
