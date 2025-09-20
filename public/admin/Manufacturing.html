@@ -628,6 +628,16 @@ function getIngredientUsage(product, order) {
 					}
 					let deadlineHtml = order.Deadline ? `<div style=\"margin-bottom:10px;\"><strong>Deadline:</strong> ${order.Deadline}</div>` : '';
 					let completionHtml = order.CompletionDate ? `<div style=\"margin-bottom:10px;\"><strong>Completion Date:</strong> ${order.CompletionDate}</div>` : '';
+					// Vessel display (text[])
+					let vesselHtml = '';
+					if (Array.isArray(order.Vessel) && order.Vessel.length > 0) {
+						const safe = order.Vessel.map(v => String(v)
+							.replace(/&/g, '&amp;')
+							.replace(/</g, '&lt;')
+							.replace(/>/g, '&gt;'))
+							.join(', ');
+						vesselHtml = `<div style=\"margin-bottom:10px;\"><strong>Vessel(s):</strong> ${safe}</div>`;
+					}
 
 					// --- DRY ingredient sufficiency logic ---
 										let showWarning = false;
@@ -691,12 +701,13 @@ function getIngredientUsage(product, order) {
 								</span>
 							</h2>
 							${showWarning ? `<span class=\"warning-badge\" style=\"position:static;\"><i class=\"cil-warning\"></i> ${warningText}</span>` : ''}
-							${showIngredientWarning ? `<button onclick="showInsufficientIngredientsModal(${JSON.stringify(ingredientWarningText).replace(/"/g, '&quot;')})" class="warning-badge" style="position:static;background:#e74c3c;"><i class="cil-warning"></i>Insufficient Ingredients</button>` : ''}
+							${showIngredientWarning && !order.IngredientsRemoved ? `<button onclick="showInsufficientIngredientsModal(${JSON.stringify(ingredientWarningText).replace(/"/g, '&quot;')})" class="warning-badge" style="position:static;background:#e74c3c;"><i class="cil-warning"></i>Insufficient Ingredients</button>` : ''}
 							${order.IngredientsRemoved ? `<button id=\"restore\" onclick="restoreIngredients(${order.OrderNumber})" style=\"background:#4DBA93;color:#fff;border-radius:8px;padding:4px 10px;font-size:0.98em;margin-left:10px;display:inline-block;vertical-align:middle;\"><i class="cil-history"></i> Add Back Ingredients</button>` : ''}
 									</h2>
 						</div>
 						<div style=\"margin-bottom:10px;\"><strong>Customer:</strong> ${order.Customer || ''}</div>
 						${order.PlannedManufactureDate ? `<div style=\"margin-bottom:10px;\"><strong>Planned Manufacture Date:</strong> ${order.PlannedManufactureDate}</div>` : ''}
+						${vesselHtml}
 						${deadlineHtml}
 						${completionHtml}
 						<button class=\"update-progress-btn\" onclick=\"openProgressModal(${order.OrderNumber}, '${progressRaw.replace(/'/g, "&#39;")}', ${JSON.stringify(progressOptions).replace(/"/g, '&quot;')})\">Update Progress</button>
@@ -724,6 +735,10 @@ function getIngredientUsage(product, order) {
 						<label for="plannedManufactureDate" style="font-weight:600;">Planned Manufacture Date:</label><br>
 						<input type="date" id="plannedManufactureDate" style="width:100%;margin-top:8px;" />
 					</div>
+					<div id="vesselContainer" style="display:none;margin-top:12px;">
+						<label for="vesselInput" style="font-weight:600;">Vessel(s):</label><br>
+						<input type="text" id="vesselInput" style="width:100%;margin-top:8px;" placeholder="Separate with commas, e.g., V1, V2" />
+					</div>
 					</div>
 					<button id="modalUpdateBtn" class="update-progress-btn" style="width:100%;">Update</button>
 				</div>
@@ -745,18 +760,23 @@ function getIngredientUsage(product, order) {
 				o.textContent = opt.label;
 				select.appendChild(o);
 			});
-			// Show/hide date input based on initial value
+			// Show/hide date and vessel inputs based on initial value
 			const plannedDateContainer = document.getElementById('plannedDateContainer');
+			const vesselContainer = document.getElementById('vesselContainer');
 			if (select.value === 'scheduled') {
 				plannedDateContainer.style.display = 'block';
+				vesselContainer.style.display = 'block';
 			} else {
 				plannedDateContainer.style.display = 'none';
+				vesselContainer.style.display = 'none';
 			}
 			select.onchange = function() {
 				if (select.value === 'scheduled') {
 					plannedDateContainer.style.display = 'block';
+					vesselContainer.style.display = 'block';
 				} else {
 					plannedDateContainer.style.display = 'none';
+					vesselContainer.style.display = 'none';
 				}
 			};
 			select.value = currentProgress.toLowerCase();
@@ -793,6 +813,15 @@ function getIngredientUsage(product, order) {
 					return;
 				}
 				updateObj.PlannedManufactureDate = plannedDateInput.value;
+				// Parse vessels input into text[]
+				const vesselInput = document.getElementById('vesselInput');
+				if (vesselInput) {
+					const vessels = (vesselInput.value || '')
+						.split(',')
+						.map(s => s.trim())
+						.filter(s => s.length > 0);
+					updateObj.Vessel = vessels.length > 0 ? vessels : null;
+				}
 				// Do not subtract ingredients if IngredientsRemoved is already true
 				if (!order.IngredientsRemoved && confirmed && product && product.ManufacturingSteps) {
 					let ingredientUsage = getIngredientUsage(product, order);
