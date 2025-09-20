@@ -643,6 +643,7 @@
 
         // Only load process data from ManufacturingSteps
         if (product.ManufacturingSteps && typeof product.ManufacturingSteps === 'object' && Array.isArray(product.ManufacturingSteps.Steps)) {
+          const weightOz = parseFloat(product['Product Weight(oz)']) || 0;
           processTableData = product.ManufacturingSteps.Steps.map(step => {
             return {
               name: step["Step Title"] || '',
@@ -652,11 +653,26 @@
                 const ingredientData = allIngredients.find(ai => ai.IngredientSKU === ing.IngredientSKU);
                 let name = ingredientData ? ingredientData.Name : ing.IngredientSKU;
                 let IngredientQuantity = ing.IngredientQuantity !== undefined ? ing.IngredientQuantity : '';
+                // Default to percent when loading; convert units -> percent if possible
+                let amount = '';
+                let unitType = 'percent';
+                const qtyNum = parseFloat(IngredientQuantity);
+                if (!isNaN(qtyNum) && weightOz > 0) {
+                  const computedPercent =((qtyNum / (1.1 * (weightOz/16))) * 100);
+                  if (computedPercent > 100) {
+                    // If percent would be > 100, default to units using original quantity
+                    amount = qtyNum;
+                    unitType = 'units';
+                  } else {
+                    amount = computedPercent;
+                    unitType = 'percent';
+                  }
+                }
                 return {
                   name,
                   sku: ing.IngredientSKU,
-                  amount: IngredientQuantity,
-                  unitType: 'units'
+                  amount,
+                  unitType
                 };
               }) : []
             };
@@ -1001,8 +1017,6 @@
             // Convert units to percent
             ing.amount = (prevAmount / (1.1 * productWeightOz/16)) * 100;
           }
-          // Round to 3 decimals
-          ing.amount = Math.round(ing.amount * 1000) / 1000;
         }
         ing.unitType = val;
         renderProcessTableEditor();
