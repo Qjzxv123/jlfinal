@@ -39,7 +39,7 @@
        
         const { data: orderData, error: orderError } = await supabase
           .from('ManufacturingTasks')
-          .select('ProductSKU, Quantity, Progress')
+          .select('ProductSKU, Quantity, Progress,Customer,UserID')
           .eq('OrderNumber', orderNumber)
           .single();
         if (orderError || !orderData) {
@@ -198,9 +198,12 @@
               if(ActualQuantity<orderData.Quantity){
                 if(confirm(`You entered ${ActualQuantity}, which is less than the ordered quantity of ${orderData.Quantity}. If you will be making the remaining product for this order again press "OK"`)){
                   //if they wish to make more later, set progress to "Requested" and update quantity to remaining amount, then update Products table and log and redirect
-                  await supabase
+                await supabase
                 .from('ManufacturingTasks')
-                .update({ Quantity: orderData.Quantity-ActualQuantity, Progress: 'requested' })
+                .insert({ ProductSKU: orderData.ProductSKU, Customer: orderData.Customer, UserID: orderData.UserID, Quantity: orderData.Quantity-ActualQuantity, Progress: 'requested' });
+                await supabase
+                .from('ManufacturingTasks')
+                .update({ Progress: 'Completed', CompletionDate: completionDate })
                 .eq('OrderNumber', orderNumber);
                 await supabase
                 .from('Products')
@@ -242,7 +245,7 @@
                 .eq('ProductSKU', orderData.ProductSKU);
               await supabase
                 .from('inventoryupdatelogs')
-                .insert({ created_at: new Date(), log: `Completed manufacturing order ${orderNumber} for product ${orderData.ProductSKU}, added ${orderData.Quantity} to inventory.`,updated_by: window.CurrentUserDisplayName, SKU:orderData.ProductSKU,QuantityChanged: -orderData.Quantity});
+                .insert({ created_at: new Date(), log: `Completed manufacturing order ${orderNumber} for product ${orderData.ProductSKU}, added ${orderData.Quantity} to inventory.`,updated_by: window.CurrentUserDisplayName, SKU:orderData.ProductSKU,QuantityChanged: orderData.Quantity});
               console.log('Manufacturing completed for order', orderNumber);
               window.location.href = 'Manufacturing.html';
             }

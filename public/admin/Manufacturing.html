@@ -444,7 +444,8 @@ function getIngredientUsage(product, order) {
 				customerSelect.innerHTML = '';
 				users.forEach(user => {
 					const opt = document.createElement('option');
-					opt.value = user.display_name;
+					opt.value = user.id; // store id for DB
+					opt.dataset.displayName = user.display_name || '';
 					opt.textContent = user.display_name ? `${user.display_name} (${user.email})` : user.email;
 					customerSelect.appendChild(opt);
 				});
@@ -469,11 +470,14 @@ function getIngredientUsage(product, order) {
 			createOrderForm.onsubmit = async function(e) {
 				e.preventDefault();
 				const ProductSKU = selectedProductSKU || productInput.value.split(' - ')[0]; // Use selected SKU or extract from input
-				const Customer = customerSelect.value;
+				const CustomerID = customerSelect.value; // user id
+				const Customer = customerSelect.selectedOptions && customerSelect.selectedOptions[0]
+					? (customerSelect.selectedOptions[0].dataset.displayName || customerSelect.selectedOptions[0].textContent)
+					: '';
 				const Quantity = parseInt(document.getElementById('newOrderQuantity').value);
 				const Progress = 'requested';
 				const Deadline = document.getElementById('newOrderDeadline').value;
-				if (!ProductSKU || !Customer || !Quantity || !Progress) {
+				if (!ProductSKU || !CustomerID || !Quantity || !Progress) {
 					createOrderStatus.textContent = 'Please fill all required fields.';
 					createOrderStatus.style.color = '#e74c3c';
 					return;
@@ -492,6 +496,7 @@ function getIngredientUsage(product, order) {
 						{
 							ProductSKU,
 							Customer,
+							UserID: CustomerID ? [CustomerID] : null,
 							Quantity,
 							Progress,
 							Deadline: Deadline || null
