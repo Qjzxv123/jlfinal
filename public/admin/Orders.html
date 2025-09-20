@@ -490,7 +490,7 @@
                         <strong>Customer Message:</strong>
                         <span class="customer-messages">${order.CustomerMessages || ''}</span>
                     </div>
-                    <button class="btn" style="position:absolute; bottom:18px; right:18px; padding:6px 18px; font-size:15px; border-radius:6px; background:#3498db;" onclick="openEditOrderModal('${order.OrderID}')">Edit</button>
+                    <button class="btn" style="position:absolute; bottom:18px; right:18px; padding:6px 18px; font-size:15px; border-radius:6px; background:#4DBA93;" onclick="openEditOrderModal('${order.OrderID}')">Edit</button>
                 </div>`;
             });
             container.innerHTML = cardsHtml;
@@ -675,13 +675,31 @@
         function closeEditOrderModal() {
             document.getElementById('editOrderModal').style.display = 'none';
         }
-        function printPicklistAndPackingSlips() {
+        async function printPicklistAndPackingSlips() {
             if (selectedOrders.size === 0) {
                 alert('Please select at least one order to print.');
                 return;
             }
             // --- Master Picklist ---
             const selectedOrdersData = orders.filter(order => selectedOrders.has(order.OrderID));
+            // Fetch default customer messages per retailer
+            const retailers = Array.from(new Set(selectedOrdersData.map(o => o.Retailer).filter(Boolean)));
+            const defaultMsgByRetailer = {};
+            if (retailers.length > 0) {
+                try {
+                    const { data: usersMsgData, error: usersMsgError } = await supabase
+                        .from('Users')
+                        .select('display_name, "DefaultCustomerMessage"')
+                        .in('display_name', retailers);
+                    if (!usersMsgError && usersMsgData) {
+                        usersMsgData.forEach(u => {
+                            defaultMsgByRetailer[u.display_name] = u.DefaultCustomerMessage || '';
+                        });
+                    }
+                } catch (e) {
+                    // ignore fetch errors; fallback to empty default
+                }
+            }
             // Aggregate SKUs split by plus sign and map to product names
             const skuMap = new Map();
             const nameMap = new Map();
@@ -746,6 +764,7 @@
                     logoUrl = 'https://www.jnlnaturals.com/cdn/shop/files/JL_PNG_TRAN_BLACK_FINAL_Cropped_outlined.png?v=1697910301&width=300';
                     logoAlt = 'JNL Naturals Logo';
                 }
+                const fallbackMsg = (order.CustomerMessages && String(order.CustomerMessages).trim()) || defaultMsgByRetailer[order.Retailer] || '';
                 packingSlipsHtml += `
                     <div style="font-family: Arial, sans-serif; padding: 20px; background: white; ${index > 0 ? 'page-break-before: always;' : ''}">
                         <div style="margin-bottom: 25px; position: relative; min-height: 60px;">
@@ -765,7 +784,7 @@
                         </table>
                         <div style="padding: 10px;">
                             <p style="margin: 0; font-size: 14px; font-weight: 600; color: #ba4d74;">
-                                ${order.CustomerMessages || ''}
+                                ${fallbackMsg}
                             </p>
                         </div>
                     </div>`;
@@ -837,7 +856,7 @@
 <div id="editOrderModal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.35);">
     <div style="background:white; max-width:420px; margin:60px auto; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:32px 28px 24px 28px; position:relative; max-height:80vh; overflow-y:auto;">
         <span onclick="closeEditOrderModal()" style="position:absolute; top:16px; right:18px; font-size:28px; color:#888; cursor:pointer;">&times;</span>
-        <h2 style="margin-top:0; color:#3498db; font-size:1.3rem; margin-bottom:18px;">Edit Order</h2>
+        <h2 style="margin-top:0; color:#4DBA93; font-size:1.3rem; margin-bottom:18px;">Edit Order</h2>
         <label style="font-weight:600; color:#2c3e50;">Order ID</label>
         <input id="editOrderID" type="text" readonly style="width:100%; margin-bottom:12px; padding:8px; border-radius:6px; border:1px solid #e1e5e9; background:#f8f9fa; color:#888;" />
         <label style="font-weight:600; color:#2c3e50;">Retailer</label>
@@ -874,7 +893,7 @@
     <textarea id="editCustomerMessages" style="width:100%; min-height:40px; margin-bottom:18px; padding:8px; border-radius:6px; border:1px solid #e1e5e9;"></textarea>
         <div style="display:flex; align-items:center; justify-content:flex-end; gap:10px;">
             <span id="editOrderSaveStatus" style="font-size:13px; color:#4DBA93;"></span>
-            <button class="btn" style="padding:8px 22px; font-size:15px; border-radius:6px; background:#3498db;" onclick="saveEditOrder()">Save</button>
+            <button class="btn" style="padding:8px 22px; font-size:15px; border-radius:6px; background:#4DBA93;" onclick="saveEditOrder()">Save</button>
         </div>
     </div>
 </div>
@@ -883,7 +902,7 @@
 <div id="addItemModal" style="display:none; position:fixed; z-index:3000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.35);">
   <div style="background:white; max-width:400px; margin:80px auto; border-radius:14px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:32px 28px 22px 28px; position:relative; overflow:hidden;">
     <span onclick="closeAddItemModal()" style="position:absolute; top:14px; right:18px; font-size:28px; color:#888; cursor:pointer; transition:color 0.2s;">&times;</span>
-    <h3 style="margin-top:0; color:#3498db; font-size:1.25rem; margin-bottom:18px; font-weight:600; letter-spacing:0.5px;">Add Item</h3>
+    <h3 style="margin-top:0; color:#4DBA93; font-size:1.25rem; margin-bottom:18px; font-weight:600; letter-spacing:0.5px;">Add Item</h3>
     <label style="font-weight:600; color:#2c3e50; margin-bottom:4px; display:block;">Product</label>
     <input id="addItemProductSearch" type="text" placeholder="Search product..." style="width:100%;margin-bottom:8px;padding:10px 12px;border-radius:7px;border:1.5px solid #e1e5e9;font-size:15px;outline:none;transition:border 0.2s;" oninput="filterProductOptions()" autocomplete="off" />
     <div id="addItemProductOptions" style="max-height:140px;overflow-y:auto;margin-bottom:12px;border-radius:6px;background:#f8f9fa;"></div>
@@ -891,7 +910,7 @@
     <input id="addItemQuantity" type="number" min="1" value="1" style="width:100%;margin-bottom:18px;padding:10px 12px;border-radius:7px;border:1.5px solid #e1e5e9;font-size:15px;outline:none;transition:border 0.2s;" />
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;">
       <span id="addItemStatus" style="font-size:13px;color:#4DBA93;"></span>
-      <button class="btn" style="padding:9px 26px;font-size:15px;border-radius:7px;background:#3498db;box-shadow:none;" onclick="confirmAddItem()">Add</button>
+      <button class="btn" style="padding:9px 26px;font-size:15px;border-radius:7px;background:#4DBA93;box-shadow:none;" onclick="confirmAddItem()">Add</button>
     </div>
   </div>
 </div>
