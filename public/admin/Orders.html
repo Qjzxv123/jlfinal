@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>All Orders</title>
+    <title>Order Viewer</title>
     <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
     <link rel="stylesheet" href="/Assets/sidebar.css">
     <style>
@@ -49,11 +49,15 @@
         .customer-messages {
             color: #ba4d74;
         }
-        .items-toggle {
+        .items-toggle,
+        .customer-toggle {
             cursor: pointer;
             color: #4DBA93;
             font-weight: 600;
             margin-bottom: 6px;
+            display: inline-block; /* shrink clickable area to just the text */
+            width: auto;
+            padding: 0; /* no extra hit area */
         }
         .items-list {
             display: none;
@@ -66,6 +70,8 @@
             border: 2px solid #4DBA93;
             background-color: #f0f9f0;
         }
+        /* Indicate cards are clickable for selection */
+        .order-card { cursor: pointer; }
         .btn {
             background: #4DBA93;
             color: white;
@@ -80,6 +86,186 @@
         .btn:hover {
             background: #3a9b74;
         }
+        /* New styles for order stats banner */
+        #orderStatsBanner {
+            width: 100%;
+            margin: 0 0 18px 0;
+            padding: 18px 24px 10px 24px;
+            background: white;
+            color: #222;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(77,186,147,0.08);
+            font-size: 1.08rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px 36px;
+            align-items: center;
+            justify-content: flex-start;
+            font-weight: 500;
+            box-sizing: border-box;
+        }
+
+        /* Controls styles */
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 12px 16px;
+            align-items: center;
+        }
+        .controls > * { min-width: 0; }
+        .controls .btn { white-space: nowrap; }
+        .search-box { width: 100%; }
+        .filter-controls {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(150px, 1fr));
+            gap: 10px;
+            align-items: center;
+            width: 100%;
+        }
+        /* Normalize element heights inside controls */
+        .controls input,
+        .controls select,
+        .controls .btn {
+            height: 44px;
+            box-sizing: border-box;
+        }
+        .controls input { padding: 10px 12px; }
+        .controls select { padding: 8px 12px; }
+        .controls .btn { padding: 10px 16px; }
+         .action-buttons {
+             background: white;
+             padding: 15px 20px;
+             border-radius: 12px;
+             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+             margin-bottom: 20px;
+             display: flex;
+             gap: 10px;
+             align-items: center;
+             flex-wrap: wrap;
+             justify-content: center;
+         }
+        /* Responsive behavior without media queries handled via flex-wrap and min-widths */
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .controls > * {
+            min-width: 180px;
+        }
+        .search-box {
+            flex: 1 1 600px;
+            min-width: 260px;
+            max-width: none;
+        }
+        .search-box input { width: 100%; }
+        .filter-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            flex: 0 0 auto; /* don't grow; keep natural width */
+            min-width: 220px;
+        }
+        .filter-controls select {
+            flex: 1 1 180px;
+            min-width: 160px;
+        }
+        .controls .btn { white-space: nowrap; }
+        .action-buttons {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        /* Make all action buttons the same height */
+        .action-buttons .btn {
+            height: 44px;
+            padding: 0 20px; /* horizontal padding only to keep uniform height */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-buttons .btn i { line-height: 1; }
+        .action-btn {
+            background: #BA4D74;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+        }
+        .action-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn {
+            background: #4DBA93;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+    /* Toggle arrow spacing (arrow on the right) */
+    .toggle-arrow { display: inline-block; margin-left: 6px; }
+        /* Platform badge styles (match OrderViewer look) */
+        .platform-badge {
+            display: inline-block;
+            padding: 6px 12px; /* slightly larger */
+            border-radius: 999px;
+            color: #fff;
+            font-weight: 600;
+            font-size: 13px; /* slightly larger */
+            line-height: 1;
+            vertical-align: middle;
+            letter-spacing: .2px;
+            user-select: none;
+        }
+        .platform-etsy { background: #f56500; }
+        .platform-faire { background: #2c5aa0; }
+        .platform-shopify { background: #95bf47; }
+        .platform-shopify-tiktok { background: #ff0050; }
+        .platform-amazon { background: #ff9900; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
     <script src="/Assets/CheckAccess.js"></script>
@@ -90,9 +276,40 @@
     <script src="/Assets/sidebar.js"></script>
     <div class="main-content">
         <div class="container">
-            <h1>All Orders</h1>
-            <input id="orderSearchInput" type="text" placeholder="Search orders..." style="width:100%;max-width:400px;margin-bottom:18px;padding:10px 14px;font-size:16px;border-radius:8px;border:1.5px solid #e1e5e9;box-shadow:0 1px 2px rgba(0,0,0,0.03);outline:none;" oninput="filterOrders()" />
-            <button id="printPicklistPackingBtn" class="btn" style="margin-bottom:20px; padding:12px 24px; border-radius:8px; font-size:16px; font-weight:600; background:#BA4D74; color:white;" onclick="printPicklistAndPackingSlips()">📋 Print Picklist and Packing Slips</button>
+            <h1>Order Viewer</h1>
+            <!-- Controls Row (Manifest, Search, Filters) -->
+<div class="controls">
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search orders (ID, customer, SKU, retailer, platform, notes, address)" oninput="filterOrders()" />
+    </div>
+    <div class="filter-controls">
+        <select id="platformFilter" onchange="filterOrders()">
+            <option value="">All Platforms</option>
+            <option value="etsy">Etsy</option>
+            <option value="faire">Faire</option>
+            <option value="shopify">Shopify</option>
+            <option value="shopify(tiktok)">Shopify(TikTok)</option>
+            <option value="amazon">Amazon</option>
+        </select>
+        <select id="retailerFilter" onchange="filterOrders()">
+            <option value="">All Retailers</option>
+            <option value="Desesh">Desesh</option>
+            <option value="J&amp;L Naturals">J&amp;L Naturals</option>
+            <option value="River Organics">River Organics</option>
+        </select>
+    </div>
+</div>
+            <div class="action-buttons">
+                <button class="btn" onclick="window.open('https://apps.goshippo.com/shipments/manifests', '_blank')" id="manifestBtn" style="background: #9b59b6; border-color: #8e44ad;">
+                    📋 Print Daily Manifest
+                </button>
+                <button id="printPicklistPackingBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#BA4D74; color:white;" onclick="printPicklistAndPackingSlips()">📋 Print Picklist and Packing Slips</button>
+                <button id="removeSelectedOrdersBtn" class="btn" title="Remove Selected Orders" aria-label="Remove Selected Orders" style="padding:0; width:44px; height:44px; border-radius:8px; font-size:20px; background:#e74c3c; color:white; display:inline-flex; align-items:center; justify-content:center;" onclick="removeSelectedOrders()">
+                    <i class="cil-trash" style="margin:0; line-height:1;"></i>
+                </button>
+            </div>
+            <!-- Order Stats Banner -->
+            <div id="orderStatsBanner" style="width:100%;max-width:1200px;margin:0 auto 18px auto;padding:18px 24px 10px 24px;background:white;color:#222;border-radius:10px;box-shadow:0 2px 10px rgba(77,186,147,0.08);font-size:1.08rem;display:flex;flex-wrap:wrap;gap:24px 36px;align-items:center;justify-content:flex-start;font-weight:500;"></div>
             <div id="ordersTableContainer">
                 <p>Loading orders...</p>
             </div>
@@ -103,6 +320,22 @@
         
         let selectedOrders = new Set();
         let orders = [];
+        // Helpers to render platform badges consistently
+        function platformClass(p) {
+            const s = (p || '').toLowerCase().trim();
+            if (!s) return '';
+            if (s.includes('shopify') && s.includes('tiktok')) return 'platform-shopify-tiktok';
+            if (s === 'etsy') return 'platform-etsy';
+            if (s === 'faire') return 'platform-faire';
+            if (s === 'shopify') return 'platform-shopify';
+            if (s === 'amazon') return 'platform-amazon';
+            return '';
+        }
+        function getPlatformBadgeHtml(p) {
+            if (!p) return '';
+            const cls = platformClass(p);
+            return `<span class="platform-badge ${cls}">${p}</span>`;
+        }
         function toggleOrderSelection(orderId) {
             if (selectedOrders.has(orderId)) {
                 selectedOrders.delete(orderId);
@@ -125,14 +358,19 @@
             });
         }
         function updateSelectedCount() {
-            let countDiv = document.getElementById('selectedCountDiv');
-            if (!countDiv) {
-                countDiv = document.createElement('div');
-                countDiv.id = 'selectedCountDiv';
-                countDiv.style = 'margin-bottom:20px; font-weight:600; color:#4DBA93;';
-                document.querySelector('.container').insertBefore(countDiv, document.getElementById('ordersTableContainer'));
+            // Remove legacy standalone selected count (moved into banner)
+            const old = document.getElementById('selectedCountDiv');
+            if (old && old.parentNode) old.parentNode.removeChild(old);
+            // Enable/disable the remove button based on selection
+            const removeBtn = document.getElementById('removeSelectedOrdersBtn');
+            if (removeBtn) {
+                const hasSel = selectedOrders.size > 0;
+                removeBtn.disabled = !hasSel;
+                removeBtn.style.opacity = hasSel ? '1' : '0.6';
+                removeBtn.style.cursor = hasSel ? 'pointer' : 'not-allowed';
             }
-            countDiv.innerHTML = `Selected Orders: <span style='font-size:1.1em;'>${selectedOrders.size}</span>`;
+            // Refresh stats banner to reflect selected count
+            renderOrderStatsBanner();
         }
         let filteredOrders = [];
         async function loadOrders() {
@@ -151,32 +389,51 @@
                 orders = ordersRaw;
                 filteredOrders = ordersRaw;
                 renderOrders();
+                updateSelectedCount();
             } catch (err) {
                 container.innerHTML = `<p style="color:red;">Error loading orders: ${err.message}</p>`;
             }
         }
 
         function filterOrders() {
-            const query = document.getElementById('orderSearchInput').value.trim().toLowerCase();
-            if (!query) {
-                filteredOrders = orders;
-            } else {
-                filteredOrders = orders.filter(order => {
-                    let customerName = '';
-                    try {
-                        const customerObj = typeof order.Customer === 'object' ? order.Customer : JSON.parse(order.Customer);
-                        customerName = customerObj.name || '';
-                    } catch {}
-                    return (
-                        (order.OrderID && order.OrderID.toString().toLowerCase().includes(query)) ||
-                        (order.Retailer && order.Retailer.toLowerCase().includes(query)) ||
-                        (order.Platform && order.Platform.toLowerCase().includes(query)) ||
-                        (customerName && customerName.toLowerCase().includes(query))
-                    );
-                });
+    const search = document.getElementById('searchInput').value.trim().toLowerCase();
+    const platform = document.getElementById('platformFilter').value;
+    const retailer = document.getElementById('retailerFilter').value;
+    filteredOrders = orders.filter(o => {
+        let match = true;
+        if (search) {
+            // Helper to safely include
+            const incl = (v) => v !== undefined && v !== null && v.toString().toLowerCase().includes(search);
+            // Parse customer and items safely
+            let customerObj = {};
+            try { customerObj = typeof o.Customer === 'object' ? (o.Customer||{}) : JSON.parse(o.Customer||'{}'); } catch {}
+            let itemsArr = [];
+            try { itemsArr = Array.isArray(o.Items) ? o.Items : JSON.parse(o.Items||'[]'); } catch {}
+            const fields = [
+                o.OrderID, o.OrderNumber,
+                o.Retailer, o.Platform,
+                o.Notes, o.CustomerMessages,
+                o.CustomerName,
+                customerObj.name, customerObj.address1, customerObj.address2,
+                customerObj.city, customerObj.state, customerObj.zipCode, customerObj.country
+            ];
+            // Add item fields
+            if (Array.isArray(itemsArr)) {
+                itemsArr.forEach(it => { fields.push(it?.SKU, it?.Name); });
             }
-            renderOrders();
+            match = fields.some(incl);
         }
+        if (platform) {
+            // Compare lowercased, and handle Shopify(TikTok) edge case
+            const plat = (o.Platform || '').toLowerCase();
+            const filterPlat = platform.toLowerCase();
+            if (plat !== filterPlat) match = false;
+        }
+        if (retailer && o.Retailer !== retailer) match = false;
+        return match;
+    });
+    renderOrders();
+}
 
         function renderOrders() {
             const container = document.getElementById('ordersTableContainer');
@@ -188,7 +445,7 @@
                 let customerHtml = '';
                 try {
                     const customerObj = typeof order.Customer === 'object' ? order.Customer : JSON.parse(order.Customer);
-                    customerHtml = `<div class='customer-toggle' id='${customerToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px;' onclick=\"document.getElementById('${customerBlockId}').classList.toggle('show');\">▶ Show Customer</div><div id='${customerBlockId}' class='customer-block' style='display:none; margin-top:8px;'>
+                    customerHtml = `<div class='customer-toggle' id='${customerToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px; display:inline-block;' onclick=\"toggleSection('${customerBlockId}','${customerToggleId}-arrow')\">Customer<span id='${customerToggleId}-arrow' class='toggle-arrow'>▼</span></div><div id='${customerBlockId}' class='customer-block' style='display:none; margin-top:8px;'>
                         <div style=\"margin-bottom:4px;\"><strong>Name:</strong> ${customerObj.name || ''}</div>
                         <div style=\"margin-bottom:4px;\"><strong>Address 1:</strong> ${customerObj.address1 || ''}</div>
                         ${customerObj.address2 ? `<div style=\\"margin-bottom:4px;\\"><strong>Address 2:</strong> ${customerObj.address2}</div>` : ''}
@@ -206,7 +463,7 @@
                 try {
                     const itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items);
                     if (Array.isArray(itemsArr)) {
-                        itemsHtml = `<div class='items-toggle' id='${itemsToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px;' onclick="document.getElementById('${itemsListId}').classList.toggle('show');">▶ Show Items</div><div id='${itemsListId}' class='items-list' style='display:none; margin-top:8px;'>` +
+                        itemsHtml = `<div class='items-toggle' id='${itemsToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px; display:inline-block;' onclick="toggleSection('${itemsListId}','${itemsToggleId}-arrow')">Items<span id='${itemsToggleId}-arrow' class='toggle-arrow'>▼</span></div><div id='${itemsListId}' class='items-list' style='display:none; margin-top:8px;'>` +
                             itemsArr.map(item => `
                                 <div style=\"margin-bottom:6px; padding:6px; background:#f1f3f4; border-radius:4px;\">
                                     <strong>SKU:</strong> ${item.SKU || ''}<br>
@@ -215,20 +472,19 @@
                                 </div>
                             `).join('') + '</div>';
                     } else {
-                        itemsHtml = '<span style="color:#e74c3c;">Invalid items format</span>';
+                        itemsHtml = '<span style="color:#e74c3e;">Invalid items format</span>';
                     }
                 } catch (e) {
                     itemsHtml = '<span style="color:#e74c3c;">Error parsing items</span>';
                 }
-                cardsHtml += `<div class="order-card${selectedOrders.has(order.OrderID) ? ' selected' : ''}" id="order-card-${idx}" style="background:white; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-bottom:24px; padding:24px; position:relative;">
-                    <input type="checkbox" style="position:absolute; top:18px; right:18px; width:22px; height:22px;" onclick="toggleOrderSelection('${order.OrderID}')" ${selectedOrders.has(order.OrderID) ? 'checked' : ''} />
+                cardsHtml += `<div class="order-card${selectedOrders.has(order.OrderID) ? ' selected' : ''}" id="order-card-${idx}" data-order-id="${order.OrderID}" style="background:white; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-bottom:24px; padding:24px; position:relative;">
+                    ${getPlatformBadgeHtml(order.Platform) ? `<span style="position:absolute; top:14px; right:18px; z-index:1;">${getPlatformBadgeHtml(order.Platform)}</span>` : ''}
                     <h2 style="margin-top:0; color:#4DBA93; font-size:1.3rem;">
                         ${order.Link ? `<a href="${order.Link}" target="_blank" class="order-link">Order #${order.OrderID}</a>` : `Order #${order.OrderID}`}
                     </h2>
                     <div style="margin-bottom:10px;"><strong>Retailer:</strong> ${order.Retailer || ''}</div>
-                    <div style="margin-bottom:10px;"><strong>Platform:</strong> ${order.Platform || ''}</div>
-                    <div style="margin-bottom:10px;"><strong>Customer:</strong>${customerHtml}</div>
-                    <div style="margin-bottom:10px;"><strong>Items:</strong>${itemsHtml}</div>
+                    <div style="margin-bottom:10px;">${customerHtml}</div>
+                    <div style="margin-bottom:10px;">${itemsHtml}</div>
                     <div style="margin-bottom:10px;"><strong>Notes:</strong> <span class="notes">${order.Notes || ''}</span></div>
                     <div style="margin-bottom:10px;">
                         <strong>Customer Message:</strong>
@@ -238,7 +494,55 @@
                 </div>`;
             });
             container.innerHTML = cardsHtml;
+            // Whole-card toggle selection with guards for interactive elements
+            const interactiveSelector = 'a, button, .items-toggle, .customer-toggle, input, textarea, select, label';
+            container.querySelectorAll('.order-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    if (e.target.closest(interactiveSelector)) return; // ignore clicks on interactive controls
+                    const id = card.getAttribute('data-order-id');
+                    toggleOrderSelection(id);
+                });
+            });
         }
+        // Toggle a collapsible block and flip the arrow between ▼ and ▲
+        function toggleSection(contentId, arrowId) {
+            const block = document.getElementById(contentId);
+            if (!block) return;
+            block.classList.toggle('show');
+            const arrow = document.getElementById(arrowId);
+            if (arrow) {
+                const open = block.classList.contains('show');
+                arrow.textContent = open ? '▲' : '▼';
+            }
+        }
+        function renderOrderStatsBanner() {
+            const banner = document.getElementById('orderStatsBanner');
+            if (!banner) return;
+            const allOrders = filteredOrders.length ? filteredOrders : orders;
+            const total = allOrders.length;
+            const platformCounts = {};
+            const retailerCounts = {};
+            allOrders.forEach(o => {
+                if (o.Platform) platformCounts[o.Platform] = (platformCounts[o.Platform]||0)+1;
+                if (o.Retailer) retailerCounts[o.Retailer] = (retailerCounts[o.Retailer]||0)+1;
+            });
+            // Selected Orders (left) then Total Orders
+            let html = `<span style='font-size:1.15em;font-weight:600;'>Selected Orders: ${selectedOrders.size}</span>`;
+            html += `<span style='margin-left:18px;font-size:1.15em;font-weight:600;'>Total Orders: ${total}</span>`;
+            if (Object.keys(platformCounts).length) {
+                html += `<span style='margin-left:18px;'>` + Object.entries(platformCounts)
+                    .map(([p,c])=>`<span class="platform-badge ${platformClass(p)}" style="margin-right:7px;">${p}: <b>${c}</b></span>`)
+                    .join('') + `</span>`;
+            }
+            if (Object.keys(retailerCounts).length) {
+                html += `<span style='margin-left:18px;'>` + Object.entries(retailerCounts).map(([r,c])=>`<span style='background:#fff3;padding:3px 10px;border-radius:6px;margin-right:7px;'>${r}: <b>${c}</b></span>`).join('') + `</span>`;
+            }
+            banner.innerHTML = html;
+        }
+        const origRenderOrders = renderOrders;
+        renderOrders = function() { origRenderOrders(); renderOrderStatsBanner(); };
+        const origLoadOrders = loadOrders;
+        loadOrders = async function() { await origLoadOrders(); renderOrderStatsBanner(); };
         loadOrders();
 
         // Modal for editing order
@@ -472,6 +776,60 @@
             printWindow.document.close();
             printWindow.print();
         }
+
+        // Remove selected orders from Supabase and update UI
+        async function removeSelectedOrders() {
+            if (selectedOrders.size === 0) {
+                alert('Please select at least one order to remove.');
+                return;
+            }
+            if (!confirm('Are you sure you want to remove the selected orders? This action cannot be undone.')) {
+                return;
+            }
+            try {
+                // Normalize to actual OrderID types from loaded orders
+                const selectedIds = orders
+                    .filter(o => selectedOrders.has(String(o.OrderID)))
+                    .map(o => o.OrderID);
+                if (selectedIds.length === 0) {
+                    // Fallback if selection holds numeric ids
+                    const byId = new Set(Array.from(selectedOrders));
+                    orders.forEach(o => { if (byId.has(o.OrderID)) selectedIds.push(o.OrderID); });
+                }
+                const { error } = await supabase
+                    .from('Orders')
+                    .delete()
+                    .in('OrderID', selectedIds);
+                if (error) throw error;
+                // Update local arrays
+                const idSet = new Set(selectedIds.map(String));
+                orders = orders.filter(o => !idSet.has(String(o.OrderID)));
+                filteredOrders = filteredOrders.filter(o => !idSet.has(String(o.OrderID)));
+                selectedOrders.clear();
+                renderOrders();
+                renderOrderStatsBanner();
+                updateSelectedCount();
+                alert(`Removed ${selectedIds.length} order(s).`);
+            } catch (err) {
+                alert('Error removing orders: ' + (err?.message || String(err)));
+            }
+        }
+        // Close modals on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'Esc') {
+                const editModal = document.getElementById('editOrderModal');
+                const addModal = document.getElementById('addItemModal');
+                // If Add Item modal is open, close only it (do not close Edit modal behind it)
+                if (addModal && addModal.style.display !== 'none') {
+                    closeAddItemModal();
+                    return;
+                }
+                // Otherwise, close Edit Order modal if open
+                if (editModal && editModal.style.display !== 'none') {
+                    closeEditOrderModal();
+                }
+            }
+        });
     </script>
 </script>
 
@@ -489,7 +847,7 @@
         <label style="font-weight:600; color:#2c3e50;">Items</label>
         <table style="width:100%;margin-bottom:0;border-collapse:collapse;">
             <thead>
-                <tr style="background:#f8f9fa;">
+                <tr style="background:#f9f9f9;">
                     <th style="padding:6px 4px;">SKU</th>
                     <th style="padding:6px 4px;">Name</th>
                     <th style="padding:6px 4px;">Quantity</th>
