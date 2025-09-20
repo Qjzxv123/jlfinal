@@ -208,7 +208,7 @@
   <script>
 // Use shared admin/employee check and inactivity timeout
     checkPermissions(['service_role','employee']);
-    setupInactivityTimeout(10);    
+    setup    
     async function fetchTasks() {
       const { data, error } = await supabase
         .from('Checklist')

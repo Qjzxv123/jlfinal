@@ -28,7 +28,7 @@
   </div>
   <script>
     checkPermissions(['service_role', 'employee']);
-    setupInactivityTimeout(10);  
+    setup  
     const urlParams = new URLSearchParams(window.location.search);
     const orderNumber = urlParams.get('ordernumber');
     const instructionsDiv = document.getElementById('instructions');
@@ -252,7 +252,7 @@
       const month = now.getMonth() + 1; // 1-12
       const day = now.getDate();
       // Fetch shelf life from Products table
-      let shelfLifeYears = 3; // Default fallback
+      let shelfLife = 36; // Default fallback
       try {
         const { data: productShelfData, error: shelfError } = await supabase
           .from('Products')
@@ -260,7 +260,7 @@
           .eq('ProductSKU', currentProduct.ProductSKU)
           .maybeSingle();
         if (!shelfError && productShelfData && productShelfData.ShelfLife) {
-          shelfLifeYears = productShelfData.ShelfLife;
+          shelfLife = productShelfData.ShelfLife;
         }
       } catch (error) {
         console.warn('Failed to fetch shelf life, using default of 3 years:', error);
@@ -274,12 +274,12 @@
       const lastDigitYear = year % 10;
       // Expiration month calculation
       let expirationMonth = month;
-      let expirationYear = year + shelfLifeYears; // Current year + shelf life
+      let expirationYear = year + shelfLife/12; // Current year + shelf life
       if (day >= 15) {
         expirationMonth = month + 1;
         if (expirationMonth > 12) {
           expirationMonth = 1;
-          expirationYear = year + shelfLifeYears + 1; // Account for month rollover
+          expirationYear = year + shelfLife/12 + 1; // Account for month rollover
         }
       }
       // Format expiration month (01-12)
