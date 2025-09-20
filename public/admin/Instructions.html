@@ -135,10 +135,14 @@
                 <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Location</th>
             </tr></thead><tbody>`;
             step["Step Ingredients"].forEach(ing => {
+              const batchQty = orderData.Quantity || 1;
+              const totalQty = (ing.IngredientQuantity !== undefined && ing.IngredientQuantity !== null)
+                ? Math.round(ing.IngredientQuantity * batchQty * 1000) / 1000
+                : '';
               html += `<tr>` +
                 `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${nameMap[ing.IngredientSKU] || ''}</td>` +
                 `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${ing.IngredientSKU}</td>` +
-                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${ing.IngredientQuantity !== undefined ? ing.IngredientQuantity : ''}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${totalQty}</td>` +
                 `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${locationMap[ing.IngredientSKU] || ''}</td>` +
               `</tr>`;
             });
@@ -153,7 +157,8 @@
               const n = parseInt(p1, 10);
               const ing = step["Step Ingredients"][n];
               if (ing) {
-                let qty = ing.IngredientQuantity !== undefined ? Math.round(ing.IngredientQuantity * 1000) / 1000 : '';
+                const batchQty = orderData.Quantity || 1;
+                let qty = ing.IngredientQuantity !== undefined ? Math.round(ing.IngredientQuantity * batchQty * 1000) / 1000 : '';
                 return `${ing.IngredientSKU} (${qty})`;
               }
               return match;
