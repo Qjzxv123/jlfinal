@@ -302,7 +302,7 @@
   <script>
     // Access control and inactivity timeout (shared logic)
     checkPermissions(['service_role', 'employee']);
-    setup
+    
     let allProducts = [];
   let allBoxes = [];
     let selectedProducts = new Map(); // SKU -> {product, quantity}
@@ -311,7 +311,7 @@
     async function initializePage() {
   await loadAllProducts();
   await loadAllBoxes();
-  setupProductDropdown();
+  ProductDropdown();
   updateSelectedProductsList();
     }
 
@@ -353,8 +353,8 @@
       }
     }
 
-    // Setup product dropdown functionality
-    function setupProductDropdown() {
+    //  product dropdown functionality
+    function ProductDropdown() {
       const searchInput = document.getElementById('productSearch');
       const dropdown = document.getElementById('productDropdown');
 
