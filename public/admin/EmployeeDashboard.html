@@ -224,7 +224,6 @@
           .from('ManufacturingTasks')
           .select('*')
           .eq('PlannedManufactureDate', today)
-          .order('PlannedManufactureDate', { ascending: true });
         if (error) throw error;
         renderManufacturingTasks(data || []);
       } catch (e) {
@@ -246,7 +245,7 @@
         return `
           <div class="manufacturing-item">
             <div class="item-header">
-              <span class="item-title">Order #${orderNum}</span>
+              <a href="Instructions?ordernumber=${orderNum}" class="item-title">Order #${orderNum}</a>
               <span class="item-status">${status}</span>
             </div>
             <div class="item-details">Planned Date: ${plannedDate}</div>
