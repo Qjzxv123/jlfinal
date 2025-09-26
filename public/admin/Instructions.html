@@ -241,11 +241,11 @@
               // Update LastBatch and LastBatchNumber in Products table
               await supabase
                 .from('Products')
-                .update({ LastBatch: completionDate, LastBatchNumber: orderNumber, Quantity: productData.Quantity + orderData.Quantity})
+                .update({ LastBatch: completionDate, LastBatchNumber: orderNumber, Quantity: productData.Quantity + ActualQuantity})
                 .eq('ProductSKU', orderData.ProductSKU);
               await supabase
                 .from('inventoryupdatelogs')
-                .insert({ created_at: new Date(), log: `Completed manufacturing order ${orderNumber} for product ${orderData.ProductSKU}, added ${orderData.Quantity} to inventory.`,updated_by: window.CurrentUserDisplayName, SKU:orderData.ProductSKU,QuantityChanged: orderData.Quantity});
+                .insert({ created_at: new Date(), log: `Completed manufacturing order ${orderNumber} for product ${orderData.ProductSKU}, added ${ActualQuantity} to inventory.`,updated_by: window.CurrentUserDisplayName, SKU:orderData.ProductSKU,QuantityChanged: ActualQuantity});
               console.log('Manufacturing completed for order', orderNumber);
               window.location.href = 'Manufacturing.html';
             }
