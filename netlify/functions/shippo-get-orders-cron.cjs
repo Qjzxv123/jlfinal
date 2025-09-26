@@ -151,7 +151,7 @@ exports.handler = async (event) => {
         Items: JSON.stringify(parsedItems),
         Customer: customerObj ? JSON.stringify(customerObj) : null,
         Platform: platformValue,
-  Link: getPlatformOrderUrl(platformValue, order.order_number, retailerValue),
+        Link: getPlatformOrderUrl(platformValue, order.order_number, retailerValue),
         Notes: order.notes || null,
         ShippoOrderID: order.object_id || null,
       }, { onConflict: ['OrderID'] });
