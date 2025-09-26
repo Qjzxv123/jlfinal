@@ -248,7 +248,7 @@
         }
     /* Toggle arrow spacing (arrow on the right) */
     .toggle-arrow { display: inline-block; margin-left: 6px; }
-        /* Platform badge styles (match OrderViewer look) */
+        /* Platform badge styles */
         .platform-badge {
             display: inline-block;
             padding: 6px 12px; /* slightly larger */
@@ -996,7 +996,7 @@
                     continue;
                 }
                 const currentQty = Number(prod.Quantity) || 0;
-                const newQuantity = currentQty - totalToRemove; // mirror OrderViewer logic (no clamp)
+                const newQuantity = currentQty - totalToRemove; 
                 const { error: updateError } = await supabase
                     .from('Products')
                     .update({ Quantity: newQuantity })

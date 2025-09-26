@@ -28,7 +28,7 @@ function renderCustomerSidebar() {
       <a href="SendtoWarehouse.html" class="nav-item"><i class="cil-truck"></i><span>Send To Warehouse</span></a>
       <a href="CustomerOrderView.html" class="nav-item"><i class="cil-bullhorn"></i><span>Order Requester</span></a>
       <a href="CustomerChecklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-      <a href="admin/OrderViewer.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>
+      <a href="admin/Orders.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>
     </nav>
     <div id="sidebar-signout" style="position: absolute; bottom: 24px; left: 0; width: 100%; text-align: left;">
       <a href="privacy.html" class="nav-item" style="width:90%;margin:0 auto;"><i class="cil-lock-locked"></i><span>Privacy Policy</span></a>
