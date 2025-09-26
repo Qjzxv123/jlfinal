@@ -162,7 +162,7 @@ async function fetchOrdersForUser(userKey) {
 
 exports.handler = async function(event) {
   // Clear Orders table before inserting new ones
-  await supabase.from('Orders').delete().eq('Platform', 'Faire').eq("Notes", null).eq("CustomerMessages", null);
+  await supabase.from('Orders').delete().eq('Platform', 'Faire').eq("Notes", null).eq("CustomerMessages", null).eq("InventoryRemoved", null);
   // Fetch all userKeys from the oauth token table in Supabase
   const { data, error } = await supabase
     .from('oauth_tokens')
