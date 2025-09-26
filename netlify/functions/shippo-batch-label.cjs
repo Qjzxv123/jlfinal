@@ -279,9 +279,6 @@ async function decrementBoxesInventory({ supabase, packages }) {
 			}
 			const currentQty = Number(data?.Quantity) || 0;
 			const newQty = currentQty - count;
-			if (newQty < 0) {
-				warnings.push(`Box ${sku} inventory would drop below zero (${currentQty} - ${count}).`);
-			}
 			const { error: updateError } = await supabase
 				.from('Boxes')
 				.update({ Quantity: newQty })
