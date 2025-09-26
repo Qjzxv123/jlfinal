@@ -535,6 +535,7 @@
           <thead>
             <tr>
               <th>ID</th>
+              <th>Request Date</th>
               <th>SKU</th>
               <th>Quantity</th>
               <th>User</th>
@@ -546,6 +547,7 @@
             ${completedShipments.map(shipment => `
               <tr>
                 <td><strong>#${shipment.id}</strong></td>
+                <td>${formatRequestDate(shipment.RequestDate)}</td>
                 <td>${shipment.SKU}</td>
                 <td>${shipment.Quantity || 0}</td>
                 <td>${shipment.display_name || 'Unknown User'}</td>
@@ -998,16 +1000,26 @@
                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
               </th>
               <th>ID</th>
+              <th>Request Date</th>
               <th>SKU</th>
               <th>Quantity</th>
               <th>User</th>
               <th>Notes</th>
               <th>Boxes</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             ${nonCompletedShipments.map(shipment => {
               const isSelected = selectedShipments.has(shipment.id);
+              const boxesHtml = Array.isArray(shipment.Boxes) && shipment.Boxes.length > 0
+                ? shipment.Boxes.map(boxObj => {
+                    if (boxObj && typeof boxObj === 'object' && boxObj.sku) {
+                      return `${boxObj.sku} (${boxObj.quantity || 1})`;
+                    }
+                    return '';
+                  }).filter(Boolean).join(', ')
+                : '<em style="color:#999;">None</em>';
               return `
                 <tr class="${isSelected ? 'selected-row' : ''}" id="shipment-${shipment.id}">
                   <td class="checkbox-cell">
@@ -1016,18 +1028,23 @@
                            onchange="toggleShipmentSelection(${shipment.id})">
                   </td>
                   <td><strong>#${shipment.id}</strong></td>
-                  <td>
+                  <td>${formatRequestDate(shipment.RequestDate)}</td>
+                  <td class="sku-cell" data-field="SKU">
                     <a href="../admin/ProductInfo.html?sku=${encodeURIComponent(shipment.SKU)}" 
-                       target="_blank" class="sku-link">${shipment.SKU}</a>
+                       target="_blank" class="sku-link original-value">${shipment.SKU}</a>
                   </td>
-                  <td>
-                    <span class="quantity-badge">${shipment.Quantity || 0}</span>
+                  <td class="qty-cell" data-field="Quantity">
+                    <span class="quantity-badge original-value">${shipment.Quantity || 0}</span>
                   </td>
                   <td>
                     <span class="user-name">${shipment.display_name || 'Unknown User'}</span>
                   </td>
-                  <td class="notes-cell" title="${shipment.Notes || ''}">
+                  <td class="notes-cell" data-field="Notes" title="${shipment.Notes || ''}">
                     ${shipment.Notes || '<em style="color: #999;">No notes</em>'}
+                  </td>
+                  <td class="boxes-cell">${boxesHtml}</td>
+                  <td class="actions-cell">
+                    <button class="action-btn" style="background:#4DBA93;padding:6px 10px;font-size:12px;" onclick="enterEditMode(${shipment.id})">✏️ Edit</button>
                   </td>
                 </tr>
               `;
@@ -1057,6 +1074,104 @@
       document.getElementById('totalShipments').textContent = activeShipments.length;
       document.getElementById('totalQuantity').textContent = totalQuantity;
       document.getElementById('uniqueSKUs').textContent = uniqueSKUs;
+    }
+
+    function formatRequestDate(val) {
+      if (!val) return '<em style="color:#999;">N/A</em>';
+      try {
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return '<em style="color:#999;">N/A</em>';
+        const mm = String(d.getMonth()+1).padStart(2,'0');
+        const dd = String(d.getDate()).padStart(2,'0');
+        const yyyy = d.getFullYear();
+        return `${mm}/${dd}/${yyyy}`;
+      } catch(e) {
+        return '<em style="color:#999;">N/A</em>';
+      }
+    }
+
+    // Inline Editing Logic
+    const editingShipments = {}; // id -> original data
+
+    window.enterEditMode = function(id) {
+      if (editingShipments[id]) return; // already editing
+      const row = document.getElementById(`shipment-${id}`);
+      if (!row) return;
+      const shipment = allShipments.find(s => s.id === id);
+      if (!shipment) return;
+      editingShipments[id] = { ...shipment }; // shallow copy original
+
+      // Replace SKU cell with input
+      const skuCell = row.querySelector('.sku-cell');
+      const origSKU = shipment.SKU || '';
+      skuCell.innerHTML = `<input type="text" value="${origSKU.replace(/"/g,'&quot;')}" class="edit-input" style="width:140px;padding:4px 6px;">`;
+
+      // Replace Quantity cell with number input
+      const qtyCell = row.querySelector('.qty-cell');
+      qtyCell.innerHTML = `<input type="number" min="0" value="${shipment.Quantity || 0}" class="edit-input" style="width:90px;padding:4px 6px;text-align:center;">`;
+
+      // Replace Notes cell with input (single line to keep row height reasonable)
+      const notesCell = row.querySelector('[data-field="Notes"]');
+      const safeNotes = (shipment.Notes || '').replace(/"/g,'&quot;');
+      notesCell.innerHTML = `<input type="text" value="${safeNotes}" class="edit-input" style="width:100%;padding:4px 6px;">`;
+      notesCell.title = shipment.Notes || '';
+
+      // Actions cell -> Save / Cancel
+      const actionsCell = row.querySelector('.actions-cell');
+      actionsCell.innerHTML = `
+        <button class="action-btn" style="background:#27ae60;padding:6px 10px;font-size:12px;margin-right:4px;" onclick="saveShipment(${id})">💾 Save</button>
+        <button class="action-btn danger" style="padding:6px 10px;font-size:12px;" onclick="cancelEdit(${id})">✖ Cancel</button>
+      `;
+    }
+
+    window.cancelEdit = function(id) {
+      const original = editingShipments[id];
+      if (!original) return;
+      delete editingShipments[id];
+      // Re-render just this row using current displayShipments approach (simpler: rebuild table)
+      displayShipments();
+    }
+
+    window.saveShipment = async function(id) {
+      const row = document.getElementById(`shipment-${id}`);
+      if (!row) return;
+      const inputs = row.querySelectorAll('.edit-input');
+      const [skuInput, qtyInput, notesInput] = inputs;
+      const newSKU = (skuInput.value || '').trim();
+      const newQty = parseInt(qtyInput.value, 10);
+      const newNotes = (notesInput.value || '').trim();
+
+      if (!newSKU) {
+        alert('SKU cannot be empty.');
+        return;
+      }
+      if (isNaN(newQty) || newQty < 0) {
+        alert('Quantity must be a non-negative number.');
+        return;
+      }
+      try {
+        showStatus('Saving shipment update...', 'loading');
+        const { error } = await supabase
+          .from('AmazonShipments')
+          .update({ SKU: newSKU, Quantity: newQty, Notes: newNotes || null })
+          .eq('id', id);
+        if (error) throw error;
+        // Update local cache
+        const idx = allShipments.findIndex(s => s.id === id);
+        if (idx !== -1) {
+          allShipments[idx].SKU = newSKU;
+          allShipments[idx].Quantity = newQty;
+          allShipments[idx].Notes = newNotes || null;
+        }
+        delete editingShipments[id];
+        displayShipments();
+        updateSummary();
+        showStatus('Shipment updated successfully', 'success');
+        setTimeout(hideStatus, 2500);
+      } catch (err) {
+        console.error('Error updating shipment:', err);
+        showStatus('Failed to update shipment: ' + err.message, 'error');
+      }
     }
 
     function toggleShipmentSelection(shipmentId) {

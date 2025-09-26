@@ -419,6 +419,7 @@
           const record = {
             SKU: item.sku,
             Quantity: item.quantity,
+            RequestDate: new Date().toISOString(),
             Notes: notes
           };
           if (userId) {
