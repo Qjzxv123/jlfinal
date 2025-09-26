@@ -1049,11 +1049,12 @@
         summaryDiv.style.display = 'none';
         return;
       }
+      // Exclude Completed shipments from summary metrics
+      const activeShipments = filteredShipments.filter(s => s.Status !== 'Completed');
+      const totalQuantity = activeShipments.reduce((sum, shipment) => sum + (shipment.Quantity || 0), 0);
+      const uniqueSKUs = new Set(activeShipments.map(shipment => shipment.SKU)).size;
 
-      const totalQuantity = filteredShipments.reduce((sum, shipment) => sum + (shipment.Quantity || 0), 0);
-      const uniqueSKUs = new Set(filteredShipments.map(shipment => shipment.SKU)).size;
-
-      document.getElementById('totalShipments').textContent = filteredShipments.length;
+      document.getElementById('totalShipments').textContent = activeShipments.length;
       document.getElementById('totalQuantity').textContent = totalQuantity;
       document.getElementById('uniqueSKUs').textContent = uniqueSKUs;
     }
