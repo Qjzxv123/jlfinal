@@ -317,6 +317,7 @@
                     📋 Print Daily Manifest
                 </button>
                 <button id="printPicklistPackingBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#BA4D74; color:white;" onclick="printPicklistAndPackingSlips()">📋 Print Picklist and Packing Slips</button>
+                <button id="printShippingLabelsBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#2c3e50; color:white;" onclick="openShippingLabelsModal()" disabled>📦 Print Shipping Labels</button>
                 <button id="removeInventoryBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#e67e22; color:white;" onclick="removeProductsFromInventory()" disabled>📊 Remove Products From Inventory</button>
                 <button id="removeSelectedOrdersBtn" class="btn" aria-label="Remove Selected Orders" style="padding:0; width:44px; height:44px; border-radius:8px; font-size:20px; background:#e74c3c; color:white; display:inline-flex; align-items:center; justify-content:center;" onclick="removeSelectedOrders()">
                     <i class="cil-trash" style="margin:0; line-height:1;"></i>
@@ -405,10 +406,12 @@
             const printBtn = document.getElementById('printPicklistPackingBtn');
             const removeInvBtn = document.getElementById('removeInventoryBtn');
             const removeOrdersBtn = document.getElementById('removeSelectedOrdersBtn');
+            const printLabelsBtn = document.getElementById('printShippingLabelsBtn');
             // Manifest button excluded from gating per request
             setBtnState(printBtn, hasSelection);
             setBtnState(removeOrdersBtn, hasSelection);
             setBtnState(removeInvBtn, hasEligibleForInventory);
+            setBtnState(printLabelsBtn, hasSelection);
         }
         let filteredOrders = [];
         async function loadOrders() {
@@ -877,9 +880,14 @@
                 const resultsModal = document.getElementById('invRemovalResultsModal');
                 const editModal = document.getElementById('editOrderModal');
                 const addModal = document.getElementById('addItemModal');
+                const shipModal = document.getElementById('shippingLabelsModal');
                 // Priority: close results modal first
                 if (resultsModal && resultsModal.style.display !== 'none') {
                     closeInvRemovalResultsModal();
+                    return;
+                }
+                if (shipModal && shipModal.style.display !== 'none') {
+                    closeShippingLabelsModal();
                     return;
                 }
                 // If Add Item modal is open, close only it (do not close Edit modal behind it)
@@ -1043,6 +1051,730 @@
             }
             // Show results modal with detailed rows
             showInvRemovalResultsModal(results, successCount, errorCount, issues);
+        }
+        /* ===================== Shipping Labels: Per-Order Modal Wizard ===================== */
+        const DEFAULT_BOX_SKU = 'PDM6x9-250';
+    const DEFAULT_BOX_DIMENSIONS = { length: '6', width: '9', height: '1' };
+    let shippingLabelPackages = {}; // { orderId: [ { boxSku, length, width, height, weight } ] }
+    let productWeightCache = {}; // SKU -> weight (oz)
+    let shippingModalOrderIds = [];
+    let currentShippingModalIndex = 0;
+    let shippingRatesByOrderId = {};
+    let shippingRateErrors = {};
+    let shippingShipmentIds = {};
+    let shippingSummaryOrders = [];
+    let selectedShippingRates = {};
+    let boxesList = [];
+        async function ensureProductWeightsForSkus(skus) {
+            const needed = skus.filter(s => productWeightCache[s] === undefined);
+            if (!needed.length) return;
+            try {
+                const { data, error } = await supabase
+                    .from('Products')
+                    .select('ProductSKU, "Product Weight(oz)"')
+                    .in('ProductSKU', needed);
+                if (!error && data) {
+                    data.forEach(row => {
+                        const w = Number(row['Product Weight(oz)']);
+                        if (!isNaN(w)) productWeightCache[row.ProductSKU] = w;
+                    });
+                }
+            } catch(e){ /* ignore */ }
+        }
+        async function loadBoxesList() {
+            try {
+                const { data, error } = await supabase
+                    .from('Boxes')
+                    .select('SKU, "Dimensions"')
+                    .order('SKU', { ascending: true });
+                if (error) {
+                    console.error('Error loading boxes:', error);
+                    boxesList = [];
+                } else {
+                    boxesList = (data || []).map(row => ({
+                        sku: String(row.SKU || '').trim(),
+                        dimensions: String((row['Dimensions'] !== undefined ? row['Dimensions'] : row.Dimensions) || '').trim()
+                    }));
+                }
+            } catch (err) {
+                console.error('Exception loading boxes:', err);
+                boxesList = [];
+            }
+            return boxesList;
+        }
+        function parseBoxDimensions(dimStr) {
+            const matches = String(dimStr || '').match(/\d+(?:\.\d+)?/g) || [];
+            return {
+                length: matches[0] ? matches[0] : '',
+                width: matches[1] ? matches[1] : '',
+                height: matches[2] ? matches[2] : ''
+            };
+        }
+        function getDefaultBoxPreset() {
+            if (boxesList && boxesList.length) {
+                const defaultMatch = boxesList.find(b => String(b.sku || '').trim().toUpperCase() === DEFAULT_BOX_SKU.toUpperCase());
+                if (defaultMatch) {
+                    const dims = parseBoxDimensions(defaultMatch.dimensions);
+                    return {
+                        boxSku: String(defaultMatch.sku || '').trim(),
+                        length: dims.length || DEFAULT_BOX_DIMENSIONS.length,
+                        width: dims.width || DEFAULT_BOX_DIMENSIONS.width,
+                        height: dims.height || DEFAULT_BOX_DIMENSIONS.height
+                    };
+                }
+                // Fallback to first available box in list
+                const fallback = boxesList[0];
+                const dims = parseBoxDimensions(fallback.dimensions);
+                return {
+                    boxSku: String(fallback.sku || '').trim(),
+                    length: dims.length || DEFAULT_BOX_DIMENSIONS.length,
+                    width: dims.width || DEFAULT_BOX_DIMENSIONS.width,
+                    height: dims.height || DEFAULT_BOX_DIMENSIONS.height
+                };
+            }
+            return {
+                boxSku: DEFAULT_BOX_SKU,
+                length: DEFAULT_BOX_DIMENSIONS.length,
+                width: DEFAULT_BOX_DIMENSIONS.width,
+                height: DEFAULT_BOX_DIMENSIONS.height
+            };
+        }
+        function createEmptyPackage() {
+            const preset = getDefaultBoxPreset();
+            return { boxSku: preset.boxSku, length: preset.length, width: preset.width, height: preset.height, weight: '' };
+        }
+        async function openShippingLabelsModal() {
+            if (!selectedOrders.size) { alert('Select at least one order first.'); return; }
+            cleanupShippingModals();
+            shippingLabelPackages = {};
+            shippingRatesByOrderId = {};
+            shippingRateErrors = {};
+            shippingShipmentIds = {};
+            shippingSummaryOrders = [];
+            selectedShippingRates = {};
+            shippingModalOrderIds = [];
+            currentShippingModalIndex = 0;
+            const selectedIdStrings = new Set(Array.from(selectedOrders).map(id => String(id)));
+            const selectedList = orders.filter(o => selectedIdStrings.has(String(o.OrderID)));
+            if (!selectedList.length) {
+                alert('Selected orders could not be loaded. Please refresh and try again.');
+                return;
+            }
+            const boxes = await loadBoxesList();
+            if (!boxes || boxes.length === 0) {
+                alert('No boxes are defined. Please add entries to the Boxes table before creating shipping labels.');
+                return;
+            }
+            shippingModalOrderIds = selectedList.map(o => o.OrderID);
+            // Gather SKUs
+            const allSkus = [];
+            selectedList.forEach(o => {
+                let items = [];
+                try { items = Array.isArray(o.Items) ? o.Items : JSON.parse(o.Items||'[]'); } catch {}
+                shippingLabelPackages[o.OrderID] = [ createEmptyPackage() ];
+                (items||[]).forEach(it => { if (it && it.SKU) allSkus.push(it.SKU); });
+            });
+            if (allSkus.length) await ensureProductWeightsForSkus(Array.from(new Set(allSkus)));
+            // Build a modal per order
+            selectedList.forEach((o, idx) => buildSingleShippingModal(o, idx, selectedList.length));
+            showShippingModalAt(0);
+        }
+        function cleanupShippingModals() {
+            document.querySelectorAll('.shipping-labels-modal-wrapper').forEach(n => n.remove());
+        }
+        function buildSingleShippingModal(order, idx, total) {
+            let customerObj = {};
+            try { customerObj = typeof order.Customer === 'object' ? order.Customer : JSON.parse(order.Customer||'{}'); } catch {}
+            const addr = [customerObj.address1, customerObj.address2, customerObj.city, customerObj.state, customerObj.zipCode, customerObj.country].filter(Boolean).join(', ');
+            // Items & expected weight
+            let itemsArr = [];
+            try { itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items||'[]'); } catch {}
+            let expectedWeight = 0;
+            const itemsRows = (itemsArr||[]).map(it => {
+                const w = productWeightCache[it.SKU] !== undefined ? productWeightCache[it.SKU] : null;
+                const qty = Number(it.Quantity)||0;
+                if (w !== null) expectedWeight += w * qty;
+                return `<tr>
+                    <td style='padding:4px 6px;'>${it.SKU || ''}</td>
+                    <td style='padding:4px 6px;'>${(it.Name||'').replace(/</g,'&lt;')}</td>
+                    <td style='padding:4px 6px;'>${qty}</td>
+                    <td style='padding:4px 6px;'>${w !== null ? w : '<span style="color:#999;">?</span>'}</td>
+                </tr>`; }).join('');
+            const itemsTableHtml = `<div style="margin:6px 0 12px 0; overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:420px;">
+                    <thead><tr style='background:#f0f4f7;'><th style='padding:5px 6px;text-align:left;'>SKU</th><th style='padding:5px 6px;text-align:left;'>Name</th><th style='padding:5px 6px;text-align:left;'>Qty</th><th style='padding:5px 6px;text-align:left;'>Wt (oz)</th></tr></thead>
+                    <tbody>${itemsRows}</tbody>
+                </table>
+            </div>`;
+            const expectedBadge = `<div style="font-size:12px; font-weight:600; color:#1e3a32; background:#e8f5f1; padding:4px 10px; border-radius:20px; display:inline-block;">Expected Weight: ${expectedWeight ? expectedWeight.toFixed(2) : '—'} oz</div>`;
+            const packages = shippingLabelPackages[order.OrderID] || [];
+            const pkgRows = packages.map((p,i)=>shippingPackageRowHtml(order.OrderID,i,p)).join('');
+            const navHtml = `<div style='display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:16px;'>
+                <div style='font-size:12px; color:#555;'>Order ${idx+1} of ${total}</div>
+                <div style='display:flex; gap:10px;'>
+                    <button class='btn' style='background:#e0e0e0; color:#2c3e50; padding:8px 18px; border-radius:7px;' onclick='closeShippingLabelsModal()'>Cancel</button>
+                    ${idx>0 ? `<button class='btn' style='background:#888; padding:8px 18px; border-radius:7px;' onclick='showShippingModalAt(${idx-1})'>&larr; Previous</button>`: ''}
+                    ${idx < total-1 ? `<button class='btn' id='shipNextBtn-${order.OrderID}' style='background:#2c3e50; padding:8px 18px; border-radius:7px;' onclick='goToNextShippingModal(${idx})' disabled>Save & Next &rarr;</button>` : `<button class='btn' id='shipFinishBtn-${order.OrderID}' style='background:#2c3e50; padding:8px 18px; border-radius:7px;' onclick='finishShippingModals("${order.OrderID}")' disabled>Finish</button>`}
+                </div>
+            </div>`;
+            const html = `<div id='shippingLabelsModal-${order.OrderID}' class='shipping-labels-modal-wrapper' style='display:none; position:fixed; z-index:3700; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4);'>
+                <div style='background:white; max-width:760px; width:92%; margin:50px auto; border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,0.22); padding:26px 30px 24px 30px; position:relative; max-height:85vh; overflow-y:auto;'>
+                    <span onclick='closeShippingLabelsModal()' style='position:absolute; top:14px; right:18px; font-size:30px; color:#888; cursor:pointer;'>&times;</span>
+                    <h2 style='margin:0 0 4px 0; font-size:1.45rem; color:#2c3e50;'>Shipping Labels - Order #${order.OrderID}</h2>
+                    <div style='display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:8px;'>
+                        ${order.Platform ? `<div class="platform-badge ${platformClass(order.Platform)}" style='font-size:11px;'>${order.Platform}</div>`:''}
+                        ${order.Retailer ? `<div style='background:#f1f5f9; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600;'>${order.Retailer}</div>`:''}
+                        <div style='flex:1 1 100%; font-size:12px; color:#555;'>${addr || ''}</div>
+                        ${expectedBadge}
+                    </div>
+                    <h4 style='margin:10px 0 4px 0; font-size:0.9rem; letter-spacing:.5px; color:#334155;'>Items</h4>
+                    ${itemsTableHtml}
+                    <h4 style='margin:8px 0 6px 0; font-size:0.9rem; letter-spacing:.5px; color:#334155;'>Packages</h4>
+                    <div style='overflow-x:auto;'>
+                        <table style='width:100%; border-collapse:collapse; font-size:13px; min-width:520px;' id='packages-table-${order.OrderID}'>
+                            <thead><tr style='background:#f8f9fa;'><th style='padding:6px 4px;text-align:left;'>#</th><th style='padding:6px 4px;text-align:left;'>Box</th><th style='padding:6px 4px;text-align:left;'>Dimensions (in)</th><th style='padding:6px 4px;text-align:left;'>Weight (oz)</th><th style='padding:6px 4px;text-align:left;'>Remove</th></tr></thead>
+                            <tbody id='packages-tbody-${order.OrderID}'>${pkgRows}</tbody>
+                        </table>
+                    </div>
+                    <div style='margin-top:10px;'>
+                        <button type='button' class='btn' style='background:#4DBA93; padding:6px 14px; font-size:13px; border-radius:6px;' onclick="addPackageRow('${order.OrderID}')">+ Add Package</button>
+                        <span id='shippingLabelsStatus-${order.OrderID}' style='margin-left:12px; font-size:12px; color:#4DBA93;'></span>
+                    </div>
+                    ${navHtml}
+                </div>
+            </div>`;
+            document.body.insertAdjacentHTML('beforeend', html);
+            validateSingleShippingOrder(order.OrderID);
+        }
+        function showShippingModalAt(idx) {
+            currentShippingModalIndex = idx;
+            shippingModalOrderIds.forEach(id => {
+                const modal = document.getElementById('shippingLabelsModal-' + id);
+                if (modal) modal.style.display = 'none';
+            });
+            const orderId = shippingModalOrderIds[idx];
+            const target = document.getElementById('shippingLabelsModal-' + orderId);
+            if (target) target.style.display = 'block';
+        }
+        function goToNextShippingModal(currentIdx) {
+            if (currentIdx >= shippingModalOrderIds.length - 1) return;
+            showShippingModalAt(currentIdx + 1);
+        }
+        async function finishShippingModals(finalOrderId) {
+            if (finalOrderId) {
+                const finishBtn = document.getElementById('shipFinishBtn-' + finalOrderId);
+                if (finishBtn) {
+                    finishBtn.disabled = true;
+                    finishBtn.textContent = 'Collecting Rates...';
+                    finishBtn.style.opacity = '0.7';
+                }
+            }
+            const orderList = shippingModalOrderIds
+                .map(id => orders.find(o => String(o.OrderID) === String(id)))
+                .filter(Boolean);
+            closeShippingLabelsModal();
+            if (!orderList.length) return;
+            shippingSummaryOrders = orderList;
+            await collectRatesForOrders(orderList);
+            openRatesSummaryModal(orderList);
+        }
+        function closeShippingLabelsModal() {
+            cleanupShippingModals();
+            hideRatesLoadingOverlay();
+        }
+        function showRatesLoadingOverlay(message) {
+            let overlay = document.getElementById('ratesLoadingOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'ratesLoadingOverlay';
+                overlay.style.position = 'fixed';
+                overlay.style.left = '0';
+                overlay.style.top = '0';
+                overlay.style.width = '100vw';
+                overlay.style.height = '100vh';
+                overlay.style.background = 'rgba(0,0,0,0.45)';
+                overlay.style.zIndex = '5000';
+                overlay.style.display = 'flex';
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'center';
+                overlay.innerHTML = `<div style="background:#fff; padding:24px 32px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.25); font-size:16px; color:#2c3e50; font-weight:600; min-width:240px; text-align:center;">
+                    <span id="ratesLoadingMessage">${escapeHtml(message || 'Loading...')}</span>
+                </div>`;
+                document.body.appendChild(overlay);
+            } else {
+                overlay.style.display = 'flex';
+            }
+            updateRatesLoadingMessage(message || 'Loading...');
+        }
+        function updateRatesLoadingMessage(message) {
+            const label = document.getElementById('ratesLoadingMessage');
+            if (label) label.textContent = message;
+        }
+        function hideRatesLoadingOverlay() {
+            const overlay = document.getElementById('ratesLoadingOverlay');
+            if (overlay) overlay.remove();
+        }
+        async function collectRatesForOrders(orderList) {
+            if (!orderList.length) return;
+            showRatesLoadingOverlay('Fetching rates (0/' + orderList.length + ')...');
+            shippingRatesByOrderId = {};
+            shippingRateErrors = {};
+            shippingShipmentIds = {};
+            selectedShippingRates = {};
+            try {
+                for (let i = 0; i < orderList.length; i++) {
+                    const order = orderList[i];
+                    updateRatesLoadingMessage(`Fetching rates (${i + 1}/${orderList.length})...`);
+                    const pkgs = shippingLabelPackages[order.OrderID] || [];
+                    const result = await fetchRatesForOrder(order, pkgs);
+                    if (result.shipmentId) shippingShipmentIds[order.OrderID] = result.shipmentId;
+                    if (result.error) {
+                        shippingRateErrors[order.OrderID] = result.error;
+                        continue;
+                    }
+                    shippingRatesByOrderId[order.OrderID] = result.rates || [];
+                    const cheapest = pickCheapestRate(result.rates || []);
+                    if (cheapest) selectedShippingRates[order.OrderID] = cheapest;
+                }
+                updateRatesLoadingMessage('Preparing summary...');
+            } finally {
+                hideRatesLoadingOverlay();
+            }
+        }
+        async function fetchRatesForOrder(order, pkgs) {
+            if (!pkgs || !pkgs.length) {
+                return { rates: [], error: 'No packages defined.' };
+            }
+            try {
+                const response = await fetch('/.netlify/functions/shippo-create-shipment-and-get-rates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order, parcels: pkgs })
+                });
+                const text = await response.text();
+                let data;
+                try { data = JSON.parse(text); } catch {
+                    return { rates: [], error: 'Invalid JSON from rates endpoint.' };
+                }
+                if (!response.ok || data.error) {
+                    let errMsg = data.error || data.detail || data.message || 'Failed to fetch rates.';
+                    if (typeof errMsg !== 'string') {
+                        try { errMsg = JSON.stringify(errMsg); } catch { errMsg = 'Failed to fetch rates.'; }
+                    }
+                    return { rates: [], error: errMsg };
+                }
+                return { rates: data.rates || [], shipmentId: data.shipment_id || null };
+            } catch (err) {
+                return { rates: [], error: err?.message || 'Error fetching rates.' };
+            }
+        }
+        function pickCheapestRate(rates) {
+            let cheapest = null;
+            let minAmount = null;
+            (rates || []).forEach(rate => {
+                const amt = parseFloat(rate.amount_local ?? rate.amount);
+                if (Number.isFinite(amt) && (minAmount === null || amt < minAmount)) {
+                    minAmount = amt;
+                    cheapest = rate;
+                }
+            });
+            return cheapest;
+        }
+        function openRatesSummaryModal(orderList) {
+            closeRatesSummaryModal();
+            const rowsHtml = orderList.map(order => {
+                let itemsArr = [];
+                try { itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items || '[]'); } catch {}
+                if (!Array.isArray(itemsArr)) itemsArr = [];
+                const itemsHtml = itemsArr.length
+                    ? itemsArr.map(it => {
+                        const qty = Number(it?.Quantity || it?.quantity || 0) || 0;
+                        const sku = escapeHtml(it?.SKU || '');
+                        const name = escapeHtml(it?.Name || it?.name || '');
+                        return `${sku}${name ? ' – ' + name : ''} × ${qty}`;
+                    }).join('<br>')
+                    : '<span style="color:#999;">No items</span>';
+                const pkgs = shippingLabelPackages[order.OrderID] || [];
+                const boxesHtml = pkgs.length
+                    ? pkgs.map((p, idx) => {
+                        const len = escapeHtml(p.length || '?');
+                        const wid = escapeHtml(p.width || '?');
+                        const ht = escapeHtml(p.height || '?');
+                        const weightText = `@ ${escapeHtml(p.weight ? `${p.weight} oz` : '? oz')}`;
+                        const sku = p.boxSku ? `Box ${escapeHtml(p.boxSku)}` : '';
+                        const dimsText = `${len}×${wid}×${ht} in`;
+                        const parts = [sku, dimsText, weightText].filter(Boolean);
+                        return `#${idx + 1}: ${parts.join(' ')}`;
+                    }).join('<br>')
+                    : '<span style="color:#999;">No boxes</span>';
+                const rates = shippingRatesByOrderId[order.OrderID] || [];
+                const errorMsg = shippingRateErrors[order.OrderID];
+                let rateCell = '';
+                if (errorMsg) {
+                    rateCell = `<div style='color:#b91c1c; font-size:12px;'>${escapeHtml(errorMsg)}</div>`;
+                } else if (!rates.length) {
+                    rateCell = "<span style='color:#999;'>No rates</span>";
+                } else {
+                    const selected = String((selectedShippingRates[order.OrderID] || {}).object_id || '');
+                    const cheapestId = String((pickCheapestRate(rates) || {}).object_id || '');
+                    const options = rates.map(rate => {
+                        const amtNum = parseFloat(rate.amount_local ?? rate.amount);
+                        const amountText = Number.isFinite(amtNum) ? ('$' + amtNum.toFixed(2)) : (rate.amount_local || rate.amount || '');
+                        const provider = rate.provider || rate.carrier || '';
+                        const service = rate.servicelevel_name || rate.servicelevel?.name || rate.service || '';
+                        const rateId = String(rate.object_id || '');
+                        const isCheapest = rateId === cheapestId;
+                        const label = `${provider} - ${service} (${amountText})${isCheapest ? ' • Cheapest' : ''}`;
+                        return `<option value="${escapeHtml(rateId)}" ${selected === rateId ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                    }).join('');
+                    rateCell = `<select id="rateSelect-${order.OrderID}" onchange="handleRateSelectionChange('${order.OrderID}', this.value)" style="padding:6px 8px; border-radius:6px; border:1px solid #d1d5db; min-width:220px;">${options}</select>`;
+                }
+                const orderNumber = order.OrderNumber || order.orderNumber || order.OrderID;
+                return `<tr>
+                    <td style='padding:8px 10px; font-weight:600;'>${escapeHtml(orderNumber)}</td>
+                    <td style='padding:8px 10px; font-size:12px;'>${itemsHtml}</td>
+                    <td style='padding:8px 10px; font-size:12px;'>${boxesHtml}</td>
+                    <td style='padding:8px 10px;'>${rateCell}</td>
+                </tr>`;
+            }).join('');
+            const modalHtml = `<div id='ratesSummaryModal' style='position:fixed; z-index:5100; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.45); display:flex; align-items:flex-start; justify-content:center; padding:60px 16px;'>
+                <div style='background:#fff; width:95%; max-width:900px; border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,0.25); padding:28px 30px 26px 30px; position:relative; max-height:85vh; overflow:auto;'>
+                    <span onclick='cancelRatesSummary()' style='position:absolute; top:12px; right:16px; font-size:30px; color:#888; cursor:pointer;'>&times;</span>
+                    <h3 style='margin:0 0 12px 0; font-size:1.3rem; color:#2c3e50;'>Review Rates for Selected Orders</h3>
+                    <p style='margin:0 0 14px 0; font-size:13px; color:#475569;'>Choose a shipping rate for each order. The cheapest option is pre-selected.</p>
+                    <div style='overflow-x:auto;'>
+                        <table style='width:100%; border-collapse:collapse; font-size:13px;'>
+                            <thead><tr style='background:#f0f4f7;'><th style='padding:10px; text-align:left;'>Order</th><th style='padding:10px; text-align:left;'>Items</th><th style='padding:10px; text-align:left;'>Boxes</th><th style='padding:10px; text-align:left;'>Rate</th></tr></thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>
+                    <div style='margin-top:20px; display:flex; justify-content:flex-end; gap:12px;'>
+                        <button class='btn' style='background:#e0e0e0; color:#2c3e50;' onclick='cancelRatesSummary()'>Cancel</button>
+                        <button class='btn' style='background:#2c3e50; padding:10px 20px; border-radius:8px;' onclick='finalizeRateSelections()'>Confirm Rates</button>
+                    </div>
+                </div>
+            </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+        function closeRatesSummaryModal() {
+            const modal = document.getElementById('ratesSummaryModal');
+            if (modal) modal.remove();
+        }
+        function cancelRatesSummary() {
+            closeRatesSummaryModal();
+            if (!shippingSummaryOrders || !shippingSummaryOrders.length) return;
+            cleanupShippingModals();
+            shippingRatesByOrderId = {};
+            shippingRateErrors = {};
+            shippingShipmentIds = {};
+            selectedShippingRates = {};
+            shippingModalOrderIds = shippingSummaryOrders.map(o => o.OrderID);
+            currentShippingModalIndex = 0;
+            shippingSummaryOrders.forEach((order, idx) => buildSingleShippingModal(order, idx, shippingSummaryOrders.length));
+            showShippingModalAt(0);
+        }
+        function handleRateSelectionChange(orderId, rateId) {
+            const rates = shippingRatesByOrderId[orderId] || [];
+            const desired = String(rateId || '');
+            const match = rates.find(r => String(r.object_id || '') === desired);
+            if (match) {
+                selectedShippingRates[orderId] = match;
+            } else {
+                delete selectedShippingRates[orderId];
+            }
+        }
+        async function finalizeRateSelections() {
+            const totalWithRates = (shippingSummaryOrders || []).filter(order => (shippingRatesByOrderId[order.OrderID] || []).length).length;
+            const selectedCount = Object.keys(selectedShippingRates || {}).length;
+            const hasErrors = Object.values(shippingRateErrors || {}).some(Boolean);
+            if (hasErrors) {
+                alert('Some orders did not return rates. Please adjust packages or try again.');
+                return;
+            }
+            if (selectedCount < totalWithRates) {
+                alert('Please choose a rate for every order before confirming.');
+                return;
+            }
+            if (!shippingSummaryOrders.length) {
+                alert('No orders selected for purchasing labels.');
+                return;
+            }
+
+            const payloadOrders = shippingSummaryOrders.map(order => {
+                const orderId = order.OrderID;
+                const pkgs = (shippingLabelPackages[orderId] || []).map(pkg => ({
+                    boxSku: pkg.boxSku || '',
+                    length: pkg.length || '',
+                    width: pkg.width || '',
+                    height: pkg.height || '',
+                    weight: pkg.weight || ''
+                }));
+                const selectedRate = selectedShippingRates[orderId];
+                return {
+                    orderId,
+                    packages: pkgs,
+                    rateId: selectedRate?.object_id || null,
+                    rate: selectedRate ? {
+                        object_id: selectedRate.object_id,
+                        amount: selectedRate.amount,
+                        amount_local: selectedRate.amount_local,
+                        provider: selectedRate.provider,
+                        carrier: selectedRate.carrier,
+                        servicelevel_name: selectedRate.servicelevel_name,
+                        service: selectedRate.service,
+                        servicelevel: selectedRate.servicelevel ? { name: selectedRate.servicelevel?.name || selectedRate.servicelevel_name } : undefined
+                    } : null,
+                    shipmentId: shippingShipmentIds[orderId] || null,
+                    orderData: order
+                };
+            });
+
+            showRatesLoadingOverlay('Purchasing labels and updating orders...');
+            let results = [];
+            try {
+                const response = await fetch('/.netlify/functions/shippo-batch-label', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orders: payloadOrders })
+                });
+                const text = await response.text();
+                let data;
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (err) {
+                    throw new Error('Failed to parse server response while purchasing labels.');
+                }
+                if (!response.ok || data.error) {
+                    const errMsg = data?.error || data?.message || text || 'Server returned an error while purchasing labels.';
+                    throw new Error(errMsg);
+                }
+                if (Array.isArray(data.results)) {
+                    results = data.results;
+                }
+            } catch (err) {
+                console.error('Error purchasing labels:', err);
+                alert('Error purchasing labels: ' + (err?.message || err));
+                return;
+            } finally {
+                hideRatesLoadingOverlay();
+            }
+
+            closeRatesSummaryModal();
+
+            const successIds = new Set(results.filter(res => res && res.success).map(res => String(res.orderId)));
+            if (successIds.size) {
+                orders = orders.filter(order => !successIds.has(String(order.OrderID)));
+                filteredOrders = filteredOrders.filter(order => !successIds.has(String(order.OrderID)));
+                successIds.forEach(id => selectedOrders.delete(id));
+                filterOrders();
+            } else {
+                renderOrders();
+                renderOrderStatsBanner();
+            }
+            updateSelectedCount();
+            updateActionButtons();
+
+            shippingLabelPackages = {};
+            shippingRatesByOrderId = {};
+            shippingRateErrors = {};
+            shippingShipmentIds = {};
+            selectedShippingRates = {};
+            shippingSummaryOrders = [];
+            shippingModalOrderIds = [];
+            currentShippingModalIndex = 0;
+
+            showBatchLabelResultsModal(results);
+            const labelLinks = results.filter(res => res && res.success && res.labelUrl);
+            labelLinks.forEach((res, idx) => {
+                setTimeout(() => {
+                    try {
+                        window.open(res.labelUrl, '_blank', 'noopener');
+                    } catch (err) {
+                        console.warn('Failed to open label window:', err);
+                    }
+                }, idx * 400);
+            });
+        }
+        function showBatchLabelResultsModal(results) {
+            closeBatchLabelResultsModal();
+            const safeResults = Array.isArray(results) ? results : [];
+            if (!safeResults.length) {
+                alert('No response received from label purchase request.');
+                return;
+            }
+            const rows = safeResults.map(res => {
+                const orderId = escapeHtml(res?.orderId || '');
+                const statusHtml = res?.success
+                    ? "<span style='color:#16a34a; font-weight:600;'>Success</span>"
+                    : "<span style='color:#b91c1c; font-weight:600;'>Failed</span>";
+                const tracking = escapeHtml(res?.trackingNumber || '—');
+                const shippingCostValue = Number(res?.shippingCost);
+                const shippingCost = Number.isFinite(shippingCostValue) ? `$${shippingCostValue.toFixed(2)}` : '—';
+                const labelLink = res?.labelUrl
+                    ? `<a href="${escapeHtml(res.labelUrl)}" target="_blank" rel="noopener" style="color:#2563eb;">Download Label</a>`
+                    : '<span style="color:#999;">—</span>';
+                const warningList = Array.isArray(res?.warnings) ? res.warnings.filter(Boolean) : [];
+                const hasLabel = Boolean(res?.labelUrl);
+                const notesParts = [];
+                if (!res?.success && res?.error) {
+                    if (hasLabel) notesParts.push("<div style='color:#16a34a;'>Label purchased successfully.</div>");
+                    notesParts.push(`<div style='color:#b91c1c;'>${escapeHtml(res.error)}</div>`);
+                } else if (warningList.length) {
+                    if (hasLabel) notesParts.push("<div style='color:#16a34a;'>Label purchased successfully.</div>");
+                    warningList.forEach(msg => notesParts.push(`<div style='color:#b45309;'>${escapeHtml(msg)}</div>`));
+                } else {
+                    notesParts.push('<span style="color:#16a34a;">All steps completed.</span>');
+                }
+                const notesHtml = notesParts.join('');
+                return `<tr>
+                    <td style='padding:10px 12px; font-weight:600;'>${orderId}</td>
+                    <td style='padding:10px 12px;'>${statusHtml}</td>
+                    <td style='padding:10px 12px;'>${tracking}</td>
+                    <td style='padding:10px 12px;'>${escapeHtml(res?.carrier || '—')}</td>
+                    <td style='padding:10px 12px;'>${shippingCost}</td>
+                    <td style='padding:10px 12px;'>${labelLink}</td>
+                    <td style='padding:10px 12px; font-size:12px;'>${notesHtml}</td>
+                </tr>`;
+            }).join('');
+            const modalHtml = `<div id='batchLabelResultsModal' style='position:fixed; z-index:5200; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.45); display:flex; align-items:flex-start; justify-content:center; padding:60px 16px;'>
+                <div style='background:#fff; width:95%; max-width:940px; border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,0.25); padding:28px 30px 26px 30px; position:relative; max-height:85vh; overflow:auto;'>
+                    <span onclick='closeBatchLabelResultsModal()' style='position:absolute; top:12px; right:16px; font-size:30px; color:#888; cursor:pointer;'>&times;</span>
+                    <h3 style='margin:0 0 12px 0; font-size:1.3rem; color:#2c3e50;'>Label Purchase Summary</h3>
+                    <p style='margin:0 0 14px 0; font-size:13px; color:#475569;'>Download the labels and review any warnings that may need manual follow-up.</p>
+                    <div style='overflow-x:auto;'>
+                        <table style='width:100%; border-collapse:collapse; font-size:13px;'>
+                            <thead><tr style='background:#f0f4f7;'><th style='padding:10px; text-align:left;'>Order</th><th style='padding:10px; text-align:left;'>Status</th><th style='padding:10px; text-align:left;'>Tracking</th><th style='padding:10px; text-align:left;'>Carrier</th><th style='padding:10px; text-align:left;'>Cost</th><th style='padding:10px; text-align:left;'>Label</th><th style='padding:10px; text-align:left;'>Notes</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                    <div style='margin-top:20px; display:flex; justify-content:flex-end;'>
+                        <button class='btn' style='background:#2c3e50; padding:10px 20px; border-radius:8px;' onclick='closeBatchLabelResultsModal()'>Close</button>
+                    </div>
+                </div>
+            </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+        function closeBatchLabelResultsModal() {
+            const modal = document.getElementById('batchLabelResultsModal');
+            if (modal) modal.remove();
+        }
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return value.toString().replace(/[&<>"']/g, ch => {
+                switch (ch) {
+                    case '&': return '&amp;';
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '"': return '&quot;';
+                    case '\'': return '&#39;';
+                    default: return ch;
+                }
+            });
+        }
+        // (removed older duplicate functions using onchange)
+        function shippingPackageRowHtml(orderId, idx, p) {
+            const selectedSku = String(p.boxSku || '').trim();
+            const knownSkus = new Set(boxesList.map(box => String(box.sku || '').trim()));
+            const optionsArr = [];
+            if (boxesList.length) {
+                optionsArr.push('<option value="">Select a box</option>');
+                boxesList.forEach(box => {
+                    const normalizedSku = String(box.sku || '').trim();
+                    const cleanValue = escapeHtml(normalizedSku);
+                    const labelRaw = box.dimensions ? `${normalizedSku} – ${box.dimensions}` : normalizedSku;
+                    const cleanLabel = escapeHtml(labelRaw || '');
+                    const isSelected = selectedSku === normalizedSku;
+                    optionsArr.push(`<option value="${cleanValue}"${isSelected ? ' selected' : ''}>${cleanLabel}</option>`);
+                });
+            } else {
+                optionsArr.push('<option value="">No boxes available</option>');
+            }
+            if (selectedSku && !knownSkus.has(selectedSku)) {
+                const fallbackVal = escapeHtml(selectedSku);
+                optionsArr.push(`<option value="${fallbackVal}" selected>(Unavailable) ${fallbackVal}</option>`);
+            }
+            const options = optionsArr.join('');
+            const hasDimensions = p.length && p.width && p.height;
+            const dimsLabel = hasDimensions
+                ? `${escapeHtml(p.length)}×${escapeHtml(p.width)}×${escapeHtml(p.height)} in`
+                : (selectedSku
+                    ? '<span style="color:#b91c1c;">Missing box dimensions</span>'
+                    : '<span style="color:#999;">Select a box</span>');
+            const weightVal = escapeHtml(p.weight || '');
+            return `<tr>
+                <td style='padding:4px 6px; font-weight:600;'>${idx+1}</td>
+                <td style='padding:4px 6px; min-width:170px;'>
+                    <select style='width:100%; padding:6px 8px; border:1px solid #d1d5db; border-radius:6px;' onchange="handlePackageBoxChange('${orderId}', ${idx}, this.value)">
+                        ${options}
+                    </select>
+                </td>
+                <td style='padding:4px 6px;'>${dimsLabel}</td>
+                <td style='padding:4px 6px;'><input type='number' min='0' step='0.01' value='${weightVal}' placeholder='0' style='width:100px; padding:4px 6px; border:1px solid #d1d5db; border-radius:5px;' oninput="updatePackageField('${orderId}', ${idx}, 'weight', this.value)"></td>
+                <td style='padding:4px 6px;'><button type='button' style="background:none; border:none; color:#e74c3c; font-size:18px; cursor:pointer;" onclick="removePackageRow('${orderId}', ${idx})">&times;</button></td>
+            </tr>`;
+        }
+        function handlePackageBoxChange(orderId, idx, boxSku) {
+            if (!shippingLabelPackages[orderId] || !shippingLabelPackages[orderId][idx]) return;
+            const pkg = shippingLabelPackages[orderId][idx];
+            const normalizedSku = boxSku ? String(boxSku).trim() : '';
+            pkg.boxSku = normalizedSku;
+            const box = boxesList.find(b => String(b.sku || '').trim() === normalizedSku);
+            if (box) {
+                const dims = parseBoxDimensions(box.dimensions);
+                pkg.length = dims.length;
+                pkg.width = dims.width;
+                pkg.height = dims.height;
+            } else {
+                pkg.length = '';
+                pkg.width = '';
+                pkg.height = '';
+            }
+            renderPackageTable(orderId);
+            validateSingleShippingOrder(orderId);
+        }
+        function addPackageRow(orderId) {
+            if (!shippingLabelPackages[orderId]) shippingLabelPackages[orderId] = [];
+            const current = shippingLabelPackages[orderId];
+            if (current.length) {
+                const last = current[current.length - 1];
+                shippingLabelPackages[orderId].push({
+                    boxSku: String(last.boxSku || '').trim(),
+                    length: last.length || '',
+                    width: last.width || '',
+                    height: last.height || '',
+                    weight: ''
+                });
+            } else {
+                shippingLabelPackages[orderId].push(createEmptyPackage());
+            }
+            renderPackageTable(orderId);
+            validateSingleShippingOrder(orderId);
+        }
+        function removePackageRow(orderId, idx) {
+            if (!shippingLabelPackages[orderId]) return;
+            shippingLabelPackages[orderId].splice(idx,1);
+            if (!shippingLabelPackages[orderId].length) shippingLabelPackages[orderId].push(createEmptyPackage());
+            renderPackageTable(orderId);
+            validateSingleShippingOrder(orderId);
+        }
+        function renderPackageTable(orderId) {
+            const tbody = document.getElementById('packages-tbody-' + orderId);
+            if (!tbody) return;
+            const pkgs = shippingLabelPackages[orderId] || [];
+            tbody.innerHTML = pkgs.map((p,i)=>shippingPackageRowHtml(orderId,i,p)).join('');
+        }
+        function updatePackageField(orderId, idx, field, value) {
+            if (!shippingLabelPackages[orderId] || !shippingLabelPackages[orderId][idx]) return;
+            shippingLabelPackages[orderId][idx][field] = value;
+            validateSingleShippingOrder(orderId);
+        }
+        function validateSingleShippingOrder(orderId) {
+            const pkgs = shippingLabelPackages[orderId] || [];
+            const valid = pkgs.length > 0 && pkgs.every(p => p.boxSku && p.length && p.width && p.height && p.weight && Number(p.weight) > 0);
+            const finishBtn = document.getElementById('shipFinishBtn-' + orderId);
+            const nextBtn = document.getElementById('shipNextBtn-' + orderId);
+            if (finishBtn) { finishBtn.disabled = !valid; finishBtn.style.opacity = valid ? '1' : '0.55'; }
+            if (nextBtn) { nextBtn.disabled = !valid; nextBtn.style.opacity = valid ? '1' : '0.55'; }
         }
     </script>
 </script>
