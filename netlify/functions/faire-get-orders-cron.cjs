@@ -76,9 +76,10 @@ async function fetchOrdersForUser(userKey) {
         const uniqueSKUs = Array.from(new Set(skus));
         if (uniqueSKUs.length === 1) {
           const key = uniqueSKUs[0];
-          let totalQty = skus.length;
+          // Multiply number of components in the bundle by the line item's ordered quantity
+          let totalQty = skus.length * (item.quantity || 0);
           if (item.includes_tester === true) {
-            totalQty += 1;
+            totalQty += 1; // Treat tester as one extra unit of the first (only) SKU
           }
           if (!itemMap[key]) {
             itemMap[key] = {
@@ -90,18 +91,21 @@ async function fetchOrdersForUser(userKey) {
             itemMap[key].Quantity += totalQty;
           }
         } else {
+          // For mixed bundles, attribute the full ordered quantity to each component SKU
+          const addQty = (item.quantity || 0);
           for (const key of skus) {
             if (!itemMap[key]) {
               itemMap[key] = {
                 SKU: key,
                 Name: item.product_name || '',
-                Quantity: 1
+                Quantity: addQty
               };
             } else {
-              itemMap[key].Quantity += 1;
+              itemMap[key].Quantity += addQty;
             }
           }
           if (item.includes_tester === true && skus.length > 0) {
+            // Assign tester to first component SKU
             itemMap[skus[0]].Quantity += 1;
           }
         }
