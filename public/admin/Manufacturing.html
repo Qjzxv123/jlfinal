@@ -124,6 +124,19 @@
 			padding: 24px;
 			position: relative;
 		}
+		.edit-qty-btn {
+			background:#4d6dba;
+			color:#fff;
+			border:none;
+			padding:6px 10px;
+			border-radius:6px;
+			cursor:pointer;
+			font-size:0.75rem;
+			font-weight:600;
+			line-height:1;
+			transition:background .25s;
+		}
+		.edit-qty-btn:hover { background:#3c56a1; }
 		.progress-badge {
 			position: absolute;
 			top: 18px;
@@ -702,8 +715,9 @@ function getIngredientUsage(product, order) {
 							<h2 style=\"margin-top:0; color:#4DBA93; font-size:1.3rem; margin-bottom:0;display:flex;align-items:center;gap:10px;\">
 								<span>Order #${order.OrderNumber}</span>
 								<span style=\"background:#f7f7fa;border-radius:8px;padding:4px 14px;font-size:1.08rem;color:#4d6dba;font-weight:600;box-shadow:0 1px 4px rgba(77,109,186,0.07);border:1px solid #e1e5e9;\">
-									${order.ProductSKU || ''} <span style=\"color:#888;\">×</span> ${order.Quantity || ''}
-								</span>
+								${order.ProductSKU || ''} <span style=\"color:#888;\">×</span> <span id=\"qty-${order.OrderNumber}\">${order.Quantity || ''}</span>
+								<button type=\"button\" class=\"edit-qty-btn\" style=\"margin-left:6px;\" onclick=\"editOrderQuantity(${order.OrderNumber}, ${order.Quantity || 0})\">Edit Qty</button>
+							</span>
 							</h2>
 							${showWarning ? `<span class=\"warning-badge\" style=\"position:static;\"><i class=\"cil-warning\"></i> ${warningText}</span>` : ''}
 							${showIngredientWarning && !order.IngredientsRemoved ? `<button onclick="showInsufficientIngredientsModal(${JSON.stringify(ingredientWarningText).replace(/"/g, '&quot;')})" class="warning-badge" style="position:static;background:#e74c3c;"><i class="cil-warning"></i>Insufficient Ingredients</button>` : ''}
@@ -1014,6 +1028,37 @@ async function showInsufficientIngredientsModal(insufficientSKUs) {
   html += '</tbody></table>';
   document.getElementById('ingredientModalContent').innerHTML = html;
   document.getElementById('ingredientModal').style.display = 'flex';
+}
+
+// Inline quantity edit logic
+async function editOrderQuantity(orderNumber, currentQty) {
+	const newValStr = prompt(`Enter new quantity for order #${orderNumber}:`, currentQty || 0);
+	if (newValStr === null) return; // cancelled
+	const newQty = parseInt(newValStr, 10);
+	if (!Number.isFinite(newQty) || newQty <= 0) {
+		alert('Please enter a valid positive integer quantity.');
+		return;
+	}
+	if (newQty === currentQty) return; // no change
+	// Confirm if ingredients were already removed because changing qty may desync usage logs.
+	const order = orders.find(o => o.OrderNumber === orderNumber);
+	if (order && order.IngredientsRemoved) {
+		const proceed = confirm('Ingredients were already removed for this order. Changing the quantity will NOT auto-adjust ingredient inventory. Continue?');
+		if (!proceed) return;
+	}
+	const { error } = await supabase
+		.from('ManufacturingTasks')
+		.update({ Quantity: newQty })
+		.eq('OrderNumber', orderNumber);
+	if (error) {
+		alert('Error updating quantity: ' + error.message);
+		return;
+	}
+	const span = document.getElementById(`qty-${orderNumber}`);
+	if (span) span.textContent = newQty;
+	if (order) order.Quantity = newQty;
+	// Optionally recalc warnings; simplest is to reload filtered list
+	loadManufacturingOrders(currentProgressFilter, currentSearchTerm);
 }
 	</script>
 </body>

@@ -1463,7 +1463,19 @@
                         return `#${idx + 1}: ${parts.join(' ')}`;
                     }).join('<br>')
                     : '<span style="color:#999;">No boxes</span>';
-                const rates = shippingRatesByOrderId[order.OrderID] || [];
+                // Retrieve and sort rates by price ascending
+                let rates = shippingRatesByOrderId[order.OrderID] || [];
+                if (rates && rates.length > 1) {
+                    rates = rates.slice().sort((a,b) => {
+                        const av = parseFloat(a.amount_local ?? a.amount);
+                        const bv = parseFloat(b.amount_local ?? b.amount);
+                        if (!Number.isFinite(av) && !Number.isFinite(bv)) return 0;
+                        if (!Number.isFinite(av)) return 1; // push invalid to end
+                        if (!Number.isFinite(bv)) return -1;
+                        return av - bv;
+                    });
+                    shippingRatesByOrderId[order.OrderID] = rates; // persist sorted order
+                }
                 const errorMsg = shippingRateErrors[order.OrderID];
                 let rateCell = '';
                 if (errorMsg) {
