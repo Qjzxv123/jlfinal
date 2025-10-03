@@ -322,6 +322,7 @@
                 <button id="removeSelectedOrdersBtn" class="btn" aria-label="Remove Selected Orders" style="padding:0; width:44px; height:44px; border-radius:8px; font-size:20px; background:#e74c3c; color:white; display:inline-flex; align-items:center; justify-content:center;" onclick="removeSelectedOrders()">
                     <i class="cil-trash" style="margin:0; line-height:1;"></i>
                 </button>
+                <button id="selectAllBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#34495e; color:white;" onclick="toggleSelectAll()">Select All</button>
             </div>
             <!-- Order Stats Banner -->
             <div id="orderStatsBanner" style="width:100%;max-width:1200px;margin:0 auto 18px auto;padding:18px 24px 10px 24px; color:#222;border-radius:10px;box-shadow:0 2px 10px rgba(77,186,147,0.08);font-size:1.08rem;display:flex;flex-wrap:wrap;gap:24px 36px;align-items:center;justify-content:flex-start;font-weight:500;"></div>
@@ -335,6 +336,24 @@
         
         let selectedOrders = new Set();
         let orders = [];
+        function toggleSelectAll() {
+            const btn = document.getElementById('selectAllBtn');
+            // Use currently visible (filtered) orders; if filter empty use all
+            const visible = (filteredOrders && filteredOrders.length) ? filteredOrders : orders;
+            const visibleIds = visible.map(o => String(o.OrderID));
+            const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedOrders.has(id));
+            if (allVisibleSelected) {
+                // Only remove the visible ones from selection (do not clear unrelated prior selections outside current filter)
+                visibleIds.forEach(id => selectedOrders.delete(id));
+            } else {
+                visibleIds.forEach(id => selectedOrders.add(id));
+            }
+            // Determine new label: if after operation all visible are selected -> show 'Clear Visible', else 'Select Visible'
+            const nowAllVisible = visibleIds.length > 0 && visibleIds.every(id => selectedOrders.has(id));
+            if (btn) btn.textContent = nowAllVisible ? 'Clear Selected' : 'Select All';
+            updateSelectedCount();
+            updateOrderCardSelection();
+        }
         // Helpers to render platform badges consistently
         function platformClass(p) {
             const s = (p || '').toLowerCase().trim();
