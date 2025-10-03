@@ -322,7 +322,6 @@
                 <button id="removeSelectedOrdersBtn" class="btn" aria-label="Remove Selected Orders" style="padding:0; width:44px; height:44px; border-radius:8px; font-size:20px; background:#e74c3c; color:white; display:inline-flex; align-items:center; justify-content:center;" onclick="removeSelectedOrders()">
                     <i class="cil-trash" style="margin:0; line-height:1;"></i>
                 </button>
-                <button id="selectAllBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#34495e; color:white;" onclick="toggleSelectAll()">Select All</button>
             </div>
             <!-- Order Stats Banner -->
             <div id="orderStatsBanner" style="width:100%;max-width:1200px;margin:0 auto 18px auto;padding:18px 24px 10px 24px; color:#222;border-radius:10px;box-shadow:0 2px 10px rgba(77,186,147,0.08);font-size:1.08rem;display:flex;flex-wrap:wrap;gap:24px 36px;align-items:center;justify-content:flex-start;font-weight:500;"></div>
@@ -336,24 +335,6 @@
         
         let selectedOrders = new Set();
         let orders = [];
-        function toggleSelectAll() {
-            const btn = document.getElementById('selectAllBtn');
-            // Use currently visible (filtered) orders; if filter empty use all
-            const visible = (filteredOrders && filteredOrders.length) ? filteredOrders : orders;
-            const visibleIds = visible.map(o => String(o.OrderID));
-            const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedOrders.has(id));
-            if (allVisibleSelected) {
-                // Only remove the visible ones from selection (do not clear unrelated prior selections outside current filter)
-                visibleIds.forEach(id => selectedOrders.delete(id));
-            } else {
-                visibleIds.forEach(id => selectedOrders.add(id));
-            }
-            // Determine new label: if after operation all visible are selected -> show 'Clear Visible', else 'Select Visible'
-            const nowAllVisible = visibleIds.length > 0 && visibleIds.every(id => selectedOrders.has(id));
-            if (btn) btn.textContent = nowAllVisible ? 'Clear Selected' : 'Select All';
-            updateSelectedCount();
-            updateOrderCardSelection();
-        }
         // Helpers to render platform badges consistently
         function platformClass(p) {
             const s = (p || '').toLowerCase().trim();
@@ -431,6 +412,26 @@
             setBtnState(removeOrdersBtn, hasSelection);
             setBtnState(removeInvBtn, hasEligibleForInventory);
             setBtnState(printLabelsBtn, hasSelection);
+        }
+        // Toggle selection of all currently visible (filtered) orders
+        function toggleSelectVisible() {
+            // Always treat filteredOrders as the currently visible set (may be empty)
+            const visible = filteredOrders;
+            const cb = document.getElementById('selectVisibleCheckbox');
+            if (!cb) return;
+            if (!visible.length) return;
+            if (cb.checked) {
+                // Select all visible
+                visible.forEach(o => selectedOrders.add(o.OrderID));
+            } else {
+                // Deselect only visible, leave hidden selections untouched
+                const visibleIdSet = new Set(visible.map(o => String(o.OrderID)));
+                for (const id of Array.from(selectedOrders)) {
+                    if (visibleIdSet.has(String(id))) selectedOrders.delete(id);
+                }
+            }
+            updateSelectedCount();
+            updateOrderCardSelection();
         }
         let filteredOrders = [];
         async function loadOrders() {
@@ -578,17 +579,25 @@
         function renderOrderStatsBanner() {
             const banner = document.getElementById('orderStatsBanner');
             if (!banner) return;
-            const allOrders = filteredOrders.length ? filteredOrders : orders;
-            const total = allOrders.length;
+            // Use filteredOrders directly; if no results, visible is []
+            const visible = filteredOrders;
+            const totalVisible = visible.length;
             const platformCounts = {};
             const retailerCounts = {};
-            allOrders.forEach(o => {
+            let visibleSelectedCount = 0;
+            const selectedIdStrSet = new Set(Array.from(selectedOrders).map(id => String(id)));
+            visible.forEach(o => {
                 if (o.Platform) platformCounts[o.Platform] = (platformCounts[o.Platform]||0)+1;
                 if (o.Retailer) retailerCounts[o.Retailer] = (retailerCounts[o.Retailer]||0)+1;
+                if (selectedIdStrSet.has(String(o.OrderID))) visibleSelectedCount++;
             });
-            // Selected Orders (left) then Total Orders
-            let html = `<span style='font-size:1.15em;font-weight:600;'>Selected Orders: ${selectedOrders.size}</span>`;
-            html += `<span style='margin-left:18px;font-size:1.15em;font-weight:600;'>Total Orders: ${total}</span>`;
+            // Master checkbox + stats
+            let html = `<label style=\"display:inline-flex;align-items:center;font-weight:600;gap:8px;cursor:pointer;\">`+
+                `<input type=\"checkbox\" id=\"selectVisibleCheckbox\" onchange=\"toggleSelectVisible()\" style=\"transform:scale(1.25);cursor:pointer;\">`+
+                `<span>Select Visible</span>`+
+                `</label>`;
+            // Replaced selected counts with Total Orders (visible)
+            html += `<span style='margin-left:22px;font-size:1.08em;font-weight:600;'>Total Orders: ${totalVisible}</span>`;
             if (Object.keys(platformCounts).length) {
                 html += `<span style='margin-left:18px;'>` + Object.entries(platformCounts)
                     .map(([p,c])=>`<span class="platform-badge ${platformClass(p)}" style="margin-right:7px;">${p}: <b>${c}</b></span>`)
@@ -598,6 +607,35 @@
                 html += `<span style='margin-left:18px;'>` + Object.entries(retailerCounts).map(([r,c])=>`<span style='background:#fff3;padding:3px 10px;border-radius:6px;margin-right:7px;'>${r}: <b>${c}</b></span>`).join('') + `</span>`;
             }
             banner.innerHTML = html;
+            // Apply tri-state (indeterminate) logic AFTER inserting the checkbox into DOM
+            const cb = document.getElementById('selectVisibleCheckbox');
+            if (cb) {
+                if (!totalVisible) {
+                    cb.checked = false;
+                    cb.indeterminate = false;
+                    cb.disabled = true;
+                    cb.style.cursor = 'not-allowed';
+                } else if (visibleSelectedCount === 0) {
+                    cb.checked = false;
+                    cb.indeterminate = false;
+                    cb.disabled = false;
+                } else if (visibleSelectedCount === totalVisible) {
+                    cb.checked = true;
+                    cb.indeterminate = false;
+                    cb.disabled = false;
+                } else {
+                    cb.checked = false; // not fully selected
+                    cb.indeterminate = true; // some selected
+                    cb.disabled = false;
+                }
+            }
+            // If there are zero visible orders, consider showing a friendly note in orders container if it's empty.
+            if (!totalVisible) {
+                const container = document.getElementById('ordersTableContainer');
+                if (container && !container.innerHTML.trim()) {
+                    container.innerHTML = '<p style="margin:12px 4px;color:#444;font-weight:500;">No orders match the current filters.</p>';
+                }
+            }
         }
         const origRenderOrders = renderOrders;
         renderOrders = function() { origRenderOrders(); renderOrderStatsBanner(); };
