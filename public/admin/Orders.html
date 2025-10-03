@@ -768,7 +768,7 @@
                     <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 16px;">
                         <thead><tr style='background:#f8f9fa;'><th style='padding:12px 8px;'>SKU</th><th style='padding:12px 8px;'>Name</th><th style='padding:12px 8px;'>Quantity</th></tr></thead>
                         <tbody>
-                            ${picklistItems.map(item => `<tr><td style='padding:12px 8px;'><a href="/admin/ProductInfo.html?sku=${encodeURIComponent(item.sku)}" target="_blank">${item.sku}</a></td><td style='padding:12px 8px;'>${item.name}</td><td style='padding:12px 8px;'>${item.quantity}</td></tr>`).join('')}
+                            ${picklistItems.map(item => `<tr><td style='padding:12px 8px;'>${item.sku}</td><td style='padding:12px 8px;'>${item.name}</td><td style='padding:12px 8px;'>${item.quantity}</td></tr>`).join('')}
                         </tbody>
                     </table>
                 </div>`;
@@ -810,9 +810,8 @@
                     <div style="font-family: Arial, sans-serif; padding: 20px; background: white; ${index > 0 ? 'page-break-before: always;' : ''}">
                         <div style="margin-bottom: 25px; position: relative; min-height: 60px;">
                             ${logoUrl ? `<img src='${logoUrl}' alt='${logoAlt}' style='max-width:180px; position:absolute; top:0; right:0; margin-bottom:12px;' />` : ''}
-                            <h2 style="margin:0; color:indigo; font-size:2rem; text-shadow:2px 2px 4px rgba(0,0,0,0.3);">Packing Slip</h2>
                             <div style="font-size:1.2rem; font-weight:700; color:#2c3e50;"><strong>Order #${order.OrderID}</strong></div>
-                            <div><strong>Retailer:</strong> ${order.Retailer || ''}</div>
+                            <div><strong>Fulfillment Date:</strong> ${new Date().getMonth()+1+'/'+new Date().getDate()+'/'+new Date().getFullYear()}</div>
                             <div><strong>Platform:</strong> ${order.Platform || ''}</div>
                             <div><strong>Customer:</strong> ${customerObj.name || ''}</div>
                             <div><strong>Address:</strong> ${customerAddress || ''}</div>
@@ -820,7 +819,7 @@
                         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 16px;">
                             <thead><tr style='background:#f8f9fa;'><th style='padding:12px 8px;'>SKU</th><th style='padding:12px 8px;'>Name</th><th style='padding:12px 8px;'>Quantity</th></tr></thead>
                             <tbody>
-                                ${itemsArr.map(item => `<tr><td style='padding:12px 8px;'><a href="/admin/ProductInfo.html?sku=${encodeURIComponent(item.SKU)}" target="_blank">${item.SKU}</a></td><td style='padding:12px 8px;'>${item.Name}</td><td style='padding:12px 8px;'>${item.Quantity}</td></tr>`).join('')}
+                                ${itemsArr.map(item => `<tr><td style='padding:12px 8px;'>${item.SKU}</td><td style='padding:12px 8px;'>${item.Name}</td><td style='padding:12px 8px;'>${item.Quantity}</td></tr>`).join('')}
                             </tbody>
                         </table>
                         <div style="padding: 10px;">
