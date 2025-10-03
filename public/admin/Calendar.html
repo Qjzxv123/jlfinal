@@ -343,7 +343,7 @@
         </div>
     </div>
 
-    <!-- Time Off Request Modal -->
+    <!-- Time Off Request Modal (Range + Optional Note) -->
     <div id="timeOffModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -351,17 +351,24 @@
                 <span class="close" onclick="closeTimeOffModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label for="timeOffDate" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Select Date:</label>
-                    <input type="date" id="timeOffDate" style="width: 100%; padding: 10px; border: 2px solid #e1e5e9; border-radius: 6px; font-size: 14px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px;">
+                    <div>
+                        <label for="timeOffStartDate" style="display:block; margin-bottom:6px; font-weight:600; color:#2c3e50;">Start Date</label>
+                        <input type="date" id="timeOffStartDate" style="width:100%; padding:10px; border:2px solid #e1e5e9; border-radius:6px; font-size:14px;" />
+                    </div>
+                    <div>
+                        <label for="timeOffEndDate" style="display:block; margin-bottom:6px; font-weight:600; color:#2c3e50;">End Date</label>
+                        <input type="date" id="timeOffEndDate" style="width:100%; padding:10px; border:2px solid #e1e5e9; border-radius:6px; font-size:14px;" />
+                    </div>
                 </div>
-                <div class="form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button onclick="closeTimeOffModal()" style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
-                        Cancel
-                    </button>
-                    <button onclick="submitTimeOffRequest()" style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
-                        Request Time Off
-                    </button>
+                <div style="margin-bottom:18px;">
+                    <label for="timeOffNote" style="display:block; margin-bottom:6px; font-weight:600; color:#2c3e50;">Optional Note</label>
+                    <textarea id="timeOffNote" placeholder="Reason or coverage plan (optional)" style="width:100%; min-height:70px; padding:10px; border:2px solid #e1e5e9; border-radius:6px; font-size:14px; resize:vertical;"></textarea>
+                </div>
+                <div style="font-size:12px; color:#555; line-height:1.4; margin-bottom:14px;">Select a single day or a range (max 30 days). Each date will be added individually.</div>
+                <div class="form-actions" style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button onclick="closeTimeOffModal()" style="background:#95a5a6; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;">Cancel</button>
+                    <button onclick="submitTimeOffRequest()" style="background:#27ae60; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;">Request Time Off</button>
                 </div>
             </div>
         </div>
@@ -687,14 +694,18 @@
         function openTimeOffModal() {
             const today = new Date();
             const minDate = today.toISOString().split('T')[0];
-            const dateInput = document.getElementById('timeOffDate');
-            if (dateInput) {
-                dateInput.setAttribute('min', minDate);
-                // If previously set to a later min, ensure current value isn't invalid
-                if (dateInput.value && dateInput.value < minDate) {
-                    dateInput.value = minDate;
-                }
+            const startInput = document.getElementById('timeOffStartDate');
+            const endInput = document.getElementById('timeOffEndDate');
+            if (startInput) {
+                startInput.setAttribute('min', minDate);
+                if (!startInput.value || startInput.value < minDate) startInput.value = minDate;
             }
+            if (endInput) {
+                endInput.setAttribute('min', minDate);
+                if (!endInput.value || endInput.value < startInput.value) endInput.value = startInput.value || minDate;
+            }
+            const note = document.getElementById('timeOffNote');
+            if (note) note.value = '';
             document.getElementById('timeOffModal').style.display = 'block';
         }
 
@@ -771,76 +782,65 @@
         }
 
         async function submitTimeOffRequest() {
-            const selectedDate = document.getElementById('timeOffDate').value;
-            if (!selectedDate) {
-                alert('Please select a date for your time off request.');
-                return;
+            const startDate = document.getElementById('timeOffStartDate').value;
+            const endDate = document.getElementById('timeOffEndDate').value || startDate;
+            const noteVal = (document.getElementById('timeOffNote').value || '').trim();
+            if (!startDate) { alert('Please select a start date.'); return; }
+            if (!endDate) { alert('Please select an end date or leave it blank to use the start date.'); return; }
+            if (endDate < startDate) { alert('End date cannot be before start date.'); return; }
+            const maxRangeDays = 30;
+            const range = [];
+            let cursor = new Date(startDate + 'T00:00:00');
+            const endObj = new Date(endDate + 'T00:00:00');
+            let days = 0;
+            while (cursor <= endObj) {
+                range.push(cursor.toISOString().split('T')[0]);
+                cursor.setDate(cursor.getDate() + 1);
+                days++;
+                if (days > maxRangeDays) { alert('Range too large (max 30 days).'); return; }
             }
-
-            // Validate that the date is at least one week in advance
-            const selectedDateTime = toLocalDate(selectedDate); // retained if future validation needed
-            const today = new Date();
-            const oneWeekFromToday = new Date(today);
-
             try {
                 const currentUserId = CurrentUserID;
-                
-                // Get current user's time off array
                 const { data: currentUser, error: fetchError } = await supabase
                     .from('Users')
                     .select('TimeOff')
                     .eq('id', currentUserId)
                     .single();
-
                 if (fetchError) throw fetchError;
-
-                // Add new date to time off array
-                const currentTimeOff = currentUser.TimeOff || [];
-                if (currentTimeOff.includes(selectedDate)) {
-                    alert('You already have time off requested for this date.');
-                    return;
-                }
-
-                const updatedTimeOff = [...currentTimeOff, selectedDate];
-
-                // Update user's time off
+                const existing = currentUser.TimeOff || [];
+                const existingSet = new Set(existing);
+                const newDates = range.filter(d => !existingSet.has(d));
+                if (!newDates.length) { alert('All selected dates are already requested.'); return; }
+                const updatedTimeOff = [...existing, ...newDates];
                 const { error: updateError } = await supabase
                     .from('Users')
                     .update({ TimeOff: updatedTimeOff })
                     .eq('id', currentUserId);
-
                 if (updateError) throw updateError;
-
-                // Get all service_role users to send alerts
                 const { data: serviceRoleUsers, error: serviceRoleError } = await supabase
                     .from('Users')
                     .select('id, Alerts')
                     .eq('Role', 'service_role');
-
                 if (serviceRoleError) throw serviceRoleError;
-
-                // Create alert message
-                const alertMessage = `${CurrentUserDisplayName} has requested time off for ${toLocalDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-
-                // Update alerts for all service_role users
-                if (serviceRoleUsers && serviceRoleUsers.length > 0) {
+                const rangeLabel = startDate === endDate
+                    ? toLocalDate(startDate).toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
+                    : `${toLocalDate(startDate).toLocaleDateString('en-US', { month:'short', day:'numeric'})} - ${toLocalDate(endDate).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric'})}`;
+                const alertMessage = `${CurrentUserDisplayName} requested time off (${rangeLabel})${noteVal ? ' – Note: ' + noteVal : ''}`;
+                if (serviceRoleUsers && serviceRoleUsers.length) {
                     const updatePromises = serviceRoleUsers.map(user => {
                         const currentAlerts = user.Alerts || [];
                         const updatedAlerts = [...currentAlerts, alertMessage];
-                        
                         return supabase
                             .from('Users')
                             .update({ Alerts: updatedAlerts })
                             .eq('id', user.id);
                     });
-
                     await Promise.all(updatePromises);
                 }
-
                 alert('Time off request submitted successfully!');
                 closeTimeOffModal();
-                document.getElementById('timeOffDate').value = '';
-                loadCalendarData(); // Refresh calendar
+                ['timeOffStartDate','timeOffEndDate','timeOffNote'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+                loadCalendarData();
             } catch (error) {
                 console.error('Error submitting time off request:', error);
                 alert('Failed to submit time off request. Please try again.');

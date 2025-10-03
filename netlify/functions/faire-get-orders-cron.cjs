@@ -151,7 +151,7 @@ async function fetchOrdersForUser(userKey) {
   if (orders.length > 0) {
     const { error: insertError } = await supabase
       .from('Orders')
-      .upsert(orders, { onConflict: ['OrderID'] });
+      .insert(orders, { onConflict: ['OrderID'] });
     if (insertError) {
       console.error(`[CRON] Failed to insert orders for userKey ${userKey}:`, insertError);
     } else {

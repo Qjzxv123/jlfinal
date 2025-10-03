@@ -145,7 +145,7 @@ exports.handler = async (event) => {
         platformValue = 'Shopify(TikTok)';
       }
       
-      await supabase.from('Orders').upsert({
+      await supabase.from('Orders').insert({
         OrderID: order.order_number.replace("#",""),
         Retailer: retailerValue,
         Items: JSON.stringify(parsedItems),
