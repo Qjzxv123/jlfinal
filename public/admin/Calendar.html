@@ -353,9 +353,6 @@
             <div class="modal-body">
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label for="timeOffDate" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Select Date:</label>
-                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
-                        ⚠️ Time off requests must be submitted at least one week in advance
-                    </p>
                     <input type="date" id="timeOffDate" style="width: 100%; padding: 10px; border: 2px solid #e1e5e9; border-radius: 6px; font-size: 14px;">
                 </div>
                 <div class="form-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
@@ -389,6 +386,19 @@
         let currentDate = new Date();
         let events = [];
         let selectedEvent = null;
+
+        // --- Timezone Handling Helper ---
+        // new Date('YYYY-MM-DD') is parsed as UTC which can shift the displayed day backwards
+        // in negative time zones. For date-only values from the DB or <input type="date">,
+        // parse them as local dates explicitly.
+        function parseLocalYMD(str) {
+            if (typeof str === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                const [y,m,d] = str.split('-').map(Number);
+                return new Date(y, m - 1, d); // local time midnight
+            }
+            return new Date(str);
+        }
+        function toLocalDate(val) { return parseLocalYMD(val); }
 
         function initializeCalendar() {
             // Start with empty events array
@@ -554,7 +564,7 @@
                 const isOtherMonth = cellDate.getMonth() !== currentMonth;
                 
                 const dayEvents = events.filter(event => {
-                    const eventDate = new Date(event.date);
+                    const eventDate = toLocalDate(event.date);
                     return eventDate.toDateString() === cellDate.toDateString();
                 });
 
@@ -601,7 +611,7 @@
 
             // Populate modal content
             document.getElementById('modalEventTitle').textContent = event.title;
-            document.getElementById('modalEventDate').textContent = new Date(event.date).toLocaleDateString('en-US', {
+            document.getElementById('modalEventDate').textContent = toLocalDate(event.date).toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
@@ -638,7 +648,7 @@
 
             // Add instructions link for manufacturing events (only for today or past dates)
             if (event.type === 'manufacturing' && event.id.startsWith('manufacturing-')) {
-                const eventDate = new Date(event.date);
+                const eventDate = toLocalDate(event.date);
                 const today = new Date();
                 today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
                 eventDate.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
@@ -675,14 +685,16 @@
         }
 
         function openTimeOffModal() {
-            // Set minimum date to one week from today
             const today = new Date();
-            const oneWeekFromToday = new Date(today);
-            oneWeekFromToday.setDate(today.getDate() + 7);
-            
-            const minDate = oneWeekFromToday.toISOString().split('T')[0];
-            document.getElementById('timeOffDate').setAttribute('min', minDate);
-            
+            const minDate = today.toISOString().split('T')[0];
+            const dateInput = document.getElementById('timeOffDate');
+            if (dateInput) {
+                dateInput.setAttribute('min', minDate);
+                // If previously set to a later min, ensure current value isn't invalid
+                if (dateInput.value && dateInput.value < minDate) {
+                    dateInput.value = minDate;
+                }
+            }
             document.getElementById('timeOffModal').style.display = 'block';
         }
 
@@ -691,11 +703,11 @@
         }
 
         function showAllDayEvents(dateStr) {
-            const selectedDate = new Date(dateStr + 'T00:00:00');
+            const selectedDate = toLocalDate(dateStr);
             
             // Filter events for the selected date
             const dayEvents = events.filter(event => {
-                const eventDate = new Date(event.date);
+                const eventDate = toLocalDate(event.date);
                 return eventDate.toDateString() === selectedDate.toDateString();
             });
 
@@ -766,15 +778,9 @@
             }
 
             // Validate that the date is at least one week in advance
-            const selectedDateTime = new Date(selectedDate);
+            const selectedDateTime = toLocalDate(selectedDate); // retained if future validation needed
             const today = new Date();
             const oneWeekFromToday = new Date(today);
-            oneWeekFromToday.setDate(today.getDate() + 7);
-
-            if (selectedDateTime < oneWeekFromToday) {
-                alert('Time off requests must be submitted at least one week in advance. Please select a date that is at least 7 days from today.');
-                return;
-            }
 
             try {
                 const currentUserId = CurrentUserID;
@@ -814,7 +820,7 @@
                 if (serviceRoleError) throw serviceRoleError;
 
                 // Create alert message
-                const alertMessage = `${CurrentUserDisplayName} has requested time off for ${new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+                const alertMessage = `${CurrentUserDisplayName} has requested time off for ${toLocalDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
 
                 // Update alerts for all service_role users
                 if (serviceRoleUsers && serviceRoleUsers.length > 0) {
