@@ -57,12 +57,6 @@
       justify-content: center;
       gap: 10px;
     }
-    #shopify-btn {
-      background: #96bf48;
-    }
-    #shopify-btn:hover {
-      background: #6e9e2e;
-    }
     #etsy-btn {
       background: #f56400;
     }
@@ -109,12 +103,6 @@
         <button id="faire-btn" style="background: #3c3c3c; color: #fff; display: flex; align-items: center; gap: 10px;">
           <i class="cil-factory"></i>Connect Faire
         </button>
-        <div style="margin: 24px 0; width: 100%;">
-          <input id="shopify-domain" type="text" placeholder="your-store.myshopify.com" />
-          <button id="shopify-btn" style="background: #96bf48; color: #fff; display: flex; align-items: center; gap: 10px; margin-top: 10px;">
-            <i class="cib-shopify"></i>Connect Shopify
-          </button>
-        </div>
         <button id="etsy-btn" style="margin-top: 12px; background: #f56400; color: #fff; display: flex; align-items: center; gap: 10px;">
           <i class="cib-etsy"></i>Connect Etsy
         </button>
@@ -198,22 +186,6 @@ async function startOAuth(provider) {
 
 document.getElementById('faire-btn').onclick = () => startOAuth('faire');
 document.getElementById('etsy-btn').onclick = () => startOAuth('etsy');
-// Shopify: Use input value for domain
-document.getElementById('shopify-btn').onclick = async () => {
-  let domain = document.getElementById('shopify-domain').value.trim();
-  if (!domain) {
-    alert('Please enter your Shopify domain.');
-    return;
-  }
-  // Ensure domain ends with .myshopify.com
-  if (!domain.endsWith('.myshopify.com')) {
-    domain = domain.replace(/\s+/g, '');
-    domain = domain.replace(/\.myshopify\.com.*/, '');
-    domain = `${domain}.myshopify.com`;
-  }
-  // Start OAuth directly - user will login after OAuth completion
-  window.location.href = `/.netlify/functions/shopify-oauth-start?shop=${encodeURIComponent(domain)}`;
-};
 
 // Initialize and check for Shopify parameters immediately
 
