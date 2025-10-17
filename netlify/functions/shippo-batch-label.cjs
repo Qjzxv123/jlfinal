@@ -136,6 +136,8 @@ async function purchaseLabel({ rateId, orderData, rateMeta }) {
 	const shippoOrderId = orderData?.ShippoOrderID || orderData?.shippo_order_id || orderData?.shippoOrderId;
 	if (shippoOrderId && platform !== 'faire') {
 		transactionBody.order = shippoOrderId;
+	}else{
+		metadata="Faire";
 	}
 
 	const transactionResp = await fetch('https://api.goshippo.com/transactions/', {
