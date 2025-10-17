@@ -343,6 +343,15 @@
 	</div>
 	<script>
 // DRY: Shared function to parse steps and calculate ingredient usage
+function escapeHtml(str) {
+	if (str === null || str === undefined) return '';
+	return String(str)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
 function getIngredientUsage(product, order) {
 	let steps = [];
 	if (Array.isArray(product.ManufacturingSteps)) {
@@ -727,6 +736,11 @@ function getIngredientUsage(product, order) {
 						<div style=\"margin-bottom:10px;\"><strong>Customer:</strong> ${order.Customer || ''}</div>
 						${order.PlannedManufactureDate ? `<div style=\"margin-bottom:10px;\"><strong>Planned Manufacture Date:</strong> ${order.PlannedManufactureDate}</div>` : ''}
 						${vesselHtml}
+						<div style=\"margin-bottom:10px; display:flex; align-items:center; gap:8px;\">
+							<strong style=\"min-width:60px;\">Note:</strong>
+							<span id=\"note-${order.OrderNumber}\">${order.Note ? escapeHtml(order.Note) : '<span style="color:#999;">No note</span>'}</span>
+							<button type=\"button\" class=\"edit-qty-btn\" style=\"margin-left:8px;\" onclick=\"editOrderNote(${order.OrderNumber})\">Edit Note</button>
+						</div>
 						${deadlineHtml}
 						${completionHtml}
 						<button class=\"update-progress-btn\" onclick=\"openProgressModal(${order.OrderNumber}, '${progressRaw.replace(/'/g, "&#39;")}', ${JSON.stringify(progressOptions).replace(/"/g, '&quot;')})\">Update Progress</button>
@@ -1059,6 +1073,33 @@ async function editOrderQuantity(orderNumber, currentQty) {
 	if (order) order.Quantity = newQty;
 	// Optionally recalc warnings; simplest is to reload filtered list
 	loadManufacturingOrders(currentProgressFilter, currentSearchTerm);
+}
+
+// Inline note edit logic
+async function editOrderNote(orderNumber) {
+	const order = orders.find(o => o.OrderNumber === orderNumber);
+	const current = order && typeof order.Note === 'string' ? order.Note : '';
+	const newNote = prompt(`Edit note for order #${orderNumber}:`, current);
+	if (newNote === null) return; // cancelled
+	// Allow empty string to clear
+	const updateObj = { Note: newNote.trim() === '' ? null : newNote };
+	const { error } = await supabase
+		.from('ManufacturingTasks')
+		.update(updateObj)
+		.eq('OrderNumber', orderNumber);
+	if (error) {
+		alert('Error updating note: ' + error.message);
+		return;
+	}
+	if (order) order.Note = updateObj.Note;
+	const span = document.getElementById(`note-${orderNumber}`);
+	if (span) {
+		if (updateObj.Note) {
+			span.textContent = updateObj.Note;
+		} else {
+			span.innerHTML = '<span style="color:#999;">No note</span>';
+		}
+	}
 }
 	</script>
 </body>
