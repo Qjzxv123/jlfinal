@@ -741,6 +741,11 @@ function getIngredientUsage(product, order) {
 							<span id=\"note-${order.OrderNumber}\">${order.Note ? escapeHtml(order.Note) : '<span style="color:#999;">No note</span>'}</span>
 							<button type=\"button\" class=\"edit-qty-btn\" style=\"margin-left:8px;\" onclick=\"editOrderNote(${order.OrderNumber})\">Edit Note</button>
 						</div>
+						<div style=\"margin-bottom:10px; display:flex; align-items:center; gap:8px;\">
+							<strong style=\"min-width:60px;\">QB Invoice:</strong>
+							<span id=\"qbinvoice-${order.OrderNumber}\">${order.QBInvoice ? escapeHtml(order.QBInvoice) : '<span style="color:#999;">None</span>'}</span>
+							<button type=\"button\" class=\"edit-qty-btn\" style=\"margin-left:8px;\" onclick=\"editOrderQBInvoice(${order.OrderNumber})\">Edit QB Invoice</button>
+						</div>
 						${deadlineHtml}
 						${completionHtml}
 						<button class=\"update-progress-btn\" onclick=\"openProgressModal(${order.OrderNumber}, '${progressRaw.replace(/'/g, "&#39;")}', ${JSON.stringify(progressOptions).replace(/"/g, '&quot;')})\">Update Progress</button>
@@ -1098,6 +1103,32 @@ async function editOrderNote(orderNumber) {
 			span.textContent = updateObj.Note;
 		} else {
 			span.innerHTML = '<span style="color:#999;">No note</span>';
+		}
+	}
+}
+
+// Inline QBInvoice edit logic
+async function editOrderQBInvoice(orderNumber) {
+	const order = orders.find(o => o.OrderNumber === orderNumber);
+	const current = order && typeof order.QBInvoice === 'string' ? order.QBInvoice : '';
+	const newVal = prompt(`Edit QuickBooks Invoice for order #${orderNumber}:`, current);
+	if (newVal === null) return; // cancelled
+	const updateObj = { QBInvoice: newVal.trim() === '' ? null : newVal };
+	const { error } = await supabase
+		.from('ManufacturingTasks')
+		.update(updateObj)
+		.eq('OrderNumber', orderNumber);
+	if (error) {
+		alert('Error updating QB Invoice: ' + error.message);
+		return;
+	}
+	if (order) order.QBInvoice = updateObj.QBInvoice;
+	const span = document.getElementById(`qbinvoice-${orderNumber}`);
+	if (span) {
+		if (updateObj.QBInvoice) {
+			span.textContent = updateObj.QBInvoice;
+		} else {
+			span.innerHTML = '<span style="color:#999;">None</span>';
 		}
 	}
 }
