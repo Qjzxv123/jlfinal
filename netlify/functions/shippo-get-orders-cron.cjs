@@ -44,7 +44,31 @@ exports.handler = async (event) => {
   try {
     const { createClient } = require('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+    
+    // Get all existing OrderIDs from Order History to avoid duplicates
+    const { data: historyOrders, error: historyError } = await supabase
+      .from('Order History')
+      .select('OrderID');
+    
+    if (historyError) {
+      console.warn('[Shippo Cron] Error fetching Order History:', historyError.message);
+    }
+    
+    const historyOrderIds = new Set((historyOrders || []).map(h => h.OrderID));
+    console.log(`[Shippo Cron] Found ${historyOrderIds.size} orders in history to skip`);
+    
+    let processedCount = 0;
+    let skippedCount = 0;
+    
     for (const order of orders) {
+      const orderID = order.order_number.replace("#","");
+      
+      // Skip if order already exists in Order History
+      if (historyOrderIds.has(orderID)) {
+        skippedCount++;
+        continue;
+      }
+      
       // Get first SKU from line_items
       let retailerValue = "Unknown";
       if (order.line_items && order.line_items.length > 0) {
@@ -150,11 +174,11 @@ exports.handler = async (event) => {
       const { data: existingOrder } = await supabase
         .from('Orders')
         .select('Notes, CustomerMessages, InventoryRemoved')
-        .eq('OrderID', order.order_number.replace("#",""))
+        .eq('OrderID', orderID)
         .single();
       
       await supabase.from('Orders').upsert({
-        OrderID: order.order_number.replace("#",""),
+        OrderID: orderID,
         Retailer: retailerValue,
         Items: JSON.stringify(parsedItems),
         Customer: customerObj ? JSON.stringify(customerObj) : null,
@@ -165,12 +189,16 @@ exports.handler = async (event) => {
         InventoryRemoved: existingOrder?.InventoryRemoved || null,
         ShippoOrderID: order.object_id || null,
       }, { onConflict: 'OrderID' });
+      
+      processedCount++;
     }
+    
+    console.log(`[Shippo Cron] Processed ${processedCount} orders, skipped ${skippedCount} (already in history)`);
   } catch (e) {
     return { statusCode: 500, body: 'Error saving Shippo orders to Supabase: ' + e.message };
   }
 
-  return { statusCode: 200, body: `Fetched and saved ${orders.length} Shippo orders.` };
+  return { statusCode: 200, body: `Fetched ${orders.length} Shippo orders, processed ${processedCount || orders.length}, skipped ${skippedCount || 0} (already in history).` };
 };
 
 function getPlatformOrderUrl(platform, orderNumber, retailerValue) {
