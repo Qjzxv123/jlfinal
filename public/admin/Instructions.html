@@ -25,6 +25,61 @@
   <div class="container">
   <!-- Manufacturing Instructions header removed -->
     <div id="instructions"></div>
+    
+    <!-- Unit Conversion Calculator Button -->
+    <button id="openCalculatorBtn" style="position:fixed; bottom:20px; right:20px; background:#4DBA93; color:white; border:none; border-radius:50%; width:60px; height:60px; font-size:24px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:1000;" title="Unit Conversion Calculator">
+      <i class="cil-calculator"></i>
+    </button>
+    
+    <!-- Unit Conversion Calculator Modal -->
+    <div id="calculatorModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center;">
+      <div style="background:white; padding:2rem; border-radius:12px; max-width:500px; width:90%; max-height:80vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+          <h3 style="margin:0; color:#4DBA93;">Unit Conversion Calculator</h3>
+          <button id="closeCalculatorBtn" style="background:none; border:none; font-size:24px; color:#666; cursor:pointer;">&times;</button>
+        </div>
+        
+        <div style="margin-bottom:1.5rem;">
+          <label style="display:block; font-weight:600; margin-bottom:0.5rem;">Conversion Type:</label>
+          <select id="conversionType" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px;">
+            <option value="weight">Weight (lb ↔ kg ↔ oz ↔ g)</option>
+            <option value="volume">Volume (fl oz ↔ ml ↔ cups ↔ L)</option>
+            <option value="length">Length (in ↔ cm ↔ ft ↔ m)</option>
+            <option value="temperature">Temperature (°F ↔ °C)</option>
+          </select>
+        </div>
+        
+        <div style="display:grid; grid-template-columns:1fr auto 1fr; gap:1rem; align-items:end; margin-bottom:1.5rem;">
+          <div>
+            <label style="display:block; font-weight:600; margin-bottom:0.5rem;">From:</label>
+            <input type="number" id="fromValue" placeholder="Enter value" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; margin-bottom:0.5rem;">
+            <select id="fromUnit" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px;">
+              <!-- Options will be populated based on conversion type -->
+            </select>
+          </div>
+          
+          <div style="text-align:center; padding-top:1rem;">
+            <i class="cil-arrow-right" style="font-size:20px; color:#4DBA93;"></i>
+          </div>
+          
+          <div>
+            <label style="display:block; font-weight:600; margin-bottom:0.5rem;">To:</label>
+            <input type="number" id="toValue" readonly style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; margin-bottom:0.5rem; background:#f8f9fa;">
+            <select id="toUnit" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px;">
+              <!-- Options will be populated based on conversion type -->
+            </select>
+          </div>
+        </div>
+        
+        <button id="convertBtn" style="width:100%; background:#4DBA93; color:white; border:none; padding:0.75rem; border-radius:6px; font-size:16px; font-weight:600; cursor:pointer;">
+          Convert
+        </button>
+        
+        <div id="conversionResult" style="margin-top:1rem; padding:1rem; background:#f0fdf4; border-radius:6px; display:none;">
+          <strong id="resultText"></strong>
+        </div>
+      </div>
+    </div>
   </div>
   <script>
     checkPermissions(['service_role', 'employee']);
@@ -298,6 +353,113 @@
       const lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
       return lot;
     }
+
+    // Unit Conversion Calculator
+    const conversions = {
+      weight: {
+        units: { 'lb': 'Pounds', 'kg': 'Kilograms', 'oz': 'Ounces', 'g': 'Grams' },
+        toGrams: { 'lb': 453.592, 'kg': 1000, 'oz': 28.3495, 'g': 1 }
+      },
+      volume: {
+        units: { 'fl oz': 'Fluid Ounces', 'ml': 'Milliliters', 'cups': 'Cups', 'L': 'Liters' },
+        toMl: { 'fl oz': 29.5735, 'ml': 1, 'cups': 236.588, 'L': 1000 }
+      },
+      length: {
+        units: { 'in': 'Inches', 'cm': 'Centimeters', 'ft': 'Feet', 'm': 'Meters' },
+        toCm: { 'in': 2.54, 'cm': 1, 'ft': 30.48, 'm': 100 }
+      },
+      temperature: {
+        units: { 'F': 'Fahrenheit', 'C': 'Celsius' }
+      }
+    };
+
+    function populateUnits() {
+      const conversionType = document.getElementById('conversionType').value;
+      const fromUnit = document.getElementById('fromUnit');
+      const toUnit = document.getElementById('toUnit');
+      
+      fromUnit.innerHTML = '';
+      toUnit.innerHTML = '';
+      
+      const units = conversions[conversionType].units;
+      Object.keys(units).forEach(unit => {
+        const option1 = document.createElement('option');
+        option1.value = unit;
+        option1.textContent = `${unit} (${units[unit]})`;
+        fromUnit.appendChild(option1);
+        
+        const option2 = document.createElement('option');
+        option2.value = unit;
+        option2.textContent = `${unit} (${units[unit]})`;
+        toUnit.appendChild(option2);
+      });
+      
+      // Set different default selections
+      if (toUnit.children.length > 1) {
+        toUnit.selectedIndex = 1;
+      }
+    }
+
+    function convertUnits() {
+      const conversionType = document.getElementById('conversionType').value;
+      const fromValue = parseFloat(document.getElementById('fromValue').value);
+      const fromUnit = document.getElementById('fromUnit').value;
+      const toUnit = document.getElementById('toUnit').value;
+      
+      if (isNaN(fromValue)) {
+        alert('Please enter a valid number');
+        return;
+      }
+      
+      let result;
+      
+      if (conversionType === 'temperature') {
+        if (fromUnit === 'F' && toUnit === 'C') {
+          result = (fromValue - 32) * 5/9;
+        } else if (fromUnit === 'C' && toUnit === 'F') {
+          result = (fromValue * 9/5) + 32;
+        } else {
+          result = fromValue; // Same unit
+        }
+      } else {
+        const conversionData = conversions[conversionType];
+        const baseUnitKey = Object.keys(conversionData)[1]; // toGrams, toMl, toCm
+        const baseUnit = conversionData[baseUnitKey];
+        
+        // Convert to base unit first, then to target unit
+        const baseValue = fromValue * baseUnit[fromUnit];
+        result = baseValue / baseUnit[toUnit];
+      }
+      
+      document.getElementById('toValue').value = result.toFixed(4);
+      
+      const resultDiv = document.getElementById('conversionResult');
+      const resultText = document.getElementById('resultText');
+      resultText.textContent = `${fromValue} ${fromUnit} = ${result.toFixed(4)} ${toUnit}`;
+      resultDiv.style.display = 'block';
+    }
+
+    // Calculator Modal Event Listeners
+    document.getElementById('openCalculatorBtn').addEventListener('click', () => {
+      document.getElementById('calculatorModal').style.display = 'flex';
+      populateUnits();
+    });
+
+    document.getElementById('closeCalculatorBtn').addEventListener('click', () => {
+      document.getElementById('calculatorModal').style.display = 'none';
+    });
+
+    document.getElementById('calculatorModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('calculatorModal')) {
+        document.getElementById('calculatorModal').style.display = 'none';
+      }
+    });
+
+    document.getElementById('conversionType').addEventListener('change', populateUnits);
+    document.getElementById('fromUnit').addEventListener('change', convertUnits);
+    document.getElementById('toUnit').addEventListener('change', convertUnits);
+    document.getElementById('fromValue').addEventListener('input', convertUnits);
+    document.getElementById('convertBtn').addEventListener('click', convertUnits);
   </script>
 </body>
 </html>
