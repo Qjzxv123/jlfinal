@@ -193,7 +193,7 @@
               // If last step, prompt for actual quantity made
               let ActualQuantity=null;
               while(ActualQuantity===null || isNaN(ActualQuantity) || ActualQuantity<0){
-                ActualQuantity=prompt("How many pieces were Actually made?");
+                ActualQuantity=parseInt(prompt("How many pieces were Actually made?"));
               }
               if(ActualQuantity<orderData.Quantity){
                 if(confirm(`You entered ${ActualQuantity}, which is less than the ordered quantity of ${orderData.Quantity}. If you will be making the remaining product for this order again press "OK"`)){
