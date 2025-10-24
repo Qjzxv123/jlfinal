@@ -161,9 +161,9 @@
             </select>
           </div>
           <div>
-            <label for="assignedTo">Assign To</label>
-            <select id="assignedTo">
-              <option value="">Select user...</option>
+            <label for="assignedTo">Assign To (hold Ctrl/Cmd to select multiple)</label>
+            <select id="assignedTo" multiple style="height: 120px;">
+              <option value="">Select users...</option>
             </select>
           </div>
           <div>
@@ -293,10 +293,19 @@
         const taskCellHtml = isEditable
           ? `<div class="editable-task" contenteditable="true" data-id="${task.id}" data-original="${escapeHtml(task.Task || '')}" title="Click to edit; press Enter or click outside to save">${escapeHtml(task.Task || '')}</div>`
           : `${escapeHtml(task.Task || '')}`;
+        
+        // Handle multiple assignees
+        let assignedToDisplay = '';
+        if (Array.isArray(task.AssignedTo)) {
+          assignedToDisplay = task.AssignedTo.join(', ');
+        } else {
+          assignedToDisplay = task.AssignedTo || '';
+        }
+        
         tr.innerHTML = `
           <td>${taskCellHtml}</td>
           <td>${task.Priority || ''}</td>
-          <td>${task.AssignedTo || ''}</td>
+          <td>${escapeHtml(assignedToDisplay)}</td>
           <td>${task.AssignedBy || ''}</td>
           <td>${deadline}</td>
           <td><button class="mark-awaiting-btn" data-id="${task.id}" title="Mark Awaiting Confirmation" style="background:#4dba93;color:white;border:none;border-radius:6px;padding:0.5rem 1rem;font-size:1.2rem;cursor:pointer;"><span style="font-size:1.3em;">&#10003;</span></button></td>
@@ -326,10 +335,19 @@
         const taskCellHtml = isEditable
           ? `<div class="editable-task" contenteditable="true" data-id="${task.id}" data-original="${escapeHtml(task.Task || '')}" title="Click to edit; press Enter or click outside to save">${escapeHtml(task.Task || '')}</div>`
           : `${escapeHtml(task.Task || '')}`;
+        
+        // Handle multiple assignees
+        let assignedToDisplay = '';
+        if (Array.isArray(task.AssignedTo)) {
+          assignedToDisplay = task.AssignedTo.join(', ');
+        } else {
+          assignedToDisplay = task.AssignedTo || '';
+        }
+        
         tr.innerHTML = `
           <td>${taskCellHtml}</td>
           <td>${task.Priority || ''}</td>
-          <td>${task.AssignedTo || ''}</td>
+          <td>${escapeHtml(assignedToDisplay)}</td>
           <td>${task.AssignedBy || ''}</td>
           <td>${deadline}</td>
           <td>${actionCell}</td>
@@ -364,7 +382,7 @@
         .select('id, display_name, "Role"');
       const select = document.getElementById('assignedTo');
       if (!select) return;
-      select.innerHTML = '<option value="">Select user...</option>';
+      select.innerHTML = '';
       if (data) {
         data.forEach(user => {
           const label = user.display_name ? `${user.display_name} (${user.Role || ''})` : user.id;
@@ -380,23 +398,43 @@
 
     document.getElementById('addTaskForm').onsubmit = async function(e) {
       e.preventDefault();
-      let assignedObj = {};
-      try {
-        assignedObj = JSON.parse(document.getElementById('assignedTo').value);
-      } catch (err) {
-        assignedObj = {id: '', display_name: '', Role: ''};
-      }
+      
+      // Get selected assignees
+      const assignedToSelect = document.getElementById('assignedTo');
+      const selectedOptions = Array.from(assignedToSelect.selectedOptions);
+      
+      let assignedToNames = [];
+      let userIds = [CurrentUserID]; // Always include current user
+      
+      selectedOptions.forEach(option => {
+        try {
+          const userObj = JSON.parse(option.value);
+          if (userObj.display_name) {
+            assignedToNames.push(userObj.display_name);
+            if (userObj.id && !userIds.includes(userObj.id)) {
+              userIds.push(userObj.id);
+            }
+          }
+        } catch (err) {
+          console.warn('Error parsing user data:', err);
+        }
+      });
+      
       const task = {
         Task: document.getElementById('task').value.trim(),
         Priority: document.getElementById('priority').value,
-        AssignedTo: assignedObj.display_name,
+        AssignedTo: assignedToNames, // Now an array
         AssignedBy: CurrentUserDisplayName,
-        UserID: [assignedObj.id, CurrentUserID],
+        UserID: userIds, // Include all assigned user IDs
         Deadline: document.getElementById('Deadline').value || null,
         Status: 'Incomplete',
       };
       if (!task.Task) {
         alert('Please enter a task description.');
+        return;
+      }
+      if (assignedToNames.length === 0) {
+        alert('Please select at least one person to assign this task to.');
         return;
       }
       const success = await addTask(task);

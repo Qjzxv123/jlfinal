@@ -250,10 +250,19 @@
       for (const task of tasks) {
         const tr = document.createElement('tr');
         const deadline = task.Deadline ? new Date(task.Deadline).toLocaleDateString() : '';
+        
+        // Handle multiple assignees
+        let assignedToDisplay = '';
+        if (Array.isArray(task.AssignedTo)) {
+          assignedToDisplay = task.AssignedTo.join(', ');
+        } else {
+          assignedToDisplay = task.AssignedTo || '';
+        }
+        
         tr.innerHTML = `
           <td>${task.Task || ''}</td>
           <td>${task.Priority || ''}</td>
-          <td>${task.AssignedTo || ''}</td>
+          <td>${assignedToDisplay}</td>
           <td>${task.AssignedBy || ''}</td>
           <td>${deadline}</td>
           <td><button class="mark-awaiting-btn" data-id="${task.id}" title="Mark Awaiting Confirmation" style="background:#4dba93;color:white;border:none;border-radius:6px;padding:0.5rem 1rem;font-size:1.2rem;cursor:pointer;"><span style="font-size:1.3em;">&#10003;</span></button></td>
@@ -279,10 +288,19 @@
         if (task.AssignedBy === CurrentUserDisplayName) {
           actionCell = `<button class="confirm-complete-btn" data-id="${task.id}">Confirm Complete</button> <button class="refuse-confirm-btn" data-id="${task.id}" style="background:#e74c3c;color:white;border:none;border-radius:6px;padding:0.5rem 1rem;">Refuse Confirmation</button>`;
         }
+        
+        // Handle multiple assignees
+        let assignedToDisplay = '';
+        if (Array.isArray(task.AssignedTo)) {
+          assignedToDisplay = task.AssignedTo.join(', ');
+        } else {
+          assignedToDisplay = task.AssignedTo || '';
+        }
+        
         tr.innerHTML = `
           <td>${task.Task || ''}</td>
           <td>${task.Priority || ''}</td>
-          <td>${task.AssignedTo || ''}</td>
+          <td>${assignedToDisplay}</td>
           <td>${task.AssignedBy || ''}</td>
           <td>${deadline}</td>
           <td>${actionCell}</td>
