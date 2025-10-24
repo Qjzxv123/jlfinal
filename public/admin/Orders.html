@@ -932,15 +932,35 @@
                 return;
             }
             try {
-                // Normalize to actual OrderID types from loaded orders
-                const selectedIds = orders
-                    .filter(o => selectedOrders.has(String(o.OrderID)))
-                    .map(o => o.OrderID);
-                if (selectedIds.length === 0) {
-                    // Fallback if selection holds numeric ids
-                    const byId = new Set(Array.from(selectedOrders));
-                    orders.forEach(o => { if (byId.has(o.OrderID)) selectedIds.push(o.OrderID); });
+                // Get the full order objects that are selected
+                const selectedOrderObjects = orders.filter(o => selectedOrders.has(String(o.OrderID)));
+                
+                // First, add orders to Order History table
+                const orderHistoryRecords = selectedOrderObjects.map(order => ({
+                    OrderID: order.OrderID,
+                    ShippedAt: new Date().toISOString(), // Current timestamp as shipped date
+                    Retailer: order.Retailer,
+                    Items: order.Items, // Already JSON
+                    Customer: order.Customer, // Already JSON
+                    Platform: order.Platform,
+                    Link: order.Link,
+                    Notes: "Deleted",
+                    UserID: order.UserID || null,
+                }));
+                
+                // Insert into Order History table
+                const { error: historyError } = await supabase
+                    .from('Order History')
+                    .insert(orderHistoryRecords);
+                
+                if (historyError) {
+                    console.error('Error adding to Order History:', historyError);
+                    alert('Failed to archive orders to history: ' + historyError.message);
+                    return;
                 }
+                
+                // Then delete from Orders table
+                const selectedIds = selectedOrderObjects.map(o => o.OrderID);
                 const { error } = await supabase
                     .from('Orders')
                     .delete()
@@ -954,7 +974,7 @@
                 renderOrders();
                 renderOrderStatsBanner();
                 updateSelectedCount();
-                alert(`Removed ${selectedIds.length} order(s).`);
+                alert(`Successfully moved ${selectedIds.length} order(s) to Order History.`);
             } catch (err) {
                 alert('Error removing orders: ' + (err?.message || String(err)));
             }
