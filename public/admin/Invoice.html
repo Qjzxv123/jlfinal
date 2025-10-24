@@ -405,7 +405,7 @@
                 const { data: retailers, error } = await supabase
                     .from('Order History')
                     .select('Retailer')
-                    .not('Retailer', 'is', null);
+                    .neq('Retailer', null);
 
                 if (error) throw error;
 
@@ -592,10 +592,14 @@
                                 ? JSON.parse(order.Items) 
                                 : order.Items;
                             if (Array.isArray(items)) {
-                                itemCount = items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+                                // Use 'Quantity' (capital Q) as shown in the expected structure
+                                itemCount = items.reduce((sum, item) => {
+                                    const qty = parseInt(item.Quantity || item.quantity || 1);
+                                    return sum + (isNaN(qty) ? 1 : qty);
+                                }, 0);
                             }
                         } catch (e) {
-                            console.warn('Error parsing Items:', e);
+                            console.warn('Error parsing Items for order', order.OrderID, ':', e, 'Raw Items:', order.Items);
                         }
                     }
                     // Extra item fees: $0.20 for each item over 5
