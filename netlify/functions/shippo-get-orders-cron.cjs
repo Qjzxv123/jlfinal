@@ -46,7 +46,7 @@ exports.handler = async (event) => {
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
     for (const order of orders) {
       // Get first SKU from line_items
-      let retailerValue = "J&L Naturals";
+      let retailerValue = "Unknown";
       if (order.line_items && order.line_items.length > 0) {
         let firstSku = order.line_items[0].sku;
         if (firstSku && typeof firstSku === 'string') {
