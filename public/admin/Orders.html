@@ -308,9 +308,7 @@
         </select>
         <select id="retailerFilter" onchange="filterOrders()">
             <option value="">All Retailers</option>
-            <option value="Desesh">Desesh</option>
-            <option value="J&amp;L Naturals">J&amp;L Naturals</option>
-            <option value="River Organics">River Organics</option>
+            <!-- Options will be populated dynamically -->
         </select>
     </div>
 </div>
@@ -453,11 +451,31 @@
                 }
                 orders = ordersRaw;
                 filteredOrders = ordersRaw;
+                populateRetailerFilter();
                 renderOrders();
                 updateSelectedCount();
             } catch (err) {
                 container.innerHTML = `<p style="color:red;">Error loading orders: ${err.message}</p>`;
             }
+        }
+
+        function populateRetailerFilter() {
+            const retailerFilter = document.getElementById('retailerFilter');
+            if (!retailerFilter) return;
+            
+            // Get unique retailers from orders
+            const retailers = [...new Set(orders.map(o => o.Retailer).filter(Boolean))].sort();
+            
+            // Clear existing options except "All Retailers"
+            retailerFilter.innerHTML = '<option value="">All Retailers</option>';
+            
+            // Add retailers from actual data
+            retailers.forEach(retailer => {
+                const option = document.createElement('option');
+                option.value = retailer;
+                option.textContent = retailer;
+                retailerFilter.appendChild(option);
+            });
         }
 
         function filterOrders() {
