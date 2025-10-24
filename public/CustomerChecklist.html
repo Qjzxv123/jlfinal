@@ -215,6 +215,7 @@
     }
 
     async function addTask(task) {
+      closeAddTaskModalBtn.click();
       const { error } = await supabase
         .from('Checklist')
         .insert([task]);
