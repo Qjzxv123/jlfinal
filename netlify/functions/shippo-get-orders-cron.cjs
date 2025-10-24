@@ -91,7 +91,7 @@ exports.handler = async (event) => {
       // If retailer is still unknown, check if "Hotana" appears anywhere in the order
       if (retailerValue === "Unknown") {
         const orderText = JSON.stringify(order).toLowerCase();
-        if (orderText.includes('hotana')) {
+        if (orderText.includes('hotana')||orderText.includes('batana')) {
           retailerValue = "Hotana";
         }
       }
