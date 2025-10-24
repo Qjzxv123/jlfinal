@@ -264,8 +264,9 @@
         .platform-etsy { background: #f56500; }
         .platform-faire { background: #2c5aa0; }
         .platform-shopify { background: #95bf47; }
-        .platform-shopify-tiktok { background: #ff0050; }
         .platform-amazon { background: #ff9900; }
+        .platform-woocommerce { background: #96588a; }
+        .platform-tiktok { background: #ff0050; }
         /* Inventory Removed badge */
         .inv-removed-badge {
             display: inline-block;
@@ -301,8 +302,9 @@
             <option value="etsy">Etsy</option>
             <option value="faire">Faire</option>
             <option value="shopify">Shopify</option>
-            <option value="shopify(tiktok)">Shopify(TikTok)</option>
             <option value="amazon">Amazon</option>
+            <option value="woocommerce">WooCommerce</option>
+            <option value="tiktok">TikTok</option>
         </select>
         <select id="retailerFilter" onchange="filterOrders()">
             <option value="">All Retailers</option>
@@ -339,11 +341,12 @@
         function platformClass(p) {
             const s = (p || '').toLowerCase().trim();
             if (!s) return '';
-            if (s.includes('shopify') && s.includes('tiktok')) return 'platform-shopify-tiktok';
             if (s === 'etsy') return 'platform-etsy';
             if (s === 'faire') return 'platform-faire';
             if (s === 'shopify') return 'platform-shopify';
             if (s === 'amazon') return 'platform-amazon';
+            if (s === 'woocommerce') return 'platform-woocommerce';
+            if (s === 'tiktok') return 'platform-tiktok';
             return '';
         }
         function getPlatformBadgeHtml(p) {
@@ -490,7 +493,6 @@
             match = fields.some(incl);
         }
         if (platform) {
-            // Compare lowercased, and handle Shopify(TikTok) edge case
             const plat = (o.Platform || '').toLowerCase();
             const filterPlat = platform.toLowerCase();
             if (plat !== filterPlat) match = false;

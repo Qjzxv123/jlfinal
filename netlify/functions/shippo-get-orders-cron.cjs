@@ -138,23 +138,25 @@ exports.handler = async (event) => {
       }
       let parsedItems = Object.values(itemMap);
       
-      // Determine platform - check for TikTok anywhere in the order data
-      let platformValue = order.shop_app;
-      const orderDataString = JSON.stringify(order).toLowerCase();
-      if (orderDataString.includes('tiktok')) {
-        platformValue = 'Shopify(TikTok)';
-      }
+      // Check if order exists to preserve Notes, CustomerMessages, and InventoryRemoved
+      const { data: existingOrder } = await supabase
+        .from('Orders')
+        .select('Notes, CustomerMessages, InventoryRemoved')
+        .eq('OrderID', order.order_number.replace("#",""))
+        .single();
       
-      await supabase.from('Orders').insert({
+      await supabase.from('Orders').upsert({
         OrderID: order.order_number.replace("#",""),
         Retailer: retailerValue,
         Items: JSON.stringify(parsedItems),
         Customer: customerObj ? JSON.stringify(customerObj) : null,
-        Platform: platformValue,
-        Link: getPlatformOrderUrl(platformValue, order.order_number, retailerValue),
-        Notes: order.notes || null,
+        Platform: order.shop_app,
+        Link: getPlatformOrderUrl(order.shop_app, order.order_number, retailerValue),
+        Notes: existingOrder?.Notes || order.notes || null,
+        CustomerMessages: existingOrder?.CustomerMessages || null,
+        InventoryRemoved: existingOrder?.InventoryRemoved || null,
         ShippoOrderID: order.object_id || null,
-      }, { onConflict: ['OrderID'] });
+      }, { onConflict: 'OrderID' });
     }
   } catch (e) {
     return { statusCode: 500, body: 'Error saving Shippo orders to Supabase: ' + e.message };
@@ -167,8 +169,7 @@ function getPlatformOrderUrl(platform, orderNumber, retailerValue) {
   switch(platform?.toLowerCase()) {
     case 'etsy':
       return `https://www.etsy.com/your/orders/sold?ref=seller-platform-mcnav&order_id=${orderNumber}`;
-    case 'shopify':
-    case 'shopify(tiktok)': {
+    case 'shopify': {
       let domain = 'river-organics-skincare';
       if (retailerValue && retailerValue.toLowerCase().includes('j&l')) {
         domain = 'j-l-naturals';
