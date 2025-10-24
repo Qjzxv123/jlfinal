@@ -1532,6 +1532,7 @@
                     <td style='padding:8px 10px; font-size:12px;'>${itemsHtml}</td>
                     <td style='padding:8px 10px; font-size:12px;'>${boxesHtml}</td>
                     <td style='padding:8px 10px;'>${rateCell}</td>
+                    <td style='padding:8px 10px; text-align:center;'><button onclick='removeOrderFromRatesSummary("${order.OrderID}")' style='background:none; border:none; color:#dc2626; cursor:pointer; padding:4px; border-radius:4px; display:flex; align-items:center; justify-content:center;' title='Remove order'><i class='cil-trash'></i></button></td>
                 </tr>`;
             }).join('');
             const modalHtml = `<div id='ratesSummaryModal' style='position:fixed; z-index:5100; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.45); display:flex; align-items:flex-start; justify-content:center; padding:60px 16px;'>
@@ -1541,7 +1542,7 @@
                     <p style='margin:0 0 14px 0; font-size:13px; color:#475569;'>Choose a shipping rate for each order. The cheapest option is pre-selected.</p>
                     <div style='overflow-x:auto;'>
                         <table style='width:100%; border-collapse:collapse; font-size:13px;'>
-                            <thead><tr style='background:#f0f4f7;'><th style='padding:10px; text-align:left;'>Order</th><th style='padding:10px; text-align:left;'>Items</th><th style='padding:10px; text-align:left;'>Boxes</th><th style='padding:10px; text-align:left;'>Rate</th></tr></thead>
+                            <thead><tr style='background:#f0f4f7;'><th style='padding:10px; text-align:left;'>Order</th><th style='padding:10px; text-align:left;'>Items</th><th style='padding:10px; text-align:left;'>Boxes</th><th style='padding:10px; text-align:left;'>Rate</th><th style='padding:10px; text-align:center; width:50px;'>Remove</th></tr></thead>
                             <tbody>${rowsHtml}</tbody>
                         </table>
                     </div>
@@ -1580,6 +1581,37 @@
                 delete selectedShippingRates[orderId];
             }
         }
+        
+        function removeOrderFromRatesSummary(orderId) {
+            if (!shippingSummaryOrders) return;
+            
+            // Remove the order from the summary orders array
+            shippingSummaryOrders = shippingSummaryOrders.filter(order => order.OrderID !== orderId);
+            
+            // Clean up related data
+            delete shippingRatesByOrderId[orderId];
+            delete selectedShippingRates[orderId];
+            delete shippingRateErrors[orderId];
+            delete shippingShipmentIds[orderId];
+            
+            // Remove the order from the main selection if it's there
+            if (selectedOrders && selectedOrders.has(String(orderId))) {
+                selectedOrders.delete(String(orderId));
+                updateSelectedCount();
+                updateOrderCardSelection();
+            }
+            
+            // If no orders left, close the modal
+            if (shippingSummaryOrders.length === 0) {
+                closeRatesSummaryModal();
+                return;
+            }
+            
+            // Rebuild and show the modal with remaining orders
+            closeRatesSummaryModal();
+            openRatesSummaryModal(shippingSummaryOrders);
+        }
+        
         async function finalizeRateSelections() {
             const totalWithRates = (shippingSummaryOrders || []).filter(order => (shippingRatesByOrderId[order.OrderID] || []).length).length;
             const selectedCount = Object.keys(selectedShippingRates || {}).length;
