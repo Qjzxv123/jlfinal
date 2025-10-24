@@ -424,7 +424,7 @@
                     .from('Checklist')
                     .select('id, Task, Priority, Status, AssignedTo, Deadline')
                     .not('Deadline', 'is', null)
-                    .eq('AssignedTo', currentUserDisplayName)
+                    .contains('AssignedTo', [currentUserDisplayName])
                     .neq('Status', 'Awaiting Confirmation');
 
                 // Fetch Ingredient Orders
@@ -454,12 +454,20 @@
                 // Add Checklist items as events
                 if (checklists) {
                     checklists.forEach(item => {
+                        // Handle AssignedTo as array
+                        let assignedToDisplay = 'Unassigned';
+                        if (Array.isArray(item.AssignedTo)) {
+                            assignedToDisplay = item.AssignedTo.join(', ');
+                        } else if (item.AssignedTo) {
+                            assignedToDisplay = item.AssignedTo;
+                        }
+                        
                         events.push({
                             id: `checklist-${item.id}`,
                             title: item.Task || 'Checklist Task',
                             type: 'checklist',
                             date: item.Deadline,
-                            description: `Priority: ${item.Priority}, Assigned to: ${item.AssignedTo || 'Unassigned'}, Status: ${item.Status}`
+                            description: `Priority: ${item.Priority}, Assigned to: ${assignedToDisplay}, Status: ${item.Status}`
                         });
                     });
                 }

@@ -880,8 +880,11 @@
       const currentUserDisplayName = window.CurrentUserDisplayName || '';
       // Tasks to Review: AssignedBy = current user, Status = Awaiting Confirmation
       const reviewCount = (data || []).filter(t => t.AssignedBy === currentUserDisplayName && t.Status === 'Awaiting Confirmation').length;
-      // Incomplete Tasks: AssignedTo = current user, Status = Incomplete
-      const incompleteCount = (data || []).filter(t => t.AssignedTo === currentUserDisplayName && t.Status === 'Incomplete').length;
+      // Incomplete Tasks: AssignedTo contains current user, Status = Incomplete
+      const incompleteCount = (data || []).filter(t => {
+        const assignedTo = Array.isArray(t.AssignedTo) ? t.AssignedTo : [t.AssignedTo];
+        return assignedTo.includes(currentUserDisplayName) && t.Status === 'Incomplete';
+      }).length;
       // Update UI
       const reviewElem = document.getElementById('tasksToReviewCount');
       const incompleteElem = document.getElementById('incompleteTasksCount');
