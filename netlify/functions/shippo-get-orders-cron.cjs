@@ -41,6 +41,9 @@ exports.handler = async (event) => {
   }
   console.log(`[CRON] Fetched ${orders.length} Shippo orders`);
   // Save orders to Supabase
+  let processedCount = 0;
+  let skippedCount = 0;
+  
   try {
     const { createClient } = require('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -56,9 +59,6 @@ exports.handler = async (event) => {
     
     const historyOrderIds = new Set((historyOrders || []).map(h => h.OrderID));
     console.log(`[Shippo Cron] Found ${historyOrderIds.size} orders in history to skip`);
-    
-    let processedCount = 0;
-    let skippedCount = 0;
     
     for (const order of orders) {
       const orderID = order.order_number.replace("#","");
