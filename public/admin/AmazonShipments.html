@@ -1160,16 +1160,29 @@
       if (!shipment) return;
       editingShipments[id] = { ...shipment }; // shallow copy original
 
-      // Replace Items cell with JSON textarea
+      // Replace Items cell with user-friendly item editor
       const itemsCell = row.querySelector('.items-cell');
-      let itemsValue = '';
+      let itemsHtml = '';
+      
       if (shipment.Items && Array.isArray(shipment.Items)) {
-        itemsValue = JSON.stringify(shipment.Items, null, 2);
-      } else {
-        itemsValue = JSON.stringify([], null, 2);
+        // Create editable rows for each item
+        itemsHtml = shipment.Items.map((item, index) => `
+          <div class="item-edit-row" style="display: flex; gap: 8px; margin-bottom: 4px; align-items: center;">
+            <input type="text" value="${item.sku}" placeholder="SKU" class="item-sku-input" data-index="${index}" style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+            <input type="number" value="${item.quantity}" min="1" placeholder="Qty" class="item-qty-input" data-index="${index}" style="width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+            <button type="button" onclick="removeItemRow(this)" style="background: #e74c3c; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer;">×</button>
+          </div>
+        `).join('');
       }
       
-      itemsCell.innerHTML = `<textarea class="edit-input" style="width:100%;height:80px;padding:4px 6px;font-family:monospace;font-size:12px;resize:vertical;">${itemsValue.replace(/"/g,'&quot;')}</textarea>`;
+      // Add button to add new items
+      itemsHtml += `
+        <div class="add-item-section" style="margin-top: 8px;">
+          <button type="button" onclick="addItemRow(${id})" style="background: #4DBA93; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px;">+ Add Item</button>
+        </div>
+      `;
+      
+      itemsCell.innerHTML = `<div class="items-editor">${itemsHtml}</div>`;
 
       // Replace Notes cell with input (single line to keep row height reasonable)
       const notesCell = row.querySelector('[data-field="Notes"]');
@@ -1185,6 +1198,29 @@
       `;
     }
 
+    // Helper function to add new item row
+    window.addItemRow = function(shipmentId) {
+      const itemsEditor = document.querySelector(`#shipment-${shipmentId} .items-editor`);
+      const addSection = itemsEditor.querySelector('.add-item-section');
+      const currentItems = itemsEditor.querySelectorAll('.item-edit-row');
+      const newIndex = currentItems.length;
+      
+      const newItemHtml = `
+        <div class="item-edit-row" style="display: flex; gap: 8px; margin-bottom: 4px; align-items: center;">
+          <input type="text" value="" placeholder="SKU" class="item-sku-input" data-index="${newIndex}" style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+          <input type="number" value="1" min="1" placeholder="Qty" class="item-qty-input" data-index="${newIndex}" style="width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+          <button type="button" onclick="removeItemRow(this)" style="background: #e74c3c; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer;">×</button>
+        </div>
+      `;
+      
+      addSection.insertAdjacentHTML('beforebegin', newItemHtml);
+    }
+
+    // Helper function to remove item row
+    window.removeItemRow = function(button) {
+      button.closest('.item-edit-row').remove();
+    }
+
     window.cancelEdit = function(id) {
       const original = editingShipments[id];
       if (!original) return;
@@ -1196,29 +1232,36 @@
     window.saveShipment = async function(id) {
       const row = document.getElementById(`shipment-${id}`);
       if (!row) return;
-      const inputs = row.querySelectorAll('.edit-input');
-      const [itemsInput, notesInput] = inputs;
-      const newItemsText = (itemsInput.value || '').trim();
+      
+      // Get notes input
+      const notesInput = row.querySelector('[data-field="Notes"] .edit-input');
       const newNotes = (notesInput.value || '').trim();
 
-      // Parse and validate Items JSON
-      let newItems;
-      try {
-        newItems = JSON.parse(newItemsText);
-        if (!Array.isArray(newItems)) {
-          throw new Error('Items must be an array');
+      // Collect items from the user-friendly interface
+      const itemRows = row.querySelectorAll('.item-edit-row');
+      const newItems = [];
+      
+      for (const itemRow of itemRows) {
+        const skuInput = itemRow.querySelector('.item-sku-input');
+        const qtyInput = itemRow.querySelector('.item-qty-input');
+        
+        const sku = (skuInput.value || '').trim();
+        const quantity = parseInt(qtyInput.value, 10);
+        
+        if (!sku) {
+          alert('All items must have a SKU. Please fill in all SKU fields or remove empty items.');
+          return;
         }
-        // Validate each item has sku and quantity
-        for (const item of newItems) {
-          if (!item.sku || typeof item.sku !== 'string') {
-            throw new Error('Each item must have a valid "sku" string');
-          }
-          if (typeof item.quantity !== 'number' || item.quantity < 0) {
-            throw new Error('Each item must have a valid "quantity" number >= 0');
-          }
+        if (isNaN(quantity) || quantity <= 0) {
+          alert('All items must have a quantity greater than 0.');
+          return;
         }
-      } catch (err) {
-        alert(`Invalid Items JSON: ${err.message}\n\nExpected format:\n[\n  {"sku": "PRODUCT-SKU", "quantity": 10},\n  {"sku": "ANOTHER-SKU", "quantity": 5}\n]`);
+        
+        newItems.push({ sku, quantity });
+      }
+
+      if (newItems.length === 0) {
+        alert('Shipment must have at least one item.');
         return;
       }
 
