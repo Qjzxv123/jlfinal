@@ -101,10 +101,13 @@
       
       <div id="platform-oauth">
         <button id="faire-btn" style="background: #3c3c3c; color: #fff; display: flex; align-items: center; gap: 10px;">
-          <i class="cil-factory"></i>Connect Faire
+          <i class="cil-factory"></i><span id="faire-text">Connect Faire</span>
         </button>
         <button id="etsy-btn" style="margin-top: 12px; background: #f56400; color: #fff; display: flex; align-items: center; gap: 10px;">
-          <i class="cib-etsy"></i>Connect Etsy
+          <i class="cib-etsy"></i><span id="etsy-text">Connect Etsy</span>
+        </button>
+        <button id="shopify-btn" style="margin-top: 12px; background: #96bf48; color: #fff; display: flex; align-items: center; gap: 10px;">
+          <i class="cib-shopify"></i><span id="shopify-text">Connect Shopify</span>
         </button>
       </div>
   </div>
@@ -184,8 +187,114 @@ async function startOAuth(provider) {
   window.location.href = `/.netlify/functions/${provider}-oauth-start?state=${encodeURIComponent(state)}`;
 }
 
-document.getElementById('faire-btn').onclick = () => startOAuth('faire');
-document.getElementById('etsy-btn').onclick = () => startOAuth('etsy');
+// Check connection status for all platforms
+async function checkConnectionStatus() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  try {
+    // Get all oauth tokens for current user
+    const { data: tokens, error } = await supabase
+      .from('oauth_tokens')
+      .select('platform, access_token, expires_at')
+      .eq('UserID', user.id);
+
+    if (error) {
+      console.error('Error fetching oauth tokens:', error);
+      return;
+    }
+
+    // Create a map of connected platforms
+    const connectedPlatforms = new Set();
+    if (tokens) {
+      tokens.forEach(token => {
+        // Check if token is valid (not expired and has access_token)
+        if (token.access_token && 
+            (!token.expires_at || token.expires_at > Date.now() / 1000)) {
+          connectedPlatforms.add(token.platform.toLowerCase());
+        }
+      });
+    }
+
+    // Update button states
+    updateButtonState('faire', connectedPlatforms.has('faire'));
+    updateButtonState('etsy', connectedPlatforms.has('etsy'));
+    updateButtonState('shopify', connectedPlatforms.has('shopify'));
+
+  } catch (error) {
+    console.error('Error checking connection status:', error);
+  }
+}
+
+// Update button appearance based on connection status
+function updateButtonState(platform, isConnected) {
+  const btn = document.getElementById(`${platform}-btn`);
+  const text = document.getElementById(`${platform}-text`);
+  
+  if (isConnected) {
+    text.textContent = `${platform.charAt(0).toUpperCase() + platform.slice(1)} Connected ✓`;
+    btn.style.opacity = '0.7';
+    btn.style.cursor = 'default';
+    // Keep original colors but make them slightly muted
+    if (platform === 'faire') {
+      btn.style.background = '#2c2c2c';
+    } else if (platform === 'etsy') {
+      btn.style.background = '#d55400';
+    } else if (platform === 'shopify') {
+      btn.style.background = '#7fa838';
+    }
+  } else {
+    text.textContent = `Connect ${platform.charAt(0).toUpperCase() + platform.slice(1)}`;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    // Restore original colors
+    if (platform === 'faire') {
+      btn.style.background = '#3c3c3c';
+    } else if (platform === 'etsy') {
+      btn.style.background = '#f56400';
+    } else if (platform === 'shopify') {
+      btn.style.background = '#96bf48';
+    }
+  }
+}
+
+// Modified startOAuth to check if already connected
+async function startOAuthIfNotConnected(provider) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
+    return;
+  }
+
+  // Check if already connected
+  const { data: tokens } = await supabase
+    .from('oauth_tokens')
+    .select('access_token, expires_at')
+    .eq('UserID', user.id)
+    .eq('platform', provider)
+    .single();
+
+  if (tokens && tokens.access_token && 
+      (!tokens.expires_at || tokens.expires_at > Date.now() / 1000)) {
+    alert(`You are already connected to ${provider.charAt(0).toUpperCase() + provider.slice(1)}!`);
+    return;
+  }
+
+  // Proceed with OAuth
+  startOAuth(provider);
+}
+
+document.getElementById('faire-btn').onclick = () => startOAuthIfNotConnected('faire');
+document.getElementById('etsy-btn').onclick = () => startOAuthIfNotConnected('etsy');
+document.getElementById('shopify-btn').onclick = () => {
+  // For Shopify, we need to handle it differently since it might come from app installation
+  const shop = urlParams.get('shop');
+  if (shop && !urlParams.get('shopify_oauth_complete')) {
+    startShopifyOAuth(shop);
+  } else {
+    startOAuthIfNotConnected('shopify');
+  }
+};
 
 // Initialize and check for Shopify parameters immediately
 
@@ -200,8 +309,9 @@ if (shopifyOauthComplete === 'true') {
       } else {
         alert('Shopify store connected successfully to your account!');
       }
-      // Clean up URL parameters
+      // Clean up URL parameters and refresh connection status
       window.history.replaceState({}, document.title, window.location.pathname);
+      checkConnectionStatus();
     } else {
       // Redirect to login with the return URL including shop parameter
       const returnUrl = shop 
@@ -218,6 +328,8 @@ checkShopifyParams();
 document.addEventListener('DOMContentLoaded', function() {
   if (!checkShopifyParams()) {
     // Only show the UI if this is not a Shopify app access
+    // Check connection status when page loads
+    checkConnectionStatus();
   }
 });
 
@@ -227,6 +339,7 @@ if (document.readyState === 'loading') {
 } else {
   if (!checkShopifyParams()) {
     // Normal page access - showing OAuth options
+    checkConnectionStatus();
   }
 }
 </script>
