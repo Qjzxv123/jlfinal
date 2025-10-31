@@ -2,52 +2,13 @@ exports.handler = async (event) => {
   const urlObj = new URL(event.rawUrl || event.headers['x-original-url'] || '', 'http://localhost');
   const code = urlObj.searchParams.get('code');
   const shop = urlObj.searchParams.get('shop');
-  const state = urlObj.searchParams.get('state');
   const host = urlObj.searchParams.get('host');
 
-  console.log('[Shopify OAuth Callback] Received parameters:', { 
-    code: code ? 'present' : 'missing', 
-    shop: shop || 'missing', 
-    state: state ? 'present' : 'missing',
-    host: host || 'none'
-  });
-
   if (!code || !shop) {
-    console.error('[Shopify OAuth Callback] Missing required parameters');
     return {
       statusCode: 400,
-      body: 'Missing code or shop parameter. This indicates an incomplete OAuth flow.',
+      body: 'Missing code or shop parameter',
     };
-  }
-
-  // Validate state parameter for security
-  let stateData = null;
-  if (state) {
-    try {
-      stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-      // Verify shop matches the state
-      if (stateData.shop !== shop) {
-        console.error('[Shopify OAuth Callback] Shop mismatch in state validation');
-        return {
-          statusCode: 400,
-          body: 'Invalid state parameter - shop mismatch',
-        };
-      }
-      // Check timestamp to prevent replay attacks (max 10 minutes old)
-      if (Date.now() - stateData.timestamp > 10 * 60 * 1000) {
-        console.error('[Shopify OAuth Callback] State parameter too old');
-        return {
-          statusCode: 400,
-          body: 'OAuth request expired, please try again',
-        };
-      }
-    } catch (e) {
-      console.error('[Shopify OAuth Callback] Invalid state parameter:', e);
-      return {
-        statusCode: 400,
-        body: 'Invalid state parameter',
-      };
-    }
   }
 
   // Exchange the code for an access token with Shopify
@@ -55,7 +16,7 @@ exports.handler = async (event) => {
   const client_secret = process.env.SHOPIFY_API_SECRET;
   
   if (!client_id || !client_secret) {
-    console.error('[Shopify OAuth Callback] Missing SHOPIFY_API_KEY or SHOPIFY_API_SECRET environment variable');
+    console.error('Missing SHOPIFY_API_KEY or SHOPIFY_API_SECRET environment variable');
     return {
       statusCode: 500,
       body: 'Missing Shopify API credentials'
@@ -64,14 +25,9 @@ exports.handler = async (event) => {
 
   let tokenData;
   try {
-    console.log('[Shopify OAuth Callback] Exchanging code for access token with shop:', shop);
-    
     const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         client_id,
         client_secret,
@@ -80,73 +36,48 @@ exports.handler = async (event) => {
     });
     
     const rawResponse = await tokenResponse.text();
-    
-    if (!tokenResponse.ok) {
-      console.error('[Shopify OAuth Callback] Token exchange failed:', {
-        status: tokenResponse.status,
-        statusText: tokenResponse.statusText,
-        response: rawResponse
-      });
-      throw new Error(`HTTP ${tokenResponse.status}: ${tokenResponse.statusText}`);
-    }
-    
     tokenData = JSON.parse(rawResponse);
     
-    if (!tokenData.access_token) {
-      console.error('[Shopify OAuth Callback] No access token in response:', rawResponse);
-      throw new Error('No access token received from Shopify');
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      console.error('Shopify OAuth Error:', {
+        status: tokenResponse.status,
+        response: rawResponse
+      });
+      throw new Error(tokenData.error_description || 'Failed to get access token');
     }
 
-    console.log('[Shopify OAuth Callback] Successfully obtained access token for shop:', shop);
+    // Store token temporarily in a secure way (using state parameter or session storage)
+    // For now, we'll redirect to login with the token info encoded securely
+    console.log(`Shopify OAuth successful for shop: ${shop}, redirecting to login`);
 
   } catch (err) {
-    console.error('[Shopify OAuth Callback] Error exchanging code for token:', err);
+    console.error('Error in Shopify OAuth:', err);
     return {
       statusCode: 500,
-      body: `Error exchanging authorization code for access token: ${err.message}`
+      body: `Error exchanging code for token: ${err.message}`
     };
   }
 
-  // Prepare token info for secure transfer to the frontend
+  // Redirect to login page with encoded token data that will be saved after user authenticates
+  const baseUrl = 'https://jlfinal.netlify.app';
   const tokenInfo = {
     shop: shop,
     access_token: tokenData.access_token,
     platform: 'shopify',
-    scope: tokenData.scope || 'read_products,read_orders,write_orders',
-    timestamp: Date.now(),
-    // Include host for embedded apps
-    ...(host && { host })
+    timestamp: Date.now()
   };
   
-  // Base64 encode the token info to pass it securely to the login page
+  // Base64 encode the token info to pass it securely
   const encodedTokenInfo = Buffer.from(JSON.stringify(tokenInfo)).toString('base64');
-  
-  // For Shopify app installations, redirect directly to login.html with special parameters
-  // The login page will handle the OAuth completion and token storage
-  const baseUrl = 'https://jlfinal.netlify.app';
   const hostParam = host ? `&host=${encodeURIComponent(host)}` : '';
+  const redirectUrl = `${baseUrl}/Login.html?shopify_token=${encodeURIComponent(encodedTokenInfo)}&returnTo=${encodeURIComponent('/ecommerce-oauth.html?shopify_oauth_complete=true&shop=' + encodeURIComponent(shop))}${hostParam}`;
   
-  // Determine if this is an app installation (has host parameter) or manual connection
-  const isAppInstallation = !!host;
-  
-  let redirectUrl;
-  if (isAppInstallation) {
-    // App installation - handle everything in login.html
-    redirectUrl = `${baseUrl}/Login.html?shopify_token=${encodeURIComponent(encodedTokenInfo)}&shopify_app_install=true&shop=${encodeURIComponent(shop)}${hostParam}`;
-  } else {
-    // Manual connection - return to ecommerce-oauth page after login
-    const returnPath = `/ecommerce-oauth.html?shopify_oauth_complete=true&shop=${encodeURIComponent(shop)}`;
-    redirectUrl = `${baseUrl}/Login.html?shopify_token=${encodeURIComponent(encodedTokenInfo)}&returnTo=${encodeURIComponent(returnPath)}${hostParam}`;
-  }
-  
-  console.log('[Shopify OAuth Callback] Redirecting to login page, app installation:', isAppInstallation);
-  
+  console.log(`Redirecting to login with token info for shop: ${shop}`);
   return {
     statusCode: 302,
     headers: {
       Location: redirectUrl,
-      'Cache-Control': 'no-store, no-cache, must-revalidate',
-      'Pragma': 'no-cache'
+      'Cache-Control': 'no-store'
     },
     body: ''
   };

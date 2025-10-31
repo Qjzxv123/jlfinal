@@ -173,66 +173,6 @@ async function startShopifyOAuth(shopDomain) {
   }
 }
 
-// Manual Shopify OAuth - prompts user for shop domain
-async function startShopifyOAuthManual() {
-  // Check if already connected first
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
-    return;
-  }
-
-  // Check if already connected
-  const { data: tokens } = await supabase
-    .from('oauth_tokens')
-    .select('access_token, expires_at')
-    .eq('UserID', user.id)
-    .eq('platform', 'shopify')
-    .single();
-
-  if (tokens && tokens.access_token && 
-      (!tokens.expires_at || tokens.expires_at > Date.now() / 1000)) {
-    alert('You are already connected to Shopify!');
-    return;
-  }
-
-  // Prompt for shop domain
-  const shopDomain = prompt(
-    'Enter your Shopify store domain:\n\n' +
-    'Examples:\n' +
-    '• mystore.myshopify.com\n' +
-    '• mystore (we\'ll add .myshopify.com)\n' +
-    '• mycustomdomain.com'
-  );
-
-  if (!shopDomain) {
-    return; // User cancelled
-  }
-
-  // Clean and validate the shop domain
-  let cleanShop = shopDomain.trim().toLowerCase();
-  
-  // Remove protocol if present
-  cleanShop = cleanShop.replace(/^https?:\/\//, '');
-  
-  // Remove trailing slash if present
-  cleanShop = cleanShop.replace(/\/$/, '');
-  
-  // If it doesn't contain a dot, add .myshopify.com
-  if (!cleanShop.includes('.')) {
-    cleanShop = `${cleanShop}.myshopify.com`;
-  }
-  
-  // Basic validation
-  if (!cleanShop || cleanShop.length < 4) {
-    alert('Please enter a valid shop domain.');
-    return;
-  }
-
-  console.log('Starting Shopify OAuth for shop:', cleanShop);
-  startShopifyOAuth(cleanShop);
-}
-
 // Only support Faire, Etsy, and Shopify OAuth
 async function startOAuth(provider) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -350,11 +290,9 @@ document.getElementById('shopify-btn').onclick = () => {
   // For Shopify, we need to handle it differently since it might come from app installation
   const shop = urlParams.get('shop');
   if (shop && !urlParams.get('shopify_oauth_complete')) {
-    // Coming from Shopify app installation
     startShopifyOAuth(shop);
   } else {
-    // Manual connection - need to ask for shop domain
-    startShopifyOAuthManual();
+    startOAuthIfNotConnected('shopify');
   }
 };
 
