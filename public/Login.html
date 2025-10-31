@@ -170,6 +170,8 @@
                 // Check if there's a Shopify token to save after login
                 const urlParams = new URLSearchParams(window.location.search);
                 const shopifyToken = urlParams.get('shopify_token');
+                const isAppInstall = urlParams.get('shopify_app_install') === 'true';
+                const shop = urlParams.get('shop');
                 
                 if (shopifyToken) {
                     try {
@@ -218,6 +220,9 @@
                         // Clean up URL parameters to prevent redirect loops
                         const cleanUrl = new URL(window.location);
                         cleanUrl.searchParams.delete('shopify_token');
+                        cleanUrl.searchParams.delete('shopify_app_install');
+                        cleanUrl.searchParams.delete('shop');
+                        cleanUrl.searchParams.delete('host');
                         cleanUrl.searchParams.delete('returnTo');
                         cleanUrl.searchParams.delete('redirect');
                         window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search);
@@ -227,10 +232,26 @@
                     }
                 }
                 
-                // Determine redirect URL - if we processed a Shopify token, go to ecommerce-oauth.html
-                const currentUrlParams = new URLSearchParams(window.location.search);
-                const processedShopifyToken = currentUrlParams.get('shopify_token');
-                const redirectUrl = processedShopifyToken ? 'ecommerce-oauth.html' : getRedirectUrl();
+                // Determine redirect URL based on context
+                let redirectUrl;
+                if (shopifyToken && isAppInstall) {
+                    // App installation complete - show success and redirect to dashboard
+                    if (shop) {
+                        alert(`Shopify store "${shop}" has been successfully connected to your account!`);
+                    } else {
+                        alert('Shopify store has been successfully connected to your account!');
+                    }
+                    // Redirect to appropriate dashboard based on user role
+                    const { data: { user } } = await supabase.auth.getUser();
+                    const userRole = user?.user_metadata?.role;
+                    redirectUrl = userRole === 'admin' ? 'admin/AdminDashboard.html' : 'CustomerDashboard.html';
+                } else if (shopifyToken) {
+                    // Manual connection - go to ecommerce-oauth page
+                    redirectUrl = 'ecommerce-oauth.html';
+                } else {
+                    // Normal login - use standard redirect logic
+                    redirectUrl = getRedirectUrl();
+                }
                 
                 setTimeout(() => {
                     window.location.href = redirectUrl;
@@ -266,6 +287,8 @@
                 // Check if there's a Shopify token to save before redirecting
                 const urlParams = new URLSearchParams(window.location.search);
                 const shopifyToken = urlParams.get('shopify_token');
+                const isAppInstall = urlParams.get('shopify_app_install') === 'true';
+                const shop = urlParams.get('shop');
                 
                 if (shopifyToken) {
                     try {
@@ -314,6 +337,9 @@
                         // Clean up URL parameters to prevent redirect loops
                         const cleanUrl = new URL(window.location);
                         cleanUrl.searchParams.delete('shopify_token');
+                        cleanUrl.searchParams.delete('shopify_app_install');
+                        cleanUrl.searchParams.delete('shop');
+                        cleanUrl.searchParams.delete('host');
                         cleanUrl.searchParams.delete('returnTo');
                         cleanUrl.searchParams.delete('redirect');
                         window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search);
@@ -322,8 +348,26 @@
                         console.error('Error processing Shopify token for already logged-in user:', tokenErr);
                     }
                     
-                    // After processing Shopify token, redirect to clean ecommerce-oauth.html
-                    window.location.href = 'ecommerce-oauth.html';
+                    // Handle different redirect scenarios
+                    if (isAppInstall) {
+                        // App installation complete - show success message and redirect to dashboard
+                        if (shop) {
+                            alert(`Shopify store "${shop}" has been successfully connected to your account!`);
+                        } else {
+                            alert('Shopify store has been successfully connected to your account!');
+                        }
+                        // Redirect to appropriate dashboard based on user role
+                        const { data: { user } } = await supabase.auth.getUser();
+                        const userRole = user?.user_metadata?.role;
+                        if (userRole === 'admin') {
+                            window.location.href = 'admin/AdminDashboard.html';
+                        } else {
+                            window.location.href = 'CustomerDashboard.html';
+                        }
+                    } else {
+                        // Manual connection - redirect to ecommerce-oauth page
+                        window.location.href = 'ecommerce-oauth.html';
+                    }
                 } else {
                     // No Shopify token, use normal redirect
                     window.location.href = getRedirectUrl();

@@ -121,14 +121,25 @@ exports.handler = async (event) => {
   // Base64 encode the token info to pass it securely to the login page
   const encodedTokenInfo = Buffer.from(JSON.stringify(tokenInfo)).toString('base64');
   
-  // Build redirect URL - this will take user to login page where they can authenticate
-  // and the token will be saved to the database after user login
+  // For Shopify app installations, redirect directly to login.html with special parameters
+  // The login page will handle the OAuth completion and token storage
   const baseUrl = 'https://jlfinal.netlify.app';
   const hostParam = host ? `&host=${encodeURIComponent(host)}` : '';
-  const returnPath = `/ecommerce-oauth.html?shopify_oauth_complete=true&shop=${encodeURIComponent(shop)}`;
-  const redirectUrl = `${baseUrl}/Login.html?shopify_token=${encodeURIComponent(encodedTokenInfo)}&returnTo=${encodeURIComponent(returnPath)}${hostParam}`;
   
-  console.log('[Shopify OAuth Callback] Redirecting to login page for final authentication');
+  // Determine if this is an app installation (has host parameter) or manual connection
+  const isAppInstallation = !!host;
+  
+  let redirectUrl;
+  if (isAppInstallation) {
+    // App installation - handle everything in login.html
+    redirectUrl = `${baseUrl}/Login.html?shopify_token=${encodeURIComponent(encodedTokenInfo)}&shopify_app_install=true&shop=${encodeURIComponent(shop)}${hostParam}`;
+  } else {
+    // Manual connection - return to ecommerce-oauth page after login
+    const returnPath = `/ecommerce-oauth.html?shopify_oauth_complete=true&shop=${encodeURIComponent(shop)}`;
+    redirectUrl = `${baseUrl}/Login.html?shopify_token=${encodeURIComponent(encodedTokenInfo)}&returnTo=${encodeURIComponent(returnPath)}${hostParam}`;
+  }
+  
+  console.log('[Shopify OAuth Callback] Redirecting to login page, app installation:', isAppInstallation);
   
   return {
     statusCode: 302,
