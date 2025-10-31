@@ -595,6 +595,15 @@
           <label for="receivingHoursInput" style="font-weight:600; margin-bottom: 6px; display: block; color: #34495e;">Receiving Hours</label>
           <input id="receivingHoursInput" type="text" style="width:100%;font-size:1.08rem;padding:10px;border:1.5px solid #e1e5e9;border-radius:7px;box-sizing:border-box;transition:border-color 0.2s,box-shadow 0.2s;" placeholder="e.g. 2.5" required />
         </div>
+        <div style="margin-bottom: 22px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #34495e; cursor: pointer;">
+            <input type="checkbox" id="shipmentCompleteCheckbox" style="width: 18px; height: 18px; cursor: pointer;">
+            <span>Mark shipment as completely received</span>
+          </label>
+          <div style="margin-top: 6px; font-size: 0.9rem; color: #666;">
+            If unchecked, shipment will be marked as "Partially Received" and can be processed again later.
+          </div>
+        </div>
         <div style="display: flex; gap: 12px; justify-content: center; margin-top: 18px;">
           <button class="btn" type="submit" id="submitReceiveBtn" style="background: #4DBA93; min-width: 140px;">Add to Inventory</button>
           <button class="btn" type="button" onclick="closeReceiveModal()" style="background:#b0b0b0; min-width: 100px;">Cancel</button>
@@ -983,6 +992,7 @@ function openReceiveModal() {
     return;
   }
   document.getElementById('receivingHoursInput').value = '';
+  document.getElementById('shipmentCompleteCheckbox').checked = true; // Default to complete
   // Build dropdowns for AllegedContents
   const shipmentId = Array.from(selectedShipments)[0];
   const shipment = allShipments.find(s => s.id === shipmentId);
@@ -1046,7 +1056,9 @@ async function submitReceiveShipment(event) {
   try {
     const shipmentId = Array.from(selectedShipments)[0];
     const shipment = allShipments.find(s => s.id === shipmentId);
-    const receivingHours = document.getElementById('receivingHoursInput').value.trim();
+    const receivingHours = parseFloat(document.getElementById('receivingHoursInput').value.trim()) || 0;
+    const isComplete = document.getElementById('shipmentCompleteCheckbox').checked;
+    
     // Build ActualContents from dropdowns
     let items = [];
     if (shipment && shipment.items && shipment.items.length > 0) {
@@ -1057,16 +1069,65 @@ async function submitReceiveShipment(event) {
         items.push({ sku: item.sku, quantity: qty });
       }
     }
-    const actualContents = { items };
+    
+    // Handle ActualContents - add to existing for partial shipments
+    let actualContents;
+    if (isComplete) {
+      // For complete shipments, use the current input as final ActualContents
+      actualContents = { items };
+    } else {
+      // For partial shipments, add new quantities to existing ActualContents
+      const existingContents = shipment.ActualContents || { items: [] };
+      const existingItems = existingContents.items || [];
+      
+      // Create a map for easy lookup and accumulation
+      const itemsMap = new Map();
+      
+      // Add existing quantities
+      existingItems.forEach(item => {
+        if (item.sku) {
+          itemsMap.set(item.sku, (itemsMap.get(item.sku) || 0) + (item.quantity || 0));
+        }
+      });
+      
+      // Add new quantities
+      items.forEach(item => {
+        if (item.sku && item.quantity > 0) {
+          itemsMap.set(item.sku, (itemsMap.get(item.sku) || 0) + item.quantity);
+        }
+      });
+      
+      // Convert back to items array
+      const combinedItems = Array.from(itemsMap.entries()).map(([sku, quantity]) => ({
+        sku,
+        quantity
+      }));
+      
+      actualContents = { items: combinedItems };
+    }
+    
+    // Determine status and ReceivingHours handling
+    let newStatus = isComplete ? 'Processed' : 'Partially Received';
+    let updateData = {
+      ActualContents: actualContents,
+      RecievedAt: new Date().toISOString(),
+      Status: newStatus
+    };
+    
+    // Handle ReceivingHours - add to existing hours for partial shipments
+    if (isComplete) {
+      // For complete shipments, set the total receiving hours
+      updateData.ReceivingHours = receivingHours;
+    } else {
+      // For partial shipments, add to existing ReceivingHours
+      const currentReceivingHours = parseFloat(shipment.ReceivingHours) || 0;
+      updateData.ReceivingHours = currentReceivingHours + receivingHours;
+    }
+    
     // Update the shipment in ReceivingLog
     const { error } = await supabase
       .from('ReceivingLog')
-      .update({
-        ActualContents: actualContents,
-        ReceivingHours: receivingHours,
-        RecievedAt: new Date().toISOString(),
-        Status: 'Processed'
-      })
+      .update(updateData)
       .eq('id', shipmentId);
     if (error) throw error;
 
@@ -1076,6 +1137,8 @@ async function submitReceiveShipment(event) {
     if (window.user && window.user.user_metadata && window.user.user_metadata.display_name) {
       displayName = window.user.user_metadata.display_name;
     }
+    
+    // For inventory updates, use the current input quantities (items), not cumulative actualContents
     for (const item of items) {
       if (!item.sku || !item.quantity || item.quantity <= 0) continue;
       
@@ -1143,20 +1206,37 @@ async function submitReceiveShipment(event) {
     }
 
     // Update local arrays
-    allShipments = allShipments.map(s => s.id === shipmentId ? { ...s,  ActualContents: actualContents, ReceivingHours: receivingHours, RecievedAt: new Date().toISOString(), Status: 'Processed' } : s);
-    filteredShipments = filteredShipments.map(s => s.id === shipmentId ? { ...s, ActualContents: actualContents, ReceivingHours: receivingHours, RecievedAt: new Date().toISOString(), Status: 'Processed' } : s);
+    allShipments = allShipments.map(s => s.id === shipmentId ? { 
+      ...s, 
+      ActualContents: actualContents, 
+      ReceivingHours: updateData.ReceivingHours, 
+      RecievedAt: new Date().toISOString(), 
+      Status: newStatus 
+    } : s);
+    filteredShipments = filteredShipments.map(s => s.id === shipmentId ? { 
+      ...s, 
+      ActualContents: actualContents, 
+      ReceivingHours: updateData.ReceivingHours, 
+      RecievedAt: new Date().toISOString(), 
+      Status: newStatus 
+    } : s);
     selectedShipments.clear();
     displayShipments();
     updateSummary();
     populateUserFilter();
     closeReceiveModal();
-    showStatus('Shipment marked as Processed and inventory updated!', 'success');
+    
+    // Show appropriate success message
+    const statusMessage = isComplete 
+      ? 'Shipment marked as Processed and inventory updated!' 
+      : 'Shipment marked as Partially Received and inventory updated!';
+    showStatus(statusMessage, 'success');
     setTimeout(hideStatus, 3000);
   } catch (error) {
     showStatus(`Error receiving shipment: ${error.message}`, 'error');
   }
   btn.disabled = false;
-  btn.textContent = '✅ Mark as Received';
+  btn.textContent = 'Add to Inventory';
 }
 
     async function loadShipments() {
