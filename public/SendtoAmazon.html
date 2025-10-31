@@ -214,8 +214,7 @@
       <table id="shipmentsTable">
         <thead>
           <tr>
-            <th>SKU</th>
-            <th>Quantity</th>
+            <th>Items</th>
             <th>Notes</th>
           </tr>
         </thead>
@@ -268,7 +267,7 @@
 
         const { data: shipments, error } = await supabase
           .from('AmazonShipments')
-          .select('SKU, Quantity, Notes')
+          .select('Items, Notes')
           .eq('UserID', userId)
           .order('id', { ascending: false })
           .limit(10);
@@ -280,10 +279,17 @@
 
         shipmentsTableBody.innerHTML = '';
         shipments.forEach(shipment => {
+          // Format items display
+          let itemsDisplay = '';
+          if (shipment.Items && Array.isArray(shipment.Items)) {
+            itemsDisplay = shipment.Items.map(item => `${item.sku} × ${item.quantity}`).join(', ');
+          } else {
+            itemsDisplay = 'No items';
+          }
+          
           const row = `
             <tr>
-              <td>${shipment.SKU}</td>
-              <td>${shipment.Quantity}</td>
+              <td>${itemsDisplay}</td>
               <td>${shipment.Notes || ''}</td>
             </tr>
           `;
@@ -414,33 +420,31 @@
         // Get notes
         const notes = document.getElementById('Notes').value.trim() || null;
 
-        // Insert each item as a separate row in AmazonShipments table
-        const insertPromises = items.map(item => {
-          const record = {
-            SKU: item.sku,
-            Quantity: item.quantity,
-            RequestDate: new Date().toISOString(),
-            Notes: notes
-          };
-          if (userId) {
-            record.UserID = userId;
-          }
-          if (displayName) {
-            record.display_name = displayName;
-          }
-          return supabase.from('AmazonShipments').insert(record);
-        });
+        // Insert as a single shipment with Items JSON array
+        const record = {
+          Items: items.map(item => ({
+            sku: item.sku,
+            quantity: item.quantity
+          })),
+          RequestDate: new Date().toISOString(),
+          Notes: notes
+        };
+        if (userId) {
+          record.UserID = userId;
+        }
+        if (displayName) {
+          record.display_name = displayName;
+        }
 
-        // Wait for all inserts to complete
-        const results = await Promise.all(insertPromises);
+        // Insert the shipment record
+        const { error } = await supabase.from('AmazonShipments').insert(record);
         
         // Check for errors
-        const errors = results.filter(result => result.error);
-        if (errors.length > 0) {
-          statusMsg.textContent = 'Error creating shipment entries: ' + errors[0].error.message;
+        if (error) {
+          statusMsg.textContent = 'Error creating shipment entry: ' + error.message;
           statusMsg.className = 'status error';
         } else {
-          statusMsg.textContent = `Successfully created ${items.length} shipment entries!`;
+          statusMsg.textContent = `Successfully created shipment with ${items.length} item(s)!`;
           statusMsg.className = 'status success';
           form.reset();
           

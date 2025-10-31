@@ -131,7 +131,7 @@
     checkPermissions(['service_role']);
     
     const sections = [
-  { key: 'AmazonShipments', label: 'Amazon Shipments', columns: ['SKU','Quantity','Notes','display_name'], filter: row => row.Status !=="Completed" },
+  { key: 'AmazonShipments', label: 'Amazon Shipments', columns: ['Items','Notes','display_name'], filter: row => row.Status !=="Completed" },
   { key: 'IngredientOrders', label: 'Ingredient Orders', columns: ['ExpectedBy','IngredientSKU','Quantity(Lbs/Units)'] },
   { key: 'ReceivingLog', label: 'Receiving Log', columns: ['TrackingLink','Retailer','RecievedAt','Status'] },
   { key: 'Checklist', label: 'Checklist', columns: ['Priority','Task','Status','AssignedTo','AssignedBy','Deadline'], filter: row => row.Status !== 'completed' },

@@ -455,6 +455,9 @@
       <div class="action-buttons" id="actionButtons" style="display: none;">
         <span style="font-weight: 600; color: #2c3e50;">Selected Shipments:</span>
         <span id="selectedCount" style="font-weight: 600; color: #4DBA93;">0</span>
+        <button title="Print Picklist for Selected Shipments" class="action-btn" onclick="printPicklist()" id="picklistBtn" style="background: #7c3aed;">
+          <i class="cil-print"></i> Print Picklist
+        </button>
         <button title="Delete Selected Shipments" class="action-btn danger" onclick="deleteSelectedShipments()" id="deleteBtn">
           <i class="cil-trash"></i>
         </button>
@@ -536,20 +539,27 @@
             <tr>
               <th>ID</th>
               <th>Request Date</th>
-              <th>SKU</th>
-              <th>Quantity</th>
+              <th>Items</th>
               <th>User</th>
               <th>Notes</th>
               <th>Boxes</th>
             </tr>
           </thead>
           <tbody>
-            ${completedShipments.map(shipment => `
+            ${completedShipments.map(shipment => {
+              // Format Items column for completed shipments
+              let itemsHtml = '';
+              if (shipment.Items && Array.isArray(shipment.Items)) {
+                itemsHtml = shipment.Items.map(item => `${item.sku} × ${item.quantity}`).join(', ');
+              } else {
+                itemsHtml = 'No items';
+              }
+              
+              return `
               <tr>
                 <td><strong>#${shipment.id}</strong></td>
                 <td>${formatRequestDate(shipment.RequestDate)}</td>
-                <td>${shipment.SKU}</td>
-                <td>${shipment.Quantity || 0}</td>
+                <td>${itemsHtml}</td>
                 <td>${shipment.display_name || 'Unknown User'}</td>
                 <td class=\"notes-cell\" title=\"${shipment.Notes || ''}\">${shipment.Notes || '<em style=\"color: #999;\">No notes</em>'}</td>
                 <td>
@@ -563,7 +573,8 @@
                     : '<em style="color: #999;">None</em>'}
                 </td>
               </tr>
-            `).join('')}
+              `;
+            }).join('')}
           </tbody>
         </table>
       `;
@@ -637,8 +648,17 @@
 
       // Create summary
       const totalShipments = selectedShipmentsData.length;
-      const totalQuantity = selectedShipmentsData.reduce((sum, shipment) => sum + (shipment.Quantity || 0), 0);
-      const uniqueSKUs = new Set(selectedShipmentsData.map(shipment => shipment.SKU)).size;
+      let totalQuantity = 0;
+      const uniqueSKUs = new Set();
+      
+      selectedShipmentsData.forEach(shipment => {
+        if (shipment.Items && Array.isArray(shipment.Items)) {
+          shipment.Items.forEach(item => {
+            totalQuantity += item.quantity || 0;
+            if (item.sku) uniqueSKUs.add(item.sku);
+          });
+        }
+      });
 
       summaryDiv.innerHTML = `
         <h3>Processing Summary</h3>
@@ -652,7 +672,7 @@
         </div>
         <div class="summary-row">
           <span>Unique SKUs:</span>
-          <strong>${uniqueSKUs}</strong>
+          <strong>${uniqueSKUs.size}</strong>
         </div>
       `;
 
@@ -737,49 +757,66 @@
         if (window.user && window.user.user_metadata && window.user.user_metadata.display_name) {
           displayName = window.user.user_metadata.display_name;
         }
-  // Prepare array of box objects for jsonb[] column
-  const selectedBoxObjects = Object.entries(selectedBoxes).map(([sku, quantity]) => ({ sku, quantity }));
+        // Prepare array of box objects for jsonb[] column
+        const selectedBoxObjects = Object.entries(selectedBoxes).map(([sku, quantity]) => ({ sku, quantity }));
+        
         for (const shipment of selectedShipmentsData) {
-          if (!shipment.SKU || !shipment.Quantity || shipment.Quantity <= 0) continue;
-          // Update existing product quantity only
-          const { data: prod, error: prodErr } = await supabase
-            .from('Products')
-            .select('Quantity')
-            .eq('ProductSKU', shipment.SKU)
-            .maybeSingle();
-          if (prodErr) throw prodErr;
-          if (prod) {
-            const newQty = (prod.Quantity || 0) - shipment.Quantity;
-            const { error: upErr } = await supabase
-              .from('Products')
-              .update({ Quantity: newQty })
-              .eq('ProductSKU', shipment.SKU);
-            if (upErr) throw upErr;
-            // Log the inventory update
-            const logMsg = `Amazon shipment removed ${shipment.Quantity} SKU ${shipment.SKU}`;
-            await supabase
-              .from('inventoryupdatelogs')
-              .insert({
-                log: logMsg,
-                updated_by: displayName || null,
-                SKU: shipment.SKU,
-                QuantityChanged: -shipment.Quantity
-              });
-            // Update the Boxes column for this shipment with array of objects
-            await supabase
-              .from('AmazonShipments')
-              .update({ Boxes: selectedBoxObjects })
-              .eq('id', shipment.id);
-          } else {
-            throw new Error(`Product with SKU ${shipment.SKU} does not exist in Products table.`);
+          // Get items from shipment
+          let items = [];
+          if (shipment.Items && Array.isArray(shipment.Items)) {
+            items = shipment.Items;
           }
+          
+          // Process each item in the shipment
+          for (const item of items) {
+            if (!item.sku || !item.quantity || item.quantity <= 0) continue;
+            
+            // Update existing product quantity only
+            const { data: prod, error: prodErr } = await supabase
+              .from('Products')
+              .select('Quantity')
+              .eq('ProductSKU', item.sku)
+              .maybeSingle();
+            if (prodErr) throw prodErr;
+            if (prod) {
+              const newQty = (prod.Quantity || 0) - item.quantity;
+              const { error: upErr } = await supabase
+                .from('Products')
+                .update({ Quantity: newQty })
+                .eq('ProductSKU', item.sku);
+              if (upErr) throw upErr;
+              // Log the inventory update
+              const logMsg = `Amazon shipment removed ${item.quantity} SKU ${item.sku}`;
+              await supabase
+                .from('inventoryupdatelogs')
+                .insert({
+                  log: logMsg,
+                  updated_by: displayName || null,
+                  SKU: item.sku,
+                  QuantityChanged: -item.quantity
+                });
+            } else {
+              throw new Error(`Product with SKU ${item.sku} does not exist in Products table.`);
+            }
+          }
+          
+          // Update the Boxes column for this shipment with array of objects
+          await supabase
+            .from('AmazonShipments')
+            .update({ Boxes: selectedBoxObjects })
+            .eq('id', shipment.id);
         }
 
         // Show removal logs to user
         let logsHtml = '<strong>Removal Logs:</strong><ul style="margin-top:8px;">';
         for (const shipment of selectedShipmentsData) {
-          if (shipment.SKU && shipment.Quantity && shipment.Quantity > 0) {
-            logsHtml += `<li>Product: Removed ${shipment.Quantity} from SKU <b>${shipment.SKU}</b></li>`;
+          // Get items from shipment
+          if (shipment.Items && Array.isArray(shipment.Items)) {
+            for (const item of shipment.Items) {
+              if (item.sku && item.quantity && item.quantity > 0) {
+                logsHtml += `<li>Product: Removed ${item.quantity} from SKU <b>${item.sku}</b></li>`;
+              }
+            }
           }
         }
         for (const { boxSKU, quantityUsed } of boxRemovals) {
@@ -835,9 +872,13 @@
       
       // Aggregate quantities by SKU for selected shipments
       selectedShipmentsData.forEach(shipment => {
-        if (shipment.SKU) {
-          const currentQty = skuMap.get(shipment.SKU) || 0;
-          skuMap.set(shipment.SKU, currentQty + (shipment.Quantity || 0));
+        if (shipment.Items && Array.isArray(shipment.Items)) {
+          shipment.Items.forEach(item => {
+            if (item.sku) {
+              const currentQty = skuMap.get(item.sku) || 0;
+              skuMap.set(item.sku, currentQty + (item.quantity || 0));
+            }
+          });
         }
       });
       
@@ -1001,8 +1042,7 @@
               </th>
               <th>ID</th>
               <th>Request Date</th>
-              <th>SKU</th>
-              <th>Quantity</th>
+              <th>Items</th>
               <th>User</th>
               <th>Notes</th>
               <th>Boxes</th>
@@ -1020,6 +1060,17 @@
                     return '';
                   }).filter(Boolean).join(', ')
                 : '<em style="color:#999;">None</em>';
+              
+              // Format Items column
+              let itemsHtml = '';
+              if (shipment.Items && Array.isArray(shipment.Items)) {
+                itemsHtml = shipment.Items.map(item => {
+                  return `<div style="margin-bottom: 4px;"><span class="sku-link">${item.sku}</span> × <span class="quantity-badge">${item.quantity}</span></div>`;
+                }).join('');
+              } else {
+                itemsHtml = '<em style="color: #999;">No items</em>';
+              }
+              
               return `
                 <tr class="${isSelected ? 'selected-row' : ''}" id="shipment-${shipment.id}">
                   <td class="checkbox-cell">
@@ -1029,12 +1080,8 @@
                   </td>
                   <td><strong>#${shipment.id}</strong></td>
                   <td>${formatRequestDate(shipment.RequestDate)}</td>
-                  <td class="sku-cell" data-field="SKU">
-                    <a href="../admin/ProductInfo.html?sku=${encodeURIComponent(shipment.SKU)}" 
-                       target="_blank" class="sku-link original-value">${shipment.SKU}</a>
-                  </td>
-                  <td class="qty-cell" data-field="Quantity">
-                    <span class="quantity-badge original-value">${shipment.Quantity || 0}</span>
+                  <td class="items-cell" data-field="Items">
+                    ${itemsHtml}
                   </td>
                   <td>
                     <span class="user-name">${shipment.display_name || 'Unknown User'}</span>
@@ -1066,14 +1113,26 @@
         summaryDiv.style.display = 'none';
         return;
       }
+      
       // Exclude Completed shipments from summary metrics
       const activeShipments = filteredShipments.filter(s => s.Status !== 'Completed');
-      const totalQuantity = activeShipments.reduce((sum, shipment) => sum + (shipment.Quantity || 0), 0);
-      const uniqueSKUs = new Set(activeShipments.map(shipment => shipment.SKU)).size;
+      
+      // Calculate total quantity and unique SKUs
+      let totalQuantity = 0;
+      const uniqueSKUs = new Set();
+      
+      activeShipments.forEach(shipment => {
+        if (shipment.Items && Array.isArray(shipment.Items)) {
+          shipment.Items.forEach(item => {
+            totalQuantity += item.quantity || 0;
+            if (item.sku) uniqueSKUs.add(item.sku);
+          });
+        }
+      });
 
       document.getElementById('totalShipments').textContent = activeShipments.length;
       document.getElementById('totalQuantity').textContent = totalQuantity;
-      document.getElementById('uniqueSKUs').textContent = uniqueSKUs;
+      document.getElementById('uniqueSKUs').textContent = uniqueSKUs.size;
     }
 
     function formatRequestDate(val) {
@@ -1101,14 +1160,16 @@
       if (!shipment) return;
       editingShipments[id] = { ...shipment }; // shallow copy original
 
-      // Replace SKU cell with input
-      const skuCell = row.querySelector('.sku-cell');
-      const origSKU = shipment.SKU || '';
-      skuCell.innerHTML = `<input type="text" value="${origSKU.replace(/"/g,'&quot;')}" class="edit-input" style="width:140px;padding:4px 6px;">`;
-
-      // Replace Quantity cell with number input
-      const qtyCell = row.querySelector('.qty-cell');
-      qtyCell.innerHTML = `<input type="number" min="0" value="${shipment.Quantity || 0}" class="edit-input" style="width:90px;padding:4px 6px;text-align:center;">`;
+      // Replace Items cell with JSON textarea
+      const itemsCell = row.querySelector('.items-cell');
+      let itemsValue = '';
+      if (shipment.Items && Array.isArray(shipment.Items)) {
+        itemsValue = JSON.stringify(shipment.Items, null, 2);
+      } else {
+        itemsValue = JSON.stringify([], null, 2);
+      }
+      
+      itemsCell.innerHTML = `<textarea class="edit-input" style="width:100%;height:80px;padding:4px 6px;font-family:monospace;font-size:12px;resize:vertical;">${itemsValue.replace(/"/g,'&quot;')}</textarea>`;
 
       // Replace Notes cell with input (single line to keep row height reasonable)
       const notesCell = row.querySelector('[data-field="Notes"]');
@@ -1136,31 +1197,43 @@
       const row = document.getElementById(`shipment-${id}`);
       if (!row) return;
       const inputs = row.querySelectorAll('.edit-input');
-      const [skuInput, qtyInput, notesInput] = inputs;
-      const newSKU = (skuInput.value || '').trim();
-      const newQty = parseInt(qtyInput.value, 10);
+      const [itemsInput, notesInput] = inputs;
+      const newItemsText = (itemsInput.value || '').trim();
       const newNotes = (notesInput.value || '').trim();
 
-      if (!newSKU) {
-        alert('SKU cannot be empty.');
+      // Parse and validate Items JSON
+      let newItems;
+      try {
+        newItems = JSON.parse(newItemsText);
+        if (!Array.isArray(newItems)) {
+          throw new Error('Items must be an array');
+        }
+        // Validate each item has sku and quantity
+        for (const item of newItems) {
+          if (!item.sku || typeof item.sku !== 'string') {
+            throw new Error('Each item must have a valid "sku" string');
+          }
+          if (typeof item.quantity !== 'number' || item.quantity < 0) {
+            throw new Error('Each item must have a valid "quantity" number >= 0');
+          }
+        }
+      } catch (err) {
+        alert(`Invalid Items JSON: ${err.message}\n\nExpected format:\n[\n  {"sku": "PRODUCT-SKU", "quantity": 10},\n  {"sku": "ANOTHER-SKU", "quantity": 5}\n]`);
         return;
       }
-      if (isNaN(newQty) || newQty < 0) {
-        alert('Quantity must be a non-negative number.');
-        return;
-      }
+
       try {
         showStatus('Saving shipment update...', 'loading');
         const { error } = await supabase
           .from('AmazonShipments')
-          .update({ SKU: newSKU, Quantity: newQty, Notes: newNotes || null })
+          .update({ Items: newItems, Notes: newNotes || null })
           .eq('id', id);
         if (error) throw error;
+        
         // Update local cache
         const idx = allShipments.findIndex(s => s.id === id);
         if (idx !== -1) {
-          allShipments[idx].SKU = newSKU;
-          allShipments[idx].Quantity = newQty;
+          allShipments[idx].Items = newItems;
           allShipments[idx].Notes = newNotes || null;
         }
         delete editingShipments[id];
@@ -1275,12 +1348,245 @@
       setTimeout(hideStatus, 3000);
     }
 
+    function printPicklist() {
+      if (selectedShipments.size === 0) {
+        alert('Please select at least one shipment to print a picklist.');
+        return;
+      }
+
+      const selectedShipmentsData = getSelectedShipmentsData();
+      
+      // Group items by SKU and sum quantities
+      const skuMap = new Map();
+      let totalShipments = selectedShipmentsData.length;
+      
+      selectedShipmentsData.forEach(shipment => {
+        if (shipment.Items && Array.isArray(shipment.Items)) {
+          shipment.Items.forEach(item => {
+            if (item.sku) {
+              const currentQty = skuMap.get(item.sku) || 0;
+              skuMap.set(item.sku, currentQty + (item.quantity || 0));
+            }
+          });
+        }
+      });
+
+      // Generate HTML for the picklist
+      const printDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      let picklistHTML = `
+        <html>
+          <head>
+            <title>Amazon Shipments Picklist</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                line-height: 1.4;
+              }
+              .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #333;
+                padding-bottom: 15px;
+              }
+              .header h1 {
+                margin: 0;
+                color: #333;
+                font-size: 24px;
+              }
+              .header p {
+                margin: 5px 0;
+                color: #666;
+                font-size: 14px;
+              }
+              .summary {
+                background: #f5f5f5;
+                padding: 15px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+              }
+              .summary h3 {
+                margin-top: 0;
+                color: #333;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+              }
+              th, td {
+                border: 1px solid #ddd;
+                padding: 10px;
+                text-align: left;
+              }
+              th {
+                background-color: #f9f9f9;
+                font-weight: bold;
+                color: #333;
+              }
+              .sku-column {
+                font-family: 'Courier New', monospace;
+                font-weight: bold;
+                width: 30%;
+              }
+              .quantity-column {
+                text-align: center;
+                width: 15%;
+                font-weight: bold;
+              }
+              .checkbox-column {
+                text-align: center;
+                width: 10%;
+              }
+              .notes-column {
+                width: 45%;
+              }
+              .total-row {
+                background-color: #e8f5e8;
+                font-weight: bold;
+              }
+              .checkbox {
+                width: 20px;
+                height: 20px;
+              }
+              @media print {
+                body {
+                  margin: 10px;
+                }
+                .no-print {
+                  display: none;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Amazon Shipments Picklist</h1>
+              <p>Generated on: ${printDate}</p>
+              <p>Total Shipments: ${totalShipments} | Unique SKUs: ${skuMap.size}</p>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th class="checkbox-column">✓</th>
+                  <th class="sku-column">SKU</th>
+                  <th class="quantity-column">Quantity to Pick</th>
+                  <th class="notes-column">Notes</th>
+                </tr>
+              </thead>
+              <tbody>`;
+
+      // Sort SKUs alphabetically for easier picking
+      const sortedSKUs = Array.from(skuMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+      const totalQuantity = sortedSKUs.reduce((sum, [sku, qty]) => sum + qty, 0);
+
+      sortedSKUs.forEach(([sku, quantity]) => {
+        // Find any notes from the shipments for this SKU
+        const shipmentNotes = [];
+        selectedShipmentsData.forEach(shipment => {
+          if (shipment.Items && Array.isArray(shipment.Items)) {
+            const hasThisSku = shipment.Items.some(item => item.sku === sku);
+            if (hasThisSku && shipment.Notes) {
+              shipmentNotes.push(shipment.Notes);
+            }
+          }
+        });
+
+        picklistHTML += `
+          <tr>
+            <td class="checkbox-column">
+              <input type="checkbox" class="checkbox">
+            </td>
+            <td class="sku-column">${sku}</td>
+            <td class="quantity-column">${quantity}</td>
+            <td class="notes-column">${shipmentNotes.join('; ') || ''}</td>
+          </tr>`;
+      });
+
+      picklistHTML += `
+                <tr class="total-row">
+                  <td class="checkbox-column">—</td>
+                  <td class="sku-column">TOTAL</td>
+                  <td class="quantity-column">${totalQuantity}</td>
+                  <td class="notes-column">${skuMap.size} unique SKUs</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="summary" style="margin-top: 30px;">
+              <h3>Shipment Details</h3>
+              <table style="margin: 0;">
+                <thead>
+                  <tr>
+                    <th style="width: 15%;">Shipment ID</th>
+                    <th style="width: 35%;">Items</th>
+                    <th style="width: 20%;">Requested By</th>
+                    <th style="width: 30%;">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>`;
+
+      selectedShipmentsData.forEach(shipment => {
+        // Format items for this shipment
+        let itemsText = '';
+        if (shipment.Items && Array.isArray(shipment.Items)) {
+          itemsText = shipment.Items.map(item => `${item.sku} × ${item.quantity}`).join(', ');
+        } else {
+          itemsText = 'No items';
+        }
+        
+        picklistHTML += `
+          <tr>
+            <td>#${shipment.id}</td>
+            <td style="font-family: 'Courier New', monospace;">${itemsText}</td>
+            <td>${shipment.display_name || 'Unknown'}</td>
+            <td>${shipment.Notes || ''}</td>
+          </tr>`;
+      });
+
+      picklistHTML += `
+                </tbody>
+              </table>
+            </div>
+
+            <div class="no-print" style="text-align: center; margin-top: 30px;">
+              <button onclick="window.print()" style="background: #4DBA93; color: white; border: none; padding: 12px 24px; border-radius: 5px; font-size: 16px; cursor: pointer;">
+                🖨️ Print This Picklist
+              </button>
+              <button onclick="window.close()" style="background: #666; color: white; border: none; padding: 12px 24px; border-radius: 5px; font-size: 16px; cursor: pointer; margin-left: 10px;">
+                Close
+              </button>
+            </div>
+          </body>
+        </html>`;
+
+      // Open the picklist in a new window and trigger print
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      printWindow.document.write(picklistHTML);
+      printWindow.document.close();
+      
+      // Auto-print after a short delay to allow content to load
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 500);
+    }
+
     // Make functions globally available
     window.loadShipments = loadShipments;
     window.filterShipments = filterShipments;
     window.toggleShipmentSelection = toggleShipmentSelection;
     window.toggleSelectAll = toggleSelectAll;
     window.deleteSelectedShipments = deleteSelectedShipments;
+    window.printPicklist = printPicklist;
     window.processAmazonShipments = processAmazonShipments;
     window.closeBoxModal = closeBoxModal;
     window.toggleBoxSelection = toggleBoxSelection;

@@ -493,7 +493,7 @@
                 try {
                     const { data: amazonShipments, error: amazonErr } = await supabase
                         .from('AmazonShipments')
-                        .select('Quantity, Boxes, Status, CompletionDate')
+                        .select('Items, Boxes, Status, CompletionDate')
                         .eq('Status', 'Completed')
                         .eq('display_name', retailer)
                         .gte('CompletionDate', startDateStr)
@@ -501,7 +501,13 @@
                     if (amazonErr) {
                         console.warn('Error fetching Amazon Shipments:', amazonErr);
                     } else if (amazonShipments && amazonShipments.length > 0) {
-                        amazonPieces = amazonShipments.reduce((sum, s) => sum + (parseInt(s.Quantity) || 0), 0);
+                        // Calculate total pieces from Items JSON
+                        amazonPieces = amazonShipments.reduce((sum, s) => {
+                            if (s.Items && Array.isArray(s.Items)) {
+                                return sum + s.Items.reduce((itemSum, item) => itemSum + (item.quantity || 0), 0);
+                            }
+                            return sum;
+                        }, 0);
                         amazonBoxes = amazonShipments.flatMap(s => Array.isArray(s.Boxes) ? s.Boxes : []);
                     }
                 } catch (e) {
