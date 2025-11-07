@@ -260,6 +260,8 @@ function getPlatformOrderUrl(platform, orderNumber, retailerValue) {
     }
     case 'amazon':
       return `https://sellercentral.amazon.com/orders-v3/order/${orderNumber}`;
+    case 'tiktok':
+      return `http://seller-us.tiktok.com/order/detail?order_no=${orderNumber}`;
     default:
       return '#';
   }

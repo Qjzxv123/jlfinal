@@ -402,15 +402,37 @@
         // Load retailers on page load
         async function loadRetailers() {
             try {
-                const { data: retailers, error } = await supabase
-                    .from('Order History')
-                    .select('Retailer')
-                    .neq('Retailer', null);
+                // Fetch all retailers with pagination to ensure we get everything
+                let allRetailers = [];
+                let from = 0;
+                const pageSize = 1000;
+                let hasMore = true;
 
-                if (error) throw error;
+                while (hasMore) {
+                    const { data: retailers, error } = await supabase
+                        .from('Order History')
+                        .select('Retailer')
+                        .neq('Retailer', null)
+                        .range(from, from + pageSize - 1);
 
-                // Get unique retailers
-                const uniqueRetailers = [...new Set(retailers.map(r => r.Retailer))].sort();
+                    if (error) throw error;
+
+                    if (retailers && retailers.length > 0) {
+                        allRetailers = allRetailers.concat(retailers);
+                        from += pageSize;
+                        hasMore = retailers.length === pageSize;
+                    } else {
+                        hasMore = false;
+                    }
+                }
+
+                // Get unique retailers and filter out empty/null values
+                const uniqueRetailers = [...new Set(allRetailers
+                    .map(r => r.Retailer)
+                    .filter(r => r && r.trim() !== '')
+                )].sort();
+                
+                console.log('Loaded retailers:', uniqueRetailers);
                 
                 const retailerSelect = document.getElementById('retailerSelect');
                 retailerSelect.innerHTML = '<option value="">Select a retailer...</option>';
