@@ -61,6 +61,198 @@
         .success {
             color: #27ae60;
         }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 2px solid #e1e5e9;
+            margin-bottom: 24px;
+        }
+        .tab {
+            padding: 12px 24px;
+            background: #f4f6f8;
+            border: none;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #2c3e50;
+            transition: all 0.3s ease;
+        }
+        .tab:hover {
+            background: #e9ecef;
+        }
+        .tab.active {
+            background: #3498db;
+            color: white;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 32px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .modal-header h2 {
+            margin: 0;
+            color: #2c3e50;
+        }
+        .close-btn {
+            font-size: 28px;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+            border: none;
+            background: none;
+            padding: 0;
+            line-height: 1;
+        }
+        .close-btn:hover {
+            color: #000;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        .output-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            margin-bottom: 12px;
+        }
+        .output-row .dropdown-container {
+            flex: 2;
+        }
+        .output-row .quantity-input {
+            flex: 1;
+            margin-left: 16px;
+        }
+        .output-row .remove-btn {
+            flex: 0 0 auto;
+            padding: 10px 16px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .output-row .remove-btn:hover {
+            background: #c0392b;
+        }
+        .add-output-btn {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .add-output-btn:hover {
+            background: #2980b9;
+        }
+        .submit-btn {
+            padding: 12px 24px;
+            background: #4DBA93;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 20px;
+            width: 100%;
+        }
+        .submit-btn:hover {
+            background: #3a9d7a;
+        }
+        .dropdown-container {
+            position: relative;
+        }
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        .dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 9999;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+        .dropdown-option {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .dropdown-option:hover {
+            background: #f3f4f6;
+        }
+        .dropdown-option:last-child {
+            border-bottom: none;
+        }
+        .dropdown-option .item-name {
+            font-weight: 500;
+            color: #1f2937;
+        }
+        .dropdown-option .item-details {
+            font-size: 0.8rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
     <script src="/Assets/CheckAccess.js"></script>
@@ -74,32 +266,70 @@
         <div class="container">
             <h1>Database Table Viewer</h1>
             <div id="status" class="loading">Loading data from Supabase...</div>
+            
+            <div class="tabs">
+                <button class="tab active" data-tab="products">Products</button>
+                <button class="tab" data-tab="ingredients">Ingredients</button>
+                <button class="tab" data-tab="boxes">Boxes</button>
+                <button class="tab" data-tab="skumapping">SKU Mapping</button>
+            </div>
+            
             <div style="margin-bottom: 24px; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                <input id="searchBar" type="text" placeholder="Search Products or Ingredients..." style="padding: 0.5rem 1rem; border-radius: 6px; border: 1.5px solid #e1e5e9; font-size: 1rem; min-width: 260px; flex: 1;" />
+                <input id="searchBar" type="text" placeholder="Search..." style="padding: 0.5rem 1rem; border-radius: 6px; border: 1.5px solid #e1e5e9; font-size: 1rem; min-width: 260px; flex: 1;" />
             </div>
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-                <h2 style="margin:0;">Products</h2>
-                <button id="toggleProducts" type="button" style="background:#e9ecef;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:1.1rem;">Hide</button>
+            
+            <div id="products-content" class="tab-content active">
+                <div id="productsTable"></div>
             </div>
-            <div id="productsTable"></div>
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-                <h2 style="margin:0;">Ingredients</h2>
-                <button id="toggleIngredients" type="button" style="background:#e9ecef;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:1.1rem;">Hide</button>
+            
+            <div id="ingredients-content" class="tab-content">
+                <div style="margin-bottom: 12px;">
+                    <label style="font-weight:500;">
+                        <input type="checkbox" id="lowInvFilter" style="margin-right:6px;vertical-align:middle;" />
+                        Show only low inventory
+                    </label>
+                </div>
+                <div id="ingredientsTable"></div>
             </div>
-            <div style="margin-bottom: 12px;">
-                <label style="font-weight:500;">
-                    <input type="checkbox" id="lowInvFilter" style="margin-right:6px;vertical-align:middle;" />
-                    Show only low inventory
-                </label>
+            
+            <div id="boxes-content" class="tab-content">
+                <div id="boxesTable"></div>
             </div>
-            <div id="ingredientsTable"></div>
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-                <h2 style="margin:0;">Boxes</h2>
-                <button id="toggleBoxes" type="button" style="background:#e9ecef;border:none;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:1.1rem;">Hide</button>
+            
+            <div id="skumapping-content" class="tab-content">
+                <button id="addMappingBtn" style="padding: 10px 20px; background: #4DBA93; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; margin-bottom: 16px;">
+                    Add SKU Mapping
+                </button>
+                <div id="skuMappingTable"></div>
             </div>
-            <div id="boxesTable"></div>
         </div>
     </div>
+
+    <!-- Add SKU Mapping Modal -->
+    <div id="skuMappingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add SKU Mapping</h2>
+                <button class="close-btn" id="closeModalBtn">&times;</button>
+            </div>
+            <form id="skuMappingForm">
+                <div class="form-group">
+                    <label for="mainSku">Main SKU</label>
+                    <input type="text" id="mainSku" required placeholder="Enter main SKU">
+                </div>
+                <div class="form-group">
+                    <label>Output SKUs</label>
+                    <div id="outputContainer"></div>
+                    <button type="button" class="add-output-btn" id="addOutputRowBtn">
+                        <span>+</span>
+                        <span>Add Another SKU</span>
+                    </button>
+                </div>
+                <button type="submit" class="submit-btn">Save Mapping</button>
+            </form>
+        </div>
+    </div>
+
     <script>
     // Use shared admin check and inactivity timeout
     checkPermissions(['service_role', 'employee']);
@@ -108,6 +338,10 @@
     // Store all data for filtering
     let allProductsData = [];
     let allIngredientsData = [];
+    let allSkuMappingData = [];
+    let allProductSkus = []; // For dropdown
+    let allIngredientSkus = []; // For dropdown
+    let outputRowCounter = 0;
 
     async function fetchAndDisplayTable(tableName, containerId, searchTerm = '', ingredientLowInvOnly = false) {
         const container = document.getElementById(containerId);
@@ -128,6 +362,10 @@
             columns = ['SKU', 'Weight(Lbs)', 'Cost', 'Dimensions', 'Link', 'Price', 'Quantity']; // Removed UserID
             selectString = 'SKU,"Weight(Lbs)",Cost,Dimensions,Link,Price,Quantity,UserID';
                 orderCol = 'Dimensions';
+        } else if (tableName === 'SkuMapping') {
+            columns = ['SKU', 'Output'];
+            selectString = 'SKU,Output';
+            orderCol = 'SKU';
         }
         try {
             let query = supabase.from(tableName).select(selectString).order(orderCol, { ascending: true });
@@ -142,6 +380,7 @@
                 // Store for filtering
                 if (tableName === 'Products') allProductsData = data;
                 if (tableName === 'Ingredients') allIngredientsData = data;
+                if (tableName === 'SkuMapping') allSkuMappingData = data;
                 renderTable(data, columns, container, searchTerm, ingredientLowInvOnly);
             } catch (err) {
                 container.innerHTML = `<div class="error">Error loading table: ${err.message}</div>`;
@@ -170,31 +409,90 @@
             }
             let html = '<table><thead><tr>';
             columns.forEach(col => { html += `<th>${col}</th>`; });
-            html += '<th>Save</th></tr></thead><tbody>';
+            html += '<th>Save</th><th>Delete</th></tr></thead><tbody>';
             filtered.forEach(row => {
                 html += '<tr>';
                 columns.forEach(col => {
                     let val = row[col];
-                    if (typeof val === 'object' && val !== null) {
-                        val = JSON.stringify(val);
+                    let displayVal = val;
+                    
+                    // Format Output column nicely
+                    if (col === 'Output' && typeof val === 'object' && val !== null) {
+                        displayVal = Object.entries(val)
+                            .map(([sku, qty]) => `${sku} (×${qty})`)
+                            .join(', ');
+                    } else if (typeof val === 'object' && val !== null) {
+                        displayVal = JSON.stringify(val);
                     }
+                    
                     // Make SKU columns clickable links, others editable
                         if (col === 'ProductSKU' && val) {
                             html += `<td><a href="ProductInfo.html?sku=${encodeURIComponent(val)}" style="color:#3498db;text-decoration:underline;">${val}</a></td>`;
                         } else if (col === 'IngredientSKU' && val) {
                             html += `<td><a href="IngredientInfo.html?sku=${encodeURIComponent(val)}" style="color:#3498db;text-decoration:underline;">${val}</a></td>`;
+                        } else if (col === 'SKU' && columns.includes('Output')) {
+                            // SKU Mapping table - SKU is not editable, show as text
+                            html += `<td>${val === null ? '' : val}</td>`;
+                        } else if (col === 'Output') {
+                            // Output column - display formatted with edit button
+                            html += `<td style="font-size:0.9rem;">
+                                ${displayVal === null ? '' : displayVal}
+                                <button class="edit-output-btn" data-sku="${row['SKU']}" data-output='${JSON.stringify(val)}' style="margin-left:8px;padding:4px 8px;background:#3498db;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem;">Edit</button>
+                            </td>`;
                         } else if (col === 'SKU') {
                             html += `<td>${val === null ? '' : val}</td>`;
                         } else {
-                            html += `<td><input type="text" value="${val === null ? '' : val}" data-sku="${row['ProductSKU'] || row['IngredientSKU'] || row['SKU']}" data-col="${col}" style="width:100%;padding:4px;border-radius:4px;border:1px solid #e1e5e9;" /></td>`;
+                            html += `<td><input type="text" value="${displayVal === null ? '' : displayVal}" data-sku="${row['ProductSKU'] || row['IngredientSKU'] || row['SKU']}" data-col="${col}" style="width:100%;padding:4px;border-radius:4px;border:1px solid #e1e5e9;" /></td>`;
                         }
                 });
                 // Add save button
-                html += `<td><button class="saveRowBtn" data-sku="${row['ProductSKU'] || row['IngredientSKU']}" style="background:#4DBA93;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;">Save</button></td>`;
+                const rowSku = row['ProductSKU'] || row['IngredientSKU'] || row['SKU'];
+                html += `<td><button class="saveRowBtn" data-sku="${rowSku}" style="background:#4DBA93;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;">Save</button></td>`;
+                // Add delete button
+                html += `<td><button class="deleteRowBtn" data-sku="${rowSku}" style="background:#e74c3c;color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;"><i class="cil-trash"></i></button></td>`;
                 html += '</tr>';
             });
             html += '</tbody></table>';
             container.innerHTML = html;
+
+            // Add event listeners for edit output buttons
+            container.querySelectorAll('.edit-output-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const sku = btn.getAttribute('data-sku');
+                    const outputData = JSON.parse(btn.getAttribute('data-output'));
+                    openEditModal(sku, outputData);
+                });
+            });
+
+            // Add event listeners for delete buttons
+            container.querySelectorAll('.deleteRowBtn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const sku = btn.getAttribute('data-sku');
+                    
+                    if (!confirm(`Are you sure you want to delete ${sku}?`)) {
+                        return;
+                    }
+                    
+                    let table = columns.includes('ProductSKU') ? 'Products' : 
+                               columns.includes('IngredientSKU') ? 'Ingredients' :
+                               columns.includes('Output') ? 'SkuMapping' : 'Boxes';
+                    let idCol = columns.includes('ProductSKU') ? 'ProductSKU' : 
+                               columns.includes('IngredientSKU') ? 'IngredientSKU' : 'SKU';
+                    
+                    try {
+                        const { error } = await supabase.from(table).delete().eq(idCol, sku);
+                        if (error) {
+                            alert('Error deleting: ' + error.message);
+                        } else {
+                            alert('Deleted successfully!');
+                            // Reload the table
+                            await loadAllTables();
+                        }
+                    } catch (e) {
+                        alert('Error deleting: ' + e.message);
+                    }
+                });
+            });
 
             // Add event listeners for save buttons
             container.querySelectorAll('.saveRowBtn').forEach(btn => {
@@ -221,8 +519,11 @@
                                 changes.push({ col, oldVal, newVal });
                             }
                     });
-                    let table = columns.includes('ProductSKU') ? 'Products' : 'Ingredients';
-                    let idCol = columns.includes('ProductSKU') ? 'ProductSKU' : 'IngredientSKU';
+                    let table = columns.includes('ProductSKU') ? 'Products' : 
+                               columns.includes('IngredientSKU') ? 'Ingredients' :
+                               columns.includes('Output') ? 'SkuMapping' : 'Boxes';
+                    let idCol = columns.includes('ProductSKU') ? 'ProductSKU' : 
+                               columns.includes('IngredientSKU') ? 'IngredientSKU' : 'SKU';
                     try {
                         const { error } = await supabase.from(table).update(updateObj).eq(idCol, sku);
                         if (error) {
@@ -258,11 +559,297 @@
             await fetchAndDisplayTable('Products', 'productsTable', searchTerm);
             await fetchAndDisplayTable('Ingredients', 'ingredientsTable', searchTerm, ingredientLowInvOnly);
             await fetchAndDisplayTable('Boxes', 'boxesTable', searchTerm);
+            await fetchAndDisplayTable('SkuMapping', 'skuMappingTable', searchTerm);
             document.getElementById('status').textContent = '';
         }
 
         // Initial load
         loadAllTables();
+
+        // Fetch all SKUs for dropdown
+        async function fetchAllSkus() {
+            try {
+                const [productsRes, ingredientsRes] = await Promise.all([
+                    supabase.from('Products').select('ProductSKU, Name, Retailer').order('ProductSKU'),
+                    supabase.from('Ingredients').select('IngredientSKU, Name').order('IngredientSKU')
+                ]);
+                
+                if (productsRes.data) {
+                    allProductSkus = productsRes.data.map(p => ({
+                        sku: p.ProductSKU,
+                        name: p.Name,
+                        retailer: p.Retailer
+                    }));
+                }
+                
+                if (ingredientsRes.data) {
+                    allIngredientSkus = ingredientsRes.data.map(i => ({
+                        sku: i.IngredientSKU,
+                        name: i.Name
+                    }));
+                }
+            } catch (e) {
+                console.error('Error fetching SKUs:', e);
+            }
+        }
+
+        fetchAllSkus();
+
+        // Create dropdown for output SKU selection
+        function createDropdown(containerId, rowId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const allSkus = [...allProductSkus, ...allIngredientSkus];
+
+            const dropdownHTML = `
+                <input type="text" class="search-input" placeholder="Search SKU..." data-row="${rowId}" />
+                <div class="dropdown" id="dropdown-${rowId}"></div>
+                <input type="hidden" class="selected-sku" data-row="${rowId}" value="" />
+            `;
+
+            container.innerHTML = dropdownHTML;
+
+            const searchInput = container.querySelector('.search-input');
+            const dropdown = container.querySelector('.dropdown');
+            const hiddenSKU = container.querySelector('.selected-sku');
+
+            function updateDropdown(searchTerm = '') {
+                const filtered = allSkus.filter(item => {
+                    const searchText = `${item.sku} ${item.name} ${item.retailer || ''}`.toLowerCase();
+                    return searchText.includes(searchTerm.toLowerCase());
+                });
+
+                dropdown.innerHTML = '';
+                
+                filtered.slice(0, 20).forEach(item => {
+                    const option = document.createElement('div');
+                    option.className = 'dropdown-option';
+                    option.innerHTML = `
+                        <div class="item-name">${item.sku}</div>
+                        <div class="item-details">${item.name}${item.retailer ? ' • ' + item.retailer : ''}</div>
+                    `;
+                    
+                    option.addEventListener('click', () => {
+                        searchInput.value = item.sku;
+                        hiddenSKU.value = item.sku;
+                        dropdown.style.display = 'none';
+                    });
+                    
+                    dropdown.appendChild(option);
+                });
+
+                if (filtered.length === 0) {
+                    dropdown.innerHTML = '<div class="dropdown-option" style="color: #6b7280; font-style: italic;">No SKUs found</div>';
+                }
+            }
+
+            searchInput.addEventListener('focus', () => {
+                updateDropdown(searchInput.value);
+                dropdown.style.display = 'block';
+            });
+
+            searchInput.addEventListener('input', (e) => {
+                updateDropdown(e.target.value);
+                dropdown.style.display = 'block';
+                hiddenSKU.value = '';
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!container.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+
+        // Add output row
+        function addOutputRow() {
+            outputRowCounter++;
+            const rowId = `output-row-${outputRowCounter}`;
+            const container = document.getElementById('outputContainer');
+            
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'output-row';
+            rowDiv.id = rowId;
+            rowDiv.innerHTML = `
+                <div class="dropdown-container" id="dropdown-container-${outputRowCounter}"></div>
+                <div class="quantity-input">
+                    <label style="font-size: 0.85rem; margin-bottom: 4px;">Quantity</label>
+                    <input type="number" class="output-quantity" min="1" value="1" required>
+                </div>
+                <button type="button" class="remove-btn" onclick="removeOutputRow('${rowId}')">−</button>
+            `;
+            
+            container.appendChild(rowDiv);
+            createDropdown(`dropdown-container-${outputRowCounter}`, outputRowCounter);
+        }
+
+        // Remove output row
+        function removeOutputRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+        }
+
+        // Open modal for editing existing output
+        function openEditModal(sku, outputData) {
+            const modal = document.getElementById('skuMappingModal');
+            const mainSkuInput = document.getElementById('mainSku');
+            const outputContainer = document.getElementById('outputContainer');
+            
+            // Set main SKU and make it readonly
+            mainSkuInput.value = sku;
+            mainSkuInput.setAttribute('readonly', true);
+            
+            // Clear and populate output rows
+            outputContainer.innerHTML = '';
+            outputRowCounter = 0;
+            
+            // Add rows for existing outputes
+            Object.entries(outputData).forEach(([outputSku, quantity]) => {
+                outputRowCounter++;
+                const rowId = `output-row-${outputRowCounter}`;
+                
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'output-row';
+                rowDiv.id = rowId;
+                rowDiv.innerHTML = `
+                    <div class="dropdown-container" id="dropdown-container-${outputRowCounter}"></div>
+                    <div class="quantity-input">
+                        <label style="font-size: 0.85rem; margin-bottom: 4px;">Quantity</label>
+                        <input type="number" class="output-quantity" min="1" value="${quantity}" required>
+                    </div>
+                    <button type="button" class="remove-btn" onclick="removeOutputRow('${rowId}')">−</button>
+                `;
+                
+                outputContainer.appendChild(rowDiv);
+                createDropdown(`dropdown-container-${outputRowCounter}`, outputRowCounter);
+                
+                // Pre-fill the dropdown with the existing SKU
+                const searchInput = rowDiv.querySelector('.search-input');
+                const hiddenSKU = rowDiv.querySelector('.selected-sku');
+                if (searchInput && hiddenSKU) {
+                    searchInput.value = outputSku;
+                    hiddenSKU.value = outputSku;
+                }
+            });
+            
+            modal.style.display = 'block';
+        }
+
+        // Modal controls
+        const modal = document.getElementById('skuMappingModal');
+        const addMappingBtn = document.getElementById('addMappingBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const skuMappingForm = document.getElementById('skuMappingForm');
+
+        addMappingBtn.addEventListener('click', () => {
+            const mainSkuInput = document.getElementById('mainSku');
+            mainSkuInput.removeAttribute('readonly'); // Make sure it's editable for new entries
+            mainSkuInput.value = '';
+            
+            modal.style.display = 'block';
+            document.getElementById('outputContainer').innerHTML = '';
+            outputRowCounter = 0;
+            addOutputRow(); // Add first row by default
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        document.getElementById('addOutputRowBtn').addEventListener('click', addOutputRow);
+
+        // Form submission
+        skuMappingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const mainSku = document.getElementById('mainSku').value.trim();
+            if (!mainSku) {
+                alert('Please enter a main SKU');
+                return;
+            }
+
+            // Collect all output rows
+            const outputRows = document.querySelectorAll('.output-row');
+            const outputData = {};
+            
+            for (const row of outputRows) {
+                const sku = row.querySelector('.selected-sku').value;
+                const quantity = parseInt(row.querySelector('.output-quantity').value);
+                
+                if (!sku) {
+                    alert('Please select a SKU for all output rows');
+                    return;
+                }
+                
+                if (!quantity || quantity < 1) {
+                    alert('Please enter valid quantities (minimum 1)');
+                    return;
+                }
+                
+                outputData[sku] = quantity;
+            }
+
+            if (Object.keys(outputData).length === 0) {
+                alert('Please add at least one output SKU');
+                return;
+            }
+
+            try {
+                const { error } = await supabase
+                    .from('SkuMapping')
+                    .upsert({
+                        SKU: mainSku,
+                        Output: outputData
+                    }, { onConflict: 'SKU' });
+
+                if (error) throw error;
+
+                alert('SKU Mapping saved successfully!');
+                modal.style.display = 'none';
+                
+                // Reload the SKU Mapping table
+                await fetchAndDisplayTable('SkuMapping', 'skuMappingTable', '');
+            } catch (error) {
+                alert('Error saving SKU Mapping: ' + error.message);
+                console.error(error);
+            }
+        });
+
+        // Tab switching functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const targetTab = this.getAttribute('data-tab');
+                
+                // Remove active class from all tabs and content
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                this.classList.add('active');
+                document.getElementById(`${targetTab}-content`).classList.add('active');
+                
+                // Update search placeholder based on active tab
+                const searchBar = document.getElementById('searchBar');
+                if (searchBar) {
+                    if (targetTab === 'products') {
+                        searchBar.placeholder = 'Search Products...';
+                    } else if (targetTab === 'ingredients') {
+                        searchBar.placeholder = 'Search Ingredients...';
+                    } else if (targetTab === 'boxes') {
+                        searchBar.placeholder = 'Search Boxes...';
+                    } else if (targetTab === 'skumapping') {
+                        searchBar.placeholder = 'Search SKU Mapping...';
+                    }
+                }
+            });
+        });
 
         // Search bar and low inventory filter event
         document.addEventListener('DOMContentLoaded', () => {
@@ -271,11 +858,7 @@
             const productsTable = document.getElementById('productsTable');
             const ingredientsTable = document.getElementById('ingredientsTable');
             const boxesTable = document.getElementById('boxesTable');
-            const toggleProducts = document.getElementById('toggleProducts');
-            const toggleIngredients = document.getElementById('toggleIngredients');
-            const toggleBoxes = document.getElementById('toggleBoxes');
-                // Get the container for the low inventory filter checkbox
-                const lowInvFilterContainer = lowInvFilter ? lowInvFilter.closest('div[style]') : null;
+            const skuMappingTable = document.getElementById('skuMappingTable');
             function updateTables() {
                 const term = searchBar ? searchBar.value : '';
                 const lowInv = lowInvFilter && lowInvFilter.checked;
@@ -294,47 +877,19 @@
                     boxesTable,
                     term
                 );
+                // SKU Mapping table
+                renderTable(
+                    allSkuMappingData,
+                    ['SKU', 'Output'],
+                    skuMappingTable,
+                    term
+                );
             }
             if (searchBar) {
                 searchBar.addEventListener('input', updateTables);
             }
             if (lowInvFilter) {
                 lowInvFilter.addEventListener('change', updateTables);
-            }
-            if (toggleProducts && productsTable) {
-                toggleProducts.addEventListener('click', function() {
-                    if (productsTable.style.display === 'none') {
-                        productsTable.style.display = '';
-                        toggleProducts.textContent = 'Hide';
-                    } else {
-                        productsTable.style.display = 'none';
-                        toggleProducts.textContent = 'Show';
-                    }
-                });
-            }
-            if (toggleIngredients && ingredientsTable) {
-                toggleIngredients.addEventListener('click', function() {
-                    if (ingredientsTable.style.display === 'none') {
-                        ingredientsTable.style.display = '';
-                        toggleIngredients.textContent = 'Hide';
-                        if (lowInvFilterContainer) lowInvFilterContainer.style.display = '';
-                    } else {
-                        ingredientsTable.style.display = 'none';
-                        toggleIngredients.textContent = 'Show';
-                        if (lowInvFilterContainer) lowInvFilterContainer.style.display = 'none';
-                    }
-                });
-            }
-            if (toggleBoxes && boxesTable) {
-                toggleBoxes.addEventListener('click', function() {
-                    if (boxesTable.style.display === 'none') {
-                        boxesTable.style.display = '';
-                        toggleBoxes.textContent = 'Hide';
-                    } else {
-                        boxesTable.style.display = 'none';
-                        toggleBoxes.textContent = 'Show';
-                    }
-                });
             }
         });
     </script>
