@@ -48,26 +48,21 @@ exports.handler = async (event) => {
     const { createClient } = require('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
     
-    // Get all existing OrderIDs from Order History to avoid duplicates
+    // Get all existing OrderIDs and Retailers from Order History to avoid duplicates
     const { data: historyOrders, error: historyError } = await supabase
       .from('Order History')
-      .select('OrderID');
+      .select('OrderID, Retailer');
     
     if (historyError) {
       console.warn('[Shippo Cron] Error fetching Order History:', historyError.message);
     }
     
-    const historyOrderIds = new Set((historyOrders || []).map(h => h.OrderID));
-    console.log(`[Shippo Cron] Found ${historyOrderIds.size} orders in history to skip`);
+    // Create a Set of "OrderID|Retailer" combinations for efficient lookup
+    const historyOrderKeys = new Set((historyOrders || []).map(h => `${h.OrderID}|${h.Retailer}`));
+    console.log(`[Shippo Cron] Found ${historyOrderKeys.size} order+retailer combinations in history to skip`);
     
     for (const order of orders) {
       const orderID = order.order_number.replace("#","");
-      
-      // Skip if order already exists in Order History
-      if (historyOrderIds.has(orderID)) {
-        skippedCount++;
-        continue;
-      }
       
       // Get first SKU from line_items
       let retailerValue = "Unknown";
@@ -94,6 +89,13 @@ exports.handler = async (event) => {
         if (orderText.includes('hotana')||orderText.includes('batana')) {
           retailerValue = "Hotana";
         }
+      }
+      
+      // Skip if order already exists in Order History with same OrderID AND Retailer
+      const orderKey = `${orderID}|${retailerValue}`;
+      if (historyOrderKeys.has(orderKey)) {
+        skippedCount++;
+        continue;
       }
       // Build customer object with required fields
       let customerObj = null;
