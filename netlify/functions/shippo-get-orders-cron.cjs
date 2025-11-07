@@ -57,6 +57,23 @@ exports.handler = async (event) => {
       console.warn('[Shippo Cron] Error fetching Order History:', historyError.message);
     }
     
+    // Fetch SKU Mapping table for converting SKUs
+    const { data: skuMappings, error: mappingError } = await supabase
+      .from('SkuMapping')
+      .select('SKU, Output');
+    
+    if (mappingError) {
+      console.warn('[Shippo Cron] Error fetching SKU Mappings:', mappingError.message);
+    }
+    
+    // Create a map for quick lookup: SKU -> Output object
+    const skuMappingMap = {};
+    if (skuMappings) {
+      for (const mapping of skuMappings) {
+        skuMappingMap[mapping.SKU] = mapping.Output;
+      }
+    }
+    
     // Create a Set of "OrderID|Retailer" combinations for efficient lookup
     const historyOrderKeys = new Set((historyOrders || []).map(h => `${h.OrderID}|${h.Retailer}`));
     console.log(`[Shippo Cron] Found ${historyOrderKeys.size} order+retailer combinations in history to skip`);
@@ -172,6 +189,33 @@ exports.handler = async (event) => {
       }
       let parsedItems = Object.values(itemMap);
       
+      // Apply SKU Mapping transformations
+      let transformedItems = [];
+      for (const item of parsedItems) {
+        if (skuMappingMap[item.SKU]) {
+          // This SKU has a mapping - expand it to output SKUs
+          const outputMap = skuMappingMap[item.SKU];
+          for (const [outputSku, outputQty] of Object.entries(outputMap)) {
+            // Multiply the output quantity by the item quantity
+            const totalQty = (outputQty || 1) * (item.Quantity || 1);
+            // Check if this output SKU already exists in transformedItems
+            const existing = transformedItems.find(t => t.SKU === outputSku);
+            if (existing) {
+              existing.Quantity += totalQty;
+            } else {
+              transformedItems.push({
+                SKU: outputSku,
+                Name: item.Name, // Keep original name or could look up from Products table
+                Quantity: totalQty
+              });
+            }
+          }
+        } else {
+          // No mapping, keep as-is
+          transformedItems.push(item);
+        }
+      }
+      
       // Check if order exists to preserve Notes, CustomerMessages, and InventoryRemoved
       const { data: existingOrder } = await supabase
         .from('Orders')
@@ -182,7 +226,7 @@ exports.handler = async (event) => {
       await supabase.from('Orders').upsert({
         OrderID: orderID,
         Retailer: existingOrder?.Retailer || retailerValue,
-        Items: JSON.stringify(parsedItems),
+        Items: JSON.stringify(transformedItems),
         Customer: customerObj ? JSON.stringify(customerObj) : null,
         Platform: order.shop_app,
         Link: getPlatformOrderUrl(order.shop_app, order.order_number, retailerValue),
