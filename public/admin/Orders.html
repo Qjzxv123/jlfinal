@@ -355,6 +355,9 @@
                 <div class="tab" onclick="switchTab('inventoryRemoved')" id="inventoryRemovedTab">
                     Inventory Removed<span class="tab-badge" id="inventoryRemovedBadge">0</span>
                 </div>
+                <div class="tab" onclick="switchTab('history')" id="historyTab">
+                    Order History<span class="tab-badge" id="historyBadge">0</span>
+                </div>
             </div>
             
             <!-- Controls Row (Manifest, Search, Filters) -->
@@ -521,6 +524,8 @@
             updateOrderCardSelection();
         }
         let filteredOrders = [];
+        let historyOrders = []; // Store order history separately
+        
         async function loadOrders() {
             const container = document.getElementById('ordersTableContainer');
             container.innerHTML = '<p>Loading orders...</p>';
@@ -535,6 +540,10 @@
                     return;
                 }
                 orders = ordersRaw;
+                
+                // Also load Order History
+                await loadOrderHistory();
+                
                 updateTabBadges();
                 filterOrders(); // This will apply tab filtering and set filteredOrders
                 populateRetailerFilter();
@@ -542,6 +551,24 @@
                 updateSelectedCount();
             } catch (err) {
                 container.innerHTML = `<p style="color:red;">Error loading orders: ${err.message}</p>`;
+            }
+        }
+        
+        async function loadOrderHistory() {
+            try {
+                const { data: historyRaw, error } = await supabase
+                    .from('Order History')
+                    .select('*')
+                    .order('ShippedAt', { ascending: false });
+                if (error) {
+                    console.error('Error loading order history:', error);
+                    historyOrders = [];
+                    return;
+                }
+                historyOrders = historyRaw || [];
+            } catch (err) {
+                console.error('Error loading order history:', err);
+                historyOrders = [];
             }
         }
 
@@ -574,7 +601,10 @@
     const retailer = document.getElementById('retailerFilter').value;
     const sortValue = document.getElementById('sortFilter').value;
     
-    filteredOrders = orders.filter(o => {
+    // Use different data source based on current tab
+    const sourceOrders = currentTab === 'history' ? historyOrders : orders;
+    
+    filteredOrders = sourceOrders.filter(o => {
         let match = true;
         
         // Filter by current tab (inventory status)
@@ -583,6 +613,7 @@
         } else if (currentTab === 'inventoryRemoved') {
             if (o.InventoryRemoved !== true) return false;
         }
+        // For history tab, show all history orders (no InventoryRemoved field check needed)
         
         if (search) {
             // Helper to safely include
@@ -678,6 +709,7 @@
             
             document.getElementById('newBadge').textContent = newOrders.length;
             document.getElementById('inventoryRemovedBadge').textContent = inventoryRemovedOrders.length;
+            document.getElementById('historyBadge').textContent = historyOrders.length;
         }
 
         function clearFilters() {
