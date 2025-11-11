@@ -314,6 +314,7 @@
     </div>
 </div>
             <div class="action-buttons">
+                <button id="refreshOrdersBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#3498db; color:white;" onclick="refreshShippoOrders()">🔄 Refresh Orders</button>
                 <button class="btn" onclick="window.open('https://apps.goshippo.com/orders/create', '_blank')" id="createOrderBtn" style="background: #4DBA93; border-color: #3da682;">
                     ➕ Create Order
                 </button>
@@ -807,6 +808,52 @@
         function closeEditOrderModal() {
             document.getElementById('editOrderModal').style.display = 'none';
         }
+        
+        async function refreshShippoOrders() {
+            const btn = document.getElementById('refreshOrdersBtn');
+            const originalText = btn.innerHTML;
+            
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Refreshing...';
+                btn.style.background = '#95a5a6';
+                
+                const response = await fetch('/.netlify/functions/shippo-get-orders-cron', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to refresh orders: ${response.status}`);
+                }
+                
+                const result = await response.text();
+                console.log('Refresh result:', result);
+                
+                // Show success message
+                btn.innerHTML = '✅ Refreshed!';
+                btn.style.background = '#27ae60';
+                
+                // Reload orders
+                await loadOrders();
+                
+                // Reset button after 2 seconds
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '#3498db';
+                    btn.disabled = false;
+                }, 2000);
+            } catch (error) {
+                console.error('Error refreshing orders:', error);
+                alert('Failed to refresh orders: ' + error.message);
+                btn.innerHTML = originalText;
+                btn.style.background = '#3498db';
+                btn.disabled = false;
+            }
+        }
+        
         async function printPicklistAndPackingSlips() {
             if (selectedOrders.size === 0) {
                 alert('Please select at least one order to print.');
