@@ -246,6 +246,60 @@
             cursor: not-allowed;
             transform: none;
         }
+        
+        /* Tabs styling */
+        .tabs-container {
+            background: white;
+            padding: 0;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 0;
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .tab {
+            flex: 1;
+            padding: 16px 24px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            color: #666;
+            background: #f5f5f5;
+            border: none;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .tab:first-child {
+            border-radius: 12px 0 0 0;
+        }
+        .tab:last-child {
+            border-radius: 0 12px 0 0;
+        }
+        .tab:hover {
+            background: #e8e8e8;
+            color: #333;
+        }
+        .tab.active {
+            background: white;
+            color: #4DBA93;
+            border-bottom: 3px solid #4DBA93;
+        }
+        .tab-badge {
+            display: inline-block;
+            background: #4DBA93;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+            font-weight: 700;
+        }
+        .tab.active .tab-badge {
+            background: #3a9b74;
+        }
+        
     /* Toggle arrow spacing (arrow on the right) */
     .toggle-arrow { display: inline-block; margin-left: 6px; }
         /* Platform badge styles */
@@ -292,6 +346,17 @@
     <div class="main-content">
         <div class="container">
             <h1>Order Viewer</h1>
+            
+            <!-- Tabs for order status -->
+            <div class="tabs-container">
+                <div class="tab active" onclick="switchTab('new')" id="newTab">
+                    New Orders<span class="tab-badge" id="newBadge">0</span>
+                </div>
+                <div class="tab" onclick="switchTab('inventoryRemoved')" id="inventoryRemovedTab">
+                    Inventory Removed<span class="tab-badge" id="inventoryRemovedBadge">0</span>
+                </div>
+            </div>
+            
             <!-- Controls Row (Manifest, Search, Filters) -->
 <div class="controls">
     <div class="search-box">
@@ -311,13 +376,6 @@
         <select id="retailerFilter" onchange="filterOrders()">
             <option value="">All Retailers</option>
             <!-- Options will be populated dynamically -->
-        </select>
-        <select id="statusFilter" onchange="filterOrders()">
-            <option value="">All Statuses</option>
-            <option value="hasNotes">Has Notes</option>
-            <option value="hasMessages">Has Customer Messages</option>
-            <option value="inventoryRemoved">Inventory Removed</option>
-            <option value="noInventoryRemoved">Inventory Not Removed</option>
         </select>
         <select id="sortFilter" onchange="filterOrders()">
             <option value="">Sort by...</option>
@@ -359,6 +417,8 @@
         
         let selectedOrders = new Set();
         let orders = [];
+        let currentTab = 'new'; // Track current active tab
+        
         // Helpers to render platform badges consistently
         function platformClass(p) {
             const s = (p || '').toLowerCase().trim();
@@ -475,7 +535,8 @@
                     return;
                 }
                 orders = ordersRaw;
-                filteredOrders = ordersRaw;
+                updateTabBadges();
+                filterOrders(); // This will apply tab filtering and set filteredOrders
                 populateRetailerFilter();
                 renderOrders();
                 updateSelectedCount();
@@ -511,11 +572,18 @@
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     const platform = document.getElementById('platformFilter').value;
     const retailer = document.getElementById('retailerFilter').value;
-    const statusValue = document.getElementById('statusFilter').value;
     const sortValue = document.getElementById('sortFilter').value;
     
     filteredOrders = orders.filter(o => {
         let match = true;
+        
+        // Filter by current tab (inventory status)
+        if (currentTab === 'new') {
+            if (o.InventoryRemoved === true) return false;
+        } else if (currentTab === 'inventoryRemoved') {
+            if (o.InventoryRemoved !== true) return false;
+        }
+        
         if (search) {
             // Helper to safely include
             const incl = (v) => v !== undefined && v !== null && v.toString().toLowerCase().includes(search);
@@ -544,17 +612,6 @@
             if (plat !== filterPlat) match = false;
         }
         if (retailer && o.Retailer !== retailer) match = false;
-        
-        // Status filtering
-        if (statusValue === 'hasNotes') {
-            if (!o.Notes || o.Notes.trim().length === 0) match = false;
-        } else if (statusValue === 'hasMessages') {
-            if (!o.CustomerMessages || o.CustomerMessages.trim().length === 0) match = false;
-        } else if (statusValue === 'inventoryRemoved') {
-            if (o.InventoryRemoved !== true) match = false;
-        } else if (statusValue === 'noInventoryRemoved') {
-            if (o.InventoryRemoved === true) match = false;
-        }
         
         return match;
     });
@@ -601,11 +658,32 @@
     updateOrderCardSelection();
 }
 
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update tab UI
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tab + 'Tab').classList.add('active');
+            
+            // Update badge counts
+            updateTabBadges();
+            
+            // Re-filter orders based on new tab
+            filterOrders();
+        }
+        
+        function updateTabBadges() {
+            const newOrders = orders.filter(o => o.InventoryRemoved !== true);
+            const inventoryRemovedOrders = orders.filter(o => o.InventoryRemoved === true);
+            
+            document.getElementById('newBadge').textContent = newOrders.length;
+            document.getElementById('inventoryRemovedBadge').textContent = inventoryRemovedOrders.length;
+        }
+
         function clearFilters() {
             document.getElementById('searchInput').value = '';
             document.getElementById('platformFilter').value = '';
             document.getElementById('retailerFilter').value = '';
-            document.getElementById('statusFilter').value = '';
             document.getElementById('sortFilter').value = '';
             filterOrders();
         }
