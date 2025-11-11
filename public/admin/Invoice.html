@@ -535,8 +535,8 @@
                 } catch (e) {
                     console.warn('Error fetching Amazon Shipments:', e);
                 }
-                // Get user inputted rate
-                const amazonRate = parseFloat(document.getElementById('amazonRate').value) || 0;
+                // Get user inputted kitting rate
+                const kittingRate = parseFloat(document.getElementById('kittingRate').value) || 0;
 
                 // Get all unique box SKUs from orders and amazonBoxes to fetch costs in one query
                 const allBoxSkus = new Set();
@@ -644,8 +644,8 @@
                     });
                 });
 
-                // Amazon Shipments Charges
-                let amazonPiecesCharge = amazonPieces * amazonRate;
+                // Kitting Work Charges (Amazon Shipments)
+                let kittingPiecesCharge = amazonPieces * kittingRate;
                 let amazonBoxesCharge = 0;
                 for (const box of amazonBoxes) {
                     if (box && box.sku && boxCostMap.has(box.sku)) {
@@ -656,7 +656,7 @@
                 // Receiving hours and storage fee
                 const receivingCost = 25+Math.max((receivingHours - 2) * 25,0);
                 const storageFee = (bins * 7.5) + (shelves * 12.5) + (pallets * 40);
-                const total = shippingCosts + boxCosts + baseFees + extraItemFees + insertsFees + receivingCost + storageFee + amazonPiecesCharge + amazonBoxesCharge;
+                const total = shippingCosts + boxCosts + baseFees + extraItemFees + insertsFees + receivingCost + storageFee + kittingPiecesCharge + amazonBoxesCharge;
 
                 const breakdown = {
                     shippingCosts: shippingCosts,
@@ -666,21 +666,23 @@
                     insertsFees: insertsFees,
                     receivingCost: receivingCost,
                     storageFee: storageFee,
-                    amazonPiecesCharge: amazonPiecesCharge,
+                    kittingPiecesCharge: kittingPiecesCharge,
                     amazonBoxesCharge: amazonBoxesCharge,
                     total: total
                 };
-            // Amazon Shipments breakdown
-            let amazonPiecesRow = document.getElementById('amazonPiecesRow');
-            if (!amazonPiecesRow) {
+            // Kitting Work (Amazon Shipments) breakdown
+            let kittingPiecesRow = document.getElementById('kittingPiecesRow');
+            if (!kittingPiecesRow) {
                 const breakdownSection = document.querySelector('.breakdown-section');
-                amazonPiecesRow = document.createElement('div');
-                amazonPiecesRow.className = 'breakdown-item';
-                amazonPiecesRow.id = 'amazonPiecesRow';
-                    amazonPiecesRow.innerHTML = `<span class="breakdown-label">Amazon Shipments: Pieces Charge (${amazonRate.toFixed(2)} × ${amazonPieces} = $${amazonPiecesCharge.toFixed(2)}):</span><span class="breakdown-value" id="amazonPiecesCharge">$${amazonPiecesCharge.toFixed(2)}</span>`;
-                breakdownSection.appendChild(amazonPiecesRow);
+                kittingPiecesRow = document.createElement('div');
+                kittingPiecesRow.className = 'breakdown-item';
+                kittingPiecesRow.id = 'kittingPiecesRow';
+                    kittingPiecesRow.innerHTML = `<span class="breakdown-label">Kitting Work: Pieces Charge (${kittingRate.toFixed(2)} × ${amazonPieces} pieces = $${kittingPiecesCharge.toFixed(2)}):</span><span class="breakdown-value" id="kittingPiecesCharge">$${kittingPiecesCharge.toFixed(2)}</span>`;
+                breakdownSection.appendChild(kittingPiecesRow);
+            } else {
+                kittingPiecesRow.querySelector('.breakdown-label').innerHTML = `Kitting Work: Pieces Charge (${kittingRate.toFixed(2)} × ${amazonPieces} pieces = $${kittingPiecesCharge.toFixed(2)}):`;
             }
-            document.getElementById('amazonPiecesCharge').textContent = `$${(breakdown.amazonPiecesCharge || 0).toFixed(2)}`;
+            document.getElementById('kittingPiecesCharge').textContent = `$${(breakdown.kittingPiecesCharge || 0).toFixed(2)}`;
 
             let amazonBoxesRow = document.getElementById('amazonBoxesRow');
             if (!amazonBoxesRow) {
