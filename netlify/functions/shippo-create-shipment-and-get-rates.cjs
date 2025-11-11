@@ -125,7 +125,7 @@ exports.handler = async (event) => {
 			const weightOz = Number(it.WeightOz ?? it.weight_oz ?? it.weightOz ?? 0);
 			const netWeightLb = weightOz ? (weightOz / 16) : 0;
 			const valueEach = Number(it.Value ?? it.value ?? it.Price ?? it.price ?? 5) || 5;
-			const desc = String(it.Name ?? it.name ?? it.description ?? 'Merchandise').slice(0, 45) || 'Merchandise';
+			const desc = String(it.Name ?? it.name ?? it.description ?? 'Merchandise').slice(0, 30) || 'Merchandise';
 			
 			customsItems.push({
 				description: desc,
