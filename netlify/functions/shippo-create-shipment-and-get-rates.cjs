@@ -29,11 +29,13 @@ exports.handler = async (event) => {
 	try {
 		payload = JSON.parse(event.body || '{}');
 	} catch (err) {
+		console.error('[shippo-create-shipment-and-get-rates] JSON parse error:', err);
 		return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body.' }) };
 	}
 	
 	const { order, parcels } = payload;
 	if (!order || !Array.isArray(parcels) || parcels.length === 0) {
+		console.error('[shippo-create-shipment-and-get-rates] Missing order or parcels:', { hasOrder: !!order, parcelsLength: Array.isArray(parcels) ? parcels.length : 'not array' });
 		return { statusCode: 400, body: JSON.stringify({ error: 'Missing order or parcels array.' }) };
 	}
 
@@ -56,6 +58,7 @@ exports.handler = async (event) => {
 	}
 	
 	if (!parcelsArr.length) {
+		console.error('[shippo-create-shipment-and-get-rates] No valid parcels after sanitization. Input parcels:', parcels);
 		return { statusCode: 400, body: JSON.stringify({ error: 'No valid parcels supplied.' }) };
 	}
 
@@ -173,14 +176,17 @@ exports.handler = async (event) => {
 			if (customsResp.ok && customsData?.object_id) {
 				shipmentPayload.customs_declaration = customsData.object_id;
 			} else {
+				console.error('[shippo-create-shipment-and-get-rates] Customs declaration error:', customsData);
 				return { statusCode: 500, body: JSON.stringify({ error: 'Error creating customs declaration', detail: customsData }) };
 			}
 		} catch (err) {
+			console.error('[shippo-create-shipment-and-get-rates] Exception creating customs declaration:', err);
 			return { statusCode: 500, body: JSON.stringify({ error: 'Exception creating customs declaration', message: err.message }) };
 		}
 	}
 
 	// Create shipment
+	console.log('[shippo-create-shipment-and-get-rates] Creating shipment with', parcelsArr.length, 'parcel(s)');
 	try {
 		const resp = await fetch('https://api.goshippo.com/shipments/', {
 			method: 'POST',
@@ -195,25 +201,30 @@ exports.handler = async (event) => {
 			const errorText = await resp.text();
 			let errorDetail;
 			try { errorDetail = JSON.parse(errorText); } catch { errorDetail = errorText; }
+			console.error('[shippo-create-shipment-and-get-rates] Shippo API error:', resp.status, errorDetail);
 			return { statusCode: resp.status, body: JSON.stringify({ error: 'Error creating shipment', detail: errorDetail }) };
 		}
 		
 		const shipment = await resp.json();
 		
 		if (!shipment?.object_id) {
+			console.error('[shippo-create-shipment-and-get-rates] Invalid shipment response:', shipment);
 			return { statusCode: 500, body: JSON.stringify({ error: 'Invalid shipment response', detail: shipment }) };
 		}
 		
 		const rates = shipment.rates || [];
 		if (!rates.length) {
+			console.error('[shippo-create-shipment-and-get-rates] No rates returned. Shipment:', shipment.object_id);
 			return { statusCode: 502, body: JSON.stringify({ error: 'No rates returned from Shippo.' }) };
 		}
 		
+		console.log('[shippo-create-shipment-and-get-rates] Success:', rates.length, 'rate(s) for shipment', shipment.object_id);
 		return {
 			statusCode: 200,
 			body: JSON.stringify({ rates, shipment_id: shipment.object_id })
 		};
 	} catch (err) {
+		console.error('[shippo-create-shipment-and-get-rates] Exception creating shipment:', err);
 		return { statusCode: 500, body: JSON.stringify({ error: 'Exception creating shipment', message: err.message }) };
 	}
 };
