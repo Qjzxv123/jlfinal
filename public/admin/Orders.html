@@ -267,6 +267,7 @@
         .platform-amazon { background: #ff9900; }
         .platform-woocommerce { background: #96588a; }
         .platform-tiktok { background: #ff0050; }
+        .platform-walmart { background: #0071ce; }
         /* Inventory Removed badge */
         .inv-removed-badge {
             display: inline-block;
@@ -348,6 +349,7 @@
             if (s === 'amazon') return 'platform-amazon';
             if (s === 'woocommerce') return 'platform-woocommerce';
             if (s === 'tiktok') return 'platform-tiktok';
+            if (s === 'walmart') return 'platform-walmart';
             return '';
         }
         function getPlatformBadgeHtml(p) {
