@@ -1050,18 +1050,20 @@
             }
             // --- Master Picklist ---
             const selectedOrdersData = orders.filter(order => selectedOrders.has(String(order.OrderID)));
-            // Fetch default customer messages per retailer
+            // Fetch default customer messages and logo URLs per retailer
             const retailers = Array.from(new Set(selectedOrdersData.map(o => o.Retailer).filter(Boolean)));
             const defaultMsgByRetailer = {};
+            const logoURLByRetailer = {};
             if (retailers.length > 0) {
                 try {
                     const { data: usersMsgData, error: usersMsgError } = await supabase
                         .from('Users')
-                        .select('display_name, "DefaultCustomerMessage"')
+                        .select('display_name, "DefaultCustomerMessage", "LogoURL"')
                         .in('display_name', retailers);
                     if (!usersMsgError && usersMsgData) {
                         usersMsgData.forEach(u => {
                             defaultMsgByRetailer[u.display_name] = u.DefaultCustomerMessage || '';
+                            logoURLByRetailer[u.display_name] = u.LogoURL || '';
                         });
                     }
                 } catch (e) {
@@ -1118,20 +1120,10 @@
                 try {
                     itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items);
                 } catch (e) {}
-                // Retailer logo logic
-                let logoUrl = '';
-                let logoAlt = '';
-                const shop = (order.Retailer || '').toLowerCase();
-                if (shop.includes('desesh')) {
-                    logoUrl = 'https://desesh.com/cdn/shop/files/Desesh_Logo_-_Zero_Waste_Plastic_Free_Sustainable_Kitchen_Bathroom_Laundry.png?v=1669413380&width=500';
-                    logoAlt = 'Desesh Logo';
-                } else if (shop.includes('river organics')) {
-                    logoUrl = 'https://riverorganics.org/cdn/shop/files/RO_Secondary_Logos-14_98f44cae-12e5-46ee-9391-5e0e168f2427.png?v=1735735433&width=255';
-                    logoAlt = 'River Organics Logo';
-                } else if (shop.includes('j&l naturals')) {
-                    logoUrl = 'https://www.jnlnaturals.com/cdn/shop/files/JL_PNG_TRAN_BLACK_FINAL_Cropped_outlined.png?v=1697910301&width=300';
-                    logoAlt = 'JNL Naturals Logo';
-                }
+                // Get retailer logo from Users table
+                const logoUrl = logoURLByRetailer[order.Retailer] || '';
+                const logoAlt = order.Retailer ? `${order.Retailer} Logo` : '';
+                
                 const fallbackMsg = (order.CustomerMessages && String(order.CustomerMessages).trim()) || defaultMsgByRetailer[order.Retailer] || '';
                 packingSlipsHtml += `
                     <div style="font-family: Arial, sans-serif; padding: 20px; background: white; ${index > 0 ? 'page-break-before: always;' : ''}">
