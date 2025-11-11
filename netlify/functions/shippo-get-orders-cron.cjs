@@ -219,7 +219,7 @@ exports.handler = async (event) => {
       // Check if order exists to preserve Notes, CustomerMessages, and InventoryRemoved
       const { data: existingOrder } = await supabase
         .from('Orders')
-        .select('Notes, CustomerMessages, InventoryRemoved','Retailer')
+        .select('Notes, CustomerMessages, InventoryRemoved, Retailer')
         .eq('OrderID', orderID)
         .single();
       
