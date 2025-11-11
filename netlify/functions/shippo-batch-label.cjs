@@ -2,7 +2,15 @@
 // Creates and purchases labels for a batch of orders, moves them to Order History,
 // decrements box inventory, fulfills Faire orders, and returns label URLs for printing.
 
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+// Cache fetch module at cold start
+let fetchModule;
+const getFetch = async () => {
+	if (!fetchModule) {
+		fetchModule = await import('node-fetch');
+	}
+	return fetchModule.default;
+};
+
 const { createClient } = require('@supabase/supabase-js');
 
 let getTokenRow = null;
@@ -38,80 +46,86 @@ exports.handler = async (event) => {
 		}
 
 		const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-		const results = [];
+		
+		// Process all orders in parallel
+		const results = await Promise.all(
+			orders.map(async (entry) => {
+				const orderId = entry?.orderId;
+				const rateId = entry?.rateId;
+				const packages = Array.isArray(entry?.packages) ? entry.packages : [];
+				const orderData = entry?.orderData || {};
+				const rateMeta = entry?.rate || {};
+				
+				if (!orderId || !rateId) {
+					return {
+						orderId,
+						success: false,
+						error: 'Missing orderId or rateId in request payload.'
+					};
+				}
 
-		for (const entry of orders) {
-			const orderId = entry?.orderId;
-			const rateId = entry?.rateId;
-			const packages = Array.isArray(entry?.packages) ? entry.packages : [];
-			const orderData = entry?.orderData || {};
-			const rateMeta = entry?.rate || {};
-			if (!orderId || !rateId) {
-				results.push({
-					orderId,
-					success: false,
-					error: 'Missing orderId or rateId in request payload.'
-				});
-				continue;
-			}
+				const normalizedOrderId = String(orderId);
+				const warnings = [];
+				let labelInfo = null;
 
-			const normalizedOrderId = String(orderId);
-			const warnings = [];
-			let labelInfo = null;
-
-			try {
-				labelInfo = await purchaseLabel({
-					rateId,
-					orderData,
-					rateMeta
-				});
-			} catch (err) {
-				results.push({
-					orderId: normalizedOrderId,
-					success: false,
-					error: `Label purchase failed: ${err?.message || err}`
-				});
-				continue;
-			}
-
-			try {
-				await upsertOrderHistory({ supabase, orderData, packages, labelInfo, rateMeta });
-			} catch (err) {
-				warnings.push(`Order History update failed: ${err?.message || err}`);
-			}
-
-			try {
-				await removeOrderFromActive({ supabase, orderId: normalizedOrderId });
-			} catch (err) {
-				warnings.push(`Failed to remove order from active list: ${err?.message || err}`);
-			}
-
-			const boxWarnings = await decrementBoxesInventory({ supabase, packages });
-			warnings.push(...boxWarnings);
-
-			if (isFaireOrder(orderData)) {
 				try {
-					await fulfillFaireOrder({
+					labelInfo = await purchaseLabel({
+						rateId,
 						orderData,
-						trackingNumber: labelInfo.trackingNumber,
-						carrier: labelInfo.carrier || rateMeta.provider || rateMeta.carrier || 'UNKNOWN',
-						shippingCost: labelInfo.shippingCost
+						rateMeta
 					});
 				} catch (err) {
-					warnings.push(`Faire fulfillment failed: ${err?.message || err}`);
+					return {
+						orderId: normalizedOrderId,
+						success: false,
+						error: `Label purchase failed: ${err?.message || err}`
+					};
 				}
-			}
 
-			results.push({
-				orderId: normalizedOrderId,
-				success: warnings.length === 0,
-				labelUrl: labelInfo.labelUrl,
-				trackingNumber: labelInfo.trackingNumber,
-				shippingCost: labelInfo.shippingCost,
-				carrier: labelInfo.carrier || rateMeta.provider || rateMeta.carrier || null,
-				warnings
-			});
-		}
+				// Parallelize database operations (Order History, remove from Orders, box inventory)
+				const [historyResult, removeResult, boxWarnings] = await Promise.allSettled([
+					upsertOrderHistory({ supabase, orderData, packages, labelInfo, rateMeta }),
+					removeOrderFromActive({ supabase, orderId: normalizedOrderId }),
+					decrementBoxesInventory({ supabase, packages })
+				]);
+
+				if (historyResult.status === 'rejected') {
+					warnings.push(`Order History update failed: ${historyResult.reason?.message || historyResult.reason}`);
+				}
+				if (removeResult.status === 'rejected') {
+					warnings.push(`Failed to remove order from active list: ${removeResult.reason?.message || removeResult.reason}`);
+				}
+				if (boxWarnings.status === 'fulfilled' && Array.isArray(boxWarnings.value)) {
+					warnings.push(...boxWarnings.value);
+				} else if (boxWarnings.status === 'rejected') {
+					warnings.push(`Box inventory update failed: ${boxWarnings.reason?.message || boxWarnings.reason}`);
+				}
+
+				// Faire fulfillment (if applicable)
+				if (isFaireOrder(orderData)) {
+					try {
+						await fulfillFaireOrder({
+							orderData,
+							trackingNumber: labelInfo.trackingNumber,
+							carrier: labelInfo.carrier || rateMeta.provider || rateMeta.carrier || 'UNKNOWN',
+							shippingCost: labelInfo.shippingCost
+						});
+					} catch (err) {
+						warnings.push(`Faire fulfillment failed: ${err?.message || err}`);
+					}
+				}
+
+				return {
+					orderId: normalizedOrderId,
+					success: warnings.length === 0,
+					labelUrl: labelInfo.labelUrl,
+					trackingNumber: labelInfo.trackingNumber,
+					shippingCost: labelInfo.shippingCost,
+					carrier: labelInfo.carrier || rateMeta.provider || rateMeta.carrier || null,
+					warnings
+				};
+			})
+		);
 
 		return jsonResponse(200, { results });
 	} catch (err) {
@@ -128,6 +142,8 @@ function jsonResponse(statusCode, body) {
 }
 
 async function purchaseLabel({ rateId, orderData, rateMeta }) {
+	const fetch = await getFetch();
+	
 	const transactionBody = {
 		rate: rateId,
 		label_file_type: 'PDF_4x6'
@@ -178,6 +194,7 @@ async function purchaseLabel({ rateId, orderData, rateMeta }) {
 }
 
 async function pollTransaction(objectId) {
+	const fetch = await getFetch();
 	const pollUrl = `https://api.goshippo.com/transactions/${objectId}`;
 	const maxPolls = 10;
 	const pollDelay = 2000;
@@ -260,38 +277,66 @@ async function removeOrderFromActive({ supabase, orderId }) {
 
 async function decrementBoxesInventory({ supabase, packages }) {
 	if (!Array.isArray(packages) || !packages.length) return [];
-	const counts = packages.reduce((acc, pkg) => {
+	
+	// Count packages by SKU
+	const counts = {};
+	for (const pkg of packages) {
 		const sku = (pkg?.boxSku || pkg?.boxsku || '').trim();
-		if (!sku) return acc;
-		acc[sku] = (acc[sku] || 0) + 1;
-		return acc;
-	}, {});
-	const warnings = [];
-	const entries = Object.entries(counts);
-	for (const [sku, count] of entries) {
-		try {
-			const { data, error } = await supabase
-				.from('Boxes')
-				.select('Quantity')
-				.eq('SKU', sku)
-				.single();
-			if (error) {
-				warnings.push(`Failed to load box ${sku}: ${error.message || error}`);
-				continue;
-			}
-			const currentQty = Number(data?.Quantity) || 0;
-			const newQty = currentQty - count;
-			const { error: updateError } = await supabase
-				.from('Boxes')
-				.update({ Quantity: newQty })
-				.eq('SKU', sku);
-			if (updateError) {
-				warnings.push(`Failed to update box ${sku}: ${updateError.message || updateError}`);
-			}
-		} catch (err) {
-			warnings.push(`Error updating box ${sku}: ${err?.message || err}`);
+		if (sku) {
+			counts[sku] = (counts[sku] || 0) + 1;
 		}
 	}
+	
+	const entries = Object.entries(counts);
+	if (!entries.length) return [];
+	
+	// Fetch all box quantities in parallel
+	const boxResults = await Promise.allSettled(
+		entries.map(([sku]) => 
+			supabase
+				.from('Boxes')
+				.select('SKU, Quantity')
+				.eq('SKU', sku)
+				.single()
+		)
+	);
+	
+	// Build update operations
+	const updates = [];
+	const warnings = [];
+	
+	for (let i = 0; i < entries.length; i++) {
+		const [sku, count] = entries[i];
+		const result = boxResults[i];
+		
+		if (result.status === 'rejected' || result.value.error) {
+			warnings.push(`Failed to load box ${sku}: ${result.reason?.message || result.value.error?.message || 'Unknown error'}`);
+			continue;
+		}
+		
+		const currentQty = Number(result.value.data?.Quantity) || 0;
+		const newQty = currentQty - count;
+		updates.push({ sku, newQty });
+	}
+	
+	// Execute all updates in parallel
+	const updateResults = await Promise.allSettled(
+		updates.map(({ sku, newQty }) =>
+			supabase
+				.from('Boxes')
+				.update({ Quantity: newQty })
+				.eq('SKU', sku)
+		)
+	);
+	
+	// Collect update warnings
+	for (let i = 0; i < updates.length; i++) {
+		const result = updateResults[i];
+		if (result.status === 'rejected' || result.value.error) {
+			warnings.push(`Failed to update box ${updates[i].sku}: ${result.reason?.message || result.value.error?.message || 'Unknown error'}`);
+		}
+	}
+	
 	return warnings;
 }
 
@@ -316,6 +361,7 @@ async function fulfillFaireOrder({ orderData, trackingNumber, carrier, shippingC
 		throw new Error('No Faire access token available.');
 	}
 
+	const fetch = await getFetch();
 	const shipments = [{
 		order_id: orderData?.OrderID ?? orderData?.OrderNumber ?? orderData?.orderId,
 		tracking_code: trackingNumber || 'UNKNOWN',
