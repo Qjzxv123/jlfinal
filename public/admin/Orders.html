@@ -818,7 +818,7 @@
                 btn.innerHTML = '⏳ Refreshing...';
                 btn.style.background = '#95a5a6';
                 
-                const response = await fetch('/.netlify/functions/shippo-get-orders-cron', {
+                const response = await fetch('/.netlify/functions/shippo-refresh-orders', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -826,7 +826,8 @@
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`Failed to refresh orders: ${response.status}`);
+                    const result = await response.text();
+                    throw new Error(`Server returned ${response.status}: ${result}`);
                 }
                 
                 const result = await response.text();
