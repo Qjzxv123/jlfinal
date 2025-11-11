@@ -306,15 +306,34 @@
             <option value="amazon">Amazon</option>
             <option value="woocommerce">WooCommerce</option>
             <option value="tiktok">TikTok</option>
+            <option value="walmart">Walmart</option>
         </select>
         <select id="retailerFilter" onchange="filterOrders()">
             <option value="">All Retailers</option>
             <!-- Options will be populated dynamically -->
         </select>
+        <select id="statusFilter" onchange="filterOrders()">
+            <option value="">All Statuses</option>
+            <option value="hasNotes">Has Notes</option>
+            <option value="hasMessages">Has Customer Messages</option>
+            <option value="inventoryRemoved">Inventory Removed</option>
+            <option value="noInventoryRemoved">Inventory Not Removed</option>
+        </select>
+        <select id="sortFilter" onchange="filterOrders()">
+            <option value="">Sort by...</option>
+            <option value="orderIdAsc">Order ID (A-Z)</option>
+            <option value="orderIdDesc">Order ID (Z-A)</option>
+            <option value="retailerAsc">Retailer (A-Z)</option>
+            <option value="retailerDesc">Retailer (Z-A)</option>
+            <option value="platformAsc">Platform (A-Z)</option>
+            <option value="platformDesc">Platform (Z-A)</option>
+        </select>
+        <button class="btn" style="background:#e74c3c; padding:6px 12px; font-size:14px; border-radius:6px;" onclick="clearFilters()">Clear Filters</button>
     </div>
 </div>
             <div class="action-buttons">
                 <button id="refreshOrdersBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#3498db; color:white;" onclick="refreshShippoOrders()">🔄 Refresh Orders</button>
+                <button id="expandAllItemsBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#16a085; color:white;" onclick="toggleAllItems()">📦 Expand All Items</button>
                 <button class="btn" onclick="window.open('https://apps.goshippo.com/orders/create', '_blank')" id="createOrderBtn" style="background: #4DBA93; border-color: #3da682;">
                     ➕ Create Order
                 </button>
@@ -492,6 +511,9 @@
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     const platform = document.getElementById('platformFilter').value;
     const retailer = document.getElementById('retailerFilter').value;
+    const statusValue = document.getElementById('statusFilter').value;
+    const sortValue = document.getElementById('sortFilter').value;
+    
     filteredOrders = orders.filter(o => {
         let match = true;
         if (search) {
@@ -522,13 +544,71 @@
             if (plat !== filterPlat) match = false;
         }
         if (retailer && o.Retailer !== retailer) match = false;
+        
+        // Status filtering
+        if (statusValue === 'hasNotes') {
+            if (!o.Notes || o.Notes.trim().length === 0) match = false;
+        } else if (statusValue === 'hasMessages') {
+            if (!o.CustomerMessages || o.CustomerMessages.trim().length === 0) match = false;
+        } else if (statusValue === 'inventoryRemoved') {
+            if (o.InventoryRemoved !== true) match = false;
+        } else if (statusValue === 'noInventoryRemoved') {
+            if (o.InventoryRemoved === true) match = false;
+        }
+        
         return match;
     });
+    
+    // Apply sorting
+    if (sortValue) {
+        filteredOrders.sort((a, b) => {
+            let compareA, compareB;
+            
+            switch(sortValue) {
+                case 'orderIdAsc':
+                    compareA = (a.OrderID || '').toString().toLowerCase();
+                    compareB = (b.OrderID || '').toString().toLowerCase();
+                    return compareA.localeCompare(compareB);
+                case 'orderIdDesc':
+                    compareA = (a.OrderID || '').toString().toLowerCase();
+                    compareB = (b.OrderID || '').toString().toLowerCase();
+                    return compareB.localeCompare(compareA);
+                case 'retailerAsc':
+                    compareA = (a.Retailer || '').toLowerCase();
+                    compareB = (b.Retailer || '').toLowerCase();
+                    return compareA.localeCompare(compareB);
+                case 'retailerDesc':
+                    compareA = (a.Retailer || '').toLowerCase();
+                    compareB = (b.Retailer || '').toLowerCase();
+                    return compareB.localeCompare(compareA);
+                case 'platformAsc':
+                    compareA = (a.Platform || '').toLowerCase();
+                    compareB = (b.Platform || '').toLowerCase();
+                    return compareA.localeCompare(compareB);
+                case 'platformDesc':
+                    compareA = (a.Platform || '').toLowerCase();
+                    compareB = (b.Platform || '').toLowerCase();
+                    return compareB.localeCompare(compareA);
+                default:
+                    return 0;
+            }
+        });
+    }
+    
     renderOrders();
     // Refresh selection-dependent UI (counts, button states, banner)
     updateSelectedCount();
     updateOrderCardSelection();
 }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('platformFilter').value = '';
+            document.getElementById('retailerFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('sortFilter').value = '';
+            filterOrders();
+        }
 
         function renderOrders() {
             const container = document.getElementById('ordersTableContainer');
@@ -610,6 +690,36 @@
                 arrow.textContent = open ? '▲' : '▼';
             }
         }
+        
+        let allItemsExpanded = false;
+        function toggleAllItems() {
+            const itemsLists = document.querySelectorAll('.items-list');
+            const itemsToggles = document.querySelectorAll('.items-toggle .toggle-arrow');
+            const button = document.getElementById('expandAllItemsBtn');
+            
+            if (allItemsExpanded) {
+                // Collapse all
+                itemsLists.forEach(list => {
+                    list.classList.remove('show');
+                });
+                itemsToggles.forEach(arrow => {
+                    arrow.textContent = '▼';
+                });
+                button.textContent = '📦 Expand All Items';
+                allItemsExpanded = false;
+            } else {
+                // Expand all
+                itemsLists.forEach(list => {
+                    list.classList.add('show');
+                });
+                itemsToggles.forEach(arrow => {
+                    arrow.textContent = '▲';
+                });
+                button.textContent = '📦 Collapse All Items';
+                allItemsExpanded = true;
+            }
+        }
+        
         function renderOrderStatsBanner() {
             const banner = document.getElementById('orderStatsBanner');
             if (!banner) return;
