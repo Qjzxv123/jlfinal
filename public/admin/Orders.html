@@ -556,16 +556,38 @@
         
         async function loadOrderHistory() {
             try {
-                const { data: historyRaw, error } = await supabase
-                    .from('Order History')
-                    .select('*')
-                    .order('ShippedAt', { ascending: false });
-                if (error) {
-                    console.error('Error loading order history:', error);
-                    historyOrders = [];
-                    return;
+                let allHistory = [];
+                let from = 0;
+                const pageSize = 1000;
+                let hasMore = true;
+                
+                while (hasMore) {
+                    const { data: historyRaw, error } = await supabase
+                        .from('Order History')
+                        .select('*')
+                        .order('ShippedAt', { ascending: false })
+                        .range(from, from + pageSize - 1);
+                    
+                    if (error) {
+                        console.error('Error loading order history:', error);
+                        historyOrders = allHistory;
+                        return;
+                    }
+                    
+                    if (historyRaw && historyRaw.length > 0) {
+                        allHistory = allHistory.concat(historyRaw);
+                        from += pageSize;
+                        
+                        // If we got less than pageSize, we've reached the end
+                        if (historyRaw.length < pageSize) {
+                            hasMore = false;
+                        }
+                    } else {
+                        hasMore = false;
+                    }
                 }
-                historyOrders = historyRaw || [];
+                
+                historyOrders = allHistory;
             } catch (err) {
                 console.error('Error loading order history:', err);
                 historyOrders = [];
