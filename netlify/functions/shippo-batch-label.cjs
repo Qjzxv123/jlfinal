@@ -28,7 +28,6 @@ const FAIRE_CLIENT_SECRET = process.env.FAIRE_CLIENT_SECRET || '';
 
 exports.handler = async (event) => {
 	try {
-		console.log('[shippo-batch-label] Function invoked');
 		if (event.httpMethod !== 'POST') {
 			console.error('[shippo-batch-label] Invalid HTTP method:', event.httpMethod);
 			return jsonResponse(405, { error: 'Method Not Allowed' });
@@ -54,7 +53,6 @@ exports.handler = async (event) => {
 			return jsonResponse(400, { error: 'No orders supplied.' });
 		}
 
-		console.log('[shippo-batch-label] Processing', orders.length, 'order(s)');
 		const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 		
 		// Process all orders in parallel
@@ -76,7 +74,6 @@ exports.handler = async (event) => {
 				}
 
 				const normalizedOrderId = String(orderId);
-				console.log('[shippo-batch-label] Processing order:', normalizedOrderId, 'with', packages.length, 'package(s)');
 				const warnings = [];
 				let labelInfo = null;
 
@@ -86,7 +83,6 @@ exports.handler = async (event) => {
 						orderData,
 						rateMeta
 					});
-					console.log('[shippo-batch-label] Label purchased for order:', normalizedOrderId, 'Tracking:', labelInfo.trackingNumber);
 				} catch (err) {
 					console.error('[shippo-batch-label] Label purchase failed for order:', normalizedOrderId, err);
 					return {
@@ -112,9 +108,6 @@ exports.handler = async (event) => {
 					warnings.push(`Failed to remove order from active list: ${removeResult.reason?.message || removeResult.reason}`);
 				}
 				if (boxWarnings.status === 'fulfilled' && Array.isArray(boxWarnings.value)) {
-					if (boxWarnings.value.length > 0) {
-						console.warn('[shippo-batch-label] Box inventory warnings for order:', normalizedOrderId, boxWarnings.value);
-					}
 					warnings.push(...boxWarnings.value);
 				} else if (boxWarnings.status === 'rejected') {
 					console.error('[shippo-batch-label] Box inventory update failed for order:', normalizedOrderId, boxWarnings.reason);
@@ -123,7 +116,6 @@ exports.handler = async (event) => {
 
 				// Faire fulfillment (if applicable)
 				if (isFaireOrder(orderData)) {
-					console.log('[shippo-batch-label] Attempting Faire fulfillment for order:', normalizedOrderId);
 					try {
 						await fulfillFaireOrder({
 							orderData,
@@ -131,14 +123,12 @@ exports.handler = async (event) => {
 							carrier: labelInfo.carrier || rateMeta.provider || rateMeta.carrier || 'UNKNOWN',
 							shippingCost: labelInfo.shippingCost
 						});
-						console.log('[shippo-batch-label] Faire fulfillment successful for order:', normalizedOrderId);
 					} catch (err) {
 						console.error('[shippo-batch-label] Faire fulfillment failed for order:', normalizedOrderId, err);
 						warnings.push(`Faire fulfillment failed: ${err?.message || err}`);
 					}
 				}
 
-				console.log('[shippo-batch-label] Order completed:', normalizedOrderId, 'Success:', warnings.length === 0);
 				return {
 					orderId: normalizedOrderId,
 					success: warnings.length === 0,
@@ -151,7 +141,6 @@ exports.handler = async (event) => {
 			})
 		);
 
-		console.log('[shippo-batch-label] Batch complete. Total orders:', orders.length, 'Successful:', results.filter(r => r.success).length);
 		return jsonResponse(200, { results });
 	} catch (err) {
 		console.error('[shippo-batch-label] Unexpected error:', err);
@@ -169,7 +158,6 @@ function jsonResponse(statusCode, body) {
 async function purchaseLabel({ rateId, orderData, rateMeta }) {
 	const fetch = await getFetch();
 	
-	console.log('[purchaseLabel] Purchasing label with rateId:', rateId);
 	const transactionBody = {
 		rate: rateId,
 		label_file_type: 'PDF_4x6'
@@ -200,7 +188,6 @@ async function purchaseLabel({ rateId, orderData, rateMeta }) {
 	}
 
 	if (transaction.status === 'QUEUED' && transaction.object_id) {
-		console.log('[purchaseLabel] Transaction queued, polling for completion:', transaction.object_id);
 		transaction = await pollTransaction(transaction.object_id);
 	}
 
@@ -228,7 +215,6 @@ async function pollTransaction(objectId) {
 	const maxPolls = 10;
 	const pollDelay = 2000;
 	let lastTransaction = null;
-	console.log('[pollTransaction] Starting to poll transaction:', objectId);
 	for (let attempt = 0; attempt < maxPolls; attempt++) {
 		await new Promise(res => setTimeout(res, pollDelay));
 		const resp = await fetch(pollUrl, {
@@ -246,7 +232,6 @@ async function pollTransaction(objectId) {
 			throw new Error('Failed to parse Shippo transaction poll response.');
 		}
 		if (lastTransaction.status === 'SUCCESS' && lastTransaction.label_url) {
-			console.log('[pollTransaction] Transaction successful after', attempt + 1, 'attempt(s)');
 			return lastTransaction;
 		}
 		if (lastTransaction.status === 'ERROR') {
@@ -267,7 +252,6 @@ function extractShippoError(transaction) {
 }
 
 async function upsertOrderHistory({ supabase, orderData, packages, labelInfo, rateMeta }) {
-	console.log('[upsertOrderHistory] Upserting order to history:', orderData?.OrderID);
 	const items = normalizeJsonField(orderData?.Items);
 	const customer = normalizeJsonField(orderData?.Customer);
 	const userIds = normalizeUserIds(orderData?.UserID);
@@ -299,11 +283,9 @@ async function upsertOrderHistory({ supabase, orderData, packages, labelInfo, ra
 		console.error('[upsertOrderHistory] Supabase error:', error);
 		throw new Error(error.message || 'Unknown error writing Order History');
 	}
-	console.log('[upsertOrderHistory] Successfully upserted order:', orderData?.OrderID);
 }
 
 async function removeOrderFromActive({ supabase, orderId }) {
-	console.log('[removeOrderFromActive] Removing order:', orderId);
 	const { error } = await supabase
 		.from('Orders')
 		.delete()
@@ -312,13 +294,11 @@ async function removeOrderFromActive({ supabase, orderId }) {
 		console.error('[removeOrderFromActive] Supabase error:', error);
 		throw new Error(error.message || 'Failed to remove order from active table');
 	}
-	console.log('[removeOrderFromActive] Successfully removed order:', orderId);
 }
 
 async function decrementBoxesInventory({ supabase, packages }) {
 	if (!Array.isArray(packages) || !packages.length) return [];
 	
-	console.log('[decrementBoxesInventory] Processing', packages.length, 'package(s)');
 	// Count packages by SKU
 	const counts = {};
 	for (const pkg of packages) {
@@ -331,7 +311,6 @@ async function decrementBoxesInventory({ supabase, packages }) {
 	const entries = Object.entries(counts);
 	if (!entries.length) return [];
 	
-	console.log('[decrementBoxesInventory] Box SKU counts:', counts);
 	// Fetch all box quantities in parallel
 	const boxResults = await Promise.allSettled(
 		entries.map(([sku]) => 
@@ -379,12 +358,10 @@ async function decrementBoxesInventory({ supabase, packages }) {
 		}
 	}
 	
-	console.log('[decrementBoxesInventory] Completed with', warnings.length, 'warning(s)');
 	return warnings;
 }
 
 async function fulfillFaireOrder({ orderData, trackingNumber, carrier, shippingCost }) {
-	console.log('[fulfillFaireOrder] Starting Faire fulfillment for order:', orderData?.OrderID);
 	if (!getTokenRow) {
 		throw new Error('Faire token utility unavailable on server.');
 	}
@@ -429,7 +406,6 @@ async function fulfillFaireOrder({ orderData, trackingNumber, carrier, shippingC
 		console.error('[fulfillFaireOrder] Faire API error:', response.status, text);
 		throw new Error(`Faire API error: ${text}`);
 	}
-	console.log('[fulfillFaireOrder] Faire fulfillment successful:', orderData?.OrderID);
 	return text;
 }
 
