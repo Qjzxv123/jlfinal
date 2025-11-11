@@ -897,7 +897,7 @@
         // Get current user notification preferences
         const { data: userData, error } = await supabase
           .from('Users')
-          .select('Notifications,DefaultCustomerMessage')
+          .select('Notifications,DefaultCustomerMessage,LogoURL')
           .eq('id', currentUser.id)
           .single();
 
@@ -912,6 +912,7 @@
           promotions: false
         };
         const currentDefaultMessage = userData?.DefaultCustomerMessage || '';
+        const currentLogoURL = userData?.LogoURL || '';
 
         // Create modal HTML
         const modalHTML = `
@@ -994,6 +995,12 @@
                     <div style="font-size:0.9rem;color:#718096;margin-top:4px;">This message will be shown to your customers if no custom message is set for an order.</div>
                   </div>
 
+                  <div style="padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <label for="logoURL" style="font-weight:600;color:#2d3748;display:block;margin-bottom:6px;">Logo URL</label>
+                    <input type="url" id="logoURL" value="${currentLogoURL}" style="width:100%;padding:8px;border-radius:6px;border:1px solid #e2e8f0;font-size:1rem;" placeholder="https://example.com/logo.png">
+                    <div style="font-size:0.9rem;color:#718096;margin-top:4px;">Enter the URL of your company logo for use on packing slips and other documents.</div>
+                  </div>
+
                 </div>
 
                 <div style="display: flex; gap: 15px; margin-top: 30px;">
@@ -1047,6 +1054,7 @@
           taskReminders: document.getElementById('taskReminders').checked,
         };
         const defaultCustomerMessage = document.getElementById('defaultCustomerMessage').value;
+        const logoURL = document.getElementById('logoURL').value;
 
         // First, check if user exists in Users table
         const { data: existingUser, error: checkError } = await supabase
@@ -1063,6 +1071,7 @@
             .update({ 
               Notifications: notifications,
               DefaultCustomerMessage: defaultCustomerMessage,
+              LogoURL: logoURL,
               email: currentUser.email,
               display_name: currentUser.display_name 
             })
@@ -1077,7 +1086,8 @@
               display_name: currentUser.display_name,
               Role: 'client',
               Notifications: notifications,
-              DefaultCustomerMessage: defaultCustomerMessage
+              DefaultCustomerMessage: defaultCustomerMessage,
+              LogoURL: logoURL
             });
         }
 
