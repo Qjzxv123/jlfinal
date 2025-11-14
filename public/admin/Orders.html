@@ -495,10 +495,18 @@
             const removeOrdersBtn = document.getElementById('removeSelectedOrdersBtn');
             const printLabelsBtn = document.getElementById('printShippingLabelsBtn');
             // Manifest button excluded from gating per request
-            setBtnState(printBtn, hasSelection);
+            
+            // Disable packing slip and shipping labels buttons in history tab
+            if (currentTab === 'history') {
+                setBtnState(printBtn, false);
+                setBtnState(printLabelsBtn, false);
+            } else {
+                setBtnState(printBtn, hasSelection);
+                setBtnState(printLabelsBtn, hasSelection);
+            }
+            
             setBtnState(removeOrdersBtn, hasSelection);
             setBtnState(removeInvBtn, hasEligibleForInventory);
-            setBtnState(printLabelsBtn, hasSelection);
         }
         // Toggle selection of all currently visible (filtered) orders
         function toggleSelectVisible() {
@@ -806,8 +814,9 @@
                     <div style="margin-bottom:10px;">
                         <strong>Tracking Number:</strong> ${order.TrackingNumber || 'N/A'}
                     </div>
-                    ` : ''}
+                    ` : `
                     <button class="btn" style="position:absolute; bottom:18px; right:18px; padding:6px 18px; font-size:15px; border-radius:6px; background:#4DBA93;" onclick="openEditOrderModal('${order.OrderID}')">Edit</button>
+                    `}
                 </div>`;
             });
             container.innerHTML = cardsHtml;
