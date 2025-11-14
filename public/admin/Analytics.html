@@ -379,7 +379,10 @@
       </div>
 
       <div class="chart-container">
-        <h2>All Products Performance</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="margin: 0;">All Products Performance</h2>
+          <input type="text" id="productSearchInput" placeholder="Search products by SKU or name..." style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; width: 300px;" oninput="filterProductsTable()">
+        </div>
         <table id="allProductsTable">
           <thead>
             <tr>
@@ -405,6 +408,7 @@
     let allOrders = [];
     let filteredOrders = [];
     let charts = {}; // Store chart instances for cleanup
+    let allProductsData = []; // Store full product stats for searching
 
     // Initialize
     document.addEventListener('DOMContentLoaded', async () => {
@@ -687,27 +691,59 @@
       const sorted = Object.entries(productStats)
         .sort((a, b) => b[1].totalQty - a[1].totalQty);
 
-      const tbody = document.querySelector('#allProductsTable tbody');
-      tbody.innerHTML = sorted.map(([sku, stats]) => {
+      // Store for searching
+      allProductsData = sorted.map(([sku, stats]) => {
         const avgPerOrder = stats.orderCount > 0 ? (stats.totalQty / stats.orderCount).toFixed(1) : '0';
-        
-        // Find most common platform
         const topPlatform = Object.entries(stats.platforms)
           .sort((a, b) => b[1] - a[1])[0];
         const platformName = topPlatform ? topPlatform[0] : 'N/A';
         const badgeClass = `platform-${platformName.toLowerCase()}`;
+        
+        return {
+          sku,
+          name: stats.name,
+          totalQty: stats.totalQty,
+          orderCount: stats.orderCount,
+          avgPerOrder,
+          platformName,
+          badgeClass
+        };
+      });
 
+      renderProductsTable(allProductsData);
+    }
+
+    function renderProductsTable(products) {
+      const tbody = document.querySelector('#allProductsTable tbody');
+      tbody.innerHTML = products.map(product => {
         return `
           <tr>
-            <td><strong>${escapeHtml(sku)}</strong></td>
-            <td>${escapeHtml(stats.name)}</td>
-            <td style="text-align:right;">${stats.totalQty.toLocaleString()}</td>
-            <td style="text-align:right;">${stats.orderCount.toLocaleString()}</td>
-            <td style="text-align:right;">${avgPerOrder}</td>
-            <td><span class="platform-badge ${badgeClass}">${escapeHtml(platformName)}</span></td>
+            <td><strong>${escapeHtml(product.sku)}</strong></td>
+            <td>${escapeHtml(product.name)}</td>
+            <td style="text-align:right;">${product.totalQty.toLocaleString()}</td>
+            <td style="text-align:right;">${product.orderCount.toLocaleString()}</td>
+            <td style="text-align:right;">${product.avgPerOrder}</td>
+            <td><span class="platform-badge ${product.badgeClass}">${escapeHtml(product.platformName)}</span></td>
           </tr>
         `;
       }).join('');
+    }
+
+    function filterProductsTable() {
+      const searchTerm = document.getElementById('productSearchInput').value.toLowerCase().trim();
+      
+      if (!searchTerm) {
+        renderProductsTable(allProductsData);
+        return;
+      }
+
+      const filtered = allProductsData.filter(product => {
+        const sku = (product.sku || '').toLowerCase();
+        const name = (product.name || '').toLowerCase();
+        return sku.includes(searchTerm) || name.includes(searchTerm);
+      });
+
+      renderProductsTable(filtered);
     }
 
     function escapeHtml(str) {
