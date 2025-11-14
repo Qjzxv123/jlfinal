@@ -1690,6 +1690,8 @@
                 target.style.display = 'block';
                 // Calculate and fill the initial expected weight
                 updateExpectedWeightBadge(orderId);
+                // Validate after filling weight to enable button if all fields are valid
+                validateSingleShippingOrder(orderId);
             }
         }
         function goToNextShippingModal(currentIdx) {
