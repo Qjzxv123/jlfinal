@@ -2066,16 +2066,7 @@
             currentShippingModalIndex = 0;
 
             showBatchLabelResultsModal(results);
-            const labelLinks = results.filter(res => res && res.success && res.labelUrl);
-            labelLinks.forEach((res, idx) => {
-                setTimeout(() => {
-                    try {
-                        window.open(res.labelUrl, '_blank', 'noopener');
-                    } catch (err) {
-                        console.warn('Failed to open label window:', err);
-                    }
-                }, idx * 400);
-            });
+            
         }
         function showBatchLabelResultsModal(results) {
             closeBatchLabelResultsModal();
