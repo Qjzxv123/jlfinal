@@ -1511,7 +1511,62 @@
                 height: matches[2] ? matches[2] : ''
             };
         }
-        function getDefaultBoxPreset() {
+        function getDefaultBoxPreset(order) {
+            // Try to find a matching order in history with the same items
+            if (order && historyOrders && historyOrders.length) {
+                try {
+                    // Parse current order items
+                    let currentItems = [];
+                    try { 
+                        currentItems = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items || '[]'); 
+                    } catch {}
+                    
+                    // Create a signature of current items (SKU and quantity)
+                    const currentSignature = currentItems
+                        .map(it => `${it.SKU}:${it.Quantity}`)
+                        .sort()
+                        .join('|');
+                    
+                    if (currentSignature) {
+                        // Search through order history (most recent first)
+                        for (const histOrder of historyOrders) {
+                            let histItems = [];
+                            try {
+                                histItems = Array.isArray(histOrder.Items) ? histOrder.Items : JSON.parse(histOrder.Items || '[]');
+                            } catch {}
+                            
+                            // Create signature for history order items
+                            const histSignature = histItems
+                                .map(it => `${it.SKU}:${it.Quantity}`)
+                                .sort()
+                                .join('|');
+                            
+                            // If signatures match and BoxSkus exists
+                            if (histSignature === currentSignature && histOrder.BoxSkus && histOrder.BoxSkus.length > 0) {
+                                // Use the first box from BoxSkus array
+                                const historicBoxSku = String(histOrder.BoxSkus[0] || '').trim();
+                                if (historicBoxSku) {
+                                    // Find this box in boxesList
+                                    const matchedBox = boxesList.find(b => String(b.sku || '').trim().toUpperCase() === historicBoxSku.toUpperCase());
+                                    if (matchedBox) {
+                                        const dims = parseBoxDimensions(matchedBox.dimensions);
+                                        return {
+                                            boxSku: String(matchedBox.sku || '').trim(),
+                                            length: dims.length || DEFAULT_BOX_DIMENSIONS.length,
+                                            width: dims.width || DEFAULT_BOX_DIMENSIONS.width,
+                                            height: dims.height || DEFAULT_BOX_DIMENSIONS.height
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error finding box from order history:', err);
+                }
+            }
+            
+            // Fall back to default box logic if no match found
             if (boxesList && boxesList.length) {
                 const defaultMatch = boxesList.find(b => String(b.sku || '').trim().toUpperCase() === DEFAULT_BOX_SKU.toUpperCase());
                 if (defaultMatch) {
@@ -1540,8 +1595,8 @@
                 height: DEFAULT_BOX_DIMENSIONS.height
             };
         }
-        function createEmptyPackage() {
-            const preset = getDefaultBoxPreset();
+        function createEmptyPackage(order) {
+            const preset = getDefaultBoxPreset(order);
             return { boxSku: preset.boxSku, length: preset.length, width: preset.width, height: preset.height, weight: '' };
         }
         async function openShippingLabelsModal() {
@@ -1572,7 +1627,7 @@
             selectedList.forEach(o => {
                 let items = [];
                 try { items = Array.isArray(o.Items) ? o.Items : JSON.parse(o.Items||'[]'); } catch {}
-                shippingLabelPackages[o.OrderID] = [ createEmptyPackage() ];
+                shippingLabelPackages[o.OrderID] = [ createEmptyPackage(o) ];
                 (items||[]).forEach(it => { if (it && it.SKU) allSkus.push(it.SKU); });
             });
             if (allSkus.length) await ensureProductWeightsForSkus(Array.from(new Set(allSkus)));
@@ -1666,7 +1721,11 @@
             });
             const orderId = shippingModalOrderIds[idx];
             const target = document.getElementById('shippingLabelsModal-' + orderId);
-            if (target) target.style.display = 'block';
+            if (target) {
+                target.style.display = 'block';
+                // Calculate and fill the initial expected weight
+                updateExpectedWeightBadge(orderId);
+            }
         }
         function goToNextShippingModal(currentIdx) {
             if (currentIdx >= shippingModalOrderIds.length - 1) return;
@@ -2243,7 +2302,9 @@
                     weight: ''
                 });
             } else {
-                shippingLabelPackages[orderId].push(createEmptyPackage());
+                // Find the order to pass to createEmptyPackage
+                const order = orders.find(o => String(o.OrderID) === String(orderId));
+                shippingLabelPackages[orderId].push(createEmptyPackage(order));
             }
             renderPackageTable(orderId);
             updateExpectedWeightBadge(orderId);
@@ -2252,7 +2313,11 @@
         function removePackageRow(orderId, idx) {
             if (!shippingLabelPackages[orderId]) return;
             shippingLabelPackages[orderId].splice(idx,1);
-            if (!shippingLabelPackages[orderId].length) shippingLabelPackages[orderId].push(createEmptyPackage());
+            if (!shippingLabelPackages[orderId].length) {
+                // Find the order to pass to createEmptyPackage
+                const order = orders.find(o => String(o.OrderID) === String(orderId));
+                shippingLabelPackages[orderId].push(createEmptyPackage(order));
+            }
             renderPackageTable(orderId);
             updateExpectedWeightBadge(orderId);
             validateSingleShippingOrder(orderId);
