@@ -605,7 +605,57 @@
         </div>
       </div>
 
-
+      <!-- Analytics Stats Grid -->
+      <div class="stats-grid" id="analyticsStats">
+        <div class="stat-card">
+          <div class="stat-header">
+            <div class="stat-icon orders">
+              <i class="cil-chart-line"></i>
+            </div>
+            <div class="stat-info">
+              <h3>Total Orders Shipped</h3>
+              <div class="stat-value" id="statTotalOrders">0</div>
+            </div>
+          </div>
+          <div class="stat-change neutral" id="statOrdersChange">Last 30 days</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-header">
+            <div class="stat-icon value">
+              <i class="cil-dollar"></i>
+            </div>
+            <div class="stat-info">
+              <h3>Total Shipping Cost</h3>
+              <div class="stat-value" id="statShippingCost">$0</div>
+            </div>
+          </div>
+          <div class="stat-change neutral" id="statCostChange">Last 30 days</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-header">
+            <div class="stat-icon completed">
+              <i class="cil-layers"></i>
+            </div>
+            <div class="stat-info">
+              <h3>Total Units Shipped</h3>
+              <div class="stat-value" id="statUnitsShipped">0</div>
+            </div>
+          </div>
+          <div class="stat-change neutral">All products</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-header">
+            <div class="stat-icon pending">
+              <i class="cil-star"></i>
+            </div>
+            <div class="stat-info">
+              <h3>Top Product</h3>
+              <div class="stat-value" style="font-size: 1.2rem;" id="statTopProduct">—</div>
+            </div>
+          </div>
+          <div class="stat-change neutral" id="statTopProductQty">0 units</div>
+        </div>
+      </div>
 
       <!-- Content Grid -->
       <div class="content-grid">
@@ -690,7 +740,8 @@
         await Promise.all([
           loadUserInfo(),
           loadProducts(),
-          checkInventoryLevels()
+          checkInventoryLevels(),
+          loadAnalytics()
         ]);        
       } catch (error) {
         console.error('Dashboard initialization error:', error);
@@ -785,6 +836,77 @@
             </div>
           </div>
         `;
+      }
+    }
+
+    async function loadAnalytics() {
+      if (!currentUser) return;
+      
+      try {
+        // Calculate date 30 days ago
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        // Fetch order history for this user with tracking numbers
+        const { data: orderHistory, error } = await supabase
+          .from('Order History')
+          .select('*')
+          .neq('TrackingNumber', null)
+          .overlaps('UserID', [currentUser.id])
+          .gte('ShippedAt', thirtyDaysAgo.toISOString());
+        
+        if (error) {
+          console.error('Error loading analytics:', error);
+          return;
+        }
+        
+        const orders = orderHistory || [];
+        
+        // Calculate statistics
+        const totalOrders = orders.length;
+        const totalShippingCost = orders.reduce((sum, o) => sum + (parseFloat(o.ShippingCost) || 0), 0);
+        
+        let totalUnits = 0;
+        const productCounts = {};
+        
+        orders.forEach(order => {
+          let items = order.Items;
+          if (typeof items === 'string') {
+            try {
+              items = JSON.parse(items);
+            } catch (e) {
+              items = [];
+            }
+          }
+          if (!Array.isArray(items)) items = [];
+          
+          items.forEach(item => {
+            const sku = item.SKU || 'Unknown';
+            const qty = parseInt(item.Quantity) || 0;
+            totalUnits += qty;
+            productCounts[sku] = (productCounts[sku] || 0) + qty;
+          });
+        });
+        
+        // Find top product
+        let topProduct = '—';
+        let topProductQty = 0;
+        Object.entries(productCounts).forEach(([sku, qty]) => {
+          if (qty > topProductQty) {
+            topProduct = sku;
+            topProductQty = qty;
+          }
+        });
+        
+        // Update UI
+        document.getElementById('statTotalOrders').textContent = totalOrders.toLocaleString();
+        document.getElementById('statShippingCost').textContent = '$' + totalShippingCost.toFixed(2);
+        document.getElementById('statUnitsShipped').textContent = totalUnits.toLocaleString();
+        document.getElementById('statTopProduct').textContent = topProduct;
+        document.getElementById('statTopProductQty').textContent = topProductQty.toLocaleString() + ' units';
+        
+      } catch (error) {
+        console.error('Error in loadAnalytics:', error);
       }
     }
 

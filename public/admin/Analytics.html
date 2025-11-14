@@ -452,6 +452,7 @@
         const { data, error } = await supabase
           .from('Order History')
           .select('*')
+          .neq('TrackingNumber', null)
           .range(from, from + pageSize - 1)
           .order('ShippedAt', { ascending: false });
         
