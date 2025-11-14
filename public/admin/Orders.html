@@ -797,6 +797,14 @@
                         <strong>Customer Message:</strong>
                         <span class="customer-messages">${order.CustomerMessages || ''}</span>
                     </div>
+                    ${currentTab === 'history' ? `
+                    <div style="margin-bottom:10px;">
+                        <strong>Shipping Cost:</strong> ${order.ShippingCost ? '$' + order.ShippingCost : 'N/A'}
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <strong>Tracking Number:</strong> ${order.TrackingNumber || 'N/A'}
+                    </div>
+                    ` : ''}
                     <button class="btn" style="position:absolute; bottom:18px; right:18px; padding:6px 18px; font-size:15px; border-radius:6px; background:#4DBA93;" onclick="openEditOrderModal('${order.OrderID}')">Edit</button>
                 </div>`;
             });
