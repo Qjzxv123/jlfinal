@@ -9,7 +9,7 @@ if (typeof fetch !== 'undefined') {
 }
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-async function fetchOrdersForUser(userKey) {
+async function fetchOrdersForUser(userKey, skuMappingMap) {
   // Fetch the token row to get UserID
   let apiToken, tokenRow;
   try {
@@ -127,10 +127,47 @@ async function fetchOrdersForUser(userKey) {
       }
     }
     let parsedItems = Object.values(itemMap);
+    
+    // Apply SKU Mapping transformations
+    let transformedItems = [];
+    for (const item of parsedItems) {
+      if (skuMappingMap[item.SKU]) {
+        // This SKU has a mapping - expand it to output SKUs
+        const outputMap = skuMappingMap[item.SKU];
+        for (const [outputSku, outputQty] of Object.entries(outputMap)) {
+          // Multiply the output quantity by the item quantity
+          const totalQty = (outputQty || 1) * (item.Quantity || 1);
+          // Check if this output SKU already exists in transformedItems
+          const existing = transformedItems.find(t => t.SKU === outputSku);
+          if (existing) {
+            existing.Quantity += totalQty;
+          } else {
+            transformedItems.push({
+              SKU: outputSku,
+              Name: item.Name,
+              Quantity: totalQty
+            });
+          }
+        }
+      } else {
+        // No mapping, keep as-is
+        transformedItems.push(item);
+      }
+    }
+    
+    const orderID = order.id || '';
+    
+    // Check if order exists to preserve Notes, CustomerMessages, Retailer and InventoryRemoved
+    const { data: existingOrder } = await supabase
+      .from('Orders')
+      .select('Notes, CustomerMessages, InventoryRemoved, Retailer')
+      .eq('OrderID', orderID)
+      .single();
+    
     const orderData = {
-      OrderID: order.id || '',
-      Retailer: userKey,
-      Items: JSON.stringify(parsedItems),
+      OrderID: orderID,
+      Retailer: existingOrder?.Retailer || userKey,
+      Items: JSON.stringify(transformedItems),
       Customer: JSON.stringify({
         name: shippingDetails.name || '',
         address1: shippingDetails.address1 || '',
@@ -142,7 +179,9 @@ async function fetchOrdersForUser(userKey) {
       }),
       Platform: 'Faire',
       Link: `https://www.faire.com/brand-portal/orders/${order.id}/order-fulfilment?sync=true&type=UNFULFILLED`,
-      Notes: null,
+      Notes: existingOrder?.Notes || null,
+      CustomerMessages: existingOrder?.CustomerMessages || null,
+      InventoryRemoved: existingOrder?.InventoryRemoved || null,
       UserID: tokenRow.UserID ? [tokenRow.UserID] : null
     };
     orders.push(orderData);
@@ -163,6 +202,24 @@ async function fetchOrdersForUser(userKey) {
 exports.handler = async function(event) {
   // Clear Orders table before inserting new ones
   await supabase.from('Orders').delete().eq('Platform', 'Faire').eq("Notes", null).eq("CustomerMessages", null).eq("InventoryRemoved", null);
+  
+  // Fetch SKU Mapping table for converting SKUs
+  const { data: skuMappings, error: mappingError } = await supabase
+    .from('SkuMapping')
+    .select('SKU, Output');
+  
+  if (mappingError) {
+    console.warn('[CRON] Error fetching SKU Mappings:', mappingError.message);
+  }
+  
+  // Create a map for quick lookup: SKU -> Output object
+  const skuMappingMap = {};
+  if (skuMappings) {
+    for (const mapping of skuMappings) {
+      skuMappingMap[mapping.SKU] = mapping.Output;
+    }
+  }
+  
   // Fetch all userKeys from the oauth token table in Supabase
   const { data, error } = await supabase
     .from('oauth_tokens')
@@ -175,7 +232,7 @@ exports.handler = async function(event) {
   }
   const userKeys = (data || []).map(row => row.user_key);
   for (const userKey of userKeys) {
-    await fetchOrdersForUser(userKey);
+    await fetchOrdersForUser(userKey, skuMappingMap);
   }
   return {
     statusCode: 200,

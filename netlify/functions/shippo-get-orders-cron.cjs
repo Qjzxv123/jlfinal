@@ -214,7 +214,7 @@ exports.handler = async (event) => {
         };
       }
       
-      // Check if order exists to preserve Notes, CustomerMessages, and InventoryRemoved
+      // Check if order exists to preserve Notes, CustomerMessages, Retailer and InventoryRemoved
       const { data: existingOrder } = await supabase
         .from('Orders')
         .select('Notes, CustomerMessages, InventoryRemoved, Retailer')
