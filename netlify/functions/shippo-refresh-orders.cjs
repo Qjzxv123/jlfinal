@@ -81,53 +81,6 @@ exports.handler = async (event) => {
     for (const order of orders) {
       const orderID = order.order_number.replace("#","");
       
-      // Get first SKU from line_items
-      let retailerValue = "Unknown";
-      if (order.line_items && order.line_items.length > 0) {
-        let firstSku = order.line_items[0].sku;
-        if (firstSku && typeof firstSku === 'string') {
-          // If SKU contains '+', only use the first part
-          firstSku = firstSku.split('+')[0].trim();
-          // Query Product table for retailer value
-          const { data: product, error } = await supabase
-            .from('Products')
-            .select('Retailer')
-            .eq('ProductSKU', firstSku)
-            .single();
-          if (!error && product && product.Retailer) {
-            retailerValue = product.Retailer;
-          }
-        }
-      }
-      
-      // If retailer is still unknown, check if "Hotana" appears anywhere in the order
-      if (retailerValue === "Unknown") {
-        const orderText = JSON.stringify(order).toLowerCase();
-        if (orderText.includes('hotana')||orderText.includes('batana')) {
-          retailerValue = "Hotana";
-        }
-      }
-      
-      // Skip if order already exists in Order History with same OrderID AND Retailer
-      const orderKey = `${orderID}|${retailerValue}`;
-      if (historyOrderKeys.has(orderKey)) {
-        skippedCount++;
-        continue;
-      }
-      // Build customer object with required fields
-      let customerObj = null;
-      if (order.to_address) {
-        customerObj = {
-          name: order.to_address.name || '',
-          address1: order.to_address.street1 || '',
-          address2: order.to_address.street2 || '',
-          city: order.to_address.city || '',
-          state: order.to_address.state || '',
-          zipCode: order.to_address.zip || '',
-          country: order.to_address.country || ''
-        };
-      }
-      
       // Process line items with SKU separation logic (same as Faire)
       let itemMap = {};
       for (const item of (order.line_items || [])) {
@@ -189,7 +142,7 @@ exports.handler = async (event) => {
       }
       let parsedItems = Object.values(itemMap);
       
-      // Apply SKU Mapping transformations
+      // Apply SKU Mapping transformations BEFORE determining retailer
       let transformedItems = [];
       for (const item of parsedItems) {
         if (skuMappingMap[item.SKU]) {
@@ -214,6 +167,51 @@ exports.handler = async (event) => {
           // No mapping, keep as-is
           transformedItems.push(item);
         }
+      }
+      
+      // Now determine retailer using the TRANSFORMED items
+      let retailerValue = "Unknown";
+      if (transformedItems.length > 0) {
+        let firstSku = transformedItems[0].SKU;
+        if (firstSku && typeof firstSku === 'string') {
+          // Query Product table for retailer value
+          const { data: product, error } = await supabase
+            .from('Products')
+            .select('Retailer')
+            .eq('ProductSKU', firstSku)
+            .single();
+          if (!error && product && product.Retailer) {
+            retailerValue = product.Retailer;
+          }
+        }
+      }
+      
+      // If retailer is still unknown, check if "Hotana" appears anywhere in the order
+      if (retailerValue === "Unknown") {
+        const orderText = JSON.stringify(order).toLowerCase();
+        if (orderText.includes('hotana')||orderText.includes('batana')) {
+          retailerValue = "Hotana";
+        }
+      }
+      
+      // Skip if order already exists in Order History with same OrderID AND Retailer
+      const orderKey = `${orderID}|${retailerValue}`;
+      if (historyOrderKeys.has(orderKey)) {
+        skippedCount++;
+        continue;
+      }
+      // Build customer object with required fields
+      let customerObj = null;
+      if (order.to_address) {
+        customerObj = {
+          name: order.to_address.name || '',
+          address1: order.to_address.street1 || '',
+          address2: order.to_address.street2 || '',
+          city: order.to_address.city || '',
+          state: order.to_address.state || '',
+          zipCode: order.to_address.zip || '',
+          country: order.to_address.country || ''
+        };
       }
       
       // Check if order exists to preserve Notes, CustomerMessages, and InventoryRemoved
