@@ -380,15 +380,10 @@
             <option value="">All Retailers</option>
             <!-- Options will be populated dynamically -->
         </select>
-        <select id="sortFilter" onchange="filterOrders()">
-            <option value="">Sort by...</option>
-            <option value="orderIdAsc">Order ID (A-Z)</option>
-            <option value="orderIdDesc">Order ID (Z-A)</option>
-            <option value="retailerAsc">Retailer (A-Z)</option>
-            <option value="retailerDesc">Retailer (Z-A)</option>
-            <option value="platformAsc">Platform (A-Z)</option>
-            <option value="platformDesc">Platform (Z-A)</option>
-        </select>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:6px 12px; background:#f8f9fa; border-radius:6px;">
+            <input type="checkbox" id="notesOnlyFilter" onchange="filterOrders()" style="cursor:pointer; transform:scale(1.2);">
+            <span style="font-size:14px; font-weight:500;">Only show orders with notes</span>
+        </label>
         <button class="btn" style="background:#e74c3c; padding:6px 12px; font-size:14px; border-radius:6px;" onclick="clearFilters()">Clear Filters</button>
     </div>
 </div>
@@ -621,7 +616,7 @@
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     const platform = document.getElementById('platformFilter').value;
     const retailer = document.getElementById('retailerFilter').value;
-    const sortValue = document.getElementById('sortFilter').value;
+    const notesOnly = document.getElementById('notesOnlyFilter').checked;
     
     // Use different data source based on current tab
     const sourceOrders = currentTab === 'history' ? historyOrders : orders;
@@ -636,6 +631,12 @@
             if (o.InventoryRemoved !== true) return false;
         }
         // For history tab, show all history orders (no InventoryRemoved field check needed)
+        
+        // Filter by notes only
+        if (notesOnly) {
+            const notes = String(o.Notes || '').trim();
+            if (!notes) return false;
+        }
         
         if (search) {
             // Helper to safely include
@@ -668,42 +669,6 @@
         
         return match;
     });
-    
-    // Apply sorting
-    if (sortValue) {
-        filteredOrders.sort((a, b) => {
-            let compareA, compareB;
-            
-            switch(sortValue) {
-                case 'orderIdAsc':
-                    compareA = (a.OrderID || '').toString().toLowerCase();
-                    compareB = (b.OrderID || '').toString().toLowerCase();
-                    return compareA.localeCompare(compareB);
-                case 'orderIdDesc':
-                    compareA = (a.OrderID || '').toString().toLowerCase();
-                    compareB = (b.OrderID || '').toString().toLowerCase();
-                    return compareB.localeCompare(compareA);
-                case 'retailerAsc':
-                    compareA = (a.Retailer || '').toLowerCase();
-                    compareB = (b.Retailer || '').toLowerCase();
-                    return compareA.localeCompare(compareB);
-                case 'retailerDesc':
-                    compareA = (a.Retailer || '').toLowerCase();
-                    compareB = (b.Retailer || '').toLowerCase();
-                    return compareB.localeCompare(compareA);
-                case 'platformAsc':
-                    compareA = (a.Platform || '').toLowerCase();
-                    compareB = (b.Platform || '').toLowerCase();
-                    return compareA.localeCompare(compareB);
-                case 'platformDesc':
-                    compareA = (a.Platform || '').toLowerCase();
-                    compareB = (b.Platform || '').toLowerCase();
-                    return compareB.localeCompare(compareA);
-                default:
-                    return 0;
-            }
-        });
-    }
     
     renderOrders();
     // Refresh selection-dependent UI (counts, button states, banner)
@@ -738,7 +703,7 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('platformFilter').value = '';
             document.getElementById('retailerFilter').value = '';
-            document.getElementById('sortFilter').value = '';
+            document.getElementById('notesOnlyFilter').checked = false;
             filterOrders();
         }
 
