@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Business Analytics</title>
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <link rel="stylesheet" href="/Assets/sidebar.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      color: #333;
+    }
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+      min-height: 100vh;
+      padding: 32px;
+    }
+    .header {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 24px 32px;
+      margin-bottom: 24px;
+    }
+    .header h1 {
+      margin: 0 0 8px 0;
+      color: #2c3e50;
+      font-size: 2rem;
+    }
+    .header .subtitle {
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+    .filters {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 20px 32px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .filter-group label {
+      font-size: 0.85rem;
+      color: #64748b;
+      font-weight: 600;
+    }
+    .filter-group select,
+    .filter-group input {
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      min-width: 150px;
+    }
+    .btn {
+      background: #4DBA93;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 600;
+      margin-top: auto;
+    }
+    .btn:hover {
+      background: #379c7a;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(77, 186, 147, 0.3);
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 24px;
+      transition: transform 0.2s;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    .stat-card .label {
+      font-size: 0.85rem;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .stat-card .value {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 4px;
+    }
+    .stat-card .subtext {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    .chart-container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+    .chart-container h2 {
+      margin: 0 0 20px 0;
+      color: #2c3e50;
+      font-size: 1.4rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      letter-spacing: 0.5px;
+    }
+    tr:hover {
+      background: #f8fafc;
+    }
+    .product-rank {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .product-rank.top-3 {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: #64748b;
+      font-size: 1.1rem;
+    }
+    .spinner {
+      border: 3px solid #e5e7eb;
+      border-top: 3px solid #4DBA93;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .platform-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .platform-faire {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .platform-shopify {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .platform-etsy {
+      background: #ffe4e6;
+      color: #9f1239;
+    }
+    .platform-amazon {
+      background: #dbeafe;
+      color: #1e3a8a;
+    }
+    .platform-tiktok {
+      background: #f3e8ff;
+      color: #6b21a8;
+    }
+    .two-column {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 768px) {
+      .two-column {
+        grid-template-columns: 1fr;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
+</head>
+<body>
+  <div id="sidebar"></div>
+  <script src="/Assets/sidebar.js"></script>
+  
+  <div class="main-content">
+    <div class="header">
+      <h1>Business Analytics</h1>
+      <div class="subtitle">Product statistics and insights from order history</div>
+    </div>
+
+    <div class="filters">
+      <div class="filter-group">
+        <label>Date Range</label>
+        <select id="dateRangeFilter">
+          <option value="all">All Time</option>
+          <option value="7">Last 7 Days</option>
+          <option value="30" selected>Last 30 Days</option>
+          <option value="90">Last 90 Days</option>
+          <option value="365">Last Year</option>
+          <option value="custom">Custom Range</option>
+        </select>
+      </div>
+      <div class="filter-group" id="customStartGroup" style="display:none;">
+        <label>Start Date</label>
+        <input type="date" id="startDateFilter">
+      </div>
+      <div class="filter-group" id="customEndGroup" style="display:none;">
+        <label>End Date</label>
+        <input type="date" id="endDateFilter">
+      </div>
+      <div class="filter-group">
+        <label>Platform</label>
+        <select id="platformFilter">
+          <option value="all">All Platforms</option>
+          <option value="Faire">Faire</option>
+          <option value="Shopify">Shopify</option>
+          <option value="Etsy">Etsy</option>
+          <option value="Amazon">Amazon</option>
+          <option value="TikTok">TikTok</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Retailer</label>
+        <select id="retailerFilter">
+          <option value="all">All Retailers</option>
+        </select>
+      </div>
+      <button class="btn" onclick="applyFilters()">Apply Filters</button>
+    </div>
+
+    <div id="loadingIndicator" class="loading">
+      <div class="spinner"></div>
+      Loading analytics data...
+    </div>
+
+    <div id="analyticsContent" style="display:none;">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="label">Total Orders</div>
+          <div class="value" id="totalOrders">0</div>
+          <div class="subtext">Shipped orders</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total Shipping Cost</div>
+          <div class="value" id="totalShippingCost">$0</div>
+          <div class="subtext">Business expense</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total Products Sold</div>
+          <div class="value" id="totalProducts">0</div>
+          <div class="subtext">Individual units</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Avg Shipping Cost</div>
+          <div class="value" id="avgShippingCost">$0</div>
+          <div class="subtext">Per order</div>
+        </div>
+      </div>
+
+      <div class="two-column">
+        <div class="chart-container">
+          <h2>Top Products by Quantity</h2>
+          <table id="topProductsTable">
+            <thead>
+              <tr>
+                <th style="width:50px;">Rank</th>
+                <th>Product SKU</th>
+                <th style="text-align:right;">Quantity</th>
+                <th style="text-align:right;">Orders</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="chart-container">
+          <h2>Platform Breakdown</h2>
+          <table id="platformStatsTable">
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th style="text-align:right;">Orders</th>
+                <th style="text-align:right;">Shipping Cost</th>
+                <th style="text-align:right;">Units</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h2>Retailer Performance</h2>
+        <table id="retailerStatsTable">
+          <thead>
+            <tr>
+              <th>Retailer</th>
+              <th style="text-align:right;">Orders</th>
+              <th style="text-align:right;">Shipping Cost</th>
+              <th style="text-align:right;">Units Sold</th>
+              <th style="text-align:right;">Avg Order Size</th>
+              <th style="text-align:right;">Top Product</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="chart-container">
+        <h2>All Products Performance</h2>
+        <table id="allProductsTable">
+          <thead>
+            <tr>
+              <th>Product SKU</th>
+              <th>Name</th>
+              <th style="text-align:right;">Total Quantity</th>
+              <th style="text-align:right;">Times Ordered</th>
+              <th style="text-align:right;">Avg per Order</th>
+              <th>Most Common Platform</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Access control
+    checkPermissions(['service_role', 'employee']);
+    setupInactivityTimeout(5);
+
+    let allOrders = [];
+    let filteredOrders = [];
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadRetailers();
+      await loadOrderHistory();
+      setupEventListeners();
+    });
+
+    function setupEventListeners() {
+      document.getElementById('dateRangeFilter').addEventListener('change', (e) => {
+        const isCustom = e.target.value === 'custom';
+        document.getElementById('customStartGroup').style.display = isCustom ? '' : 'none';
+        document.getElementById('customEndGroup').style.display = isCustom ? '' : 'none';
+      });
+    }
+
+    async function loadRetailers() {
+      const { data, error } = await supabase
+        .from('Order History')
+        .select('Retailer')
+        .not('Retailer', 'is', null);
+      
+      if (!error && data) {
+        const retailers = [...new Set(data.map(o => o.Retailer))].sort();
+        const select = document.getElementById('retailerFilter');
+        retailers.forEach(retailer => {
+          const option = document.createElement('option');
+          option.value = retailer;
+          option.textContent = retailer;
+          select.appendChild(option);
+        });
+      }
+    }
+
+    async function loadOrderHistory() {
+      document.getElementById('loadingIndicator').style.display = 'block';
+      document.getElementById('analyticsContent').style.display = 'none';
+
+      // Fetch all order history with pagination
+      let allData = [];
+      let from = 0;
+      const pageSize = 1000;
+      
+      while (true) {
+        const { data, error } = await supabase
+          .from('Order History')
+          .select('*')
+          .range(from, from + pageSize - 1)
+          .order('ShippedAt', { ascending: false });
+        
+        if (error) {
+          console.error('Error loading order history:', error);
+          alert('Failed to load order history: ' + error.message);
+          return;
+        }
+        
+        if (!data || data.length === 0) break;
+        allData = allData.concat(data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+
+      allOrders = allData;
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const dateRange = document.getElementById('dateRangeFilter').value;
+      const platform = document.getElementById('platformFilter').value;
+      const retailer = document.getElementById('retailerFilter').value;
+
+      let filtered = [...allOrders];
+
+      // Date filter
+      if (dateRange !== 'all') {
+        const now = new Date();
+        let startDate;
+        
+        if (dateRange === 'custom') {
+          const startInput = document.getElementById('startDateFilter').value;
+          const endInput = document.getElementById('endDateFilter').value;
+          if (startInput && endInput) {
+            startDate = new Date(startInput);
+            const endDate = new Date(endInput);
+            endDate.setHours(23, 59, 59, 999);
+            filtered = filtered.filter(o => {
+              const shipDate = new Date(o.ShippedAt);
+              return shipDate >= startDate && shipDate <= endDate;
+            });
+          }
+        } else {
+          const days = parseInt(dateRange);
+          startDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
+          filtered = filtered.filter(o => new Date(o.ShippedAt) >= startDate);
+        }
+      }
+
+      // Platform filter
+      if (platform !== 'all') {
+        filtered = filtered.filter(o => o.Platform === platform);
+      }
+
+      // Retailer filter
+      if (retailer !== 'all') {
+        filtered = filtered.filter(o => o.Retailer === retailer);
+      }
+
+      filteredOrders = filtered;
+      calculateAndDisplayAnalytics();
+    }
+
+    function calculateAndDisplayAnalytics() {
+      // Calculate overall stats
+      const totalOrders = filteredOrders.length;
+      const totalShippingCost = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.ShippingCost) || 0), 0);
+      
+      // Count all products
+      let totalProductCount = 0;
+      const productStats = {};
+      const platformStats = {};
+      const retailerStats = {};
+
+      filteredOrders.forEach(order => {
+        // Parse Items if it's a string, otherwise use as-is
+        let items = order.Items;
+        if (typeof items === 'string') {
+          try {
+            items = JSON.parse(items);
+          } catch (e) {
+            console.warn('Failed to parse Items for order:', order.OrderID, e);
+            items = [];
+          }
+        }
+        if (!Array.isArray(items)) {
+          items = [];
+        }
+        
+        const platform = order.Platform || 'Unknown';
+        const retailer = order.Retailer || 'Unknown';
+        const shippingCost = parseFloat(order.ShippingCost) || 0;
+
+        // Platform stats
+        if (!platformStats[platform]) {
+          platformStats[platform] = { orders: 0, shippingCost: 0, units: 0 };
+        }
+        platformStats[platform].orders++;
+        platformStats[platform].shippingCost += shippingCost;
+
+        // Retailer stats
+        if (!retailerStats[retailer]) {
+          retailerStats[retailer] = { orders: 0, shippingCost: 0, units: 0, products: {} };
+        }
+        retailerStats[retailer].orders++;
+        retailerStats[retailer].shippingCost += shippingCost;
+
+        // Product stats
+        items.forEach(item => {
+          const sku = item.SKU || 'Unknown';
+          const qty = parseInt(item.Quantity) || 0;
+          const name = item.Name || '';
+          
+          totalProductCount += qty;
+          platformStats[platform].units += qty;
+          retailerStats[retailer].units += qty;
+
+          if (!productStats[sku]) {
+            productStats[sku] = {
+              name: name,
+              totalQty: 0,
+              orderCount: 0,
+              platforms: {}
+            };
+          }
+          productStats[sku].totalQty += qty;
+          productStats[sku].orderCount++;
+          productStats[sku].platforms[platform] = (productStats[sku].platforms[platform] || 0) + 1;
+
+          // Track for retailer top product
+          if (!retailerStats[retailer].products[sku]) {
+            retailerStats[retailer].products[sku] = 0;
+          }
+          retailerStats[retailer].products[sku] += qty;
+        });
+      });
+
+      const avgShippingCost = totalOrders > 0 ? totalShippingCost / totalOrders : 0;
+
+      // Display overall stats
+      document.getElementById('totalOrders').textContent = totalOrders.toLocaleString();
+      document.getElementById('totalShippingCost').textContent = '$' + totalShippingCost.toFixed(2);
+      document.getElementById('totalProducts').textContent = totalProductCount.toLocaleString();
+      document.getElementById('avgShippingCost').textContent = '$' + avgShippingCost.toFixed(2);
+
+      // Display top products
+      displayTopProducts(productStats);
+      
+      // Display platform stats
+      displayPlatformStats(platformStats);
+      
+      // Display retailer stats
+      displayRetailerStats(retailerStats);
+      
+      // Display all products
+      displayAllProducts(productStats);
+
+      document.getElementById('loadingIndicator').style.display = 'none';
+      document.getElementById('analyticsContent').style.display = 'block';
+    }
+
+    function displayTopProducts(productStats) {
+      const sorted = Object.entries(productStats)
+        .sort((a, b) => b[1].totalQty - a[1].totalQty)
+        .slice(0, 20);
+
+      const tbody = document.querySelector('#topProductsTable tbody');
+      tbody.innerHTML = sorted.map((([sku, stats], idx) => {
+        const rankClass = idx < 3 ? 'top-3' : '';
+        return `
+          <tr>
+            <td><span class="product-rank ${rankClass}">${idx + 1}</span></td>
+            <td><strong>${escapeHtml(sku)}</strong></td>
+            <td style="text-align:right;">${stats.totalQty.toLocaleString()}</td>
+            <td style="text-align:right;">${stats.orderCount.toLocaleString()}</td>
+          </tr>
+        `;
+      })).join('');
+    }
+
+    function displayPlatformStats(platformStats) {
+      const sorted = Object.entries(platformStats)
+        .sort((a, b) => b[1].orders - a[1].orders);
+
+      const tbody = document.querySelector('#platformStatsTable tbody');
+      tbody.innerHTML = sorted.map(([platform, stats]) => {
+        const badgeClass = `platform-${platform.toLowerCase()}`;
+        return `
+          <tr>
+            <td><span class="platform-badge ${badgeClass}">${escapeHtml(platform)}</span></td>
+            <td style="text-align:right;">${stats.orders.toLocaleString()}</td>
+            <td style="text-align:right;">$${stats.shippingCost.toFixed(2)}</td>
+            <td style="text-align:right;">${stats.units.toLocaleString()}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function displayRetailerStats(retailerStats) {
+      const sorted = Object.entries(retailerStats)
+        .sort((a, b) => b[1].orders - a[1].orders);
+
+      const tbody = document.querySelector('#retailerStatsTable tbody');
+      tbody.innerHTML = sorted.map(([retailer, stats]) => {
+        const avgOrderSize = stats.orders > 0 ? (stats.units / stats.orders).toFixed(1) : '0';
+        
+        // Find top product for this retailer
+        const topProduct = Object.entries(stats.products)
+          .sort((a, b) => b[1] - a[1])[0];
+        const topProductText = topProduct ? `${topProduct[0]} (${topProduct[1]})` : 'N/A';
+
+        return `
+          <tr>
+            <td><strong>${escapeHtml(retailer)}</strong></td>
+            <td style="text-align:right;">${stats.orders.toLocaleString()}</td>
+            <td style="text-align:right;">$${stats.shippingCost.toFixed(2)}</td>
+            <td style="text-align:right;">${stats.units.toLocaleString()}</td>
+            <td style="text-align:right;">${avgOrderSize}</td>
+            <td style="text-align:right; font-size:0.85rem;">${escapeHtml(topProductText)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function displayAllProducts(productStats) {
+      const sorted = Object.entries(productStats)
+        .sort((a, b) => b[1].totalQty - a[1].totalQty);
+
+      const tbody = document.querySelector('#allProductsTable tbody');
+      tbody.innerHTML = sorted.map(([sku, stats]) => {
+        const avgPerOrder = stats.orderCount > 0 ? (stats.totalQty / stats.orderCount).toFixed(1) : '0';
+        
+        // Find most common platform
+        const topPlatform = Object.entries(stats.platforms)
+          .sort((a, b) => b[1] - a[1])[0];
+        const platformName = topPlatform ? topPlatform[0] : 'N/A';
+        const badgeClass = `platform-${platformName.toLowerCase()}`;
+
+        return `
+          <tr>
+            <td><strong>${escapeHtml(sku)}</strong></td>
+            <td>${escapeHtml(stats.name)}</td>
+            <td style="text-align:right;">${stats.totalQty.toLocaleString()}</td>
+            <td style="text-align:right;">${stats.orderCount.toLocaleString()}</td>
+            <td style="text-align:right;">${avgPerOrder}</td>
+            <td><span class="platform-badge ${badgeClass}">${escapeHtml(platformName)}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      if (str == null) return '';
+      const div = document.createElement('div');
+      div.textContent = String(str);
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
