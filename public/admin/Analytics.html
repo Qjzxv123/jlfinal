@@ -6,6 +6,7 @@
   <title>Business Analytics</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
   <link rel="stylesheet" href="/Assets/sidebar.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -312,6 +313,22 @@
         </div>
       </div>
 
+      <div class="chart-container">
+        <h2>Orders Over Time</h2>
+        <canvas id="ordersTimelineChart" style="max-height: 300px;"></canvas>
+      </div>
+
+      <div class="two-column">
+        <div class="chart-container">
+          <h2>Top 10 Products</h2>
+          <canvas id="topProductsChart" style="max-height: 350px;"></canvas>
+        </div>
+        <div class="chart-container">
+          <h2>Platform Distribution</h2>
+          <canvas id="platformPieChart" style="max-height: 350px;"></canvas>
+        </div>
+      </div>
+
       <div class="two-column">
         <div class="chart-container">
           <h2>Top Products by Quantity</h2>
@@ -387,6 +404,7 @@
 
     let allOrders = [];
     let filteredOrders = [];
+    let charts = {}; // Store chart instances for cleanup
 
     // Initialize
     document.addEventListener('DOMContentLoaded', async () => {
@@ -580,6 +598,11 @@
       document.getElementById('totalProducts').textContent = totalProductCount.toLocaleString();
       document.getElementById('avgShippingCost').textContent = '$' + avgShippingCost.toFixed(2);
 
+      // Render charts
+      renderOrdersTimelineChart();
+      renderTopProductsChart(productStats);
+      renderPlatformPieChart(platformStats);
+
       // Display top products
       displayTopProducts(productStats);
       
@@ -691,6 +714,195 @@
       const div = document.createElement('div');
       div.textContent = String(str);
       return div.innerHTML;
+    }
+
+    // Chart rendering functions
+    function destroyChart(chartName) {
+      if (charts[chartName]) {
+        charts[chartName].destroy();
+        delete charts[chartName];
+      }
+    }
+
+    function renderOrdersTimelineChart() {
+      destroyChart('ordersTimeline');
+      
+      // Group orders by date
+      const dateGroups = {};
+      filteredOrders.forEach(order => {
+        const date = new Date(order.ShippedAt);
+        const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        dateGroups[dateKey] = (dateGroups[dateKey] || 0) + 1;
+      });
+
+      // Sort dates and prepare data
+      const sortedDates = Object.keys(dateGroups).sort();
+      const labels = sortedDates.map(date => {
+        const d = new Date(date);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      });
+      const data = sortedDates.map(date => dateGroups[date]);
+
+      const ctx = document.getElementById('ordersTimelineChart');
+      charts.ordersTimeline = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Orders Shipped',
+            data: data,
+            borderColor: '#4DBA93',
+            backgroundColor: 'rgba(77, 186, 147, 0.1)',
+            tension: 0.3,
+            fill: true,
+            pointRadius: 3,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `Orders: ${context.parsed.y}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTopProductsChart(productStats) {
+      destroyChart('topProducts');
+      
+      const sorted = Object.entries(productStats)
+        .sort((a, b) => b[1].totalQty - a[1].totalQty)
+        .slice(0, 10);
+
+      const labels = sorted.map(([sku]) => sku);
+      const data = sorted.map(([, stats]) => stats.totalQty);
+
+      const ctx = document.getElementById('topProductsChart');
+      charts.topProducts = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Quantity Sold',
+            data: data,
+            backgroundColor: [
+              '#4DBA93',
+              '#5CC6A1',
+              '#6FD2AF',
+              '#82DEBD',
+              '#95EACB',
+              '#A8F6D9',
+              '#88D9B8',
+              '#70CC9F',
+              '#58BF86',
+              '#40B26D'
+            ],
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          indexAxis: 'y',
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `Quantity: ${context.parsed.x.toLocaleString()}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function renderPlatformPieChart(platformStats) {
+      destroyChart('platformPie');
+      
+      const sorted = Object.entries(platformStats)
+        .sort((a, b) => b[1].orders - a[1].orders);
+
+      const labels = sorted.map(([platform]) => platform);
+      const data = sorted.map(([, stats]) => stats.orders);
+
+      const colors = {
+        'Faire': '#fbbf24',
+        'Shopify': '#22c55e',
+        'Etsy': '#f43f5e',
+        'Amazon': '#3b82f6',
+        'TikTok': '#a855f7',
+        'Unknown': '#94a3b8'
+      };
+
+      const backgroundColors = labels.map(label => colors[label] || '#94a3b8');
+
+      const ctx = document.getElementById('platformPieChart');
+      charts.platformPie = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: backgroundColors,
+            borderWidth: 2,
+            borderColor: '#fff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                padding: 15,
+                font: {
+                  size: 12
+                }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = ((value / total) * 100).toFixed(1);
+                  return `${label}: ${value} orders (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
     }
   </script>
 </body>
