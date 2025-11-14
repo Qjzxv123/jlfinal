@@ -380,6 +380,8 @@
             <option value="">All Retailers</option>
             <!-- Options will be populated dynamically -->
         </select>
+        <input type="text" id="itemSkuFilter" placeholder="Filter by SKU..." oninput="filterOrders()" style="padding:6px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; width:140px;">
+        <input type="number" id="itemQuantityFilter" placeholder="Exact qty..." min="1" oninput="filterOrders()" style="padding:6px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; width:100px;">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:6px 12px; background:#f8f9fa; border-radius:6px;">
             <input type="checkbox" id="notesOnlyFilter" onchange="filterOrders()" style="cursor:pointer; transform:scale(1.2);">
             <span style="font-size:14px; font-weight:500;">Only show orders with notes</span>
@@ -617,6 +619,8 @@
     const platform = document.getElementById('platformFilter').value;
     const retailer = document.getElementById('retailerFilter').value;
     const notesOnly = document.getElementById('notesOnlyFilter').checked;
+    const itemSkuFilter = document.getElementById('itemSkuFilter').value.trim().toUpperCase();
+    const itemQuantityFilter = parseInt(document.getElementById('itemQuantityFilter').value) || 0;
     
     // Use different data source based on current tab
     const sourceOrders = currentTab === 'history' ? historyOrders : orders;
@@ -636,6 +640,37 @@
         if (notesOnly) {
             const notes = String(o.Notes || '').trim();
             if (!notes) return false;
+        }
+        
+        // Filter by item SKU and/or quantity
+        if (itemSkuFilter || itemQuantityFilter > 0) {
+            let itemsArr = [];
+            try { 
+                itemsArr = Array.isArray(o.Items) ? o.Items : JSON.parse(o.Items || '[]'); 
+            } catch {}
+            
+            let foundMatchingItem = false;
+            for (const item of itemsArr) {
+                const itemSku = (item?.SKU || '').toUpperCase();
+                const itemQty = parseInt(item?.Quantity) || 0;
+                
+                let skuMatch = true;
+                let qtyMatch = true;
+                
+                if (itemSkuFilter && !itemSku.includes(itemSkuFilter)) {
+                    skuMatch = false;
+                }
+                if (itemQuantityFilter > 0 && itemQty !== itemQuantityFilter) {
+                    qtyMatch = false;
+                }
+                
+                if (skuMatch && qtyMatch) {
+                    foundMatchingItem = true;
+                    break;
+                }
+            }
+            
+            if (!foundMatchingItem) return false;
         }
         
         if (search) {
@@ -703,6 +738,8 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('platformFilter').value = '';
             document.getElementById('retailerFilter').value = '';
+            document.getElementById('itemSkuFilter').value = '';
+            document.getElementById('itemQuantityFilter').value = '';
             document.getElementById('notesOnlyFilter').checked = false;
             filterOrders();
         }
