@@ -1866,26 +1866,33 @@
         }
         async function collectRatesForOrders(orderList) {
             if (!orderList.length) return;
-            showRatesLoadingOverlay('Fetching rates (0/' + orderList.length + ')...');
+            showRatesLoadingOverlay('Fetching rates for all orders...');
             shippingRatesByOrderId = {};
             shippingRateErrors = {};
             shippingShipmentIds = {};
             selectedShippingRates = {};
             try {
-                for (let i = 0; i < orderList.length; i++) {
-                    const order = orderList[i];
-                    updateRatesLoadingMessage(`Fetching rates (${i + 1}/${orderList.length})...`);
+                // Fetch all rates in parallel
+                const ratePromises = orderList.map(async (order) => {
                     const pkgs = shippingLabelPackages[order.OrderID] || [];
                     const result = await fetchRatesForOrder(order, pkgs);
-                    if (result.shipmentId) shippingShipmentIds[order.OrderID] = result.shipmentId;
+                    return { orderId: order.OrderID, result };
+                });
+                
+                const results = await Promise.all(ratePromises);
+                
+                // Process results
+                results.forEach(({ orderId, result }) => {
+                    if (result.shipmentId) shippingShipmentIds[orderId] = result.shipmentId;
                     if (result.error) {
-                        shippingRateErrors[order.OrderID] = result.error;
-                        continue;
+                        shippingRateErrors[orderId] = result.error;
+                        return;
                     }
-                    shippingRatesByOrderId[order.OrderID] = result.rates || [];
+                    shippingRatesByOrderId[orderId] = result.rates || [];
                     const cheapest = pickCheapestRate(result.rates || []);
-                    if (cheapest) selectedShippingRates[order.OrderID] = cheapest;
-                }
+                    if (cheapest) selectedShippingRates[orderId] = cheapest;
+                });
+                
                 updateRatesLoadingMessage('Preparing summary...');
             } finally {
                 hideRatesLoadingOverlay();
