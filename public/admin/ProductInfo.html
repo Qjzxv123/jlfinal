@@ -23,7 +23,7 @@
       border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.12);
       padding: 32px 24px;
-      max-width: 500px;
+      max-width: 80%;
       width: 100%;
       text-align: center;
     }
@@ -81,6 +81,104 @@
       max-height: 2000px;
       transition: max-height 0.5s ease-in;
     }
+    .file-upload-section {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 10px;
+    }
+    .file-input-wrapper {
+      margin-bottom: 12px;
+    }
+    .file-input {
+      display: block;
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.95rem;
+    }
+    .upload-btn {
+      background: #4DBA93;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .upload-btn:hover {
+      background: #3da87f;
+    }
+    .upload-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .file-list {
+      margin-top: 16px;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: white;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      border: 1px solid #e2e8f0;
+      gap: 12px;
+    }
+    .file-preview {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+    }
+    .file-info {
+      flex: 1;
+      text-align: left;
+      min-width: 0;
+    }
+    .file-name {
+      color: #333;
+      font-size: 0.95rem;
+      word-break: break-word;
+    }
+    .file-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .download-btn, .delete-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .download-btn {
+      background: #4DBA93;
+      color: white;
+    }
+    .download-btn:hover {
+      opacity: 0.8;
+    }
+    .delete-btn {
+      background: #e74c3c;
+      color: white;
+    }
+    .delete-btn:hover {
+      opacity: 0.8;
+    }
+    .upload-status {
+      margin-top: 8px;
+      font-size: 0.9rem;
+      color: #4DBA93;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
@@ -118,25 +216,6 @@
         }
         // Display all product info fields
         let html = '';
-        // Search for the SKU in the productimages bucket and display the first matching image
-        try {
-          const { data: fileList, error: listError } = await supabase.storage
-            .from('productimages')
-            .list();
-          if (fileList && Array.isArray(fileList)) {
-            const match = fileList.find(f => f.name.startsWith(sku));
-            if (match) {
-              const { data: imgUrl, error: imgError } = await supabase.storage
-                .from('productimages')
-                .getPublicUrl(match.name);
-              if (imgUrl && imgUrl.publicUrl && !imgError) {
-                html += `<div style='margin-bottom:18px;'><img src='${imgUrl.publicUrl}' alt='Product Image' style='max-width:220px;max-height:220px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);'></div>`;
-              }
-            }
-          }
-        } catch (imgErr) {
-          // If error, do not display image
-        }
         html += '<table style="width:100%;margin:auto;text-align:left;font-size:1rem;">';
         const hiddenFields = [
           'UserID', 'ManufacturingSteps'
@@ -207,6 +286,24 @@
           html += `</div>`; // close container
         }
 
+        // Add File Management section
+        html += `<div style='margin-top:2em;'>`;
+        html += `<div class='collapsible-header' onclick='toggleCollapsible(this)'>`;
+        html += `<span style='font-weight:600;color:#4DBA93;'>Product Files</span>`;
+        html += `<span class='collapsible-icon'>▼</span>`;
+        html += `</div>`;
+        html += `<div class='collapsible-content'>`;
+        html += `<div class='file-upload-section'>`;
+        html += `<div class='file-input-wrapper'>`;
+        html += `<input type='file' id='fileInput' class='file-input' multiple>`;
+        html += `</div>`;
+        html += `<button onclick='uploadFiles()' class='upload-btn' id='uploadBtn'>Upload Files</button>`;
+        html += `<div id='uploadStatus' class='upload-status'></div>`;
+        html += `<div class='file-list' id='fileList'>Loading files...</div>`;
+        html += `</div>`;
+        html += `</div>`; // close collapsible-content
+        html += `</div>`; // close container
+
         // Render table immediately so user sees loading state
         detailsDiv.innerHTML = html;
 
@@ -262,6 +359,9 @@
           }
           detailsDiv.insertAdjacentHTML('beforeend', logsHtml);
         })();
+
+        // Load files for this SKU
+        loadFiles(sku);
 
         // Fetch order history for this SKU using new schema
         (async () => {
@@ -331,6 +431,155 @@
       if (content && content.classList.contains('collapsible-content')) {
         icon.classList.toggle('open');
         content.classList.toggle('open');
+      }
+    }
+
+    // File management functions
+    let currentSKU = null;
+
+    async function loadFiles(sku) {
+      currentSKU = sku;
+      const fileListDiv = document.getElementById('fileList');
+      fileListDiv.innerHTML = 'Loading files...';
+      
+      try {
+        // List files in the SKU folder
+        const { data: files, error } = await supabase.storage
+          .from('productimages')
+          .list(sku);
+        
+        if (error && error.message.includes('not found')) {
+          // Folder doesn't exist yet
+          fileListDiv.innerHTML = '<div style="color:#888;text-align:left;">No files uploaded yet</div>';
+          return;
+        }
+        
+        if (error) {
+          fileListDiv.innerHTML = `<div class='error'>Error loading files: ${error.message}</div>`;
+          return;
+        }
+        
+        if (!files || files.length === 0) {
+          fileListDiv.innerHTML = '<div style="color:#888;text-align:left;">No files uploaded yet</div>';
+          return;
+        }
+        
+        // Display files
+        let filesHtml = '';
+        for (const file of files) {
+          if (file.name === '.emptyFolderPlaceholder') continue; // Skip placeholder
+          
+          // Get public URL for image preview
+          const { data: urlData } = await supabase.storage
+            .from('productimages')
+            .getPublicUrl(`${sku}/${file.name}`);
+          
+          filesHtml += `<div class='file-item'>`;
+          if (urlData && urlData.publicUrl) {
+            filesHtml += `<img src='${urlData.publicUrl}' class='file-preview' alt='${file.name}' onerror="this.style.display='none'">`;
+          }
+          filesHtml += `<div class='file-info'>`;
+          filesHtml += `<div class='file-name'>${file.name}</div>`;
+          filesHtml += `</div>`;
+          filesHtml += `<div class='file-actions'>`;
+          filesHtml += `<button class='download-btn' onclick='downloadFile("${file.name}")'>Download</button>`;
+          filesHtml += `<button class='delete-btn' onclick='deleteFile("${file.name}")'>Delete</button>`;
+          filesHtml += `</div>`;
+          filesHtml += `</div>`;
+        }
+        fileListDiv.innerHTML = filesHtml || '<div style="color:#888;text-align:left;">No files uploaded yet</div>';
+      } catch (err) {
+        fileListDiv.innerHTML = `<div class='error'>Error: ${err.message}</div>`;
+      }
+    }
+
+    async function uploadFiles() {
+      const fileInput = document.getElementById('fileInput');
+      const uploadBtn = document.getElementById('uploadBtn');
+      const statusDiv = document.getElementById('uploadStatus');
+      
+      if (!fileInput.files || fileInput.files.length === 0) {
+        statusDiv.textContent = 'Please select files to upload';
+        statusDiv.style.color = '#e74c3c';
+        return;
+      }
+      
+      uploadBtn.disabled = true;
+      statusDiv.textContent = 'Uploading...';
+      statusDiv.style.color = '#4DBA93';
+      
+      try {
+        // Upload each file to the SKU folder
+        for (const file of fileInput.files) {
+          const filePath = `${currentSKU}/${file.name}`;
+          const { error } = await supabase.storage
+            .from('productimages')
+            .upload(filePath, file, {
+              upsert: true // Overwrite if exists
+            });
+          
+          if (error) {
+            throw error;
+          }
+        }
+        
+        statusDiv.textContent = `Successfully uploaded ${fileInput.files.length} file(s)`;
+        fileInput.value = ''; // Clear input
+        
+        // Reload file list
+        await loadFiles(currentSKU);
+        
+        setTimeout(() => {
+          statusDiv.textContent = '';
+        }, 3000);
+      } catch (err) {
+        statusDiv.textContent = `Upload failed: ${err.message}`;
+        statusDiv.style.color = '#e74c3c';
+      } finally {
+        uploadBtn.disabled = false;
+      }
+    }
+
+    async function downloadFile(fileName) {
+      try {
+        const filePath = `${currentSKU}/${fileName}`;
+        const { data, error } = await supabase.storage
+          .from('productimages')
+          .download(filePath);
+        
+        if (error) throw error;
+        
+        // Create download link
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert(`Download failed: ${err.message}`);
+      }
+    }
+
+    async function deleteFile(fileName) {
+      if (!confirm(`Are you sure you want to delete ${fileName}?`)) {
+        return;
+      }
+      
+      try {
+        const filePath = `${currentSKU}/${fileName}`;
+        const { error } = await supabase.storage
+          .from('productimages')
+          .remove([filePath]);
+        
+        if (error) throw error;
+        
+        // Reload file list
+        await loadFiles(currentSKU);
+      } catch (err) {
+        alert(`Delete failed: ${err.message}`);
       }
     }
   </script>
