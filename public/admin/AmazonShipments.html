@@ -1310,8 +1310,11 @@
       const selectAllCheckbox = document.getElementById('selectAllCheckbox');
       
       if (selectAllCheckbox.checked) {
+        // Only select shipments that are not completed
         filteredShipments.forEach(shipment => {
-          selectedShipments.add(shipment.id);
+          if (shipment.Status !== 'Completed') {
+            selectedShipments.add(shipment.id);
+          }
         });
       } else {
         selectedShipments.clear();
@@ -1327,13 +1330,15 @@
 
     function updateSelectAllCheckbox() {
       const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-      const filteredShipmentIds = filteredShipments.map(shipment => shipment.id);
-      const selectedFilteredShipments = filteredShipmentIds.filter(id => selectedShipments.has(id));
+      // Only consider non-completed shipments for the select all checkbox
+      const selectableShipments = filteredShipments.filter(shipment => shipment.Status !== 'Completed');
+      const selectableShipmentIds = selectableShipments.map(shipment => shipment.id);
+      const selectedFilteredShipments = selectableShipmentIds.filter(id => selectedShipments.has(id));
       
       if (selectedFilteredShipments.length === 0) {
         selectAllCheckbox.checked = false;
         selectAllCheckbox.indeterminate = false;
-      } else if (selectedFilteredShipments.length === filteredShipmentIds.length) {
+      } else if (selectedFilteredShipments.length === selectableShipmentIds.length) {
         selectAllCheckbox.checked = true;
         selectAllCheckbox.indeterminate = false;
       } else {
