@@ -222,10 +222,29 @@
           html += `<div style='margin-bottom:10px;'><strong>Instructions:</strong><br>${instructionsText}</div>`;
           html += `</div>`;
           html += `<div style='text-align:center;margin-top:18px;'>`;
-          html += `<span>Step ${idx+1} of ${steps.length}</span>`;
-          html += `<button id='nextStep' style='margin-left:16px;'>${idx === steps.length-1 ? 'Finish' : 'Complete Step'}</button>`;
-          html += `</div>`;
+          html += `<span>Step ${idx+1} of ${steps.length}</span><br>`;
+          html += `<div style='margin-top:12px;'>`;
+          if (idx > 0) {
+            html += `<button id='prevStep' style='background:#6c757d; color:white; border:none; padding:10px 20px; border-radius:6px; font-size:14px; cursor:pointer; margin-right:8px;'>← Previous Step</button>`;
+          }
+          html += `<button id='nextStep' style='background:#4DBA93; color:white; border:none; padding:10px 20px; border-radius:6px; font-size:14px; cursor:pointer;'>${idx === steps.length-1 ? 'Finish' : 'Complete Step'}</button>`;
+          html += `</div></div>`;
           instructionsDiv.innerHTML = html;
+          
+          // Previous Step button handler
+          if (idx > 0) {
+            document.getElementById('prevStep').onclick = async function() {
+              currentStep--;
+              // Update Progress column in ManufacturingTasks to the previous step title
+              const prevProgress = steps[currentStep]["Step Title"] || steps[currentStep].StepTitle || `Step ${currentStep+1}`;
+              await supabase
+                .from('ManufacturingTasks')
+                .update({ Progress: prevProgress })
+                .eq('OrderNumber', orderNumber);
+              await renderStep(currentStep);
+            };
+          }
+          
           document.getElementById('nextStep').onclick = async function() {
             await supabase
               .from("ManufacturingLog")
