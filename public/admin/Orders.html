@@ -1548,11 +1548,11 @@
             try {
                 const { data, error } = await supabase
                     .from('Products')
-                    .select('ProductSKU, "Product Weight(oz)"')
+                    .select('ProductSKU, "FinalWeight"')
                     .in('ProductSKU', needed);
                 if (!error && data) {
                     data.forEach(row => {
-                        const w = Number(row['Product Weight(oz)']);
+                        const w = Number(row['FinalWeight']);
                         if (!isNaN(w)) productWeightCache[row.ProductSKU] = w;
                     });
                 }
