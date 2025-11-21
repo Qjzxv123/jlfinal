@@ -152,7 +152,12 @@
           const batchNumber = orderNumber;
           const lotNumber = await generatelotNumber(productData);
           const batchDate = new Date().toLocaleDateString();
-          let html = `<div style='font-size:1.1em;color:#333;margin-bottom:18px;text-align:center;'>Batch Number: <strong>${batchNumber}</strong> &nbsp; | &nbsp; Lot Number: <strong>${lotNumber}</strong> &nbsp; | &nbsp; Batch Date: <strong>${batchDate}</strong></div>`;
+          let html = `<div style='font-size:1.1em;color:#333;margin-bottom:18px;text-align:center;'>
+            <div>Batch Number: <strong>${batchNumber}</strong> &nbsp; | &nbsp; Lot Number: <strong>${lotNumber}</strong> &nbsp; | &nbsp; Batch Date: <strong>${batchDate}</strong></div>
+            <button id='printBatchInfoBtn' style='margin-top:10px;background:#4DBA93;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;' title='Print Batch Information'>
+              <i class='cil-print'></i> Print Batch Info
+            </button>
+          </div>`;
           html += `<h2 style='color:#4d6dba;'>${productData.Name || orderData.ProductSKU} <span style='font-size:0.8em;color:#333;font-weight:normal;'>(Qty: ${orderData.Quantity})</span></h2>`;
           html += `<div class='step-card' style='background:#f6f8fa;border-radius:10px;padding:24px;margin-bottom:24px;'>`;
           html += `<div class='step-title' style='font-size:1.3em;color:#4d6dba;font-weight:bold;margin-bottom:10px;'>${step["Step Title"]}</div>`;
@@ -230,6 +235,62 @@
           html += `<button id='nextStep' style='background:#4DBA93; color:white; border:none; padding:10px 20px; border-radius:6px; font-size:14px; cursor:pointer;'>${idx === steps.length-1 ? 'Finish' : 'Complete Step'}</button>`;
           html += `</div></div>`;
           instructionsDiv.innerHTML = html;
+          
+          // Print Batch Info button handler
+          document.getElementById('printBatchInfoBtn').onclick = function() {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Batch Information</title>
+                <style>
+                  body { font-family: Arial, sans-serif; padding: 40px; }
+                  .batch-info { text-align: center; }
+                  .batch-info h1 { margin-bottom: 30px; color: #2c3e50; }
+                  .batch-info table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                  .batch-info td { padding: 15px; border: 1px solid #ddd; font-size: 18px; }
+                  .batch-info td:first-child { font-weight: bold; background: #f8f9fa; width: 40%; }
+                  @media print {
+                    body { padding: 20px; }
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="batch-info">
+                  <h1>Batch Information</h1>
+                  <table>
+                    <tr>
+                      <td>Batch Number:</td>
+                      <td>${batchNumber}</td>
+                    </tr>
+                    <tr>
+                      <td>Batch Date:</td>
+                      <td>${batchDate}</td>
+                    </tr>
+                    <tr>
+                      <td>Product SKU:</td>
+                      <td>${orderData.ProductSKU}</td>
+                    </tr>
+                    <tr>
+                      <td>Product Name:</td>
+                      <td>${productData.Name || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                      <td>Quantity:</td>
+                      <td>${orderData.Quantity}</td>
+                    </tr>
+                  </table>
+                </div>
+              </body>
+              </html>
+            `);
+            printWindow.document.close();
+            setTimeout(() => {
+              printWindow.focus();
+              printWindow.print();
+            }, 250);
+          };
           
           // Previous Step button handler
           if (idx > 0) {
