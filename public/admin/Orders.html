@@ -1234,9 +1234,67 @@
                 alert('Please select at least one order to remove.');
                 return;
             }
-            if (!confirm('Are you sure you want to remove the selected orders? This action cannot be undone.')) {
-                return;
+            
+            // Show modal to prompt for tracking number and box SKU
+            await openDeleteOrdersModal();
+        }
+        
+        async function openDeleteOrdersModal() {
+            // Close any existing modal
+            closeDeleteOrdersModal();
+            
+            // Load boxes list for dropdown
+            let boxOptions = '<option value="">-- Select Box (Optional) --</option>';
+            try {
+                const { data: boxesData, error: boxesError } = await supabase
+                    .from('Boxes')
+                    .select('SKU')
+                    .order('SKU', { ascending: true });
+                
+                if (!boxesError && boxesData) {
+                    boxOptions += boxesData.map(box => 
+                        `<option value="${escapeHtml(box.SKU)}">${escapeHtml(box.SKU)}</option>`
+                    ).join('');
+                }
+            } catch (e) {
+                console.error('Error loading boxes:', e);
             }
+            
+            const modalHtml = `<div id="deleteOrdersModal" style="display:block; position:fixed; z-index:4000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4);">
+                <div style="background:white; max-width:500px; margin:100px auto; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:28px 30px 24px 30px; position:relative;">
+                    <span onclick="closeDeleteOrdersModal()" style="position:absolute; top:14px; right:18px; font-size:28px; color:#888; cursor:pointer;">&times;</span>
+                    <h2 style="margin-top:0; color:#e74c3c; font-size:1.4rem; margin-bottom:8px;">Delete Selected Orders</h2>
+                    <p style="margin:0 0 20px 0; font-size:14px; color:#555;">You are about to delete ${selectedOrders.size} order(s). Optionally provide tracking number and box SKU for order history.</p>
+                    
+                    <label style="font-weight:600; color:#2c3e50; display:block; margin-bottom:4px;">Tracking Number (Optional)</label>
+                    <input id="deleteTrackingNumber" type="text" placeholder="Enter tracking number..." style="width:100%; margin-bottom:16px; padding:10px; border-radius:6px; border:1px solid #e1e5e9;" />
+                    
+                    <label style="font-weight:600; color:#2c3e50; display:block; margin-bottom:4px;">Box SKU (Optional)</label>
+                    <select id="deleteBoxSku" style="width:100%; margin-bottom:20px; padding:10px; border-radius:6px; border:1px solid #e1e5e9;">
+                        ${boxOptions}
+                    </select>
+                    
+                    <div style="display:flex; align-items:center; justify-content:flex-end; gap:12px;">
+                        <button class="btn" style="background:#e0e0e0; color:#2c3e50; padding:10px 20px; border-radius:7px;" onclick="closeDeleteOrdersModal()">Cancel</button>
+                        <button class="btn" style="background:#e74c3c; padding:10px 20px; border-radius:7px;" onclick="confirmDeleteOrders()">Delete Orders</button>
+                    </div>
+                </div>
+            </div>`;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+        
+        function closeDeleteOrdersModal() {
+            const modal = document.getElementById('deleteOrdersModal');
+            if (modal) modal.remove();
+        }
+        
+        async function confirmDeleteOrders() {
+            const trackingNumber = document.getElementById('deleteTrackingNumber').value.trim();
+            const boxSku = document.getElementById('deleteBoxSku').value.trim();
+            
+            closeDeleteOrdersModal();
+            
             try {
                 // Get the full order objects that are selected
                 const selectedOrderObjects = orders.filter(o => selectedOrders.has(String(o.OrderID)));
@@ -1252,6 +1310,8 @@
                     Link: order.Link,
                     Notes: "Deleted",
                     UserID: order.UserID || null,
+                    TrackingNumber: trackingNumber || null,
+                    BoxSkus: boxSku ? [boxSku] : null
                 }));
                 
                 // Insert into Order History table
@@ -1292,6 +1352,7 @@
                 const editModal = document.getElementById('editOrderModal');
                 const addModal = document.getElementById('addItemModal');
                 const shipModal = document.getElementById('shippingLabelsModal');
+                const deleteModal = document.getElementById('deleteOrdersModal');
                 // Priority: close results modal first
                 if (resultsModal && resultsModal.style.display !== 'none') {
                     closeInvRemovalResultsModal();
@@ -1299,6 +1360,11 @@
                 }
                 if (shipModal && shipModal.style.display !== 'none') {
                     closeShippingLabelsModal();
+                    return;
+                }
+                // Close delete modal if open
+                if (deleteModal && deleteModal.style.display !== 'none') {
+                    closeDeleteOrdersModal();
                     return;
                 }
                 // If Add Item modal is open, close only it (do not close Edit modal behind it)
