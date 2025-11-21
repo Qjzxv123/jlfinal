@@ -351,8 +351,8 @@
         let selectString = '*';
         let orderCol = '';
         if (tableName === 'Products') {
-            columns = ['ProductSKU', 'Name', 'Retailer', 'FinalWeight', 'Pack Size', 'Quantity', 'QuantityPerBin'];
-            selectString = 'ProductSKU,Name,Retailer,"FinalWeight","Pack Size",Quantity,QuantityPerBin';
+            columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'FinalWeight', 'Pack Size', 'Quantity', 'QuantityPerBin'];
+            selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)",FinalWeight,"Pack Size",Quantity,QuantityPerBin';
             orderCol = 'ProductSKU';
         } else if (tableName === 'Ingredients') {
             columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'];
@@ -508,7 +508,7 @@
                             // Convert empty string to null for numeric columns
                             let valToSave = newVal;
                             const numericCols = [
-                                'Quantity', 'QuantityPerBin', 'FinalWeight', 'Pack Size',
+                                'Quantity', 'QuantityPerBin', 'Product Weight(oz)', 'FinalWeight', 'Pack Size',
                                 'Quantity(Lbs/Units)', 'LowInvThreshold'
                             ];
                             if (numericCols.includes(col) && newVal === '') {
@@ -862,7 +862,7 @@
             function updateTables() {
                 const term = searchBar ? searchBar.value : '';
                 const lowInv = lowInvFilter && lowInvFilter.checked;
-                renderTable(allProductsData, ['ProductSKU', 'Name', 'Retailer', 'FinalWeight', 'Pack Size', 'Quantity'], productsTable, term);
+                renderTable(allProductsData, ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'FinalWeight', 'Pack Size', 'Quantity'], productsTable, term);
                 renderTable(
                     allIngredientsData,
                     ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'],
