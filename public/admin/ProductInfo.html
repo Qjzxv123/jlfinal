@@ -48,6 +48,39 @@
       font-weight: 600;
       margin-top: 20px;
     }
+    .collapsible-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-top: 2em;
+      margin-bottom: 0.5em;
+      font-weight: 600;
+      color: #4DBA93;
+      transition: background 0.2s;
+    }
+    .collapsible-header:hover {
+      background: #e9ecef;
+    }
+    .collapsible-icon {
+      transition: transform 0.3s;
+      font-size: 1.2rem;
+    }
+    .collapsible-icon.open {
+      transform: rotate(180deg);
+    }
+    .collapsible-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    .collapsible-content.open {
+      max-height: 2000px;
+      transition: max-height 0.5s ease-in;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
@@ -126,12 +159,18 @@
 
         // Add Manufacturing Steps section if it exists
         if (data.ManufacturingSteps) {
-          html += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Manufacturing Steps</div>`;
+          html += `<div style='margin-top:2em;'>`;
+          html += `<div class='collapsible-header' onclick='toggleCollapsible(this)'>`;
+          html += `<span style='font-weight:600;color:#4DBA93;'>Manufacturing Steps</span>`;
+          html += `<span class='collapsible-icon'>▼</span>`;
+          html += `</div>`;
+          html += `<div class='collapsible-content'>`;
+          
           let steps = null;
           try {
             steps = typeof data.ManufacturingSteps === 'string' ? JSON.parse(data.ManufacturingSteps) : data.ManufacturingSteps;
           } catch (e) {
-            html += `<div style='color:#e74c3c;'>Error parsing manufacturing steps</div>`;
+            html += `<div style='color:#e74c3c;padding:10px;'>Error parsing manufacturing steps</div>`;
           }
           
           if (steps && steps.Steps && Array.isArray(steps.Steps)) {
@@ -161,8 +200,11 @@
             });
             html += `</div>`;
           } else {
-            html += `<div style='color:#888;'>No manufacturing steps defined</div>`;
+            html += `<div style='color:#888;padding:10px;'>No manufacturing steps defined</div>`;
           }
+          
+          html += `</div>`; // close collapsible-content
+          html += `</div>`; // close container
         }
 
         // Render table immediately so user sees loading state
@@ -199,12 +241,19 @@
               .eq('SKU', sku)
               .order('created_at', { ascending: false })
             if (logs && logs.length) {
-              logsHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Recent Inventory Updates</div>`;
+              logsHtml += `<div style='margin-top:2em;'>`;
+              logsHtml += `<div class='collapsible-header' onclick='toggleCollapsible(this)'>`;
+              logsHtml += `<span style='font-weight:600;color:#4DBA93;'>Recent Inventory Updates</span>`;
+              logsHtml += `<span class='collapsible-icon'>▼</span>`;
+              logsHtml += `</div>`;
+              logsHtml += `<div class='collapsible-content'>`;
               logsHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Time</th><th style='padding:6px 10px;text-align:left;'>User</th><th style='padding:6px 10px;text-align:left;'>Message</th></tr></thead><tbody>`;
               for (const log of logs) {
                 logsHtml += `<tr><td style='padding:6px 10px;'>${new Date(log.created_at).toLocaleString()}</td><td style='padding:6px 10px;'>${log.updated_by || ''}</td><td style='padding:6px 10px;'>${log.log}</td></tr>`;
               }
               logsHtml += '</tbody></table>';
+              logsHtml += `</div>`; // close collapsible-content
+              logsHtml += `</div>`; // close container
             } else {
               logsHtml += `<div style='margin-top:2em;color:#888;'>No inventory update logs found for this SKU.</div>`;
             }
@@ -272,6 +321,17 @@
     } else {
       document.getElementById('skuDisplay').textContent = '';
       document.getElementById('productDetails').innerHTML = `<span class='error'>No SKU provided in URL.</span>`;
+    }
+
+    // Toggle collapsible sections
+    function toggleCollapsible(headerElement) {
+      const icon = headerElement.querySelector('.collapsible-icon');
+      const content = headerElement.nextElementSibling;
+      
+      if (content && content.classList.contains('collapsible-content')) {
+        icon.classList.toggle('open');
+        content.classList.toggle('open');
+      }
     }
   </script>
 </body>
