@@ -1300,18 +1300,33 @@
                 const selectedOrderObjects = orders.filter(o => selectedOrders.has(String(o.OrderID)));
                 
                 // First, add orders to Order History table
-                const orderHistoryRecords = selectedOrderObjects.map(order => ({
-                    OrderID: order.OrderID,
-                    ShippedAt: new Date().toISOString(), // Current timestamp as shipped date
-                    Retailer: order.Retailer,
-                    Items: order.Items, // Already JSON
-                    Customer: order.Customer, // Already JSON
-                    Platform: order.Platform,
-                    Link: order.Link,
-                    Notes: "Deleted",
-                    UserID: order.UserID || null,
-                    TrackingNumber: trackingNumber || null,
-                    BoxSkus: boxSku ? [boxSku] : null
+                const orderHistoryRecords = await Promise.all(selectedOrderObjects.map(async order => {
+                    let finalOrderID = order.OrderID;
+                    
+                    // Check if OrderID already exists in Order History
+                    const { data: existingOrders, error: checkError } = await supabase
+                        .from('Order History')
+                        .select('OrderID')
+                        .eq('OrderID', order.OrderID);
+                    
+                    if (!checkError && existingOrders && existingOrders.length > 0) {
+                        // OrderID exists, append retailer suffix
+                        finalOrderID = `${order.OrderID}-${order.Retailer || 'Unknown'}`;
+                    }
+                    
+                    return {
+                        OrderID: finalOrderID,
+                        ShippedAt: new Date().toISOString(), // Current timestamp as shipped date
+                        Retailer: order.Retailer,
+                        Items: order.Items, // Already JSON
+                        Customer: order.Customer, // Already JSON
+                        Platform: order.Platform,
+                        Link: order.Link,
+                        Notes: "Deleted",
+                        UserID: order.UserID || null,
+                        TrackingNumber: trackingNumber || null,
+                        BoxSkus: boxSku ? [boxSku] : null
+                    };
                 }));
                 
                 // Insert into Order History table

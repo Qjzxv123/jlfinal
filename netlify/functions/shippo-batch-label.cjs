@@ -260,8 +260,22 @@ async function upsertOrderHistory({ supabase, orderData, packages, labelInfo, ra
 		.filter(Boolean);
 	const shippingCost = Number.isFinite(labelInfo.shippingCost) ? labelInfo.shippingCost : (parseFloat(rateMeta?.amount) || parseFloat(rateMeta?.amount_local) || null);
 
+	let finalOrderID = orderData?.OrderID ?? orderData?.OrderNumber ?? orderData?.orderId ?? orderData?.orderID;
+	
+	// Check if OrderID already exists in Order History
+	const { data: existingOrders, error: checkError } = await supabase
+		.from('Order History')
+		.select('OrderID')
+		.eq('OrderID', finalOrderID);
+	
+	if (!checkError && existingOrders && existingOrders.length > 0) {
+		// OrderID exists, append retailer suffix
+		const retailer = orderData?.Retailer || orderData?.shop || 'Unknown';
+		finalOrderID = `${finalOrderID}-${retailer}`;
+	}
+
 	const historyPayload = {
-		OrderID: orderData?.OrderID ?? orderData?.OrderNumber ?? orderData?.orderId ?? orderData?.orderID,
+		OrderID: finalOrderID,
 		Retailer: orderData?.Retailer || orderData?.shop || null,
 		Platform: orderData?.Platform || orderData?.platform || null,
 		Items: items || null,
@@ -278,7 +292,7 @@ async function upsertOrderHistory({ supabase, orderData, packages, labelInfo, ra
 
 	const { error } = await supabase
 		.from('Order History')
-		.upsert(historyPayload, { onConflict: 'OrderID' });
+		.insert(historyPayload);
 	if (error) {
 		console.error('[upsertOrderHistory] Supabase error:', error);
 		throw new Error(error.message || 'Unknown error writing Order History');
