@@ -6,6 +6,7 @@
   <title>Client Dashboard - J&L Naturals</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
   <link rel="stylesheet" href="/Assets/sidebar.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -657,21 +658,44 @@
         </div>
       </div>
 
+      <!-- Orders Chart -->
+      <div class="chart-container" style="background: white; border-radius: 16px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <h2 style="margin-bottom: 20px; color: #2d3748; font-size: 1.2rem;">Orders Overview</h2>
+        <canvas id="ordersChart" style="max-height: 300px; width: 100%;"></canvas>
+      </div>
+
       <!-- Content Grid -->
       <div class="content-grid">
-        <!-- Inventory Alerts -->
-        <div class="section-card" style="overflow-y: scroll;">
-          <div class="section-header">
-            <h2 class="section-title">
-              <i class="cil-warning" style="margin-right: 8px; color: #f57c00;"></i>
-              Inventory Alerts
-            </h2>
+        <!-- Left Column -->
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+          <!-- Recent Orders -->
+          <div class="section-card">
+            <div class="section-header">
+              <h2 class="section-title">Recent Orders</h2>
+              <a href="CustomerOrders.html" class="view-all-btn">View All</a>
+            </div>
+            <div id="recentOrdersList" class="orders-list">
+              <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>Loading recent orders...</p>
+              </div>
+            </div>
           </div>
-          
-          <div id="inventoryWarnings" style="overflow-y: auto;">
-            <div class="loading-state" style="padding: 20px;">
-              <div class="loading-spinner"></div>
-              <p>Checking inventory levels...</p>
+
+          <!-- Inventory Alerts -->
+          <div class="section-card" style="overflow-y: scroll;">
+            <div class="section-header">
+              <h2 class="section-title">
+                <i class="cil-warning" style="margin-right: 8px; color: #f57c00;"></i>
+                Inventory Alerts
+              </h2>
+            </div>
+            
+            <div id="inventoryWarnings" style="overflow-y: auto;">
+              <div class="loading-state" style="padding: 20px;">
+                <div class="loading-spinner"></div>
+                <p>Checking inventory levels...</p>
+              </div>
             </div>
           </div>
         </div>
@@ -690,6 +714,13 @@
                 </div>
                 <div class="action-title">Request Manufacturing</div>
                 <div class="action-description">Request manufacturing for one or more of your products</div>
+              </a>
+              <a href="CustomerAnalytics.html" class="action-card">
+                <div class="action-icon track">
+                  <i class="cil-chart-line"></i>
+                </div>
+                <div class="action-title">View Analytics</div>
+                <div class="action-description">See detailed insights about your orders and products</div>
               </a>
               <a href="#" onclick="showNotificationSettings()" class="action-card">
                 <div class="action-icon account">
@@ -741,7 +772,8 @@
           loadUserInfo(),
           loadProducts(),
           checkInventoryLevels(),
-          loadAnalytics()
+          loadAnalytics(),
+          loadRecentOrders()
         ]);        
       } catch (error) {
         console.error('Dashboard initialization error:', error);
@@ -905,9 +937,166 @@
         document.getElementById('statTopProduct').textContent = topProduct;
         document.getElementById('statTopProductQty').textContent = topProductQty.toLocaleString() + ' units';
         
+        renderOrdersChart(orders);
       } catch (error) {
         console.error('Error in loadAnalytics:', error);
       }
+    }
+
+    async function loadRecentOrders() {
+      if (!currentUser) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('Orders')
+          .select('*')
+          .overlaps('UserID', [currentUser.id])
+          .order('OrderDate', { ascending: false })
+          .limit(5);
+          
+        if (error) throw error;
+        
+        const container = document.getElementById('recentOrdersList');
+        if (!data || data.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <i class="cil-inbox" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+              <p>No recent orders found</p>
+              <a href="CustomerOrderView.html" style="color: #4dba93; text-decoration: none; font-weight: 600; margin-top: 10px; display: inline-block;">Create your first order</a>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = data.map(order => {
+          const date = new Date(order.OrderDate).toLocaleDateString();
+          const statusClass = getStatusClass(order.Status);
+          const items = parseItems(order.Items);
+          const itemCount = items.reduce((sum, item) => sum + (parseInt(item.Quantity) || 0), 0);
+          
+          return `
+            <div class="order-card">
+              <div class="order-header">
+                <span class="order-number">#${order.OrderID}</span>
+                <span class="order-status ${statusClass}">${order.Status}</span>
+              </div>
+              <div class="order-details">
+                <div class="order-detail">
+                  <span>Date:</span>
+                  <span style="font-weight: 600;">${date}</span>
+                </div>
+                <div class="order-detail">
+                  <span>Items:</span>
+                  <span style="font-weight: 600;">${itemCount} units</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        
+      } catch (error) {
+        console.error('Error loading recent orders:', error);
+        document.getElementById('recentOrdersList').innerHTML = `
+          <div class="empty-state" style="color: #e53e3e;">
+            <p>Failed to load recent orders</p>
+          </div>
+        `;
+      }
+    }
+
+    function getStatusClass(status) {
+      const s = (status || '').toLowerCase();
+      if (s.includes('request')) return 'status-requested';
+      if (s.includes('schedul')) return 'status-scheduled';
+      if (s.includes('product')) return 'status-in-production';
+      if (s.includes('complet')) return 'status-completed';
+      if (s.includes('cancel')) return 'status-cancelled';
+      return 'status-requested';
+    }
+
+    function parseItems(items) {
+      if (!items) return [];
+      if (Array.isArray(items)) return items;
+      try {
+        return JSON.parse(items);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function renderOrdersChart(orders) {
+      const ctx = document.getElementById('ordersChart');
+      if (!ctx) return;
+
+      // Group orders by date
+      const dateGroups = {};
+      // Initialize last 30 days with 0
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateKey = d.toISOString().split('T')[0];
+        dateGroups[dateKey] = 0;
+      }
+
+      orders.forEach(order => {
+        const date = new Date(order.ShippedAt);
+        const dateKey = date.toISOString().split('T')[0];
+        if (dateGroups[dateKey] !== undefined) {
+          dateGroups[dateKey]++;
+        }
+      });
+
+      const labels = Object.keys(dateGroups).map(date => {
+        const d = new Date(date);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      });
+      const data = Object.values(dateGroups);
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Orders Shipped',
+            data: data,
+            borderColor: '#4DBA93',
+            backgroundColor: 'rgba(77, 186, 147, 0.1)',
+            tension: 0.3,
+            fill: true,
+            pointRadius: 3,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `Orders: ${context.parsed.y}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
     }
 
     function renderInventoryWarnings(inventoryData) {
