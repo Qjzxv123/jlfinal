@@ -408,9 +408,6 @@
             <div class="action-buttons">
                 <button id="refreshOrdersBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#3498db; color:white;" onclick="refreshShippoOrders()">🔄 Refresh Orders</button>
                 <button id="expandAllItemsBtn" class="btn" style="border-radius:8px; font-size:16px; font-weight:600; background:#16a085; color:white;" onclick="toggleAllItems()">📦 Expand All Items</button>
-                <button class="btn" onclick="window.open('https://apps.goshippo.com/orders/create', '_blank')" id="createOrderBtn" style="background: #4DBA93; border-color: #3da682;">
-                    ➕ Create Order
-                </button>
                 <button class="btn" onclick="window.open('https://apps.goshippo.com/shipments/manifests', '_blank')" id="manifestBtn" style="background: #9b59b6; border-color: #8e44ad;">
                     📋 Print Daily Manifest
                 </button>
@@ -910,14 +907,16 @@
         }
         
         async function markAsReturned(orderId) {
-            if (!confirm(`Mark order #${orderId} as returned? This will move it to the Returned Orders tab.`)) {
-                return;
-            }
+            const reason = prompt(`Please enter a reason for returning order #${orderId}:`);
+            if (reason === null) return; // User cancelled
             
             try {
                 const { error } = await supabase
                     .from('Order History')
-                    .update({ Returned: true })
+                    .update({ 
+                        Returned: true,
+                        ReturnReason: reason
+                    })
                     .eq('OrderID', orderId);
                 
                 if (error) {
