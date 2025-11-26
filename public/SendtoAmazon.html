@@ -210,12 +210,15 @@
     </div>
 
     <div class="container" style="margin-top: 20px;">
-      <h2>Recent Shipments</h2>
+      <h2>Shipments</h2>
       <table id="shipmentsTable">
         <thead>
           <tr>
             <th>Items</th>
             <th>Notes</th>
+            <th>Status</th>
+            <th>Request Date</th>
+            <th>Completion Date</th>
           </tr>
         </thead>
         <tbody>
@@ -267,8 +270,8 @@
 
         const { data: shipments, error } = await supabase
           .from('AmazonShipments')
-          .select('Items, Notes')
-          .eq('UserID', userId)
+          .select('Items, Notes, Status, RequestDate, CompletionDate')
+          .contains('UserID', [userId])
           .order('id', { ascending: false })
           .limit(10);
 
@@ -291,6 +294,9 @@
             <tr>
               <td>${itemsDisplay}</td>
               <td>${shipment.Notes || ''}</td>
+              <td>${shipment.Status || 'Pending'}</td>
+              <td>${shipment.RequestDate ? new Date(shipment.RequestDate).toLocaleDateString() : ''}</td>
+              <td>${shipment.CompletionDate ? new Date(shipment.CompletionDate).toLocaleDateString() : ''}</td>
             </tr>
           `;
           shipmentsTableBody.innerHTML += row;
@@ -430,7 +436,7 @@
           Notes: notes
         };
         if (userId) {
-          record.UserID = userId;
+          record.UserID = [userId];
         }
         if (displayName) {
           record.display_name = displayName;
