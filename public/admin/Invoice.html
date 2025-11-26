@@ -368,6 +368,28 @@
                         </div>
                     </div>
 
+                    <div class="breakdown-section">
+                        <div class="breakdown-title">
+                            📦 Boxes Used
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table id="boxesTable" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                                <thead>
+                                    <tr style="background: #e9ecef; border-bottom: 2px solid #dee2e6;">
+                                        <th style="padding: 10px; text-align: left; color: #495057; font-weight: 600;">Box SKU</th>
+                                        <th style="padding: 10px; text-align: left; color: #495057; font-weight: 600;">Dimensions</th>
+                                        <th style="padding: 10px; text-align: right; color: #495057; font-weight: 600;">Quantity</th>
+                                        <th style="padding: 10px; text-align: right; color: #495057; font-weight: 600;">Unit Cost</th>
+                                        <th style="padding: 10px; text-align: right; color: #495057; font-weight: 600;">Total Cost</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="boxesTableBody">
+                                    <!-- Boxes will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div class="total-section">
                         <div class="total-amount" id="totalAmount">$0.00</div>
                         <div class="total-label">Total Invoice Amount</div>
@@ -564,12 +586,13 @@
                     if (box && box.sku) allBoxSkus.add(box.sku);
                 });
 
-                // Fetch box costs from Supabase
+                // Fetch box data with dimensions
                 let boxCostMap = new Map();
+                let boxDimensionsMap = new Map();
                 if (allBoxSkus.size > 0) {
                     const { data: boxData, error: boxError } = await supabase
                         .from('Boxes')
-                        .select('SKU, Cost')
+                        .select('SKU, Cost, Dimensions')
                         .in('SKU', Array.from(allBoxSkus));
                     if (boxError) {
                         console.warn('Error fetching box costs:', boxError);
@@ -577,9 +600,13 @@
                         boxData.forEach(box => {
                             // Charge customers 2.5x the cost of boxes
                             boxCostMap.set(box.SKU, (parseFloat(box.Cost) || 0) * 2.5);
+                            boxDimensionsMap.set(box.SKU, box.Dimensions || 'N/A');
                         });
                     }
                 }
+
+                // Track box usage by SKU
+                const boxUsageMap = new Map();
 
                 orders.forEach(order => {
                     // ...existing code...
@@ -605,6 +632,11 @@
                                             sku: sku,
                                             cost: boxCost
                                         });
+                                        // Track box usage
+                                        if (!boxUsageMap.has(sku)) {
+                                            boxUsageMap.set(sku, { count: 0, cost: boxCost, dimensions: boxDimensionsMap.get(sku) || 'N/A' });
+                                        }
+                                        boxUsageMap.get(sku).count++;
                                     }
                                 });
                             }
@@ -696,7 +728,7 @@
             document.getElementById('amazonBoxesCharge').textContent = `$${(breakdown.amazonBoxesCharge || 0).toFixed(2)}`;
 
                 hideStatus();
-                showInvoiceResults(retailer, month, processedOrders, breakdown, hasInserts);
+                showInvoiceResults(retailer, month, processedOrders, breakdown, hasInserts, boxUsageMap);
 
             } catch (error) {
                 console.error('Error calculating invoice:', error);
@@ -705,7 +737,7 @@
         }
 
         // Display invoice results
-        function showInvoiceResults(retailer, month, orders, breakdown, hasInserts = false) {
+        function showInvoiceResults(retailer, month, orders, breakdown, hasInserts = false, boxUsageMap = new Map()) {
             // Update header
             document.getElementById('invoiceTitle').textContent = `Invoice for ${retailer}`;
             document.getElementById('invoicePeriod').textContent = new Date().toLocaleDateString('en-US', { 
@@ -718,6 +750,28 @@
             document.getElementById('boxCosts').textContent = `$${breakdown.boxCosts.toFixed(2)}`;
             document.getElementById('baseFees').textContent = `$${breakdown.baseFees.toFixed(2)}`;
             document.getElementById('extraItemFees').textContent = `$${breakdown.extraItemFees.toFixed(2)}`;
+            
+            // Populate boxes table
+            const boxesTableBody = document.getElementById('boxesTableBody');
+            if (boxesTableBody && boxUsageMap.size > 0) {
+                let boxesHtml = '';
+                for (const [sku, data] of boxUsageMap) {
+                    const totalCost = data.count * data.cost;
+                    boxesHtml += `
+                        <tr style="border-bottom: 1px solid #e9ecef;">
+                            <td style="padding: 10px; color: #495057;">${sku}</td>
+                            <td style="padding: 10px; color: #495057;">${data.dimensions}</td>
+                            <td style="padding: 10px; text-align: right; color: #495057;">${data.count}</td>
+                            <td style="padding: 10px; text-align: right; color: #495057;">$${data.cost.toFixed(2)}</td>
+                            <td style="padding: 10px; text-align: right; color: #495057; font-weight: 600;">$${totalCost.toFixed(2)}</td>
+                        </tr>
+                    `;
+                }
+                boxesTableBody.innerHTML = boxesHtml;
+            } else if (boxesTableBody) {
+                boxesTableBody.innerHTML = '<tr><td colspan="5" style="padding: 15px; text-align: center; color: #6c757d;">No boxes used</td></tr>';
+            }
+            
             // Receiving hours cost
             let receivingCostRow = document.getElementById('receivingCostRow');
             if (!receivingCostRow) {
