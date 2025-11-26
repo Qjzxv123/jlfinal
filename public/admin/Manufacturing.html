@@ -733,7 +733,7 @@ function getIngredientUsage(product, order) {
 						${completionHtml}
 						<button class=\"update-progress-btn\" onclick=\"openProgressModal(${order.OrderNumber}, '${progressRaw.replace(/'/g, "&#39;")}', ${JSON.stringify(progressOptions).replace(/"/g, '&quot;')})\">Update Progress</button>
 						<button class=\"delete-btn\" title=\"Delete Order\" onclick=\"deleteOrder(${order.OrderNumber})\"><i class=\"cil-trash\"></i></button>
-						<a href=\"Instructions.html?ordernumber=${order.OrderNumber}\" class=\"update-progress-btn\" style=\"height:40px;width:40px;display:inline-flex;align-items:center;justify-content:center;padding:0;text-decoration:none;\"><i class=\"cil-list-numbered\" style=\"font-size:1.7em;\"></i></a>
+						<button class=\"update-progress-btn\" style=\"height:40px;width:40px;display:inline-flex;align-items:center;justify-content:center;padding:0;\" title=\"View Instructions\" onclick=\"openInstructions(${order.OrderNumber})\"><i class=\"cil-list-numbered\" style=\"font-size:1.7em;\"></i></button>
 					</div>`;
 		// Modal HTML
 		if (!document.getElementById('progressModal')) {
@@ -913,6 +913,27 @@ function getIngredientUsage(product, order) {
 			currentSearchTerm = this.value;
 			loadManufacturingOrders(currentProgressFilter, currentSearchTerm);
 		});
+
+		function openInstructions(orderNumber) {
+			const quantityInput = prompt('Enter quantity to manufacture (leave blank to use order quantity):');
+			
+			// If user cancels, don't navigate
+			if (quantityInput === null) return;
+			
+			// Build URL with order number
+			let url = `Instructions.html?ordernumber=${orderNumber}`;
+			
+			// Add quantity parameter if provided and valid
+			if (quantityInput && quantityInput.trim() !== '') {
+				const qty = parseInt(quantityInput.trim());
+				if (!isNaN(qty) && qty > 0) {
+					url += `&quantity=${qty}`;
+				}
+			}
+			
+			// Navigate to instructions page
+			window.location.href = url;
+		}
 
 		async function deleteOrder(orderNumber) {
 			if (!confirm('Are you sure you want to delete this order?')) return;
