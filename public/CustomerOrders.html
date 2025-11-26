@@ -469,42 +469,57 @@
                 <div style="display:flex;gap:1rem;margin-bottom:1.5rem;justify-content:center;align-items:center;">
                     <button id="tabActiveOrders" type="button" style="background:#4DBA93;color:#fff;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:1.1rem;">Active Orders</button>
                     <button id="tabOrderHistory" type="button" style="background:#e9ecef;color:#333;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:1.1rem;">Order History</button>
+                    <button id="tabReturnedOrders" type="button" style="background:#e9ecef;color:#333;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:1.1rem;">Returned Orders</button>
                 </div>
                 <div style="margin-bottom:1rem;display:flex;justify-content:center;align-items:center;">
                     <input id="orderSearchBar" type="text" placeholder="Search orders..." style="padding:0.5rem 1rem;border-radius:6px;border:1.5px solid #e1e5e9;font-size:1rem;min-width:260px;width:100%;max-width:400px;" />
                 </div>
                 <div id="active-orders-viewer"></div>
                 <div id="order-history-viewer" style="display:none;"></div>
+                <div id="returned-orders-viewer" style="display:none;"></div>
         <script>
         document.addEventListener('DOMContentLoaded', () => {
             const tabActiveOrders = document.getElementById('tabActiveOrders');
             const tabOrderHistory = document.getElementById('tabOrderHistory');
+            const tabReturnedOrders = document.getElementById('tabReturnedOrders');
             const activeOrdersViewer = document.getElementById('active-orders-viewer');
             const orderHistoryViewer = document.getElementById('order-history-viewer');
+            const returnedOrdersViewer = document.getElementById('returned-orders-viewer');
             const orderSearchBar = document.getElementById('orderSearchBar');
-            let activeOrdersData = [];
-            let orderHistoryData = [];
 
             // Helper: show correct tab
             function showTab(tab) {
+                // Reset all
+                activeOrdersViewer.style.display = 'none';
+                orderHistoryViewer.style.display = 'none';
+                returnedOrdersViewer.style.display = 'none';
+                
+                tabActiveOrders.style.background = '#e9ecef';
+                tabActiveOrders.style.color = '#333';
+                tabOrderHistory.style.background = '#e9ecef';
+                tabOrderHistory.style.color = '#333';
+                tabReturnedOrders.style.background = '#e9ecef';
+                tabReturnedOrders.style.color = '#333';
+
                 if (tab === 'active') {
                     activeOrdersViewer.style.display = '';
-                    orderHistoryViewer.style.display = 'none';
                     tabActiveOrders.style.background = '#4DBA93';
                     tabActiveOrders.style.color = '#fff';
-                    tabOrderHistory.style.background = '#e9ecef';
-                    tabOrderHistory.style.color = '#333';
-                } else {
-                    activeOrdersViewer.style.display = 'none';
+                } else if (tab === 'history') {
                     orderHistoryViewer.style.display = '';
                     tabOrderHistory.style.background = '#4DBA93';
                     tabOrderHistory.style.color = '#fff';
-                    tabActiveOrders.style.background = '#e9ecef';
-                    tabActiveOrders.style.color = '#333';
+                } else if (tab === 'returned') {
+                    returnedOrdersViewer.style.display = '';
+                    tabReturnedOrders.style.background = '#4DBA93';
+                    tabReturnedOrders.style.color = '#fff';
                 }
             }
+            
             tabActiveOrders.addEventListener('click', () => { showTab('active'); fetchActiveOrders(); });
             tabOrderHistory.addEventListener('click', () => { showTab('history'); fetchOrderHistory(); });
+            tabReturnedOrders.addEventListener('click', () => { showTab('returned'); fetchReturnedOrders(); });
+            
             showTab('active');
 
             // Listen for search
@@ -512,8 +527,10 @@
                 orderSearchBar.addEventListener('input', function() {
                     if (activeOrdersViewer.style.display !== 'none') {
                         fetchActiveOrders();
-                    } else {
+                    } else if (orderHistoryViewer.style.display !== 'none') {
                         fetchOrderHistory();
+                    } else if (returnedOrdersViewer.style.display !== 'none') {
+                        fetchReturnedOrders();
                     }
                 });
             }
@@ -902,6 +919,151 @@
                 viewer.innerHTML = html;
             } catch (error) {
                 viewer.innerHTML = `<div class='error'>Error loading order history: ${error.message}</div>`;
+            }
+        }
+
+        // Fetch and display returned orders
+        async function fetchReturnedOrders() {
+            const viewer = document.getElementById('returned-orders-viewer');
+            viewer.innerHTML = '<b>Loading your returned orders...</b>';
+            
+            if (!currentUser) {
+                viewer.innerHTML = '<div class="error">User not authenticated.</div>';
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('Order History')
+                    .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, ShippedAt, TrackingNumber, ReturnReason')
+                    .eq('Returned', true)
+                    .overlaps('UserID', [currentUser.id])
+                    .order('ShippedAt', { ascending: false });
+                    
+                if (error) throw error;
+                
+                if (!data || data.length === 0) {
+                    viewer.innerHTML = '<div>No returned orders found.</div>';
+                    return;
+                }
+                
+                // Search filter
+                const searchTerm = document.getElementById('orderSearchBar').value.trim().toLowerCase();
+                const ordersToShow = data.filter(order => {
+                    let itemsStr = '';
+                    try {
+                        let items = [];
+                        if (Array.isArray(order.Items)) {
+                            items = order.Items;
+                        } else if (typeof order.Items === 'string') {
+                            if (order.Items === '[object Object]' || order.Items.includes('[object Object]')) {
+                                items = [];
+                            } else {
+                                items = JSON.parse(order.Items);
+                            }
+                        } else if (order.Items && typeof order.Items === 'object') {
+                            items = [order.Items];
+                        }
+                        itemsStr = items.map(item => `${item.Quantity || item.quantity}x ${item.SKU || item.sku || ''}`).join(' ');
+                    } catch (e) {}
+                    return (
+                        (order.OrderID || '').toLowerCase().includes(searchTerm) ||
+                        (order.Platform || '').toLowerCase().includes(searchTerm) ||
+                        (order.Retailer || '').toLowerCase().includes(searchTerm) ||
+                        (order.Notes || '').toLowerCase().includes(searchTerm) ||
+                        itemsStr.toLowerCase().includes(searchTerm) ||
+                        (order.TrackingNumber || '').toLowerCase().includes(searchTerm) ||
+                        (order.ReturnReason || '').toLowerCase().includes(searchTerm)
+                    );
+                });
+                
+                if (ordersToShow.length === 0) {
+                    viewer.innerHTML = '<div>No returned orders found for your search.</div>';
+                    return;
+                }
+                
+                let html = '<div class="orders-grid">';
+                for (const order of ordersToShow) {
+                    let items = [];
+                    try {
+                        if (Array.isArray(order.Items)) {
+                            items = order.Items;
+                        } else if (typeof order.Items === 'string') {
+                            if (order.Items === '[object Object]' || order.Items.includes('[object Object]')) {
+                                items = [];
+                            } else {
+                                items = JSON.parse(order.Items);
+                            }
+                        } else if (order.Items && typeof order.Items === 'object') {
+                            items = [order.Items];
+                        } else {
+                            items = [];
+                        }
+                    } catch (e) {
+                        items = [];
+                    }
+                    const itemsDisplay = items.map(item => 
+                        `<div>• ${item.Quantity || item.quantity}x ${item.SKU || item.sku || 'N/A'}</div>`
+                    ).join('') || '<div>No items</div>';
+                    
+                    const orderIdDisplay = order.Link ? 
+                        `<a href="${order.Link}" target="_blank" style="color: #3b82f6; text-decoration: none;">🔗${order.OrderID}</a>` : 
+                        order.OrderID || 'N/A';
+                    
+                    const notesDisplay = order.Notes ? order.Notes : 'No notes';
+                    const ShippedAt = order.ShippedAt ? formatDate(order.ShippedAt) : 'N/A';
+                    const returnReason = order.ReturnReason ? `<div style="color:#dc2626;font-weight:600;margin-top:4px;">Reason: ${order.ReturnReason}</div>` : '';
+                    
+                    html += `
+                        <div class="order-card" style="border-left: 4px solid #dc2626;">
+                            <div class="order-header">
+                                <div class="order-id">${orderIdDisplay}</div>
+                                <div class="order-platform">${order.Platform || 'N/A'}</div>
+                            </div>
+                            
+                            <div class="order-info-row">
+                                <strong>Retailer:</strong>
+                                <span>${order.Retailer || 'N/A'}</span>
+                            </div>
+                            
+                            <div class="order-info-row">
+                                <strong>Shipped:</strong>
+                                <span>${ShippedAt}</span>
+                            </div>
+                            
+                            <div class="order-section-title" style="color:#dc2626;">Return Status</div>
+                            <div style="background:#fee2e2; color:#991b1b; padding:0.5rem; border-radius:6px; font-size:0.9rem;">
+                                <strong>Returned</strong>
+                                ${returnReason}
+                            </div>
+                            
+                            <div class="order-section-title">Items</div>
+                            <div class="order-items-list">
+                                ${itemsDisplay}
+                            </div>
+                            
+                            <div class="order-section-title">Tracking</div>
+                            <div style="margin-top: 0.25rem;">
+                                ${order.TrackingNumber ? `<a href="https://parcelsapp.com/en/tracking/${order.TrackingNumber}" target="_blank" style="color:#3b82f6;text-decoration:underline;font-weight:600;">${order.TrackingNumber}</a>` : '<span style="color:#94a3b8;">N/A</span>'}
+                            </div>
+                            
+                            <div class="order-section-title">Notes</div>
+                            <div class="order-note-text">
+                                ${notesDisplay}
+                            </div>
+                            
+                            <div class="order-actions">
+                                <button class="action-btn" onclick="viewOrderDetails('${order.OrderID}')">
+                                    View Full Details
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                viewer.innerHTML = html;
+            } catch (error) {
+                viewer.innerHTML = `<div class='error'>Error loading returned orders: ${error.message}</div>`;
             }
         }
 
