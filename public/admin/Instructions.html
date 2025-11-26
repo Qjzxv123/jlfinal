@@ -86,6 +86,7 @@
       
     const urlParams = new URLSearchParams(window.location.search);
     const orderNumber = urlParams.get('ordernumber');
+    const quantityOverride = urlParams.get('quantity'); // URL parameter to override quantity
     const instructionsDiv = document.getElementById('instructions');
     if (!orderNumber) {
       instructionsDiv.innerHTML = '<p style="color:red;">No order number provided.</p>';
@@ -101,6 +102,9 @@
           instructionsDiv.innerHTML = '<p style="color:red;">Order not found.</p>';
           return;
         }
+        
+        // Override quantity if URL parameter is provided
+        const effectiveQuantity = quantityOverride ? parseInt(quantityOverride) : orderData.Quantity;
         // Fetch Product with ManufacturingSteps
         const { data: productData, error: prodError } = await supabase
           .from('Products')
@@ -158,7 +162,7 @@
               <i class='cil-print'></i> Print Batch Info
             </button>
           </div>`;
-          html += `<h2 style='color:#4d6dba;'>${productData.Name || orderData.ProductSKU} <span style='font-size:0.8em;color:#333;font-weight:normal;'>(Qty: ${orderData.Quantity})</span></h2>`;
+          html += `<h2 style='color:#4d6dba;'>${productData.Name || orderData.ProductSKU} <span style='font-size:0.8em;color:#333;font-weight:normal;'>(Qty: ${effectiveQuantity})</span></h2>`;
           html += `<div class='step-card' style='background:#f6f8fa;border-radius:10px;padding:24px;margin-bottom:24px;'>`;
           html += `<div class='step-title' style='font-size:1.3em;color:#4d6dba;font-weight:bold;margin-bottom:10px;'>${step["Step Title"]}</div>`;
           html += `<div style='margin-bottom:10px;'><strong>Duration:</strong> ${step["Step Duration (Minutes)"] || ''} min</div>`;
@@ -195,7 +199,7 @@
                 <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Location</th>
             </tr></thead><tbody>`;
             step["Step Ingredients"].forEach(ing => {
-              const batchQty = orderData.Quantity || 1;
+              const batchQty = effectiveQuantity || 1;
               const totalQty = (ing.IngredientQuantity !== undefined && ing.IngredientQuantity !== null)
                 ? Math.round(ing.IngredientQuantity * batchQty * 1000) / 1000
                 : '';
@@ -217,7 +221,7 @@
               const n = parseInt(p1, 10);
               const ing = step["Step Ingredients"][n];
               if (ing) {
-                const batchQty = orderData.Quantity || 1;
+                const batchQty = effectiveQuantity || 1;
                 let qty = ing.IngredientQuantity !== undefined ? Math.round(ing.IngredientQuantity * batchQty * 1000) / 1000 : '';
                 return `${ing.IngredientSKU} (${qty})`;
               }
@@ -278,7 +282,7 @@
                     </tr>
                     <tr>
                       <td>Quantity:</td>
-                      <td>${orderData.Quantity}</td>
+                      <td>${effectiveQuantity}</td>
                     </tr>
                   </table>
                 </div>
@@ -330,12 +334,12 @@
               while(ActualQuantity===null || isNaN(ActualQuantity) || ActualQuantity<0){
                 ActualQuantity=parseInt(prompt("How many pieces were Actually made?"));
               }
-              if(ActualQuantity<orderData.Quantity){
-                if(confirm(`You entered ${ActualQuantity}, which is less than the ordered quantity of ${orderData.Quantity}. If you will be making the remaining product for this order again press "OK"`)){
+              if(ActualQuantity<effectiveQuantity){
+                if(confirm(`You entered ${ActualQuantity}, which is less than the ordered quantity of ${effectiveQuantity}. If you will be making the remaining product for this order again press "OK"`)){
                   //if they wish to make more later, set progress to "Requested" and update quantity to remaining amount, then update Products table and log and redirect
                 await supabase
                 .from('ManufacturingTasks')
-                .insert({ ProductSKU: orderData.ProductSKU, Customer: orderData.Customer, UserID: orderData.UserID, Quantity: orderData.Quantity-ActualQuantity, Progress: 'requested' });
+                .insert({ ProductSKU: orderData.ProductSKU, Customer: orderData.Customer, UserID: orderData.UserID, Quantity: effectiveQuantity-ActualQuantity, Progress: 'requested' });
                 await supabase
                 .from('ManufacturingTasks')
                 .update({ Progress: 'Completed', CompletionDate: completionDate })
@@ -350,7 +354,7 @@
               window.location.href = 'Manufacturing.html';
                 }
               }
-              if(ActualQuantity!=orderData.Quantity){
+              if(ActualQuantity!=effectiveQuantity){
                 // Send alert to admin user of Quantity discrepancy
                 const { data: userRow, error } = await supabase
                 .from('Users')
@@ -361,7 +365,7 @@
               if (!error && userRow && Array.isArray(userRow.Alerts)) {
                 alertsArr = userRow.Alerts;
               }
-              alertsArr.push(`${new Date().toLocaleString()}: Quantity discrepancy detected. Manufactured ${ActualQuantity} for order ${orderNumber}, which differs from the ordered quantity of ${orderData.Quantity}. Please investigate.`);
+              alertsArr.push(`${new Date().toLocaleString()}: Quantity discrepancy detected. Manufactured ${ActualQuantity} for order ${orderNumber}, which differs from the ordered quantity of ${effectiveQuantity}. Please investigate.`);
               await supabase
                 .from('Users')
                 .update({ Alerts: alertsArr })
