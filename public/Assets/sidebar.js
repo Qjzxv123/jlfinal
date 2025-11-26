@@ -24,7 +24,6 @@ function renderAdminSidebar() {
   <a href="Orders.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
   <a href="Analytics.html" class="nav-item"><i class="cil-bar-chart"></i><span>Business Analytics</span></a>
   <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-  <a href="AddFulfillmentLog.html" class="nav-item"><i class="cil-notes"></i><span>Add Fulfillment Log</span></a>
   <a href="AmazonShipments.html" class="nav-item"><i class="cib-amazon"></i><span>Amazon Shipments</span></a>
   <a href="WarehouseShipments.html" class="nav-item"><i class="cil-truck"></i><span>Warehouse Shipments</span></a>
   <a href="Manufacturing.html" class="nav-item"><i class="cil-factory"></i><span>Manufacturing Tracker</span></a>

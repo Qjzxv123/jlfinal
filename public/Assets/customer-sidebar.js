@@ -21,7 +21,6 @@ function renderCustomerSidebar() {
       <a href="CustomerDashboard.html" class="nav-item"><i class="cil-speedometer"></i><span>Dashboard</span></a>
       <a href="ecommerce-oauth.html" class="nav-item"><i class="cil-basket"></i><span>Onboard Stores</span></a>
       <a href="InventoryViewer.html" class="nav-item"><i class="cil-storage"></i><span>Inventory Viewer</span></a>
-      <a href="FulfillmentLogViewer.html" class="nav-item"><i class="cil-list"></i><span>Fulfillment Log</span></a>
       <a href="CustomerOrders.html" class="nav-item"><i class="cil-user"></i><span>Customer Orders</span></a>
       <a href="AddProduct.html" class="nav-item"><i class="cil-plus"></i><span>Add Product</span></a>
       <a href="SendtoAmazon.html" class="nav-item"><i class="cib-amazon"></i><span>Send To Amazon</span></a>
