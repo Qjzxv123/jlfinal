@@ -951,7 +951,6 @@
           .from('Orders')
           .select('*')
           .overlaps('UserID', [currentUser.id])
-          .order('OrderDate', { ascending: false })
           .limit(5);
           
         if (error) throw error;
@@ -962,14 +961,13 @@
             <div class="empty-state">
               <i class="cil-inbox" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
               <p>No recent orders found</p>
-              <a href="CustomerOrderView.html" style="color: #4dba93; text-decoration: none; font-weight: 600; margin-top: 10px; display: inline-block;">Create your first order</a>
             </div>
           `;
           return;
         }
         
         container.innerHTML = data.map(order => {
-          const date = new Date(order.OrderDate).toLocaleDateString();
+          const date = new Date(order.created_at).toLocaleDateString();
           const statusClass = getStatusClass(order.Status);
           const items = parseItems(order.Items);
           const itemCount = items.reduce((sum, item) => sum + (parseInt(item.Quantity) || 0), 0);
@@ -1024,9 +1022,17 @@
       }
     }
 
+    let ordersChartInstance = null;
+
     function renderOrdersChart(orders) {
       const ctx = document.getElementById('ordersChart');
       if (!ctx) return;
+
+      // Destroy existing chart if it exists
+      if (ordersChartInstance) {
+        ordersChartInstance.destroy();
+        ordersChartInstance = null;
+      }
 
       // Group orders by date
       const dateGroups = {};
@@ -1052,7 +1058,7 @@
       });
       const data = Object.values(dateGroups);
 
-      new Chart(ctx, {
+      ordersChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
           labels: labels,
