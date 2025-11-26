@@ -371,6 +371,9 @@
                 <div class="tab" onclick="switchTab('history')" id="historyTab">
                     Order History<span class="tab-badge" id="historyBadge">0</span>
                 </div>
+                <div class="tab" onclick="switchTab('returned')" id="returnedTab">
+                    Returned Orders<span class="tab-badge" id="returnedBadge">0</span>
+                </div>
             </div>
             
             <!-- Controls Row (Manifest, Search, Filters) -->
@@ -567,6 +570,7 @@
         }
         let filteredOrders = [];
         let historyOrders = []; // Store order history separately
+        let returnedOrders = []; // Store returned orders separately
         
         async function loadOrders() {
             const container = document.getElementById('ordersTableContainer');
@@ -640,10 +644,14 @@
                     }
                 }
                 
-                historyOrders = allHistory;
+                // Separate returned orders from history orders
+                returnedOrders = allHistory.filter(o => o.Returned === true);
+                historyOrders = allHistory.filter(o => o.Returned !== true);
+                updateTabBadges();
             } catch (err) {
                 console.error('Error loading order history:', err);
                 historyOrders = [];
+                returnedOrders = [];
             }
         }
 
@@ -679,7 +687,7 @@
     const itemQuantityFilter = parseInt(document.getElementById('itemQuantityFilter').value) || 0;
     
     // Use different data source based on current tab
-    const sourceOrders = currentTab === 'history' ? historyOrders : orders;
+    const sourceOrders = currentTab === 'history' ? historyOrders : (currentTab === 'returned' ? returnedOrders : orders);
     
     filteredOrders = sourceOrders.filter(o => {
         let match = true;
@@ -690,7 +698,7 @@
         } else if (currentTab === 'inventoryRemoved') {
             if (o.InventoryRemoved !== true) return false;
         }
-        // For history tab, show all history orders (no InventoryRemoved field check needed)
+        // For history and returned tabs, show all history orders (no InventoryRemoved field check needed)
         
         // Filter by notes only
         if (notesOnly) {
@@ -772,7 +780,15 @@
             
             // Update tab UI
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.getElementById(tab + 'Tab').classList.add('active');
+            if (tab === 'new') {
+                document.getElementById('newTab').classList.add('active');
+            } else if (tab === 'inventoryRemoved') {
+                document.getElementById('inventoryRemovedTab').classList.add('active');
+            } else if (tab === 'history') {
+                document.getElementById('historyTab').classList.add('active');
+            } else if (tab === 'returned') {
+                document.getElementById('returnedTab').classList.add('active');
+            }
             
             // Update badge counts
             updateTabBadges();
@@ -788,6 +804,7 @@
             document.getElementById('newBadge').textContent = newOrders.length;
             document.getElementById('inventoryRemovedBadge').textContent = inventoryRemovedOrders.length;
             document.getElementById('historyBadge').textContent = historyOrders.length;
+            document.getElementById('returnedBadge').textContent = returnedOrders.length;
         }
 
         function clearFilters() {
@@ -856,13 +873,14 @@
                         <strong>Customer Message:</strong>
                         <span class="customer-messages">${order.CustomerMessages || ''}</span>
                     </div>
-                    ${currentTab === 'history' ? `
+                    ${currentTab === 'history' || currentTab === 'returned' ? `
                     <div style="margin-bottom:10px;">
                         <strong>Shipping Cost:</strong> ${order.ShippingCost ? '$' + order.ShippingCost : 'N/A'}
                     </div>
                     <div style="margin-bottom:10px;">
                         <strong>Tracking Number:</strong> ${order.TrackingNumber || 'N/A'}
                     </div>
+                    ${currentTab === 'history' ? `<button class="btn" style="position:absolute; bottom:18px; right:18px; padding:6px 18px; font-size:15px; border-radius:6px; background:#dc2626; color:white;" onclick="markAsReturned('${order.OrderID}')">Mark as Returned</button>` : ''}
                     ` : `
                     <button class="btn" style="position:absolute; bottom:18px; right:18px; padding:6px 18px; font-size:15px; border-radius:6px; background:#4DBA93;" onclick="openEditOrderModal('${order.OrderID}')">Edit</button>
                     `}
@@ -888,6 +906,33 @@
             if (arrow) {
                 const open = block.classList.contains('show');
                 arrow.textContent = open ? '▲' : '▼';
+            }
+        }
+        
+        async function markAsReturned(orderId) {
+            if (!confirm(`Mark order #${orderId} as returned? This will move it to the Returned Orders tab.`)) {
+                return;
+            }
+            
+            try {
+                const { error } = await supabase
+                    .from('Order History')
+                    .update({ Returned: true })
+                    .eq('OrderID', orderId);
+                
+                if (error) {
+                    alert('Error marking order as returned: ' + error.message);
+                    return;
+                }
+                
+                // Reload order history to update the UI
+                await loadOrderHistory();
+                filterOrders();
+                
+                alert(`Order #${orderId} has been marked as returned.`);
+            } catch (err) {
+                console.error('Error marking order as returned:', err);
+                alert('Failed to mark order as returned.');
             }
         }
         
