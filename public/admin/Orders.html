@@ -1235,6 +1235,11 @@
                 return;
             }
             
+            if (selectedOrders.size > 1) {
+                alert('Please select only one order at a time to delete.');
+                return;
+            }
+            
             // Show modal to prompt for tracking number and box SKU
             await openDeleteOrdersModal();
         }
@@ -1243,45 +1248,73 @@
             // Close any existing modal
             closeDeleteOrdersModal();
             
-            // Load boxes list for dropdown
-            let boxOptions = '<option value="">-- Select Box (Optional) --</option>';
+            // Store boxes data globally for the modal
+            window.deleteModalBoxesData = [];
             try {
                 const { data: boxesData, error: boxesError } = await supabase
                     .from('Boxes')
-                    .select('SKU')
+                    .select('SKU, Dimensions')
                     .order('SKU', { ascending: true });
                 
                 if (!boxesError && boxesData) {
-                    boxOptions += boxesData.map(box => 
-                        `<option value="${escapeHtml(box.SKU)}">${escapeHtml(box.SKU)}</option>`
-                    ).join('');
+                    window.deleteModalBoxesData = boxesData;
                 }
             } catch (e) {
                 console.error('Error loading boxes:', e);
             }
             
             const modalHtml = `<div id="deleteOrdersModal" style="display:block; position:fixed; z-index:4000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4);">
-                <div style="background:white; max-width:500px; margin:100px auto; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:28px 30px 24px 30px; position:relative;">
+                <div style="background:white; max-width:500px; margin:100px auto; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:28px 30px 24px 30px; position:relative; max-height:80vh; overflow-y:auto;">
                     <span onclick="closeDeleteOrdersModal()" style="position:absolute; top:14px; right:18px; font-size:28px; color:#888; cursor:pointer;">&times;</span>
-                    <h2 style="margin-top:0; color:#e74c3c; font-size:1.4rem; margin-bottom:8px;">Delete Selected Orders</h2>
-                    <p style="margin:0 0 20px 0; font-size:14px; color:#555;">You are about to delete ${selectedOrders.size} order(s). Optionally provide tracking number and box SKU for order history.</p>
+                    <h2 style="margin-top:0; color:#e74c3c; font-size:1.4rem; margin-bottom:8px;">Delete Order</h2>
+                    <p style="margin:0 0 20px 0; font-size:14px; color:#555;">You are about to delete this order. Optionally provide tracking number and box SKUs for order history.</p>
                     
                     <label style="font-weight:600; color:#2c3e50; display:block; margin-bottom:4px;">Tracking Number (Optional)</label>
                     <input id="deleteTrackingNumber" type="text" placeholder="Enter tracking number..." style="width:100%; margin-bottom:16px; padding:10px; border-radius:6px; border:1px solid #e1e5e9;" />
                     
-                    <label style="font-weight:600; color:#2c3e50; display:block; margin-bottom:4px;">Box SKU (Optional)</label>
-                    <select id="deleteBoxSku" style="width:100%; margin-bottom:20px; padding:10px; border-radius:6px; border:1px solid #e1e5e9;">
-                        ${boxOptions}
-                    </select>
+                    <label style="font-weight:600; color:#2c3e50; display:block; margin-bottom:4px;">Box SKUs (Optional)</label>
+                    <div id="deleteBoxesContainer" style="margin-bottom:12px;">
+                        <!-- Box entries will be added here -->
+                    </div>
+                    <button class="btn" style="background:#4DBA93; color:white; padding:8px 16px; border-radius:6px; font-size:14px; margin-bottom:20px;" onclick="addDeleteBoxEntry()">+ Add Box</button>
                     
                     <div style="display:flex; align-items:center; justify-content:flex-end; gap:12px;">
                         <button class="btn" style="background:#e0e0e0; color:#2c3e50; padding:10px 20px; border-radius:7px;" onclick="closeDeleteOrdersModal()">Cancel</button>
-                        <button class="btn" style="background:#e74c3c; padding:10px 20px; border-radius:7px;" onclick="confirmDeleteOrders()">Delete Orders</button>
+                        <button class="btn" style="background:#e74c3c; padding:10px 20px; border-radius:7px;" onclick="confirmDeleteOrders()">Delete Order</button>
                     </div>
                 </div>
             </div>`;
             
             document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Add first box entry by default
+            addDeleteBoxEntry();
+        }
+        
+        function addDeleteBoxEntry() {
+            const container = document.getElementById('deleteBoxesContainer');
+            if (!container) return;
+            
+            const boxOptions = window.deleteModalBoxesData.map(box => {
+                const dimensions = box.Dimensions ? ` (${escapeHtml(box.Dimensions)})` : '';
+                return `<option value="${escapeHtml(box.SKU)}">${escapeHtml(box.SKU)}${dimensions}</option>`;
+            }).join('');
+            
+            const entryId = `deleteBox_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const entryHtml = `<div id="${entryId}" style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <select class="deleteBoxSelect" style="flex:1; padding:10px; border-radius:6px; border:1px solid #e1e5e9;">
+                    <option value="">-- Select Box --</option>
+                    ${boxOptions}
+                </select>
+                <button class="btn" style="background:#e74c3c; color:white; padding:8px 12px; border-radius:6px; font-size:14px;" onclick="removeDeleteBoxEntry('${entryId}')" title="Remove box">×</button>
+            </div>`;
+            
+            container.insertAdjacentHTML('beforeend', entryHtml);
+        }
+        
+        function removeDeleteBoxEntry(entryId) {
+            const entry = document.getElementById(entryId);
+            if (entry) entry.remove();
         }
         
         function closeDeleteOrdersModal() {
@@ -1291,7 +1324,12 @@
         
         async function confirmDeleteOrders() {
             const trackingNumber = document.getElementById('deleteTrackingNumber').value.trim();
-            const boxSku = document.getElementById('deleteBoxSku').value.trim();
+            
+            // Collect all selected box SKUs
+            const boxSelects = document.querySelectorAll('.deleteBoxSelect');
+            const boxSkus = Array.from(boxSelects)
+                .map(select => select.value.trim())
+                .filter(sku => sku !== '');
             
             closeDeleteOrdersModal();
             
@@ -1325,7 +1363,7 @@
                         Notes: "Deleted",
                         UserID: order.UserID || null,
                         TrackingNumber: trackingNumber || null,
-                        BoxSkus: boxSku ? [boxSku] : null
+                        BoxSkus: boxSkus.length > 0 ? boxSkus : null
                     };
                 }));
                 
