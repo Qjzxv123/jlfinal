@@ -16,6 +16,17 @@
     .ingredient-list { margin: 0; padding-left: 18px; }
     .step-row { background: #f6f8fa; }
     .icon { color: #4DBA93; margin-right: 8px; }
+    .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+    .modal-content { background-color: #fff; margin: 5% auto; padding: 30px; border-radius: 12px; width: 90%; max-width: 600px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-header h3 { margin: 0; color: #4DBA93; font-size: 1.3rem; }
+    .close-btn { background: none; border: none; font-size: 28px; color: #666; cursor: pointer; line-height: 1; padding: 0; }
+    #skuRowsContainer { max-height: 50vh; overflow-y: auto; margin-bottom: 12px; padding-right: 5px; }
+    .sku-row { display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; margin-bottom: 12px; align-items: center; }
+    .sku-row input, .sku-row select { padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; width: 100%; box-sizing: border-box; }
+    .sku-row button { background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; flex-shrink: 0; }
+    .add-row-btn { background: #6c757d; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-top: 10px; }
+    .submit-btn { background: #4DBA93; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 600; margin-top: 20px; width: 100%; }
   </style>
   <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
@@ -25,6 +36,28 @@
   <div class="container">
   <!-- Manufacturing Instructions header removed -->
     <div id="instructions"></div>
+    
+    <!-- Quantity Modal -->
+    <div id="quantityModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Record Actual Quantity Made</h3>
+          <button class="close-btn" onclick="closeQuantityModal()">&times;</button>
+        </div>
+        <p style="margin-bottom: 20px; color: #666; font-size: 14px; line-height: 1.5;">
+          Enter the actual quantities produced for each SKU. When you submit, the system will:
+          <br>• Update inventory for all entered SKUs
+          <br>• Mark this manufacturing order as completed
+          <br>• Log all inventory changes
+          <br>• Create a new task if total quantity is less than ordered with the remaining quantity
+        </p>
+        <div id="skuRowsContainer">
+          <!-- SKU rows will be added dynamically -->
+        </div>
+        <button class="add-row-btn" onclick="addSkuRow()">+ Add Another SKU</button>
+        <button class="submit-btn" onclick="submitQuantities()">Submit</button>
+      </div>
+    </div>
     
     <!-- Unit Conversion Calculator Button -->
     <button id="openCalculatorBtn" style="position:fixed; bottom:20px; right:20px; background:#4DBA93; color:white; border:none; border-radius:50%; width:60px; height:60px; font-size:24px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:1000;" title="Unit Conversion Calculator">
@@ -329,64 +362,8 @@
               const mm = String(today.getMonth()+1).padStart(2,'0');
               const dd = String(today.getDate()).padStart(2,'0');
               const completionDate = `${yyyy}-${mm}-${dd}`;
-              // If last step, prompt for actual quantity made
-              let ActualQuantity=null;
-              while(ActualQuantity===null || isNaN(ActualQuantity) || ActualQuantity<0){
-                ActualQuantity=parseInt(prompt("How many pieces were Actually made?"));
-              }
-              if(ActualQuantity<effectiveQuantity){
-                if(confirm(`You entered ${ActualQuantity}, which is less than the ordered quantity of ${effectiveQuantity}. If you will be making the remaining product for this order again press "OK"`)){
-                  //if they wish to make more later, set progress to "Requested" and update quantity to remaining amount, then update Products table and log and redirect
-                await supabase
-                .from('ManufacturingTasks')
-                .insert({ ProductSKU: orderData.ProductSKU, Customer: orderData.Customer, UserID: orderData.UserID, Quantity: effectiveQuantity-ActualQuantity, Progress: 'requested' });
-                await supabase
-                .from('ManufacturingTasks')
-                .update({ Progress: 'Completed', CompletionDate: completionDate })
-                .eq('OrderNumber', orderNumber);
-                await supabase
-                .from('Products')
-                .update({ LastBatch: completionDate, LastBatchNumber: orderNumber, Quantity: productData.Quantity + ActualQuantity})
-                .eq('ProductSKU', orderData.ProductSKU);
-              await supabase
-                .from('inventoryupdatelogs')
-                .insert({ created_at: new Date(), log: `Partially completed manufacturing order ${orderNumber} for product ${orderData.ProductSKU}, added ${ActualQuantity} to inventory.`,updated_by: window.CurrentUserDisplayName, SKU:orderData.ProductSKU,QuantityChanged: -ActualQuantity});
-              window.location.href = 'Manufacturing.html';
-                }
-              }
-              if(ActualQuantity!=effectiveQuantity){
-                // Send alert to admin user of Quantity discrepancy
-                const { data: userRow, error } = await supabase
-                .from('Users')
-                .select('Alerts')
-                .eq('id', "bc4441d2-38e8-4e77-afb4-2609ec6f56f6")
-                .maybeSingle();
-              let alertsArr = [];
-              if (!error && userRow && Array.isArray(userRow.Alerts)) {
-                alertsArr = userRow.Alerts;
-              }
-              alertsArr.push(`${new Date().toLocaleString()}: Quantity discrepancy detected. Manufactured ${ActualQuantity} for order ${orderNumber}, which differs from the ordered quantity of ${effectiveQuantity}. Please investigate.`);
-              await supabase
-                .from('Users')
-                .update({ Alerts: alertsArr })
-                .eq('id', "bc4441d2-38e8-4e77-afb4-2609ec6f56f6");
-              }
-              // Last step: set progress to Completed and set CompletionDate, then update Products table and redirect
-              
-              await supabase
-                .from('ManufacturingTasks')
-                .update({ Progress: 'Completed', CompletionDate: completionDate })
-                .eq('OrderNumber', orderNumber);
-              // Update LastBatch and LastBatchNumber in Products table
-              await supabase
-                .from('Products')
-                .update({ LastBatch: completionDate, LastBatchNumber: orderNumber, Quantity: productData.Quantity + ActualQuantity})
-                .eq('ProductSKU', orderData.ProductSKU);
-              await supabase
-                .from('inventoryupdatelogs')
-                .insert({ created_at: new Date(), log: `Completed manufacturing order ${orderNumber} for product ${orderData.ProductSKU}, added ${ActualQuantity} to inventory.`,updated_by: window.CurrentUserDisplayName, SKU:orderData.ProductSKU,QuantityChanged: ActualQuantity});
-              console.log('Manufacturing completed for order', orderNumber);
-              window.location.href = 'Manufacturing.html';
+              // If last step, open modal for actual quantity made
+              await openQuantityModal(orderData, productData, effectiveQuantity, completionDate, orderNumber);
             }
           };
         }
@@ -436,6 +413,197 @@
       // Combine: monthLetter + "-" + thirdDigitYear + day + lastDigitYear + expMonth + expYearLastTwo
       const lot = `${monthLetter}-${thirdDigitYear}${day.toString().padStart(2, '0')}${lastDigitYear}${formattedExpMonth}${expYearLastTwo}`;
       return lot;
+    }
+
+    // Quantity Modal Functions
+    let modalOrderData, modalProductData, modalEffectiveQuantity, modalCompletionDate, modalOrderNumber;
+    let allProducts = [];
+
+    async function openQuantityModal(orderData, productData, effectiveQuantity, completionDate, orderNumber) {
+      modalOrderData = orderData;
+      modalProductData = productData;
+      modalEffectiveQuantity = effectiveQuantity;
+      modalCompletionDate = completionDate;
+      modalOrderNumber = orderNumber;
+
+      // Fetch all products for the dropdown
+      const { data: products, error } = await supabase
+        .from('Products')
+        .select('ProductSKU, Name')
+        .order('ProductSKU');
+      
+      if (!error && products) {
+        allProducts = products;
+      }
+
+      // Add initial row with the ordered SKU
+      document.getElementById('skuRowsContainer').innerHTML = '';
+      addSkuRow(orderData.ProductSKU, effectiveQuantity);
+      
+      document.getElementById('quantityModal').style.display = 'block';
+    }
+
+    function closeQuantityModal() {
+      document.getElementById('quantityModal').style.display = 'none';
+    }
+
+    function addSkuRow(defaultSku = '', defaultQuantity = '') {
+      const container = document.getElementById('skuRowsContainer');
+      const rowId = `skuRow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'sku-row';
+      rowDiv.id = rowId;
+      
+      // Create SKU dropdown
+      const skuSelect = document.createElement('select');
+      skuSelect.className = 'sku-select';
+      skuSelect.innerHTML = '<option value="">Select SKU</option>';
+      allProducts.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.ProductSKU;
+        option.textContent = `${product.ProductSKU} - ${product.Name}`;
+        if (product.ProductSKU === defaultSku) {
+          option.selected = true;
+        }
+        skuSelect.appendChild(option);
+      });
+      
+      // Create quantity input
+      const quantityInput = document.createElement('input');
+      quantityInput.type = 'number';
+      quantityInput.min = '0';
+      quantityInput.placeholder = 'Quantity';
+      quantityInput.className = 'quantity-input';
+      quantityInput.value = defaultQuantity;
+      
+      // Create remove button
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = '×';
+      removeBtn.title = 'Remove';
+      removeBtn.onclick = () => {
+        // Don't allow removing the last row
+        if (container.children.length > 1) {
+          rowDiv.remove();
+        } else {
+          alert('You must have at least one SKU entry.');
+        }
+      };
+      
+      rowDiv.appendChild(skuSelect);
+      rowDiv.appendChild(quantityInput);
+      rowDiv.appendChild(removeBtn);
+      container.appendChild(rowDiv);
+    }
+
+    async function submitQuantities() {
+      const rows = document.querySelectorAll('.sku-row');
+      const skuQuantities = [];
+      let totalQuantity = 0;
+      
+      // Validate and collect data
+      for (const row of rows) {
+        const sku = row.querySelector('.sku-select').value;
+        const quantity = parseInt(row.querySelector('.quantity-input').value);
+        
+        if (!sku) {
+          alert('Please select a SKU for all rows.');
+          return;
+        }
+        
+        if (isNaN(quantity) || quantity < 0) {
+          alert('Please enter a valid quantity for all rows.');
+          return;
+        }
+        
+        skuQuantities.push({ sku, quantity });
+        totalQuantity += quantity;
+      }
+      
+      if (skuQuantities.length === 0) {
+        alert('Please add at least one SKU entry.');
+        return;
+      }
+
+      closeQuantityModal();
+
+      // Check if total quantity is less than ordered quantity
+      if (totalQuantity < modalEffectiveQuantity) {
+        if (confirm(`Total quantity made (${totalQuantity}) is less than the ordered quantity (${modalEffectiveQuantity}). If you will be making the remaining product for this order again press "OK"`)) {
+          // Create a new manufacturing task for the remaining quantity
+          await supabase
+            .from('ManufacturingTasks')
+            .insert({ 
+              ProductSKU: modalOrderData.ProductSKU, 
+              Customer: modalOrderData.Customer, 
+              UserID: modalOrderData.UserID, 
+              Quantity: modalEffectiveQuantity - totalQuantity, 
+              Progress: 'requested' 
+            });
+        }
+      }
+
+      // Check for quantity discrepancy
+      if (totalQuantity !== modalEffectiveQuantity) {
+        const { data: userRow, error } = await supabase
+          .from('Users')
+          .select('Alerts')
+          .eq('id', "bc4441d2-38e8-4e77-afb4-2609ec6f56f6")
+          .maybeSingle();
+        
+        let alertsArr = [];
+        if (!error && userRow && Array.isArray(userRow.Alerts)) {
+          alertsArr = userRow.Alerts;
+        }
+        alertsArr.push(`${new Date().toLocaleString()}: Quantity discrepancy detected. Manufactured ${totalQuantity} for order ${modalOrderNumber}, which differs from the ordered quantity of ${modalEffectiveQuantity}. SKUs made: ${skuQuantities.map(sq => `${sq.sku}(${sq.quantity})`).join(', ')}`);
+        
+        await supabase
+          .from('Users')
+          .update({ Alerts: alertsArr })
+          .eq('id', "bc4441d2-38e8-4e77-afb4-2609ec6f56f6");
+      }
+
+      // Mark the original manufacturing task as completed
+      await supabase
+        .from('ManufacturingTasks')
+        .update({ Progress: 'Completed', CompletionDate: modalCompletionDate })
+        .eq('OrderNumber', modalOrderNumber);
+
+      // Update inventory for each SKU
+      for (const { sku, quantity } of skuQuantities) {
+        // Fetch current product data
+        const { data: currentProductData, error: productError } = await supabase
+          .from('Products')
+          .select('Quantity')
+          .eq('ProductSKU', sku)
+          .single();
+        
+        if (!productError && currentProductData) {
+          // Update product inventory
+          await supabase
+            .from('Products')
+            .update({ 
+              LastBatch: modalCompletionDate, 
+              LastBatchNumber: modalOrderNumber, 
+              Quantity: currentProductData.Quantity + quantity
+            })
+            .eq('ProductSKU', sku);
+          
+          // Log inventory change
+          await supabase
+            .from('inventoryupdatelogs')
+            .insert({ 
+              created_at: new Date(), 
+              log: `Completed manufacturing order ${modalOrderNumber} for product ${sku}, added ${quantity} to inventory.`,
+              updated_by: window.CurrentUserDisplayName, 
+              SKU: sku,
+              QuantityChanged: quantity
+            });
+        }
+      }
+
+      console.log('Manufacturing completed for order', modalOrderNumber);
+      window.location.href = 'Manufacturing.html';
     }
 
     // Unit Conversion Calculator
