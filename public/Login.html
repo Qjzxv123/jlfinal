@@ -245,9 +245,8 @@
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
-                role: 'newuser',
                 options: {
-                    data: { display_name: company, role: 'newuser'}
+                    data: { display_name: company, role: 'client'}
                 }
             });
             if (error) {

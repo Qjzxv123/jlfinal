@@ -35,10 +35,6 @@ async function checkPermissions(allowedRoles) {
   CurrentUserID = user?.id || '';
   CurrentUserDisplayName = user?.user_metadata?.display_name || '';
   const userRole = user?.user_metadata?.role;
-  if (userRole === 'newuser') {
-    window.location.href = '/PendingApproval.html';
-    return;
-  }
   if (!user || !userRole || !allowedRoles.includes(userRole)) {
     document.body.innerHTML = '<div style="margin:2rem;font-size:1.2rem;color:#e74c3c;text-align:center;">Access denied<br><br><a href="/index.html" style="color:#3498db;text-decoration:underline;font-size:1rem;">Return Home</a></div>';
     throw new Error('Access denied');

@@ -202,7 +202,6 @@
             <select id="role-select-${user.id}" onchange="changeUserRoleDropdown('${user.id}', this.value)" class="btn">
               <option value="client" ${user.Role === 'client' ? 'selected' : ''}>client</option>
               <option value="employee" ${user.Role === 'employee' ? 'selected' : ''}>employee</option>
-              <option value="newuser" ${user.Role === 'newuser' ? 'selected' : ''}>newuser</option>
               <option value="service_role" ${user.Role === 'service_role' ? 'selected' : ''}>service_role</option>
             </select>
           </td>
