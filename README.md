@@ -1,6 +1,6 @@
 # JLFINAL - E-commerce Management Platform
 
-A comprehensive Vite-based web application for managing e-commerce operations across multiple platforms (Faire, Etsy, Shopify) with integrated inventory management, order processing, and administrative tools.
+A comprehensive Next.js web application for managing e-commerce operations across multiple platforms (Faire, Etsy, Shopify) with integrated inventory management, order processing, and administrative tools.
 
 ## 🚀 Features
 
@@ -36,30 +36,44 @@ A comprehensive Vite-based web application for managing e-commerce operations ac
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
-- **Build Tool**: Vite
+- **Frontend**: Next.js 16, React 19, TypeScript
+- **Styling**: Tailwind CSS
 - **Backend**: Netlify Functions (Node.js)
 - **Database**: Supabase
-- **Authentication**: OAuth 2.0
+- **Authentication**: Supabase Auth with OAuth 2.0
+- **Testing**: Jest, React Testing Library
 - **Deployment**: Netlify
 - **APIs**: Faire, Etsy, Shopify, Shippo
 
 ## 📁 Project Structure
 
 ```
+├── app/                        # Next.js app directory
+│   ├── admin/                  # Admin pages
+│   ├── customer/               # Customer pages
+│   └── __tests__/              # Page tests
+├── components/                 # Reusable React components
+│   └── __tests__/              # Component tests
+├── lib/                        # Utility functions and configurations
+│   ├── auth.ts                 # Authentication utilities
+│   ├── supabase.ts             # Supabase client
+│   └── __tests__/              # Library tests
 ├── netlify/functions/          # Serverless backend functions
-├── public/                     # Frontend application
-│   ├── admin/                  # Administrative dashboard
-│   └── Assets/                 # Shared resources and utilities
+├── public/                     # Static assets
+│   ├── admin/                  # Legacy HTML files (being migrated)
+│   └── Assets/                 # Shared resources
 ├── netlify.toml               # Netlify configuration
+├── next.config.mjs            # Next.js configuration
+├── tailwind.config.ts         # Tailwind CSS configuration
 └── package.json               # Project dependencies
 ```
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v16 or higher)
-- Netlify CLI
+- Node.js (v18 or higher)
+- npm or yarn
+- Netlify CLI (optional, for local function testing)
 - Supabase account and project
 - API credentials for Faire, Etsy, and Shopify
 
@@ -76,10 +90,17 @@ cd jlfinal
 npm install
 ```
 
-3. Set up environment variables (create `.env` file)
+3. Set up environment variables
+   
+Copy `.env.example` to `.env.local` and fill in your values:
+```bash
+cp .env.example .env.local
+```
+
+Required environment variables:
 ```env
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 FAIRE_CLIENT_ID=your_faire_client_id
 FAIRE_CLIENT_SECRET=your_faire_client_secret
 ETSY_CLIENT_ID=your_etsy_client_id
@@ -89,15 +110,38 @@ SHOPIFY_CLIENT_SECRET=your_shopify_client_secret
 SHIPPO_API_TOKEN=your_shippo_api_token
 ```
 
-4. Start development server
+4. Start the development server
 ```bash
 npm run dev
 ```
 
-5. Start Netlify functions locally
+The application will be available at `http://localhost:3000`
+
+5. (Optional) Start Netlify functions locally for full functionality
 ```bash
 netlify dev
 ```
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+The optimized production build will be created in the `.next` directory.
 
 ## 📝 API Endpoints
 
