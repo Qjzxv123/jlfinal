@@ -21,5 +21,8 @@
 [functions."etsy-sync-inventory-cron"]
   schedule = "*/15 * * * *" # every 15 minutes
 
+[functions."shopify-get-orders-cron"]
+  schedule = "*/15 * * * *" # every 15 minutes
+
 [functions."notifications-cron"]
   schedule = "0 9 * * *" # every day at 9:00 AM
