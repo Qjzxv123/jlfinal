@@ -163,6 +163,7 @@
         let lastInventoryData = [];
         let lastSkuList = [];
         let lastEtsySkuMap = {};
+        let lastShopifySkuMap = {};
 
         async function fetchAndDisplayData(session, searchTerm = '') {
             dataViewer.style.display = 'block';
@@ -192,7 +193,7 @@
             }
             // Render as table with ReserveQuantity column for each SKU
             let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-            html += '<tr>' + ['ReserveQuantity', 'ProductSKU', 'Name', 'Quantity', 'Faire Inventory', 'Etsy Inventory'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
+            html += '<tr>' + ['ReserveQuantity', 'ProductSKU', 'Name', 'Quantity', 'Faire Inventory', 'Etsy Inventory', 'Shopify Inventory'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
             filtered.sort((a, b) => {
                 if (a.ProductSKU < b.ProductSKU) return -1;
                 if (a.ProductSKU > b.ProductSKU) return 1;
@@ -200,6 +201,7 @@
             });
             const skuList = [];
             const etsySkuMap = {};
+            const shopifySkuMap = {};
             for (const row of filtered) {
                 const quantity = parseInt(row.Quantity) || 0;
                 const reserve = parseInt(row.ReserveQuantity) || 0;
@@ -213,6 +215,8 @@
                 if (row.Retailer) {
                     if (!etsySkuMap[row.Retailer]) etsySkuMap[row.Retailer] = [];
                     etsySkuMap[row.Retailer].push(row.ProductSKU);
+                    if (!shopifySkuMap[row.Retailer]) shopifySkuMap[row.Retailer] = [];
+                    shopifySkuMap[row.Retailer].push(row.ProductSKU);
                 }
                 html += `<tr>`;
                 html += `<td style='padding:4px;'>${reserve}</td>`;
@@ -221,12 +225,14 @@
                 html += `<td style='padding:4px;' class='${quantityClass}'>${row.Quantity ?? ''}</td>`;
                 html += `<td style='padding:4px;' id='faire-inv-${row.ProductSKU}'>Loading...</td>`;
                 html += `<td style='padding:4px;' id='etsy-inv-${row.ProductSKU}'>Loading...</td>`;
+                html += `<td style='padding:4px;' id='shopify-inv-${row.ProductSKU}'>—</td>`;
                 html += `</tr>`;
             }
             html += '</table>';
             dataViewer.innerHTML = html;
             lastSkuList = skuList;
             lastEtsySkuMap = etsySkuMap;
+            lastShopifySkuMap = shopifySkuMap;
 
             // Fetch Faire inventory in batch
             try {
@@ -314,6 +320,53 @@
             } catch (e) {
                 for (const sku of skuList) {
                     const cell = document.getElementById(`etsy-inv-${sku}`);
+                    if (cell) cell.textContent = '—';
+                }
+            }
+
+            // Fetch Shopify inventory grouped by ShopifyDomain (Retailer)
+            try {
+                const shopifyDomains = Object.keys(shopifySkuMap);
+                let shopifyTokenRows = [];
+                if (shopifyDomains.length > 0) {
+                    const { data: tokenRows, error: tokenError } = await supabase
+                        .from('oauth_tokens')
+                        .select('ShopifyDomain, user_key, platform')
+                        .eq('platform', 'shopify')
+                        .in('ShopifyDomain', shopifyDomains);
+                    if (!tokenError && tokenRows) {
+                        shopifyTokenRows = tokenRows;
+                    }
+                }
+                const domainsWithToken = new Set(shopifyTokenRows.map(r => r.ShopifyDomain).filter(Boolean));
+                for (const [domain, skus] of Object.entries(shopifySkuMap)) {
+                    if (!domainsWithToken.has(domain)) {
+                        for (const sku of skus) {
+                            const cell = document.getElementById(`shopify-inv-${sku}`);
+                            if (cell) cell.textContent = '—';
+                        }
+                        continue;
+                    }
+                    const shopifyRes = await fetch('/.netlify/functions/shopify-get-inventory', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-shopify-domain': domain },
+                        body: JSON.stringify({ skus })
+                    });
+                    let shopifyData = {};
+                    if (shopifyRes.ok) {
+                        shopifyData = await shopifyRes.json();
+                    }
+                    for (const sku of skus) {
+                        const cell = document.getElementById(`shopify-inv-${sku}`);
+                        if (cell) {
+                            const val = shopifyData && typeof shopifyData[sku] !== 'undefined' ? shopifyData[sku] : '';
+                            cell.textContent = (val !== '' && val !== undefined && val !== null) ? val : '—';
+                        }
+                    }
+                }
+            } catch (e) {
+                for (const sku of skuList) {
+                    const cell = document.getElementById(`shopify-inv-${sku}`);
                     if (cell) cell.textContent = '—';
                 }
             }

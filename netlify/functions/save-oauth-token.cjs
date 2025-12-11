@@ -23,7 +23,7 @@ exports.handler = async (event) => {
     };
   }
 
-  const { user_key, platform, access_token, refresh_token, UserID, expires_at } = body;
+  const { user_key, platform, access_token, refresh_token, UserID, expires_at, ShopifyDomain } = body;
   
   if (!user_key || !platform || !access_token || !UserID) {
     return {
@@ -43,7 +43,8 @@ exports.handler = async (event) => {
         access_token,
         refresh_token: refresh_token || null,
         UserID,
-        expires_at: expires_at || null
+        expires_at: expires_at || null,
+        ShopifyDomain: ShopifyDomain || null
       }, { onConflict: ['user_key', 'platform'] });
 
     if (error) {

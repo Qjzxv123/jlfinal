@@ -206,7 +206,8 @@
                                 platform: tokenInfo.platform,
                                 access_token: tokenInfo.access_token,
                                 UserID: user.id,
-                                expires_at: tokenInfo.expires_at || null
+                                expires_at: tokenInfo.expires_at || null,
+                                ShopifyDomain: tokenInfo.shop || null
                             })
                         });
                         
@@ -301,7 +302,8 @@
                                 platform: tokenInfo.platform,
                                 access_token: tokenInfo.access_token,
                                 UserID: user.id,
-                                expires_at: tokenInfo.expires_at || null
+                                expires_at: tokenInfo.expires_at || null,
+                                ShopifyDomain: tokenInfo.shop || null
                             })
                         });
                         
