@@ -623,6 +623,20 @@
                     </div>
                 </div>
             </div>
+            <!-- Order Details Modal -->
+            <div id="order-details-modal" class="modal" style="display:none;">
+                <div class="modal-content" style="max-width: 650px;">
+                    <div class="modal-header">
+                        <h3>Order Details</h3>
+                        <span class="close" onclick="closeOrderDetailsModal()">&times;</span>
+                    </div>
+                    <div class="modal-body" id="order-details-body" style="max-height:60vh; overflow:auto;">
+                    </div>
+                    <div class="modal-buttons" style="justify-content: flex-end;">
+                        <button type="button" class="btn btn-secondary" onclick="closeOrderDetailsModal()">Close</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -804,7 +818,7 @@
                 const { data, error } = await supabase
                     .from('Order History')
                     .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, ShippedAt, TrackingNumber')
-                    .neq('Returned', true)
+                    .or('Returned.is.null,Returned.eq.false')
                     .overlaps('UserID', [currentUser.id])
                     .order('ShippedAt', { ascending: false });
                 if (error) throw error;
@@ -1156,7 +1170,40 @@ Notes: ${data.Notes || 'None'}
 Customer Messages: ${data.CustomerMessages || 'None'}
             `;
             
-            alert(details);
+            const detailsBody = document.getElementById('order-details-body');
+            if (detailsBody) {
+                const itemsHtml = (items || []).map(item => `<div>• ${item.Quantity || item.quantity || 1}x ${item.Name || item.name || item.title || 'Unknown Item'} (SKU: ${item.SKU || item.sku || 'N/A'})</div>`).join('') || '<div>No items found</div>';
+                const customerHtml = `
+                    <div style="margin-bottom:6px;"><strong>Name:</strong> ${customer.name || 'N/A'}</div>
+                    <div style="margin-bottom:6px;"><strong>Address1:</strong> ${customer.address1 || 'N/A'}</div>
+                    ${customer.address2 ? `<div style="margin-bottom:6px;"><strong>Address2:</strong> ${customer.address2}</div>` : ''}
+                    <div style="margin-bottom:6px;"><strong>City:</strong> ${customer.city || 'N/A'}</div>
+                    <div style="margin-bottom:6px;"><strong>State:</strong> ${customer.state || 'N/A'}</div>
+                    <div style="margin-bottom:6px;"><strong>Zip:</strong> ${customer.zipCode || 'N/A'}</div>
+                    <div style="margin-bottom:6px;"><strong>Country:</strong> ${customer.country || 'N/A'}</div>`;
+                const linkHtml = data.Link ? `<a href="${data.Link}" target="_blank" style="color:#3b82f6;">${data.Link}</a>` : 'N/A';
+                detailsBody.innerHTML = `
+                    <div style="margin-bottom:10px;"><strong>Order ID:</strong> ${data.OrderID || 'N/A'}</div>
+                    <div style="margin-bottom:10px;"><strong>Platform:</strong> ${data.Platform || 'N/A'}</div>
+                    <div style="margin-bottom:10px;"><strong>Retailer:</strong> ${data.Retailer || 'N/A'}</div>
+                    <div style="margin-bottom:10px;"><strong>Platform Link:</strong> ${linkHtml}</div>
+                    <div style="margin-bottom:12px;"><strong>Customer Information:</strong><div style="margin-top:6px;">${customerHtml}</div></div>
+                    <div style="margin-bottom:12px;"><strong>Items:</strong><div style="margin-top:6px;">${itemsHtml}</div></div>
+                    <div style="margin-bottom:10px;"><strong>Notes:</strong> ${data.Notes || 'None'}</div>
+                    <div style="margin-bottom:10px;"><strong>Customer Messages:</strong> ${data.CustomerMessages || 'None'}</div>
+                `;
+                openOrderDetailsModal();
+            }
+        }
+
+        function openOrderDetailsModal() {
+            const modal = document.getElementById('order-details-modal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeOrderDetailsModal() {
+            const modal = document.getElementById('order-details-modal');
+            if (modal) modal.style.display = 'none';
         }
 
         // Cancel order
