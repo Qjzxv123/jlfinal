@@ -804,6 +804,7 @@
                 const { data, error } = await supabase
                     .from('Order History')
                     .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link, ShippedAt, TrackingNumber')
+                    .neq('Returned', true)
                     .overlaps('UserID', [currentUser.id])
                     .order('ShippedAt', { ascending: false });
                 if (error) throw error;
