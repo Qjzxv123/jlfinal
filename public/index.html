@@ -101,10 +101,32 @@
         <img src="Assets/favicon.ico" alt="J&L Naturals Logo" style="width: 64px; height: 64px; border-radius: 12px; box-shadow: 0 2px 8px rgba(77,186,147,0.12); margin-bottom: 1em;">
       </div>
       <div class="nav">
-        <a href="CustomerDashboard.html"><i class="cil-speedometer"></i>Customer Dashboard</a>
-        <a href="/admin/EmployeeDashboard.html"><i class="cil-speedometer"></i>Employee Dashboard</a>
-        <a href="/admin/AdminDashboard.html"><i class="cil-speedometer"></i>Admin Dashboard</a>
+        <a id="goDashboardBtn" href="#"><i class="cil-speedometer"></i>Go to Dashboard</a>
       </div>
+      <script>
+        // Role-based dashboard routing
+        (async function() {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const role = user?.user_metadata?.role;
+            const btn = document.getElementById('goDashboardBtn');
+            if (!btn) return;
+            btn.addEventListener('click', function(e){
+              e.preventDefault();
+              const dest = (role === 'service_role') ? '/admin/AdminDashboard.html'
+                          : (role === 'employee') ? '/admin/EmployeeDashboard.html'
+                          : 'CustomerDashboard.html';
+              window.location.href = dest;
+            });
+          } catch (e) {
+            // Fallback to customer dashboard if user not available
+            const btn = document.getElementById('goDashboardBtn');
+            if (btn) {
+              btn.addEventListener('click', function(ev){ ev.preventDefault(); window.location.href = 'CustomerDashboard.html'; });
+            }
+          }
+        })();
+      </script>
       <div class="footer">
         <a href="privacy.html" style="color: #888; text-decoration: underline; font-size: 0.98em;">Privacy Policy</a><br>
         &copy; 2025 J&L Tools
