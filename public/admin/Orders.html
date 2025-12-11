@@ -510,13 +510,21 @@
         function getSelectionInfo() {
             const hasSelection = selectedOrders.size > 0;
             let hasEligibleForInventory = false;
+            let hasEligibleForLabels = false;
             if (hasSelection) {
                 const selectedIdSet = new Set(Array.from(selectedOrders).map(String));
                 for (const o of orders) {
-                    if (selectedIdSet.has(String(o.OrderID)) && !o.InventoryRemoved) { hasEligibleForInventory = true; break; }
+                    if (selectedIdSet.has(String(o.OrderID))) {
+                        if (!o.InventoryRemoved) { 
+                            hasEligibleForInventory = true;
+                        }
+                        if (o.InventoryRemoved === true) {
+                            hasEligibleForLabels = true;
+                        }
+                    }
                 }
             }
-            return { hasSelection, hasEligibleForInventory };
+            return { hasSelection, hasEligibleForInventory, hasEligibleForLabels };
         }
         function setBtnState(btn, enabled) {
             if (!btn) return;
@@ -525,7 +533,7 @@
             btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
         }
         function updateActionButtons() {
-            const { hasSelection, hasEligibleForInventory } = getSelectionInfo();
+            const { hasSelection, hasEligibleForInventory, hasEligibleForLabels } = getSelectionInfo();
             // Buttons
             const printBtn = document.getElementById('printPicklistPackingBtn');
             const removeInvBtn = document.getElementById('removeInventoryBtn');
@@ -539,7 +547,8 @@
                 setBtnState(printLabelsBtn, false);
             } else {
                 setBtnState(printBtn, hasSelection);
-                setBtnState(printLabelsBtn, hasSelection);
+                // Only enable print labels if selected orders have inventory removed
+                setBtnState(printLabelsBtn, hasEligibleForLabels);
             }
             
             setBtnState(removeOrdersBtn, hasSelection);
