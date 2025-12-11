@@ -205,7 +205,7 @@ exports.handler = async function(event) {
         const shippingAddress = order.shipping_address || {};
         const orderData = {
           OrderID: orderID,
-          Retailer: existingOrder?.Retailer || shopDomain,
+          Retailer: existingOrder?.Retailer || tokenRow.user_key,
           Items: JSON.stringify(transformedItems),
           Customer: JSON.stringify({
             name: shippingAddress.name || order.customer?.first_name + ' ' + order.customer?.last_name || '',
