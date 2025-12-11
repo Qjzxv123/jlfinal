@@ -78,6 +78,77 @@
       background: #f1f5f9;
       font-size: 1rem;
     }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background-color: #fff;
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 450px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    .modal-header h2 {
+      margin: 0;
+      color: #2d3748;
+      font-size: 1.4rem;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      color: #666;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+    .modal-body label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #374151;
+    }
+    .modal-body input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .modal-body p {
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 0.5rem;
+    }
+    .modal-footer {
+      margin-top: 1.5rem;
+      display: flex;
+      gap: 10px;
+    }
+    .modal-footer button {
+      flex: 1;
+      margin: 0;
+    }
+    .modal-footer .cancel-btn {
+      background: #6c757d;
+      color: white;
+    }
+    .modal-footer .cancel-btn:hover {
+      background: #5a6268;
+    }
   </style>
   <link rel="icon" type="image/x-icon" href="Assets/favicon.ico">
 </head>
@@ -109,6 +180,25 @@
         <button id="shopify-btn" style="margin-top: 12px; background: #96bf48; color: #fff; display: flex; align-items: center; gap: 10px;">
           <i class="cib-shopify"></i><span id="shopify-text">Connect Shopify</span>
         </button>
+      </div>
+      
+      <!-- Shopify Shop Modal -->
+      <div id="shopifyModal" class="modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Connect Shopify Store</h2>
+            <button class="close-btn" onclick="closeShopifyModal()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <label for="shopifyShopInput">Enter your Shopify shop domain:</label>
+            <input type="text" id="shopifyShopInput" placeholder="example.myshopify.com" />
+            <p>Enter your full Shopify shop domain (e.g., yourstore.myshopify.com)</p>
+          </div>
+          <div class="modal-footer">
+            <button class="cancel-btn" onclick="closeShopifyModal()">Cancel</button>
+            <button style="background: #96bf48; color: #fff;" onclick="submitShopifyShop()">Connect</button>
+          </div>
+        </div>
       </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
@@ -286,15 +376,89 @@ async function startOAuthIfNotConnected(provider) {
 
 document.getElementById('faire-btn').onclick = () => startOAuthIfNotConnected('faire');
 document.getElementById('etsy-btn').onclick = () => startOAuthIfNotConnected('etsy');
-document.getElementById('shopify-btn').onclick = () => {
+document.getElementById('shopify-btn').onclick = async () => {
   // For Shopify, we need to handle it differently since it might come from app installation
   const shop = urlParams.get('shop');
   if (shop && !urlParams.get('shopify_oauth_complete')) {
     startShopifyOAuth(shop);
   } else {
-    startOAuthIfNotConnected('shopify');
+    // Check if already connected
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
+
+    const { data: tokens } = await supabase
+      .from('oauth_tokens')
+      .select('access_token, expires_at')
+      .eq('UserID', user.id)
+      .eq('platform', 'shopify')
+      .single();
+
+    if (tokens && tokens.access_token && 
+        (!tokens.expires_at || tokens.expires_at > Date.now() / 1000)) {
+      alert('You are already connected to Shopify!');
+      return;
+    }
+
+    // Open modal to get shop domain
+    openShopifyModal();
   }
 };
+
+// Modal functions
+function openShopifyModal() {
+  document.getElementById('shopifyModal').style.display = 'flex';
+  document.getElementById('shopifyShopInput').value = '';
+  document.getElementById('shopifyShopInput').focus();
+}
+
+function closeShopifyModal() {
+  document.getElementById('shopifyModal').style.display = 'none';
+}
+
+async function submitShopifyShop() {
+  let shopDomain = document.getElementById('shopifyShopInput').value.trim();
+  
+  if (!shopDomain) {
+    alert('Please enter your Shopify shop domain');
+    return;
+  }
+  
+  // Ensure it has .myshopify.com
+  if (!shopDomain.includes('.')) {
+    shopDomain = shopDomain + '.myshopify.com';
+  } else if (!shopDomain.endsWith('.myshopify.com')) {
+    // Remove any protocol if present
+    shopDomain = shopDomain.replace(/^https?:\/\//, '');
+    // Remove trailing slash if present
+    shopDomain = shopDomain.replace(/\/$/, '');
+    
+    // Check if it already looks like a valid shopify domain
+    if (!shopDomain.includes('.myshopify.com')) {
+      alert('Please enter a valid Shopify domain (e.g., yourstore.myshopify.com)');
+      return;
+    }
+  }
+  
+  closeShopifyModal();
+  startShopifyOAuth(shopDomain);
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeShopifyModal();
+  }
+});
+
+// Close modal when clicking outside
+document.getElementById('shopifyModal')?.addEventListener('click', (e) => {
+  if (e.target === document.getElementById('shopifyModal')) {
+    closeShopifyModal();
+  }
+});
 
 // Initialize and check for Shopify parameters immediately
 
