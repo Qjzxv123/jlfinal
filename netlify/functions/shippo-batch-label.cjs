@@ -11,6 +11,7 @@ const getFetch = async () => {
 	return fetchModule.default;
 };
 
+const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 let getTokenRow = null;
@@ -23,34 +24,58 @@ try {
 const SHIPPO_API_KEY = process.env.SHIPPO_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 const FAIRE_CLIENT_ID = process.env.FAIRE_CLIENT_ID || '';
 const FAIRE_CLIENT_SECRET = process.env.FAIRE_CLIENT_SECRET || '';
 
 exports.handler = async (event) => {
+	const corsHeaders = getCorsHeaders(event);
 	try {
+		if (event.httpMethod === 'OPTIONS') {
+			return {
+				statusCode: 204,
+				headers: corsHeaders
+			};
+		}
 		if (event.httpMethod !== 'POST') {
 			console.error('[shippo-batch-label] Invalid HTTP method:', event.httpMethod);
-			return jsonResponse(405, { error: 'Method Not Allowed' });
+			return jsonResponse(405, { error: 'Method Not Allowed' }, corsHeaders);
 		}
-		if (!SHIPPO_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+		if (!SHIPPO_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY || !SUPABASE_JWT_SECRET) {
 			console.error('[shippo-batch-label] Missing configuration:', { 
 				hasShippoKey: !!SHIPPO_API_KEY, 
 				hasSupabaseUrl: !!SUPABASE_URL, 
-				hasSupabaseKey: !!SUPABASE_SERVICE_KEY 
+				hasSupabaseKey: !!SUPABASE_SERVICE_KEY,
+				hasJwtSecret: !!SUPABASE_JWT_SECRET
 			});
-			return jsonResponse(500, { error: 'Missing required server configuration.' });
+			return jsonResponse(500, { error: 'Missing required server configuration.' }, corsHeaders);
+		}
+		const token = extractBearerToken(event.headers || {});
+		if (!token) {
+			return jsonResponse(401, { error: 'Missing Authorization bearer token.' }, corsHeaders);
+		}
+		let jwtPayload;
+		try {
+			jwtPayload = verifySupabaseJwt(token, SUPABASE_JWT_SECRET);
+		} catch (err) {
+			console.error('[shippo-batch-label] JWT verification failed:', err);
+			return jsonResponse(401, { error: `Invalid token: ${err?.message || err}` }, corsHeaders);
+		}
+		if (!hasAllowedRole(jwtPayload)) {
+			console.warn('[shippo-batch-label] Access denied, roles:', getRolesFromPayload(jwtPayload));
+			return jsonResponse(403, { error: 'Insufficient role. Employee or admin required.' }, corsHeaders);
 		}
 		let payload;
 		try {
 			payload = JSON.parse(event.body || '{}');
 		} catch (err) {
 			console.error('[shippo-batch-label] JSON parse error:', err);
-			return jsonResponse(400, { error: 'Invalid JSON body.' });
+			return jsonResponse(400, { error: 'Invalid JSON body.' }, corsHeaders);
 		}
 		const orders = Array.isArray(payload.orders) ? payload.orders : [];
 		if (!orders.length) {
 			console.error('[shippo-batch-label] No orders in payload');
-			return jsonResponse(400, { error: 'No orders supplied.' });
+			return jsonResponse(400, { error: 'No orders supplied.' }, corsHeaders);
 		}
 
 		const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -141,18 +166,104 @@ exports.handler = async (event) => {
 			})
 		);
 
-		return jsonResponse(200, { results });
+		return jsonResponse(200, { results }, corsHeaders);
 	} catch (err) {
 		console.error('[shippo-batch-label] Unexpected error:', err);
-		return jsonResponse(500, { error: err?.message || 'Unexpected server error' });
+		return jsonResponse(500, { error: err?.message || 'Unexpected server error' }, corsHeaders);
 	}
 };
 
-function jsonResponse(statusCode, body) {
+
+function jsonResponse(statusCode, body, headers = {}) {
 	return {
 		statusCode,
+		headers: {
+			'Content-Type': 'application/json',
+			...headers
+		},
 		body: JSON.stringify(body)
 	};
+}
+
+function getCorsHeaders(event) {
+	const allowed = (process.env.CORS_ALLOWED_ORIGINS || '').split(',').map(v => v.trim()).filter(Boolean);
+	const origin = (event?.headers?.origin || event?.headers?.Origin || '').trim();
+	let allowOrigin = '*';
+	if (allowed.length) {
+		if (origin && allowed.includes(origin)) {
+			allowOrigin = origin;
+		} else {
+			allowOrigin = allowed[0];
+		}
+	} else if (origin) {
+		allowOrigin = origin;
+	}
+	return {
+		'Access-Control-Allow-Origin': allowOrigin,
+		'Access-Control-Allow-Methods': 'POST, OPTIONS',
+		'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+		'Access-Control-Allow-Credentials': 'true'
+	};
+}
+
+function extractBearerToken(headers) {
+	const authHeader = headers?.authorization || headers?.Authorization || '';
+	if (!authHeader.toLowerCase().startsWith('bearer ')) return null;
+	return authHeader.slice(7).trim();
+}
+
+function verifySupabaseJwt(token, secret) {
+	const parts = (token || '').split('.');
+	if (parts.length !== 3) throw new Error('Token must have 3 parts.');
+	const [rawHeader, rawPayload, rawSignature] = parts;
+	const header = JSON.parse(base64UrlDecode(rawHeader).toString('utf8'));
+	if (header.alg !== 'HS256') throw new Error('Unsupported JWT alg.');
+	const expected = crypto
+		.createHmac('sha256', secret)
+		.update(`${rawHeader}.${rawPayload}`)
+		.digest('base64')
+		.replace(/=/g, '')
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_');
+	const signatureBuffer = Buffer.from(rawSignature.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+	const expectedBuffer = Buffer.from(expected.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+	if (signatureBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
+		throw new Error('Invalid signature.');
+	}
+	const payload = JSON.parse(base64UrlDecode(rawPayload).toString('utf8'));
+	if (payload.exp && Date.now() / 1000 > payload.exp) {
+		throw new Error('Token expired.');
+	}
+	return payload;
+}
+
+function base64UrlDecode(str) {
+	let padded = str.replace(/-/g, '+').replace(/_/g, '/');
+	while (padded.length % 4 !== 0) padded += '=';
+	return Buffer.from(padded, 'base64');
+}
+
+function getRolesFromPayload(payload) {
+	if (!payload || typeof payload !== 'object') return [];
+	const roles = [];
+	const pushRole = (val) => {
+		if (typeof val === 'string' && val.trim()) roles.push(val.trim().toLowerCase());
+		if (Array.isArray(val)) val.forEach(pushRole);
+	};
+	pushRole(payload.role);
+	pushRole(payload.roles);
+	pushRole(payload.user_role);
+	pushRole(payload.user_roles);
+	pushRole(payload.app_metadata?.role);
+	pushRole(payload.app_metadata?.roles);
+	pushRole(payload.user_metadata?.role);
+	pushRole(payload.user_metadata?.roles);
+	return Array.from(new Set(roles));
+}
+
+function hasAllowedRole(payload) {
+	const roles = getRolesFromPayload(payload);
+	return roles.some(r => r === 'admin' || r === 'employee');
 }
 
 async function purchaseLabel({ rateId, orderData, rateMeta }) {
