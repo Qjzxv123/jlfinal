@@ -6,7 +6,10 @@
   <title>Business Analytics</title>
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
   <link rel="stylesheet" href="/Assets/sidebar.css">
+  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="/Assets/CheckAccess.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -215,6 +218,10 @@
       background: #f3e8ff;
       color: #6b21a8;
     }
+    .platform-unknown {
+      background: #e2e8f0;
+      color: #1e293b;
+    }
     .two-column {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
@@ -230,364 +237,372 @@
       }
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-  <script src="/Assets/CheckAccess.js"></script>
-  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
 </head>
 <body>
   <div id="sidebar"></div>
   <script src="/Assets/sidebar.js"></script>
-  
-  <div class="main-content">
-    <div class="header">
-      <h1>Business Analytics</h1>
-      <div class="subtitle">Product statistics and insights from order history</div>
-    </div>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
 
-    <div class="filters">
-      <div class="filter-group">
-        <label>Date Range</label>
-        <select id="dateRangeFilter">
-          <option value="all">All Time</option>
-          <option value="7">Last 7 Days</option>
-          <option value="30" selected>Last 30 Days</option>
-          <option value="90">Last 90 Days</option>
-          <option value="365">Last Year</option>
-          <option value="custom">Custom Range</option>
-        </select>
-      </div>
-      <div class="filter-group" id="customStartGroup" style="display:none;">
-        <label>Start Date</label>
-        <input type="date" id="startDateFilter">
-      </div>
-      <div class="filter-group" id="customEndGroup" style="display:none;">
-        <label>End Date</label>
-        <input type="date" id="endDateFilter">
-      </div>
-      <div class="filter-group">
-        <label>Platform</label>
-        <select id="platformFilter">
-          <option value="all">All Platforms</option>
-          <option value="Faire">Faire</option>
-          <option value="Shopify">Shopify</option>
-          <option value="Etsy">Etsy</option>
-          <option value="Amazon">Amazon</option>
-          <option value="TikTok">TikTok</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Retailer</label>
-        <select id="retailerFilter">
-          <option value="all">All Retailers</option>
-        </select>
-      </div>
-      <button class="btn" onclick="applyFilters()">Apply Filters</button>
-    </div>
+    const initialFilters = {
+      dateRange: '30',
+      startDate: '',
+      endDate: '',
+      platform: 'all',
+      retailer: 'all'
+    };
 
-    <div id="loadingIndicator" class="loading">
-      <div class="spinner"></div>
-      Loading analytics data...
-    </div>
+    const platformColors = {
+      'Faire': '#fbbf24',
+      'Shopify': '#22c55e',
+      'Etsy': '#f43f5e',
+      'Amazon': '#3b82f6',
+      'TikTok': '#a855f7',
+      'Unknown': '#94a3b8'
+    };
 
-    <div id="analyticsContent" style="display:none;">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="label">Total Orders</div>
-          <div class="value" id="totalOrders">0</div>
-          <div class="subtext">Shipped orders</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Total Shipping Cost</div>
-          <div class="value" id="totalShippingCost">$0</div>
-          <div class="subtext">Business expense</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Total Products Sold</div>
-          <div class="value" id="totalProducts">0</div>
-          <div class="subtext">Individual units</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Avg Shipping Cost</div>
-          <div class="value" id="avgShippingCost">$0</div>
-          <div class="subtext">Per order</div>
-        </div>
-      </div>
+    function Filters({ filters, retailers, onChange, onApply }) {
+      const isCustomRange = filters.dateRange === 'custom';
 
-      <div class="chart-container">
-        <h2>Orders Over Time</h2>
-        <canvas id="ordersTimelineChart" style="max-height: 300px;"></canvas>
-      </div>
-
-      <div class="two-column">
-        <div class="chart-container">
-          <h2>Top 10 Products</h2>
-          <canvas id="topProductsChart" style="max-height: 350px;"></canvas>
+      return (
+        <div className="filters">
+          <div className="filter-group">
+            <label>Date Range</label>
+            <select
+              value={filters.dateRange}
+              onChange={(e) => onChange({ ...filters, dateRange: e.target.value })}
+            >
+              <option value="all">All Time</option>
+              <option value="7">Last 7 Days</option>
+              <option value="30">Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
+              <option value="365">Last Year</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+          {isCustomRange && (
+            <>
+              <div className="filter-group">
+                <label>Start Date</label>
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => onChange({ ...filters, startDate: e.target.value })}
+                />
+              </div>
+              <div className="filter-group">
+                <label>End Date</label>
+                <input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => onChange({ ...filters, endDate: e.target.value })}
+                />
+              </div>
+            </>
+          )}
+          <div className="filter-group">
+            <label>Platform</label>
+            <select
+              value={filters.platform}
+              onChange={(e) => onChange({ ...filters, platform: e.target.value })}
+            >
+              <option value="all">All Platforms</option>
+              <option value="Faire">Faire</option>
+              <option value="Shopify">Shopify</option>
+              <option value="Etsy">Etsy</option>
+              <option value="Amazon">Amazon</option>
+              <option value="TikTok">TikTok</option>
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Retailer</label>
+            <select
+              value={filters.retailer}
+              onChange={(e) => onChange({ ...filters, retailer: e.target.value })}
+            >
+              <option value="all">All Retailers</option>
+              {retailers.map((retailer) => (
+                <option key={retailer} value={retailer}>{retailer}</option>
+              ))}
+            </select>
+          </div>
+          <button className="btn" onClick={onApply}>Apply Filters</button>
         </div>
-        <div class="chart-container">
-          <h2>Platform Distribution</h2>
-          <canvas id="platformPieChart" style="max-height: 350px;"></canvas>
-        </div>
-      </div>
+      );
+    }
 
-      <div class="two-column">
-        <div class="chart-container">
+    function StatsGrid({ stats }) {
+      return (
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="label">Total Orders</div>
+            <div className="value">{stats.totalOrders.toLocaleString()}</div>
+            <div className="subtext">Shipped orders</div>
+          </div>
+          <div className="stat-card">
+            <div className="label">Total Shipping Cost</div>
+            <div className="value">${stats.totalShippingCost.toFixed(2)}</div>
+            <div className="subtext">Business expense</div>
+          </div>
+          <div className="stat-card">
+            <div className="label">Total Products Sold</div>
+            <div className="value">{stats.totalProducts.toLocaleString()}</div>
+            <div className="subtext">Individual units</div>
+          </div>
+          <div className="stat-card">
+            <div className="label">Avg Shipping Cost</div>
+            <div className="value">${stats.avgShippingCost.toFixed(2)}</div>
+            <div className="subtext">Per order</div>
+          </div>
+        </div>
+      );
+    }
+
+    function ChartCanvas({ title, canvasRef, style }) {
+      return (
+        <div className="chart-container">
+          <h2>{title}</h2>
+          <canvas ref={canvasRef} style={style}></canvas>
+        </div>
+      );
+    }
+
+    function TopProductsTable({ products }) {
+      return (
+        <div className="chart-container">
           <h2>Top Products by Quantity</h2>
-          <table id="topProductsTable">
+          <table>
             <thead>
               <tr>
-                <th style="width:50px;">Rank</th>
+                <th style={{ width: '50px' }}>Rank</th>
                 <th>Product SKU</th>
-                <th style="text-align:right;">Quantity</th>
-                <th style="text-align:right;">Orders</th>
+                <th style={{ textAlign: 'right' }}>Quantity</th>
+                <th style={{ textAlign: 'right' }}>Orders</th>
               </tr>
             </thead>
-            <tbody></tbody>
+            <tbody>
+              {products.map((product, idx) => (
+                <tr key={product.sku}>
+                  <td>
+                    <span className={`product-rank ${idx < 3 ? 'top-3' : ''}`}>{idx + 1}</span>
+                  </td>
+                  <td><strong>{product.sku}</strong></td>
+                  <td style={{ textAlign: 'right' }}>{product.totalQty.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>{product.orderCount.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
+      );
+    }
 
-        <div class="chart-container">
+    function PlatformStatsTable({ stats }) {
+      return (
+        <div className="chart-container">
           <h2>Platform Breakdown</h2>
-          <table id="platformStatsTable">
+          <table>
             <thead>
               <tr>
                 <th>Platform</th>
-                <th style="text-align:right;">Orders</th>
-                <th style="text-align:right;">Shipping Cost</th>
-                <th style="text-align:right;">Units</th>
+                <th style={{ textAlign: 'right' }}>Orders</th>
+                <th style={{ textAlign: 'right' }}>Shipping Cost</th>
+                <th style={{ textAlign: 'right' }}>Units</th>
               </tr>
             </thead>
-            <tbody></tbody>
+            <tbody>
+              {stats.map((platform) => (
+                <tr key={platform.name}>
+                  <td><span className={`platform-badge ${platform.badgeClass}`}>{platform.name}</span></td>
+                  <td style={{ textAlign: 'right' }}>{platform.orders.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>${platform.shippingCost.toFixed(2)}</td>
+                  <td style={{ textAlign: 'right' }}>{platform.units.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
-      </div>
+      );
+    }
 
-      <div class="chart-container">
-        <h2>Retailer Performance</h2>
-        <table id="retailerStatsTable">
-          <thead>
-            <tr>
-              <th>Retailer</th>
-              <th style="text-align:right;">Orders</th>
-              <th style="text-align:right;">Shipping Cost</th>
-              <th style="text-align:right;">Units Sold</th>
-              <th style="text-align:right;">Avg Order Size</th>
-              <th style="text-align:right;">Top Product</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <div class="chart-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <h2 style="margin: 0;">All Products Performance</h2>
-          <input type="text" id="productSearchInput" placeholder="Search products by SKU or name..." style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; width: 300px;" oninput="filterProductsTable()">
+    function RetailerStatsTable({ stats }) {
+      return (
+        <div className="chart-container">
+          <h2>Retailer Performance</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Retailer</th>
+                <th style={{ textAlign: 'right' }}>Orders</th>
+                <th style={{ textAlign: 'right' }}>Shipping Cost</th>
+                <th style={{ textAlign: 'right' }}>Units Sold</th>
+                <th style={{ textAlign: 'right' }}>Avg Order Size</th>
+                <th style={{ textAlign: 'right' }}>Top Product</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.map((retailer) => (
+                <tr key={retailer.name}>
+                  <td><strong>{retailer.name}</strong></td>
+                  <td style={{ textAlign: 'right' }}>{retailer.orders.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>${retailer.shippingCost.toFixed(2)}</td>
+                  <td style={{ textAlign: 'right' }}>{retailer.units.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>{retailer.avgOrderSize}</td>
+                  <td style={{ textAlign: 'right', fontSize: '0.85rem' }}>{retailer.topProduct}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <table id="allProductsTable">
-          <thead>
-            <tr>
-              <th>Product SKU</th>
-              <th>Name</th>
-              <th style="text-align:right;">Total Quantity</th>
-              <th style="text-align:right;">Times Ordered</th>
-              <th style="text-align:right;">Avg per Order</th>
-              <th>Most Common Platform</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Access control
-    checkPermissions(['service_role', 'employee']);
-    setupInactivityTimeout(5);
-
-    let allOrders = [];
-    let filteredOrders = [];
-    let charts = {}; // Store chart instances for cleanup
-    let allProductsData = []; // Store full product stats for searching
-
-    // Initialize
-    document.addEventListener('DOMContentLoaded', async () => {
-      await loadRetailers();
-      await loadOrderHistory();
-      setupEventListeners();
-    });
-
-    function setupEventListeners() {
-      document.getElementById('dateRangeFilter').addEventListener('change', (e) => {
-        const isCustom = e.target.value === 'custom';
-        document.getElementById('customStartGroup').style.display = isCustom ? '' : 'none';
-        document.getElementById('customEndGroup').style.display = isCustom ? '' : 'none';
-      });
+      );
     }
 
-    async function loadRetailers() {
-      const { data, error } = await supabase
-        .from('Order History')
-        .select('Retailer')
-        .not('Retailer', 'is', null);
-      
-      if (!error && data) {
-        const retailers = [...new Set(data.map(o => o.Retailer))].sort();
-        const select = document.getElementById('retailerFilter');
-        retailers.forEach(retailer => {
-          const option = document.createElement('option');
-          option.value = retailer;
-          option.textContent = retailer;
-          select.appendChild(option);
-        });
-      }
+    function ProductsTable({ products, searchTerm, onSearchChange }) {
+      return (
+        <div className="chart-container">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <h2 style={{ margin: 0 }}>All Products Performance</h2>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search products by SKU or name..."
+              style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', width: '300px' }}
+            />
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Product SKU</th>
+                <th>Name</th>
+                <th style={{ textAlign: 'right' }}>Total Quantity</th>
+                <th style={{ textAlign: 'right' }}>Times Ordered</th>
+                <th style={{ textAlign: 'right' }}>Avg per Order</th>
+                <th>Most Common Platform</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((product) => (
+                <tr key={product.sku}>
+                  <td><strong>{product.sku}</strong></td>
+                  <td>{product.name}</td>
+                  <td style={{ textAlign: 'right' }}>{product.totalQty.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>{product.orderCount.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>{product.avgPerOrder}</td>
+                  <td><span className={`platform-badge ${product.badgeClass}`}>{product.platformName}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
     }
 
-    async function loadOrderHistory() {
-      document.getElementById('loadingIndicator').style.display = 'block';
-      document.getElementById('analyticsContent').style.display = 'none';
-
-      // Fetch all order history with pagination
-      let allData = [];
-      let from = 0;
-      const pageSize = 1000;
-      
-      while (true) {
-        const { data, error } = await supabase
-          .from('Order History')
-          .select('*')
-          .neq('TrackingNumber', null)
-          .range(from, from + pageSize - 1)
-          .order('ShippedAt', { ascending: false });
-        
-        if (error) {
-          console.error('Error loading order history:', error);
-          alert('Failed to load order history: ' + error.message);
-          return;
-        }
-        
-        if (!data || data.length === 0) break;
-        allData = allData.concat(data);
-        if (data.length < pageSize) break;
-        from += pageSize;
-      }
-
-      allOrders = allData;
-      applyFilters();
+    function formatToDate(dateString) {
+      return new Date(dateString);
     }
 
-    function applyFilters() {
-      const dateRange = document.getElementById('dateRangeFilter').value;
-      const platform = document.getElementById('platformFilter').value;
-      const retailer = document.getElementById('retailerFilter').value;
+    function applyFilterLogic(orders, filters) {
+      let filtered = [...orders];
 
-      let filtered = [...allOrders];
-
-      // Date filter
-      if (dateRange !== 'all') {
+      if (filters.dateRange !== 'all') {
         const now = new Date();
         let startDate;
-        
-        if (dateRange === 'custom') {
-          const startInput = document.getElementById('startDateFilter').value;
-          const endInput = document.getElementById('endDateFilter').value;
-          if (startInput && endInput) {
-            startDate = new Date(startInput);
-            const endDate = new Date(endInput);
+
+        if (filters.dateRange === 'custom') {
+          if (filters.startDate && filters.endDate) {
+            startDate = formatToDate(filters.startDate);
+            const endDate = formatToDate(filters.endDate);
             endDate.setHours(23, 59, 59, 999);
-            filtered = filtered.filter(o => {
-              const shipDate = new Date(o.ShippedAt);
+            filtered = filtered.filter((order) => {
+              const shipDate = new Date(order.ShippedAt);
               return shipDate >= startDate && shipDate <= endDate;
             });
           }
         } else {
-          const days = parseInt(dateRange);
+          const days = parseInt(filters.dateRange, 10);
           startDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
-          filtered = filtered.filter(o => new Date(o.ShippedAt) >= startDate);
+          filtered = filtered.filter((order) => new Date(order.ShippedAt) >= startDate);
         }
       }
 
-      // Platform filter
-      if (platform !== 'all') {
-        filtered = filtered.filter(o => o.Platform === platform);
+      if (filters.platform !== 'all') {
+        filtered = filtered.filter((order) => order.Platform === filters.platform);
       }
 
-      // Retailer filter
-      if (retailer !== 'all') {
-        filtered = filtered.filter(o => o.Retailer === retailer);
+      if (filters.retailer !== 'all') {
+        filtered = filtered.filter((order) => order.Retailer === filters.retailer);
       }
 
-      filteredOrders = filtered;
-      calculateAndDisplayAnalytics();
+      return filtered;
     }
 
-    function calculateAndDisplayAnalytics() {
-      // Calculate overall stats
-      const totalOrders = filteredOrders.length;
-      const totalShippingCost = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.ShippingCost) || 0), 0);
-      
-      // Count all products
-      let totalProductCount = 0;
+    function parseItems(rawItems, orderId) {
+      if (Array.isArray(rawItems)) return rawItems;
+      if (typeof rawItems === 'string') {
+        try {
+          const parsed = JSON.parse(rawItems);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          console.warn('Failed to parse Items for order:', orderId, error);
+          return [];
+        }
+      }
+      return [];
+    }
+
+    function deriveAnalytics(orders) {
+      const totalOrders = orders.length;
+      const totalShippingCost = orders.reduce((sum, order) => sum + (parseFloat(order.ShippingCost) || 0), 0);
+      let totalProducts = 0;
       const productStats = {};
       const platformStats = {};
       const retailerStats = {};
 
-      filteredOrders.forEach(order => {
-        // Parse Items if it's a string, otherwise use as-is
-        let items = order.Items;
-        if (typeof items === 'string') {
-          try {
-            items = JSON.parse(items);
-          } catch (e) {
-            console.warn('Failed to parse Items for order:', order.OrderID, e);
-            items = [];
-          }
-        }
-        if (!Array.isArray(items)) {
-          items = [];
-        }
-        
+      orders.forEach((order) => {
+        const items = parseItems(order.Items, order.OrderID);
         const platform = order.Platform || 'Unknown';
         const retailer = order.Retailer || 'Unknown';
         const shippingCost = parseFloat(order.ShippingCost) || 0;
 
-        // Platform stats
         if (!platformStats[platform]) {
           platformStats[platform] = { orders: 0, shippingCost: 0, units: 0 };
         }
-        platformStats[platform].orders++;
+        platformStats[platform].orders += 1;
         platformStats[platform].shippingCost += shippingCost;
 
-        // Retailer stats
         if (!retailerStats[retailer]) {
           retailerStats[retailer] = { orders: 0, shippingCost: 0, units: 0, products: {} };
         }
-        retailerStats[retailer].orders++;
+        retailerStats[retailer].orders += 1;
         retailerStats[retailer].shippingCost += shippingCost;
 
-        // Product stats
-        items.forEach(item => {
+        items.forEach((item) => {
           const sku = item.SKU || 'Unknown';
-          const qty = parseInt(item.Quantity) || 0;
+          const qty = parseInt(item.Quantity, 10) || 0;
           const name = item.Name || '';
-          
-          totalProductCount += qty;
+
+          totalProducts += qty;
           platformStats[platform].units += qty;
           retailerStats[retailer].units += qty;
 
           if (!productStats[sku]) {
             productStats[sku] = {
-              name: name,
+              name,
               totalQty: 0,
               orderCount: 0,
               platforms: {}
             };
           }
+
           productStats[sku].totalQty += qty;
-          productStats[sku].orderCount++;
+          productStats[sku].orderCount += 1;
           productStats[sku].platforms[platform] = (productStats[sku].platforms[platform] || 0) + 1;
 
-          // Track for retailer top product
           if (!retailerStats[retailer].products[sku]) {
             retailerStats[retailer].products[sku] = 0;
           }
@@ -597,350 +612,358 @@
 
       const avgShippingCost = totalOrders > 0 ? totalShippingCost / totalOrders : 0;
 
-      // Display overall stats
-      document.getElementById('totalOrders').textContent = totalOrders.toLocaleString();
-      document.getElementById('totalShippingCost').textContent = '$' + totalShippingCost.toFixed(2);
-      document.getElementById('totalProducts').textContent = totalProductCount.toLocaleString();
-      document.getElementById('avgShippingCost').textContent = '$' + avgShippingCost.toFixed(2);
-
-      // Render charts
-      renderOrdersTimelineChart();
-      renderTopProductsChart(productStats);
-      renderPlatformPieChart(platformStats);
-
-      // Display top products
-      displayTopProducts(productStats);
-      
-      // Display platform stats
-      displayPlatformStats(platformStats);
-      
-      // Display retailer stats
-      displayRetailerStats(retailerStats);
-      
-      // Display all products
-      displayAllProducts(productStats);
-
-      document.getElementById('loadingIndicator').style.display = 'none';
-      document.getElementById('analyticsContent').style.display = 'block';
-    }
-
-    function displayTopProducts(productStats) {
-      const sorted = Object.entries(productStats)
+      const topProducts = Object.entries(productStats)
         .sort((a, b) => b[1].totalQty - a[1].totalQty)
-        .slice(0, 20);
+        .slice(0, 20)
+        .map(([sku, stats]) => ({ sku, ...stats }));
 
-      const tbody = document.querySelector('#topProductsTable tbody');
-      tbody.innerHTML = sorted.map((([sku, stats], idx) => {
-        const rankClass = idx < 3 ? 'top-3' : '';
-        return `
-          <tr>
-            <td><span class="product-rank ${rankClass}">${idx + 1}</span></td>
-            <td><strong>${escapeHtml(sku)}</strong></td>
-            <td style="text-align:right;">${stats.totalQty.toLocaleString()}</td>
-            <td style="text-align:right;">${stats.orderCount.toLocaleString()}</td>
-          </tr>
-        `;
-      })).join('');
-    }
+      const platformTable = Object.entries(platformStats)
+        .sort((a, b) => b[1].orders - a[1].orders)
+        .map(([name, stats]) => ({
+          name,
+          badgeClass: `platform-${name.toLowerCase()}`,
+          ...stats
+        }));
 
-    function displayPlatformStats(platformStats) {
-      const sorted = Object.entries(platformStats)
-        .sort((a, b) => b[1].orders - a[1].orders);
+      const retailerTable = Object.entries(retailerStats)
+        .sort((a, b) => b[1].orders - a[1].orders)
+        .map(([name, stats]) => {
+          const topProduct = Object.entries(stats.products).sort((a, b) => b[1] - a[1])[0];
+          const topProductText = topProduct ? `${topProduct[0]} (${topProduct[1]})` : 'N/A';
+          const avgOrderSize = stats.orders > 0 ? (stats.units / stats.orders).toFixed(1) : '0';
+          return { name, topProduct: topProductText, avgOrderSize, ...stats };
+        });
 
-      const tbody = document.querySelector('#platformStatsTable tbody');
-      tbody.innerHTML = sorted.map(([platform, stats]) => {
-        const badgeClass = `platform-${platform.toLowerCase()}`;
-        return `
-          <tr>
-            <td><span class="platform-badge ${badgeClass}">${escapeHtml(platform)}</span></td>
-            <td style="text-align:right;">${stats.orders.toLocaleString()}</td>
-            <td style="text-align:right;">$${stats.shippingCost.toFixed(2)}</td>
-            <td style="text-align:right;">${stats.units.toLocaleString()}</td>
-          </tr>
-        `;
-      }).join('');
-    }
+      const allProducts = Object.entries(productStats)
+        .sort((a, b) => b[1].totalQty - a[1].totalQty)
+        .map(([sku, stats]) => {
+          const avgPerOrder = stats.orderCount > 0 ? (stats.totalQty / stats.orderCount).toFixed(1) : '0';
+          const topPlatform = Object.entries(stats.platforms).sort((a, b) => b[1] - a[1])[0];
+          const platformName = topPlatform ? topPlatform[0] : 'Unknown';
+          const badgeClass = `platform-${platformName.toLowerCase() || 'unknown'}`;
+          return {
+            sku,
+            name: stats.name,
+            totalQty: stats.totalQty,
+            orderCount: stats.orderCount,
+            avgPerOrder,
+            platformName,
+            badgeClass
+          };
+        });
 
-    function displayRetailerStats(retailerStats) {
-      const sorted = Object.entries(retailerStats)
-        .sort((a, b) => b[1].orders - a[1].orders);
-
-      const tbody = document.querySelector('#retailerStatsTable tbody');
-      tbody.innerHTML = sorted.map(([retailer, stats]) => {
-        const avgOrderSize = stats.orders > 0 ? (stats.units / stats.orders).toFixed(1) : '0';
-        
-        // Find top product for this retailer
-        const topProduct = Object.entries(stats.products)
-          .sort((a, b) => b[1] - a[1])[0];
-        const topProductText = topProduct ? `${topProduct[0]} (${topProduct[1]})` : 'N/A';
-
-        return `
-          <tr>
-            <td><strong>${escapeHtml(retailer)}</strong></td>
-            <td style="text-align:right;">${stats.orders.toLocaleString()}</td>
-            <td style="text-align:right;">$${stats.shippingCost.toFixed(2)}</td>
-            <td style="text-align:right;">${stats.units.toLocaleString()}</td>
-            <td style="text-align:right;">${avgOrderSize}</td>
-            <td style="text-align:right; font-size:0.85rem;">${escapeHtml(topProductText)}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function displayAllProducts(productStats) {
-      const sorted = Object.entries(productStats)
-        .sort((a, b) => b[1].totalQty - a[1].totalQty);
-
-      // Store for searching
-      allProductsData = sorted.map(([sku, stats]) => {
-        const avgPerOrder = stats.orderCount > 0 ? (stats.totalQty / stats.orderCount).toFixed(1) : '0';
-        const topPlatform = Object.entries(stats.platforms)
-          .sort((a, b) => b[1] - a[1])[0];
-        const platformName = topPlatform ? topPlatform[0] : 'N/A';
-        const badgeClass = `platform-${platformName.toLowerCase()}`;
-        
-        return {
-          sku,
-          name: stats.name,
-          totalQty: stats.totalQty,
-          orderCount: stats.orderCount,
-          avgPerOrder,
-          platformName,
-          badgeClass
-        };
-      });
-
-      renderProductsTable(allProductsData);
-    }
-
-    function renderProductsTable(products) {
-      const tbody = document.querySelector('#allProductsTable tbody');
-      tbody.innerHTML = products.map(product => {
-        return `
-          <tr>
-            <td><strong>${escapeHtml(product.sku)}</strong></td>
-            <td>${escapeHtml(product.name)}</td>
-            <td style="text-align:right;">${product.totalQty.toLocaleString()}</td>
-            <td style="text-align:right;">${product.orderCount.toLocaleString()}</td>
-            <td style="text-align:right;">${product.avgPerOrder}</td>
-            <td><span class="platform-badge ${product.badgeClass}">${escapeHtml(product.platformName)}</span></td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function filterProductsTable() {
-      const searchTerm = document.getElementById('productSearchInput').value.toLowerCase().trim();
-      
-      if (!searchTerm) {
-        renderProductsTable(allProductsData);
-        return;
-      }
-
-      const filtered = allProductsData.filter(product => {
-        const sku = (product.sku || '').toLowerCase();
-        const name = (product.name || '').toLowerCase();
-        return sku.includes(searchTerm) || name.includes(searchTerm);
-      });
-
-      renderProductsTable(filtered);
-    }
-
-    function escapeHtml(str) {
-      if (str == null) return '';
-      const div = document.createElement('div');
-      div.textContent = String(str);
-      return div.innerHTML;
-    }
-
-    // Chart rendering functions
-    function destroyChart(chartName) {
-      if (charts[chartName]) {
-        charts[chartName].destroy();
-        delete charts[chartName];
-      }
-    }
-
-    function renderOrdersTimelineChart() {
-      destroyChart('ordersTimeline');
-      
-      // Group orders by date
       const dateGroups = {};
-      filteredOrders.forEach(order => {
+      orders.forEach((order) => {
         const date = new Date(order.ShippedAt);
-        const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dateKey = date.toISOString().split('T')[0];
         dateGroups[dateKey] = (dateGroups[dateKey] || 0) + 1;
       });
-
-      // Sort dates and prepare data
       const sortedDates = Object.keys(dateGroups).sort();
-      const labels = sortedDates.map(date => {
+      const timelineLabels = sortedDates.map((date) => {
         const d = new Date(date);
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       });
-      const data = sortedDates.map(date => dateGroups[date]);
+      const timelineData = sortedDates.map((date) => dateGroups[date]);
 
-      const ctx = document.getElementById('ordersTimelineChart');
-      charts.ordersTimeline = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Orders Shipped',
-            data: data,
-            borderColor: '#4DBA93',
-            backgroundColor: 'rgba(77, 186, 147, 0.1)',
-            tension: 0.3,
-            fill: true,
-            pointRadius: 3,
-            pointHoverRadius: 5
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: {
-              display: false
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return `Orders: ${context.parsed.y}`;
-                }
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                stepSize: 1
-              }
-            }
-          }
-        }
-      });
-    }
-
-    function renderTopProductsChart(productStats) {
-      destroyChart('topProducts');
-      
-      const sorted = Object.entries(productStats)
+      const topProductsChart = Object.entries(productStats)
         .sort((a, b) => b[1].totalQty - a[1].totalQty)
         .slice(0, 10);
 
-      const labels = sorted.map(([sku]) => sku);
-      const data = sorted.map(([, stats]) => stats.totalQty);
+      const platformChart = Object.entries(platformStats).sort((a, b) => b[1].orders - a[1].orders);
 
-      const ctx = document.getElementById('topProductsChart');
-      charts.topProducts = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Quantity Sold',
-            data: data,
-            backgroundColor: [
-              '#4DBA93',
-              '#5CC6A1',
-              '#6FD2AF',
-              '#82DEBD',
-              '#95EACB',
-              '#A8F6D9',
-              '#88D9B8',
-              '#70CC9F',
-              '#58BF86',
-              '#40B26D'
-            ],
-            borderRadius: 6
-          }]
+      return {
+        totals: {
+          totalOrders,
+          totalShippingCost,
+          totalProducts,
+          avgShippingCost
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          indexAxis: 'y',
-          plugins: {
-            legend: {
-              display: false
+        topProducts,
+        platformTable,
+        retailerTable,
+        allProducts,
+        ordersTimeline: { labels: timelineLabels, data: timelineData },
+        topProductsChart,
+        platformChart
+      };
+    }
+
+    function useCharts(analytics) {
+      const ordersTimelineRef = useRef(null);
+      const topProductsRef = useRef(null);
+      const platformPieRef = useRef(null);
+      const chartInstances = useRef({});
+
+      useEffect(() => {
+        const destroyChart = (name) => {
+          if (chartInstances.current[name]) {
+            chartInstances.current[name].destroy();
+            delete chartInstances.current[name];
+          }
+        };
+
+        const renderOrdersTimeline = () => {
+          if (!ordersTimelineRef.current) return;
+          destroyChart('ordersTimeline');
+          chartInstances.current.ordersTimeline = new Chart(ordersTimelineRef.current, {
+            type: 'line',
+            data: {
+              labels: analytics.ordersTimeline.labels,
+              datasets: [{
+                label: 'Orders Shipped',
+                data: analytics.ordersTimeline.data,
+                borderColor: '#4DBA93',
+                backgroundColor: 'rgba(77, 186, 147, 0.1)',
+                tension: 0.3,
+                fill: true,
+                pointRadius: 3,
+                pointHoverRadius: 5
+              }]
             },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return `Quantity: ${context.parsed.x.toLocaleString()}`;
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (context) => `Orders: ${context.parsed.y}`
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: { stepSize: 1 }
                 }
               }
             }
-          },
-          scales: {
-            x: {
-              beginAtZero: true
+          });
+        };
+
+        const renderTopProducts = () => {
+          if (!topProductsRef.current) return;
+          destroyChart('topProducts');
+          const labels = analytics.topProductsChart.map(([sku]) => sku);
+          const data = analytics.topProductsChart.map(([, stats]) => stats.totalQty);
+          chartInstances.current.topProducts = new Chart(topProductsRef.current, {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [{
+                label: 'Quantity Sold',
+                data,
+                backgroundColor: [
+                  '#4DBA93', '#5CC6A1', '#6FD2AF', '#82DEBD', '#95EACB',
+                  '#A8F6D9', '#88D9B8', '#70CC9F', '#58BF86', '#40B26D'
+                ],
+                borderRadius: 6
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              indexAxis: 'y',
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (context) => `Quantity: ${context.parsed.x.toLocaleString()}`
+                  }
+                }
+              },
+              scales: {
+                x: { beginAtZero: true }
+              }
             }
-          }
-        }
-      });
+          });
+        };
+
+        const renderPlatformPie = () => {
+          if (!platformPieRef.current) return;
+          destroyChart('platformPie');
+          const labels = analytics.platformChart.map(([platform]) => platform);
+          const data = analytics.platformChart.map(([, stats]) => stats.orders);
+          const backgroundColor = labels.map((label) => platformColors[label] || '#94a3b8');
+          chartInstances.current.platformPie = new Chart(platformPieRef.current, {
+            type: 'doughnut',
+            data: {
+              labels,
+              datasets: [{
+                data,
+                backgroundColor,
+                borderWidth: 2,
+                borderColor: '#fff'
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: {
+                  position: 'right',
+                  labels: { padding: 15, font: { size: 12 } }
+                },
+                tooltip: {
+                  callbacks: {
+                    label: (context) => {
+                      const label = context.label || '';
+                      const value = context.parsed || 0;
+                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                      const percentage = total ? ((value / total) * 100).toFixed(1) : '0.0';
+                      return `${label}: ${value} orders (${percentage}%)`;
+                    }
+                  }
+                }
+              }
+            }
+          });
+        };
+
+        renderOrdersTimeline();
+        renderTopProducts();
+        renderPlatformPie();
+
+        return () => {
+          destroyChart('ordersTimeline');
+          destroyChart('topProducts');
+          destroyChart('platformPie');
+        };
+      }, [analytics]);
+
+      return { ordersTimelineRef, topProductsRef, platformPieRef };
     }
 
-    function renderPlatformPieChart(platformStats) {
-      destroyChart('platformPie');
-      
-      const sorted = Object.entries(platformStats)
-        .sort((a, b) => b[1].orders - a[1].orders);
+    function AnalyticsApp() {
+      const [filters, setFilters] = useState(initialFilters);
+      const [appliedFilters, setAppliedFilters] = useState(initialFilters);
+      const [retailers, setRetailers] = useState([]);
+      const [allOrders, setAllOrders] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [searchTerm, setSearchTerm] = useState('');
 
-      const labels = sorted.map(([platform]) => platform);
-      const data = sorted.map(([, stats]) => stats.orders);
+      useEffect(() => {
+        checkPermissions(['service_role', 'employee']).then(() => {
+          setupInactivityTimeout(5);
+        }).catch((error) => console.error(error));
 
-      const colors = {
-        'Faire': '#fbbf24',
-        'Shopify': '#22c55e',
-        'Etsy': '#f43f5e',
-        'Amazon': '#3b82f6',
-        'TikTok': '#a855f7',
-        'Unknown': '#94a3b8'
+        const loadData = async () => {
+          await loadRetailers();
+          await loadOrders();
+        };
+
+        loadData();
+      }, []);
+
+      const loadRetailers = async () => {
+        const { data, error } = await supabase
+          .from('Order History')
+          .select('Retailer')
+          .not('Retailer', 'is', null);
+
+        if (!error && data) {
+          const uniqueRetailers = Array.from(new Set(data.map((entry) => entry.Retailer))).sort();
+          setRetailers(uniqueRetailers);
+        }
       };
 
-      const backgroundColors = labels.map(label => colors[label] || '#94a3b8');
+      const loadOrders = async () => {
+        setLoading(true);
+        let allData = [];
+        let from = 0;
+        const pageSize = 1000;
 
-      const ctx = document.getElementById('platformPieChart');
-      charts.platformPie = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: labels,
-          datasets: [{
-            data: data,
-            backgroundColor: backgroundColors,
-            borderWidth: 2,
-            borderColor: '#fff'
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: {
-              position: 'right',
-              labels: {
-                padding: 15,
-                font: {
-                  size: 12
-                }
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const label = context.label || '';
-                  const value = context.parsed || 0;
-                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                  const percentage = ((value / total) * 100).toFixed(1);
-                  return `${label}: ${value} orders (${percentage}%)`;
-                }
-              }
-            }
+        while (true) {
+          const { data, error } = await supabase
+            .from('Order History')
+            .select('*')
+            .neq('TrackingNumber', null)
+            .range(from, from + pageSize - 1)
+            .order('ShippedAt', { ascending: false });
+
+          if (error) {
+            console.error('Error loading order history:', error);
+            alert('Failed to load order history: ' + error.message);
+            break;
           }
+
+          if (!data || data.length === 0) break;
+          allData = allData.concat(data);
+          if (data.length < pageSize) break;
+          from += pageSize;
         }
-      });
+
+        setAllOrders(allData);
+        setLoading(false);
+      };
+
+      const filteredOrders = useMemo(
+        () => applyFilterLogic(allOrders, appliedFilters),
+        [allOrders, appliedFilters]
+      );
+
+      const analytics = useMemo(() => deriveAnalytics(filteredOrders), [filteredOrders]);
+
+      const { ordersTimelineRef, topProductsRef, platformPieRef } = useCharts(analytics);
+
+      const filteredProducts = useMemo(() => {
+        if (!searchTerm) return analytics.allProducts;
+        const term = searchTerm.toLowerCase();
+        return analytics.allProducts.filter((product) =>
+          (product.sku || '').toLowerCase().includes(term) ||
+          (product.name || '').toLowerCase().includes(term)
+        );
+      }, [analytics.allProducts, searchTerm]);
+
+      return (
+        <div className="main-content">
+          <div className="header">
+            <h1>Business Analytics</h1>
+            <div className="subtitle">Product statistics and insights from order history</div>
+          </div>
+
+          <Filters
+            filters={filters}
+            retailers={retailers}
+            onChange={setFilters}
+            onApply={() => setAppliedFilters(filters)}
+          />
+
+          {loading ? (
+            <div className="loading">
+              <div className="spinner"></div>
+              Loading analytics data...
+            </div>
+          ) : (
+            <div id="analyticsContent">
+              <StatsGrid stats={analytics.totals} />
+
+              <ChartCanvas title="Orders Over Time" canvasRef={ordersTimelineRef} style={{ maxHeight: '300px' }} />
+
+              <div className="two-column">
+                <ChartCanvas title="Top 10 Products" canvasRef={topProductsRef} style={{ maxHeight: '350px' }} />
+                <ChartCanvas title="Platform Distribution" canvasRef={platformPieRef} style={{ maxHeight: '350px' }} />
+              </div>
+
+              <div className="two-column">
+                <TopProductsTable products={analytics.topProducts} />
+                <PlatformStatsTable stats={analytics.platformTable} />
+              </div>
+
+              <RetailerStatsTable stats={analytics.retailerTable} />
+
+              <ProductsTable
+                products={filteredProducts}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+              />
+            </div>
+          )}
+        </div>
+      );
     }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<AnalyticsApp />);
   </script>
 </body>
 </html>
