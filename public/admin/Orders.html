@@ -426,7 +426,16 @@
         </div>
     </div>
     <script>
-        checkPermissions(['service_role', 'employee']);
+        checkPermissions(['admin', 'employee']);
+
+        async function getAuthHeaders() {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) {
+                throw new Error('Not authenticated. Please sign in again.');
+            }
+            return { Authorization: `Bearer ${token}` };
+        }
         
         let selectedOrders = new Set();
         let orders = [];
@@ -1180,11 +1189,14 @@
                 btn.disabled = true;
                 btn.innerHTML = '⏳ Refreshing...';
                 btn.style.background = '#95a5a6';
+
+                const authHeaders = await getAuthHeaders();
                 
                 const response = await fetch('/.netlify/functions/shippo-refresh-orders', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        ...authHeaders
                     }
                 });
                 
@@ -2027,10 +2039,12 @@
             shippingShipmentIds = {};
             selectedShippingRates = {};
             try {
+                const authHeaders = await getAuthHeaders();
+
                 // Fetch all rates in parallel
                 const ratePromises = orderList.map(async (order) => {
                     const pkgs = shippingLabelPackages[order.OrderID] || [];
-                    const result = await fetchRatesForOrder(order, pkgs);
+                    const result = await fetchRatesForOrder(order, pkgs, authHeaders);
                     return { orderId: order.OrderID, result };
                 });
                 
@@ -2053,14 +2067,14 @@
                 hideRatesLoadingOverlay();
             }
         }
-        async function fetchRatesForOrder(order, pkgs) {
+        async function fetchRatesForOrder(order, pkgs, authHeaders) {
             if (!pkgs || !pkgs.length) {
                 return { rates: [], error: 'No packages defined.' };
             }
             try {
                 const response = await fetch('/.netlify/functions/shippo-create-shipment-and-get-rates', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(authHeaders || {}) },
                     body: JSON.stringify({ order, parcels: pkgs })
                 });
                 const text = await response.text();
@@ -2371,9 +2385,10 @@
             showRatesLoadingOverlay('Purchasing labels and updating orders...');
             let results = [];
             try {
+                const authHeaders = await getAuthHeaders();
                 const response = await fetch('/.netlify/functions/shippo-batch-label', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...authHeaders },
                     body: JSON.stringify({ orders: payloadOrders })
                 });
                 const text = await response.text();
