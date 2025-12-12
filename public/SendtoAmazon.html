@@ -237,6 +237,20 @@
     const shipmentsTableBody = document.querySelector('#shipmentsTable tbody');
     let allProducts = [];
 
+    function formatProductLabel(product) {
+      return `${product.ProductSKU} - ${product.Name || 'No Name'}${product['Product Weight(oz)'] ? ` (${product['Product Weight(oz)']}oz)` : ''}`;
+    }
+
+    function populateProductOptions(select) {
+      select.innerHTML = '<option value="">Select a product...</option>';
+      allProducts.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.ProductSKU;
+        option.textContent = formatProductLabel(product);
+        select.appendChild(option);
+      });
+    }
+
     // Fetch all products for dropdown
     async function fetchAllProducts() {
       try {
@@ -309,18 +323,7 @@
     // Populate all product dropdowns
     function populateProductDropdowns() {
       const selects = document.querySelectorAll('.product-select');
-      selects.forEach(select => {
-        // Clear existing options except the first
-        select.innerHTML = '<option value="">Select a product...</option>';
-        
-        // Add products
-        allProducts.forEach(product => {
-          const option = document.createElement('option');
-          option.value = product.ProductSKU;
-          option.textContent = `${product.ProductSKU} - ${product.Name || 'No Name'}${product['Product Weight(oz)'] ? ` (${product['Product Weight(oz)']}oz)` : ''}`;
-          select.appendChild(option);
-        });
-      });
+      selects.forEach(select => populateProductOptions(select));
     }
 
     // Add new item row
@@ -336,15 +339,10 @@
         <button type="button" class="btn remove-item" onclick="removeItemRow(this)">Remove</button>
       `;
       container.appendChild(newRow);
-      
+
       // Populate the new dropdown
       const newSelect = newRow.querySelector('.product-select');
-      allProducts.forEach(product => {
-        const option = document.createElement('option');
-        option.value = product.ProductSKU;
-        option.textContent = `${product.ProductSKU} - ${product.Name || 'No Name'}${product['Product Weight(oz)'] ? ` (${product['Product Weight(oz)']}oz)` : ''}`;
-        newSelect.appendChild(option);
-      });
+      populateProductOptions(newSelect);
 
       // Show remove buttons for all rows if more than one
       updateRemoveButtons();
