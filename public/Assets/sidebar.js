@@ -1,71 +1,154 @@
-// Injects the admin sidebar into the element with id 'sidebar'.
-function renderAdminSidebar() {
-  // Get user display name from correct localStorage key or fallback
-  let displayName = 'User';
-  try {
-    const userStr = localStorage.getItem('sb-ypvyrophqkfqwpefuigi-auth-token');
-    if (userStr) {
-      const userObj = JSON.parse(userStr);
-      if (userObj && userObj.user && userObj.user.user_metadata && userObj.user.user_metadata.display_name) {
-        displayName = userObj.user.user_metadata.display_name;
+// Renders the admin sidebar as a React component. React and ReactDOM are loaded on demand.
+(function () {
+  const REACT_URL = 'https://unpkg.com/react@18/umd/react.production.min.js';
+  const REACT_DOM_URL = 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js';
+  const AUTH_STORAGE_KEY = 'sb-ypvyrophqkfqwpefuigi-auth-token';
+
+  const adminLinks = [
+    { href: 'AdminDashboard.html', icon: 'cil-briefcase', label: 'Admin Dashboard' },
+    { href: 'EmployeeDashboard.html', icon: 'cil-speedometer', label: 'Employee Dashboard' },
+    { href: 'Calendar.html', icon: 'cil-calendar', label: 'Calendar' },
+    { href: 'Orders.html', icon: 'cil-3d', label: 'Order Viewer' },
+    { href: 'Analytics.html', icon: 'cil-bar-chart', label: 'Business Analytics' },
+    { href: 'Checklist.html', icon: 'cil-check', label: 'Checklist' },
+    { href: 'AmazonShipments.html', icon: 'cib-amazon', label: 'Amazon Shipments' },
+    { href: 'WarehouseShipments.html', icon: 'cil-truck', label: 'Warehouse Shipments' },
+    { href: 'Manufacturing.html', icon: 'cil-factory', label: 'Manufacturing Tracker' },
+    { href: 'IncomingIngredients.html', icon: 'cil-truck', label: 'Incoming Ingredients' },
+    { href: 'DatabaseViewer.html', icon: 'cil-find-in-page', label: 'Database Viewer' },
+    { href: 'logs.html', icon: 'cil-history', label: 'Quantity Update Logs' },
+    { href: 'InventoryScanner.html', icon: 'cil-center-focus', label: 'Scanner' },
+    { href: 'AddNewItem.html', icon: 'cil-plus', label: 'Add/Update Item' },
+    { href: 'Qrcode.html', icon: 'cil-qr-code', label: 'QR Code Generator' },
+    { href: 'Quoting.html', icon: 'cil-money', label: 'Product Quoting' },
+    { href: 'Invoice.html', icon: 'cil-dollar', label: 'Invoice Calculator' },
+    { href: 'UserManagement.html', icon: 'cil-user', label: 'User Management' },
+    { href: '/CustomerChecklist.html', icon: 'cil-exit-to-app', label: 'Exit Admin Portal' },
+  ];
+
+  function ensureReactLoaded() {
+    if (window.React && window.ReactDOM) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+      let loaded = 0;
+      const required = 2;
+
+      function handleLoad() {
+        loaded += 1;
+        if (loaded === required) resolve();
       }
-    }
-  } catch (e) {
-    // fallback to 'User'
-  }
-  const sidebarHTML = `
-    <div class="sidebar-header">
-      <h2>${displayName}</h2>
-    </div>
-    <nav class="sidebar-nav">
-  <a href="AdminDashboard.html" class="nav-item"><i class="cil-briefcase"></i><span>Admin Dashboard</span></a>
-  <a href="EmployeeDashboard.html" class="nav-item"><i class="cil-speedometer"></i><span>Employee Dashboard</span></a>
-  <a href="Calendar.html" class="nav-item"><i class="cil-calendar"></i><span>Calendar</span></a>
-  <a href="Orders.html" class="nav-item"><i class="cil-3d"></i><span>Order Viewer</span></a>
-  <a href="Analytics.html" class="nav-item"><i class="cil-bar-chart"></i><span>Business Analytics</span></a>
-  <a href="Checklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-  <a href="AmazonShipments.html" class="nav-item"><i class="cib-amazon"></i><span>Amazon Shipments</span></a>
-  <a href="WarehouseShipments.html" class="nav-item"><i class="cil-truck"></i><span>Warehouse Shipments</span></a>
-  <a href="Manufacturing.html" class="nav-item"><i class="cil-factory"></i><span>Manufacturing Tracker</span></a>
-  <a href="IncomingIngredients.html" class="nav-item"><i class="cil-truck"></i><span>Incoming Ingredients</span></a>
-  <a href="DatabaseViewer.html" class="nav-item"><i class="cil-find-in-page"></i><span>Database Viewer</span></a>
-  <a href="logs.html" class="nav-item"><i class="cil-history"></i><span>Quantity Update Logs</span></a>
-  <a href="InventoryScanner.html" class="nav-item"><i class="cil-center-focus"></i><span>Scanner</span></a>
-  <a href="AddNewItem.html" class="nav-item"><i class="cil-plus"></i><span>Add/Update Item</span></a>
-  <a href="Qrcode.html" class="nav-item"><i class="cil-qr-code"></i><span>QR Code Generator</span></a>
-  <a href="Quoting.html" class="nav-item" id="sidebar-quoting"><i class="cil-money"></i><span>Product Quoting</span></a>
-  <a href="Invoice.html" class="nav-item"><i class="cil-dollar"></i><span>Invoice Calculator</span></a>
-  <a href="UserManagement.html" class="nav-item"><i class="cil-user"></i><span>User Management</span></a>
-  <a href="/CustomerChecklist.html" class="nav-item"><i class="cil-exit-to-app"></i><span>Exit Admin Portal</span></a>
-  <a class="nav-item" id="sidebar-signout-btn"><i class="cil-account-logout"></i><span>Sign Out</span></a>
-    </div>
-  `;
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar) {
-    sidebar.className = 'sidebar';
-    sidebar.innerHTML = sidebarHTML;
-    // Highlight current page
-    let page = window.location.pathname.split('/').pop() || 'index.html';
-    // Also handle root path ("/" or "")
-    if (page === '' || page === '/') page = 'index.html';
-    const links = sidebar.querySelectorAll('.nav-item');
-    links.forEach(link => {
-      // Compare only the last part of the href (filename)
-      const href = link.getAttribute('href');
-      if (href && href.split('/').pop() === page) {
-        link.classList.add('active');
+
+      function handleError(err) {
+        console.error('Failed to load React dependencies', err);
+        reject(err);
+      }
+
+      if (!window.React) {
+        const reactScript = document.createElement('script');
+        reactScript.src = REACT_URL;
+        reactScript.async = true;
+        reactScript.onload = handleLoad;
+        reactScript.onerror = handleError;
+        document.head.appendChild(reactScript);
+      } else {
+        handleLoad();
+      }
+
+      if (!window.ReactDOM) {
+        const reactDomScript = document.createElement('script');
+        reactDomScript.src = REACT_DOM_URL;
+        reactDomScript.async = true;
+        reactDomScript.onload = handleLoad;
+        reactDomScript.onerror = handleError;
+        document.head.appendChild(reactDomScript);
+      } else {
+        handleLoad();
       }
     });
-    // Add sign out button handler
-    const signOutBtn = document.getElementById('sidebar-signout-btn');
-    if (signOutBtn) {
-      signOutBtn.addEventListener('click', function() {
-        // Remove Supabase auth token and redirect
-        localStorage.removeItem('sb-ypvyrophqkfqwpefuigi-auth-token');
-        window.location.href = '/Login.html';
-      });
-    }
   }
-}
 
-document.addEventListener('DOMContentLoaded', renderAdminSidebar);
+  function getDisplayName() {
+    try {
+      const userStr = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (userStr) {
+        const userObj = JSON.parse(userStr);
+        const metadata = userObj?.user?.user_metadata;
+        if (metadata?.display_name) return metadata.display_name;
+      }
+    } catch (e) {
+      // ignore parsing errors
+    }
+    return 'User';
+  }
+
+  function getActivePage() {
+    let page = window.location.pathname.split('/').pop() || 'index.html';
+    if (page === '' || page === '/') page = 'index.html';
+    return page;
+  }
+
+  function AdminSidebar() {
+    const displayName = React.useMemo(getDisplayName, []);
+    const activePage = React.useMemo(getActivePage, []);
+
+    const handleSignOut = React.useCallback(
+      (event) => {
+        event.preventDefault();
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        window.location.href = '/Login.html';
+      },
+      []
+    );
+
+    const renderNavItem = (link) => {
+      const isActive = activePage === (link.href.split('/').pop() || link.href);
+      const className = `nav-item${isActive ? ' active' : ''}`;
+      const children = [
+        React.createElement('i', { className: link.icon, key: 'icon' }),
+        React.createElement('span', { key: 'label' }, link.label),
+      ];
+
+      if (link.onClick) {
+        return React.createElement('a', { key: link.href, href: '#', className, onClick: link.onClick }, children);
+      }
+
+      return React.createElement('a', { key: link.href, href: link.href, className }, children);
+    };
+
+    const navItems = adminLinks.map(renderNavItem);
+    navItems.push(
+      React.createElement(
+        'a',
+        {
+          key: 'signout',
+          href: '#',
+          className: 'nav-item',
+          onClick: handleSignOut,
+        },
+        [React.createElement('i', { className: 'cil-account-logout', key: 'icon' }), React.createElement('span', { key: 'label' }, 'Sign Out')]
+      )
+    );
+
+    return React.createElement(
+      'div',
+      { className: 'sidebar' },
+      React.createElement('div', { className: 'sidebar-header' }, React.createElement('h2', null, displayName)),
+      React.createElement('nav', { className: 'sidebar-nav' }, navItems)
+    );
+  }
+
+  function renderSidebar() {
+    const mountNode = document.getElementById('sidebar');
+    if (!mountNode) return;
+
+    ensureReactLoaded()
+      .then(() => {
+        ReactDOM.createRoot(mountNode).render(React.createElement(AdminSidebar));
+      })
+      .catch((err) => {
+        console.error('Unable to render admin sidebar', err);
+      });
+  }
+
+  document.addEventListener('DOMContentLoaded', renderSidebar);
+})();

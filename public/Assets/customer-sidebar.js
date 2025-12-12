@@ -1,82 +1,161 @@
-// Injects the public (customer) sidebar into the element with id 'sidebar'.
-function renderCustomerSidebar() {
-  // Get user display name from correct localStorage key or fallback
-  let displayName = 'User';
-  try {
-    const userStr = localStorage.getItem('sb-ypvyrophqkfqwpefuigi-auth-token');
-    if (userStr) {
-      const userObj = JSON.parse(userStr);
-      if (userObj && userObj.user && userObj.user.user_metadata && userObj.user.user_metadata.display_name) {
-        displayName = userObj.user.user_metadata.display_name;
+// Renders the customer sidebar as a React component. React and ReactDOM are loaded on demand.
+(function () {
+  const REACT_URL = 'https://unpkg.com/react@18/umd/react.production.min.js';
+  const REACT_DOM_URL = 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js';
+  const AUTH_STORAGE_KEY = 'sb-ypvyrophqkfqwpefuigi-auth-token';
+
+  const customerLinks = [
+    { href: 'CustomerDashboard.html', icon: 'cil-speedometer', label: 'Dashboard' },
+    { href: 'ecommerce-oauth.html', icon: 'cil-basket', label: 'Onboard Stores' },
+    { href: 'InventoryViewer.html', icon: 'cil-storage', label: 'Inventory Viewer' },
+    { href: 'CustomerOrders.html', icon: 'cil-user', label: 'Customer Orders' },
+    { href: 'AddProduct.html', icon: 'cil-plus', label: 'Add Product' },
+    { href: 'SendtoAmazon.html', icon: 'cib-amazon', label: 'Send To Amazon' },
+    { href: 'SendtoWarehouse.html', icon: 'cil-truck', label: 'Send To Warehouse' },
+    { href: 'CustomerOrderView.html', icon: 'cil-bullhorn', label: 'Order Requester' },
+    { href: 'CustomerChecklist.html', icon: 'cil-check', label: 'Checklist' },
+    { href: 'CustomerAnalytics.html', icon: 'cil-chart-line', label: 'Analytics' },
+    { href: 'admin/Orders.html', icon: 'cil-shield-alt', label: 'Admin Portal' },
+  ];
+
+  function ensureReactLoaded() {
+    if (window.React && window.ReactDOM) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+      let loaded = 0;
+      const required = 2;
+
+      function handleLoad() {
+        loaded += 1;
+        if (loaded === required) resolve();
       }
-    }
-  } catch (e) {
-    // fallback to 'User'
-  }
-  const sidebarHTML = `
-    <div class="sidebar-header">
-      <h2>${displayName}</h2>
-    </div>
-    <nav class="sidebar-nav">
-      <a href="CustomerDashboard.html" class="nav-item"><i class="cil-speedometer"></i><span>Dashboard</span></a>
-      <a href="ecommerce-oauth.html" class="nav-item"><i class="cil-basket"></i><span>Onboard Stores</span></a>
-      <a href="InventoryViewer.html" class="nav-item"><i class="cil-storage"></i><span>Inventory Viewer</span></a>
-      <a href="CustomerOrders.html" class="nav-item"><i class="cil-user"></i><span>Customer Orders</span></a>
-      <a href="AddProduct.html" class="nav-item"><i class="cil-plus"></i><span>Add Product</span></a>
-      <a href="SendtoAmazon.html" class="nav-item"><i class="cib-amazon"></i><span>Send To Amazon</span></a>
-      <a href="SendtoWarehouse.html" class="nav-item"><i class="cil-truck"></i><span>Send To Warehouse</span></a>
-      <a href="CustomerOrderView.html" class="nav-item"><i class="cil-bullhorn"></i><span>Order Requester</span></a>
-      <a href="CustomerChecklist.html" class="nav-item"><i class="cil-check"></i><span>Checklist</span></a>
-      <a href="CustomerAnalytics.html" class="nav-item"><i class="cil-chart-line"></i><span>Analytics</span></a>
-      <a href="admin/Orders.html" class="nav-item"><i class="cil-shield-alt"></i><span>Admin Portal</span></a>
-    </nav>
-    <div id="sidebar-signout" style="position: absolute; bottom: 24px; left: 0; width: 100%; text-align: left;">
-      <a href="privacy.html" class="nav-item" style="width:90%;margin:0 auto;"><i class="cil-lock-locked"></i><span>Privacy Policy</span></a>
-      <a id="sign-out-btn" class="nav-item" style="width:90%;margin:0 auto;display:none;cursor:pointer;"><i class="cil-account-logout"></i><span>Sign Out</span></a>
-    </div>
-  `;
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar) {
-    sidebar.className = 'sidebar';
-    sidebar.innerHTML = sidebarHTML;
-    // Highlight current page
-    let page = window.location.pathname.split('/').pop() || 'index.html';
-    if (page === '' || page === '/') page = 'index.html';
-    const links = sidebar.querySelectorAll('.nav-item');
-    links.forEach(link => {
-      const href = link.getAttribute('href');
-      if (href && href.split('/').pop() === page) {
-        link.classList.add('active');
+
+      function handleError(err) {
+        console.error('Failed to load React dependencies', err);
+        reject(err);
+      }
+
+      if (!window.React) {
+        const reactScript = document.createElement('script');
+        reactScript.src = REACT_URL;
+        reactScript.async = true;
+        reactScript.onload = handleLoad;
+        reactScript.onerror = handleError;
+        document.head.appendChild(reactScript);
+      } else {
+        handleLoad();
+      }
+
+      if (!window.ReactDOM) {
+        const reactDomScript = document.createElement('script');
+        reactDomScript.src = REACT_DOM_URL;
+        reactDomScript.async = true;
+        reactDomScript.onload = handleLoad;
+        reactDomScript.onerror = handleError;
+        document.head.appendChild(reactDomScript);
+      } else {
+        handleLoad();
       }
     });
   }
-}
 
-// Initialize sidebar and sign-out functionality
-document.addEventListener('DOMContentLoaded', function() {
-  renderCustomerSidebar();
-  
-  // Set up sign-out button functionality
-  setTimeout(() => {
-    // Check if user is logged in by checking localStorage
-    const userToken = localStorage.getItem('sb-ypvyrophqkfqwpefuigi-auth-token');
-    const signOutBtn = document.getElementById('sign-out-btn');
-    
-    if (signOutBtn) {
-      if (userToken) {
-        signOutBtn.style.display = 'flex';
-      } else {
-        signOutBtn.style.display = 'none';
+  function getDisplayName() {
+    try {
+      const userStr = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (userStr) {
+        const userObj = JSON.parse(userStr);
+        const metadata = userObj?.user?.user_metadata;
+        if (metadata?.display_name) return metadata.display_name;
       }
-      
-      // Add click handler to clear localStorage and reload
-      signOutBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        // Clear all auth-related localStorage items
-        localStorage.removeItem('sb-ypvyrophqkfqwpefuigi-auth-token');
-        // Reload page to reflect logged out state
-        window.location.reload();
-      });
+    } catch (e) {
+      // ignore parsing errors
     }
-  }, 100);
-});
+    return 'User';
+  }
+
+  function getActivePage() {
+    let page = window.location.pathname.split('/').pop() || 'index.html';
+    if (page === '' || page === '/') page = 'index.html';
+    return page;
+  }
+
+  function CustomerSidebar() {
+    const displayName = React.useMemo(getDisplayName, []);
+    const activePage = React.useMemo(getActivePage, []);
+    const hasToken = React.useMemo(() => Boolean(localStorage.getItem(AUTH_STORAGE_KEY)), []);
+
+    const renderNavItem = (link) => {
+      const isActive = activePage === (link.href.split('/').pop() || link.href);
+      const className = `nav-item${isActive ? ' active' : ''}`;
+      return React.createElement(
+        'a',
+        { key: link.href, href: link.href, className },
+        [
+          React.createElement('i', { className: link.icon, key: 'icon' }),
+          React.createElement('span', { key: 'label' }, link.label),
+        ]
+      );
+    };
+
+    const handleSignOut = React.useCallback((event) => {
+      event.preventDefault();
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      window.location.reload();
+    }, []);
+
+    const footerLinks = [
+      React.createElement(
+        'a',
+        {
+          key: 'privacy',
+          href: 'privacy.html',
+          className: 'nav-item',
+          style: { width: '90%', margin: '0 auto' },
+        },
+        [React.createElement('i', { className: 'cil-lock-locked', key: 'icon' }), React.createElement('span', { key: 'label' }, 'Privacy Policy')]
+      ),
+    ];
+
+    if (hasToken) {
+      footerLinks.push(
+        React.createElement(
+          'a',
+          {
+            key: 'signout',
+            href: '#',
+            className: 'nav-item',
+            style: { width: '90%', margin: '0 auto', display: 'flex', cursor: 'pointer' },
+            onClick: handleSignOut,
+          },
+          [React.createElement('i', { className: 'cil-account-logout', key: 'icon' }), React.createElement('span', { key: 'label' }, 'Sign Out')]
+        )
+      );
+    }
+
+    return React.createElement(
+      'div',
+      { className: 'sidebar' },
+      React.createElement('div', { className: 'sidebar-header' }, React.createElement('h2', null, displayName)),
+      React.createElement('nav', { className: 'sidebar-nav' }, customerLinks.map(renderNavItem)),
+      React.createElement('div', {
+        id: 'sidebar-signout',
+        style: { position: 'absolute', bottom: '24px', left: 0, width: '100%', textAlign: 'left' },
+      }, footerLinks)
+    );
+  }
+
+  function renderSidebar() {
+    const mountNode = document.getElementById('sidebar');
+    if (!mountNode) return;
+
+    ensureReactLoaded()
+      .then(() => {
+        ReactDOM.createRoot(mountNode).render(React.createElement(CustomerSidebar));
+      })
+      .catch((err) => {
+        console.error('Unable to render customer sidebar', err);
+      });
+  }
+
+  document.addEventListener('DOMContentLoaded', renderSidebar);
+})();
