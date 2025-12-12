@@ -1696,6 +1696,7 @@
     let shippingShipmentIds = {};
     let shippingSummaryOrders = [];
     let selectedShippingRates = {};
+    let isPurchasingLabels = false; // prevent double submits while purchasing labels
     let boxesList = [];
         async function ensureProductWeightsForSkus(skus) {
             const needed = skus.filter(s => productWeightCache[s] === undefined);
@@ -2182,7 +2183,7 @@
                     </div>
                     <div style='margin-top:20px; display:flex; justify-content:flex-end; gap:12px;'>
                         <button class='btn' style='background:#e0e0e0; color:#2c3e50;' onclick='cancelRatesSummary()'>Cancel</button>
-                        <button class='btn' style='background:#2c3e50; padding:10px 20px; border-radius:8px;' onclick='finalizeRateSelections()'>Confirm Rates</button>
+                        <button class='btn' data-role='confirm-rates' style='background:#2c3e50; padding:10px 20px; border-radius:8px;' onclick='finalizeRateSelections()'>Confirm Rates</button>
                     </div>
                 </div>
             </div>`;
@@ -2321,8 +2322,17 @@
             closeRatesSummaryModal();
             openRatesSummaryModal(shippingSummaryOrders);
         }
+
+        function setConfirmRatesButtonDisabled(disabled) {
+            const btn = document.querySelector('#ratesSummaryModal [data-role="confirm-rates"]');
+            if (!btn) return;
+            btn.disabled = disabled;
+            btn.style.opacity = disabled ? '0.65' : '1';
+            btn.textContent = disabled ? 'Purchasing...' : 'Confirm Rates';
+        }
         
         async function finalizeRateSelections() {
+            if (isPurchasingLabels) return;
             const totalWithRates = (shippingSummaryOrders || []).filter(order => (shippingRatesByOrderId[order.OrderID] || []).length).length;
             const selectedCount = Object.keys(selectedShippingRates || {}).length;
             const hasErrors = Object.values(shippingRateErrors || {}).some(Boolean);
@@ -2368,6 +2378,9 @@
                 };
             });
 
+            isPurchasingLabels = true;
+            setConfirmRatesButtonDisabled(true);
+
             showRatesLoadingOverlay('Purchasing labels and updating orders...');
             let results = [];
             try {
@@ -2396,6 +2409,8 @@
                 return;
             } finally {
                 hideRatesLoadingOverlay();
+                isPurchasingLabels = false;
+                setConfirmRatesButtonDisabled(false);
             }
 
             closeRatesSummaryModal();
