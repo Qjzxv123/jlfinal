@@ -420,7 +420,7 @@
         <form id="ingredientForm">
           <label>Ingredient SKU*<input type="text" id="IngredientSKU" required></label>
           <label>Name<input type="text" id="IngredientName"></label>
-          <label>Supplier<input type="text" id="Supplier" placeholder="e.g., ACME Corp, Local Supplier, etc."></label>
+          <label>Retailer<input type="text" id="Retailer" placeholder="e.g., ACME Corp, Local Retailer, etc."></label>
           <label>Quantity (Lbs/Units)<input type="number" id="IngredientQuantity" min="0" step="any" placeholder="Current quantity in stock"></label>
           <label>Location<input type="text" id="Location" placeholder="e.g., Warehouse A, Shelf B-3, etc."></label>
           <label>Cost ($/unit)<input type="number" id="Cost" min="0" step="any" placeholder="Cost per unit or lb"></label>
@@ -695,14 +695,14 @@
       try {
         const { data: ingredients, error } = await supabase
           .from('Ingredients')
-          .select('IngredientSKU, Name, Supplier')
+          .select('IngredientSKU, Name, Retailer')
           .order('IngredientSKU');
 
         if (error) throw error;
 
         allIngredients = ingredients || [];
         console.log(`Loaded ${allIngredients.length} ingredients`);
-        createDropdown('loadFromIngredientDropdown', allIngredients, 'IngredientSKU', ['IngredientSKU', 'Name', 'Supplier'], loadIngredientData);
+        createDropdown('loadFromIngredientDropdown', allIngredients, 'IngredientSKU', ['IngredientSKU', 'Name', 'Retailer'], loadIngredientData);
         
         // Also create container dropdown for products
       } catch (error) {
@@ -728,7 +728,7 @@
         // Populate form fields
         document.getElementById('IngredientSKU').value = ingredient.IngredientSKU || '';
         document.getElementById('IngredientName').value = ingredient.Name || '';
-        document.getElementById('Supplier').value = ingredient.Supplier || '';
+        document.getElementById('Retailer').value = ingredient.Retailer || '';
         document.getElementById('IngredientQuantity').value = ingredient['Quantity(Lbs/Units)'] || '';
         document.getElementById('Location').value = ingredient.Location || '';
         document.getElementById('LowInvThreshold').value = ingredient.LowInvThreshold || '';
@@ -900,7 +900,7 @@
         }
 
         const filtered = allIngredients.filter(ingredient => {
-          const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
+          const searchText = `${ingredient.Name} ${ingredient.Retailer || ''} ${ingredient.IngredientSKU}`.toLowerCase();
           return searchText.includes(searchTerm.toLowerCase());
         });
 
@@ -912,7 +912,7 @@
           option.innerHTML = `
             <div style="font-weight: 500;">${ingredient.Name}</div>
             <div style="font-size: 0.8rem; color: #6b7280;">
-              SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'}
+              SKU: ${ingredient.IngredientSKU} | Retailer: ${ingredient.Retailer || 'No Retailer'}
             </div>
           `;
           
@@ -1100,7 +1100,7 @@
       const data = {
         IngredientSKU: document.getElementById('IngredientSKU').value.trim(),
         Name: document.getElementById('IngredientName').value.trim(),
-        Supplier: document.getElementById('Supplier').value.trim(),
+        Retailer: document.getElementById('Retailer').value.trim(),
         'Quantity(Lbs/Units)': document.getElementById('IngredientQuantity').value ? parseFloat(document.getElementById('IngredientQuantity').value) : null,
         Location: document.getElementById('Location').value.trim(),
         LowInvThreshold: document.getElementById('LowInvThreshold').value ? parseFloat(document.getElementById('LowInvThreshold').value) : null,

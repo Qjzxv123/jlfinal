@@ -355,8 +355,8 @@
             selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)",FinalWeight,"Pack Size",Quantity,QuantityPerBin';
             orderCol = 'ProductSKU';
         } else if (tableName === 'Ingredients') {
-            columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'];
-            selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Supplier,LowInvThreshold';
+            columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Retailer', 'LowInvThreshold'];
+            selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Retailer,LowInvThreshold';
             orderCol = 'IngredientSKU';
         } else if (tableName === 'Boxes') {
             columns = ['SKU', 'Weight(Lbs)', 'Cost', 'Dimensions', 'Link', 'Price', 'Quantity']; // Removed UserID
@@ -865,7 +865,7 @@
                 renderTable(allProductsData, ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'FinalWeight', 'Pack Size', 'Quantity'], productsTable, term);
                 renderTable(
                     allIngredientsData,
-                    ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Supplier', 'LowInvThreshold'],
+                    ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Retailer', 'LowInvThreshold'],
                     ingredientsTable,
                     term,
                     lowInv

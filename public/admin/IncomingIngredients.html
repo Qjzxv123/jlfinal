@@ -506,7 +506,7 @@
       try {
         const { data: ingredients, error } = await supabase
           .from('Ingredients')
-          .select('IngredientSKU, Name, Supplier, "Quantity(Lbs/Units)", ActiveLotNumbers, Location')
+          .select('IngredientSKU, Name, Retailer, "Quantity(Lbs/Units)", ActiveLotNumbers, Location')
           .order('Name');
 
         if (error) {
@@ -546,7 +546,7 @@
       // Filter and display ingredients based on search
       function updateDropdown(searchTerm = '') {
         const filtered = allIngredients.filter(ingredient => {
-          const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
+          const searchText = `${ingredient.Name} ${ingredient.Retailer || ''} ${ingredient.IngredientSKU}`.toLowerCase();
           return searchText.includes(searchTerm.toLowerCase());
         });
 
@@ -558,7 +558,7 @@
           option.innerHTML = `
             <div style="font-weight: 500; margin-bottom: 0.25rem;">${ingredient.Name}</div>
             <div style="font-size: 0.8rem; color: #6b7280;">
-              SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'}
+              SKU: ${ingredient.IngredientSKU} | Retailer: ${ingredient.Retailer || 'No Retailer'}
             </div>
           `;
           
@@ -1174,7 +1174,7 @@
       function updateDropdown(searchTerm = '') {
         const ingredientsWithLots = getIngredientsWithLots();
         const filtered = ingredientsWithLots.filter(ingredient => {
-          const searchText = `${ingredient.Name} ${ingredient.Supplier || ''} ${ingredient.IngredientSKU}`.toLowerCase();
+          const searchText = `${ingredient.Name} ${ingredient.Retailer || ''} ${ingredient.IngredientSKU}`.toLowerCase();
           return searchText.includes(searchTerm.toLowerCase());
         });
 
@@ -1186,7 +1186,7 @@
           option.innerHTML = `
             <div style="font-weight: 500; margin-bottom: 0.25rem;">${ingredient.Name}</div>
             <div style="font-size: 0.8rem; color: #6b7280;">
-              SKU: ${ingredient.IngredientSKU} | Supplier: ${ingredient.Supplier || 'No Supplier'} | ${ingredient.ActiveLotNumbers.length} lot(s)
+              SKU: ${ingredient.IngredientSKU} | Retailer: ${ingredient.Retailer || 'No Retailer'} | ${ingredient.ActiveLotNumbers.length} lot(s)
             </div>
           `;
           
