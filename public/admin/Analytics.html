@@ -89,7 +89,7 @@
     }
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 20px;
       margin-bottom: 24px;
     }
@@ -97,8 +97,10 @@
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-      padding: 24px;
+      padding: 20px;
       transition: transform 0.2s;
+      position: relative;
+      overflow: hidden;
     }
     .stat-card:hover {
       transform: translateY(-2px);
@@ -113,7 +115,7 @@
       margin-bottom: 8px;
     }
     .stat-card .value {
-      font-size: 2.2rem;
+      font-size: 2rem;
       font-weight: 700;
       color: #2c3e50;
       margin-bottom: 4px;
@@ -121,6 +123,18 @@
     .stat-card .subtext {
       font-size: 0.85rem;
       color: #94a3b8;
+    }
+    .stat-card .pill {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: #e7f6ef;
+      color: #166534;
+      font-weight: 700;
+      font-size: 0.75rem;
+      padding: 6px 10px;
+      border-radius: 999px;
+      letter-spacing: 0.5px;
     }
     .chart-container {
       background: #fff;
@@ -133,6 +147,11 @@
       margin: 0 0 20px 0;
       color: #2c3e50;
       font-size: 1.4rem;
+    }
+    .chart-container .chart-subtext {
+      color: #64748b;
+      font-size: 0.9rem;
+      margin: -12px 0 16px;
     }
     table {
       width: 100%;
@@ -228,6 +247,32 @@
       gap: 24px;
       margin-bottom: 24px;
     }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #e2e8f0;
+      color: #1f2937;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .chip {
+      background: #ecfeff;
+      border: 1px solid #bae6fd;
+      color: #0ea5e9;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
     @media (max-width: 768px) {
       .two-column {
         grid-template-columns: 1fr;
@@ -253,7 +298,8 @@
       startDate: '',
       endDate: '',
       platform: 'all',
-      retailer: 'all'
+      retailer: 'all',
+      returnFilter: 'all'
     };
 
     const platformColors = {
@@ -265,7 +311,7 @@
       'Unknown': '#94a3b8'
     };
 
-    function Filters({ filters, retailers, onChange, onApply }) {
+    function Filters({ filters, retailers, onChange, onApply, onReset }) {
       const isCustomRange = filters.dateRange === 'custom';
 
       return (
@@ -319,6 +365,17 @@
             </select>
           </div>
           <div className="filter-group">
+            <label>Returns</label>
+            <select
+              value={filters.returnFilter}
+              onChange={(e) => onChange({ ...filters, returnFilter: e.target.value })}
+            >
+              <option value="all">All Orders</option>
+              <option value="exclude">Exclude Returns</option>
+              <option value="only">Returned Only</option>
+            </select>
+          </div>
+          <div className="filter-group">
             <label>Retailer</label>
             <select
               value={filters.retailer}
@@ -330,34 +387,36 @@
               ))}
             </select>
           </div>
-          <button className="btn" onClick={onApply}>Apply Filters</button>
+          <div className="filter-group" style={{ marginLeft: 'auto', gap: '10px' }}>
+            <button className="btn" onClick={onApply}>Apply Filters</button>
+            <button className="btn" style={{ background: '#e2e8f0', color: '#0f172a' }} onClick={onReset}>Reset</button>
+          </div>
         </div>
       );
     }
 
     function StatsGrid({ stats }) {
+      const cards = [
+        { label: 'Total Orders', value: stats.totalOrders.toLocaleString(), subtext: 'Shipped orders', pill: 'Core' },
+        { label: 'Total Shipping Cost', value: `$${stats.totalShippingCost.toFixed(2)}`, subtext: 'Business expense' },
+        { label: 'Total Products Sold', value: stats.totalProducts.toLocaleString(), subtext: 'Individual units' },
+        { label: 'Avg Shipping Cost', value: `$${stats.avgShippingCost.toFixed(2)}`, subtext: 'Per order' },
+        { label: 'Unique Products', value: stats.uniqueProducts.toLocaleString(), subtext: 'SKUs sold' },
+        { label: 'Active Retailers', value: stats.activeRetailers.toLocaleString(), subtext: 'With shipped orders' },
+        { label: 'Return Rate', value: `${stats.returnRate.toFixed(1)}%`, subtext: `${stats.returnedOrders} returned` },
+        { label: 'Returned Units', value: stats.returnedUnits.toLocaleString(), subtext: 'Captured from returns' }
+      ];
+
       return (
         <div className="stats-grid">
-          <div className="stat-card">
-            <div className="label">Total Orders</div>
-            <div className="value">{stats.totalOrders.toLocaleString()}</div>
-            <div className="subtext">Shipped orders</div>
-          </div>
-          <div className="stat-card">
-            <div className="label">Total Shipping Cost</div>
-            <div className="value">${stats.totalShippingCost.toFixed(2)}</div>
-            <div className="subtext">Business expense</div>
-          </div>
-          <div className="stat-card">
-            <div className="label">Total Products Sold</div>
-            <div className="value">{stats.totalProducts.toLocaleString()}</div>
-            <div className="subtext">Individual units</div>
-          </div>
-          <div className="stat-card">
-            <div className="label">Avg Shipping Cost</div>
-            <div className="value">${stats.avgShippingCost.toFixed(2)}</div>
-            <div className="subtext">Per order</div>
-          </div>
+          {cards.map((card) => (
+            <div key={card.label} className="stat-card">
+              <div className="label">{card.label}</div>
+              {card.pill && <div className="pill">{card.pill}</div>}
+              <div className="value">{card.value}</div>
+              <div className="subtext">{card.subtext}</div>
+            </div>
+          ))}
         </div>
       );
     }
@@ -367,6 +426,38 @@
         <div className="chart-container">
           <h2>{title}</h2>
           <canvas ref={canvasRef} style={style}></canvas>
+        </div>
+      );
+    }
+
+    function FilterSummary({ totalOrders, filteredOrders, filters }) {
+      const dateLabel = filters.dateRange === 'custom'
+        ? `${filters.startDate || 'Start'} → ${filters.endDate || 'End'}`
+        : filters.dateRange === 'all' ? 'All time' : `Last ${filters.dateRange} days`;
+
+      const returnLabel = filters.returnFilter === 'only' ? 'Returned only' : filters.returnFilter === 'exclude' ? 'Excluding returns' : 'Including returns';
+
+      return (
+        <div className="chart-container" style={{ marginBottom: 16 }}>
+          <h2 style={{ marginBottom: 12 }}>Current View</h2>
+          <div className="chips">
+            <span className="chip">{dateLabel}</span>
+            <span className="chip">{filters.platform === 'all' ? 'All platforms' : filters.platform}</span>
+            <span className="chip">{filters.retailer === 'all' ? 'All retailers' : filters.retailer}</span>
+            <span className="chip">{returnLabel}</span>
+          </div>
+          <div className="subtext" style={{ color: '#475569', fontWeight: 600 }}>
+            Showing {filteredOrders} of {totalOrders} shipped orders
+          </div>
+        </div>
+      );
+    }
+
+    function EmptyState({ message }) {
+      return (
+        <div className="chart-container" style={{ textAlign: 'center' }}>
+          <div className="spinner"></div>
+          <div style={{ color: '#475569', fontWeight: 600 }}>{message}</div>
         </div>
       );
     }
@@ -412,6 +503,7 @@
                 <th style={{ textAlign: 'right' }}>Orders</th>
                 <th style={{ textAlign: 'right' }}>Shipping Cost</th>
                 <th style={{ textAlign: 'right' }}>Units</th>
+                <th style={{ textAlign: 'right' }}>Return Rate</th>
               </tr>
             </thead>
             <tbody>
@@ -421,6 +513,7 @@
                   <td style={{ textAlign: 'right' }}>{platform.orders.toLocaleString()}</td>
                   <td style={{ textAlign: 'right' }}>${platform.shippingCost.toFixed(2)}</td>
                   <td style={{ textAlign: 'right' }}>{platform.units.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>{platform.returnRate.toFixed(1)}%</td>
                 </tr>
               ))}
             </tbody>
@@ -441,6 +534,7 @@
                 <th style={{ textAlign: 'right' }}>Shipping Cost</th>
                 <th style={{ textAlign: 'right' }}>Units Sold</th>
                 <th style={{ textAlign: 'right' }}>Avg Order Size</th>
+                <th style={{ textAlign: 'right' }}>Returns</th>
                 <th style={{ textAlign: 'right' }}>Top Product</th>
               </tr>
             </thead>
@@ -452,6 +546,7 @@
                   <td style={{ textAlign: 'right' }}>${retailer.shippingCost.toFixed(2)}</td>
                   <td style={{ textAlign: 'right' }}>{retailer.units.toLocaleString()}</td>
                   <td style={{ textAlign: 'right' }}>{retailer.avgOrderSize}</td>
+                  <td style={{ textAlign: 'right' }}>{retailer.returned.toLocaleString()}</td>
                   <td style={{ textAlign: 'right', fontSize: '0.85rem' }}>{retailer.topProduct}</td>
                 </tr>
               ))}
@@ -538,6 +633,12 @@
         filtered = filtered.filter((order) => order.Retailer === filters.retailer);
       }
 
+      if (filters.returnFilter === 'exclude') {
+        filtered = filtered.filter((order) => !order.Returned);
+      } else if (filters.returnFilter === 'only') {
+        filtered = filtered.filter((order) => order.Returned);
+      }
+
       return filtered;
     }
 
@@ -552,6 +653,9 @@
           return [];
         }
       }
+      if (rawItems && typeof rawItems === 'object') {
+        return Object.values(rawItems);
+      }
       return [];
     }
 
@@ -559,6 +663,9 @@
       const totalOrders = orders.length;
       const totalShippingCost = orders.reduce((sum, order) => sum + (parseFloat(order.ShippingCost) || 0), 0);
       let totalProducts = 0;
+      let returnedOrders = 0;
+      let returnedUnits = 0;
+      const returnReasons = {};
       const productStats = {};
       const platformStats = {};
       const retailerStats = {};
@@ -568,18 +675,26 @@
         const platform = order.Platform || 'Unknown';
         const retailer = order.Retailer || 'Unknown';
         const shippingCost = parseFloat(order.ShippingCost) || 0;
+        const isReturned = Boolean(order.Returned);
+        const returnReason = (order.ReturnReason || '').trim() || 'Unspecified';
 
         if (!platformStats[platform]) {
-          platformStats[platform] = { orders: 0, shippingCost: 0, units: 0 };
+          platformStats[platform] = { orders: 0, shippingCost: 0, units: 0, returned: 0 };
         }
         platformStats[platform].orders += 1;
         platformStats[platform].shippingCost += shippingCost;
+        platformStats[platform].returned += isReturned ? 1 : 0;
 
         if (!retailerStats[retailer]) {
-          retailerStats[retailer] = { orders: 0, shippingCost: 0, units: 0, products: {} };
+          retailerStats[retailer] = { orders: 0, shippingCost: 0, units: 0, products: {}, returned: 0 };
         }
         retailerStats[retailer].orders += 1;
         retailerStats[retailer].shippingCost += shippingCost;
+        retailerStats[retailer].returned += isReturned ? 1 : 0;
+
+        if (isReturned) {
+          returnedOrders += 1;
+        }
 
         items.forEach((item) => {
           const sku = item.SKU || 'Unknown';
@@ -607,10 +722,18 @@
             retailerStats[retailer].products[sku] = 0;
           }
           retailerStats[retailer].products[sku] += qty;
+
+          if (isReturned) {
+            returnedUnits += qty;
+            returnReasons[returnReason] = (returnReasons[returnReason] || 0) + qty;
+          }
         });
       });
 
       const avgShippingCost = totalOrders > 0 ? totalShippingCost / totalOrders : 0;
+      const uniqueProducts = Object.keys(productStats).length;
+      const activeRetailers = Object.keys(retailerStats).length;
+      const returnRate = totalOrders > 0 ? (returnedOrders / totalOrders) * 100 : 0;
 
       const topProducts = Object.entries(productStats)
         .sort((a, b) => b[1].totalQty - a[1].totalQty)
@@ -622,6 +745,7 @@
         .map(([name, stats]) => ({
           name,
           badgeClass: `platform-${name.toLowerCase()}`,
+          returnRate: stats.orders > 0 ? (stats.returned / stats.orders) * 100 : 0,
           ...stats
         }));
 
@@ -671,12 +795,21 @@
 
       const platformChart = Object.entries(platformStats).sort((a, b) => b[1].orders - a[1].orders);
 
+      const returnChart = Object.entries(returnReasons)
+        .sort((a, b) => b[1] - a[1])
+        .map(([reason, count]) => ({ reason, count }));
+
       return {
         totals: {
           totalOrders,
           totalShippingCost,
           totalProducts,
-          avgShippingCost
+          avgShippingCost,
+          uniqueProducts,
+          activeRetailers,
+          returnedOrders,
+          returnedUnits,
+          returnRate
         },
         topProducts,
         platformTable,
@@ -684,7 +817,8 @@
         allProducts,
         ordersTimeline: { labels: timelineLabels, data: timelineData },
         topProductsChart,
-        platformChart
+        platformChart,
+        returnChart
       };
     }
 
@@ -692,6 +826,7 @@
       const ordersTimelineRef = useRef(null);
       const topProductsRef = useRef(null);
       const platformPieRef = useRef(null);
+      const returnsChartRef = useRef(null);
       const chartInstances = useRef({});
 
       useEffect(() => {
@@ -820,18 +955,52 @@
           });
         };
 
+        const renderReturnsChart = () => {
+          if (!returnsChartRef.current || analytics.returnChart.length === 0) return;
+          destroyChart('returns');
+          chartInstances.current.returns = new Chart(returnsChartRef.current, {
+            type: 'bar',
+            data: {
+              labels: analytics.returnChart.map((item) => item.reason),
+              datasets: [{
+                label: 'Units Returned',
+                data: analytics.returnChart.map((item) => item.count),
+                backgroundColor: '#fda4af',
+                borderRadius: 6
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (context) => `${context.parsed.y.toLocaleString()} units`
+                  }
+                }
+              },
+              scales: {
+                y: { beginAtZero: true }
+              }
+            }
+          });
+        };
+
         renderOrdersTimeline();
         renderTopProducts();
         renderPlatformPie();
+        renderReturnsChart();
 
         return () => {
           destroyChart('ordersTimeline');
           destroyChart('topProducts');
           destroyChart('platformPie');
+          destroyChart('returns');
         };
       }, [analytics]);
 
-      return { ordersTimelineRef, topProductsRef, platformPieRef };
+      return { ordersTimelineRef, topProductsRef, platformPieRef, returnsChartRef };
     }
 
     function AnalyticsApp() {
@@ -841,6 +1010,7 @@
       const [allOrders, setAllOrders] = useState([]);
       const [loading, setLoading] = useState(true);
       const [searchTerm, setSearchTerm] = useState('');
+      const [error, setError] = useState('');
 
       useEffect(() => {
         checkPermissions(['service_role', 'employee']).then(() => {
@@ -864,6 +1034,8 @@
         if (!error && data) {
           const uniqueRetailers = Array.from(new Set(data.map((entry) => entry.Retailer))).sort();
           setRetailers(uniqueRetailers);
+        } else if (error) {
+          setError(error.message);
         }
       };
 
@@ -883,7 +1055,7 @@
 
           if (error) {
             console.error('Error loading order history:', error);
-            alert('Failed to load order history: ' + error.message);
+            setError(error.message);
             break;
           }
 
@@ -904,7 +1076,7 @@
 
       const analytics = useMemo(() => deriveAnalytics(filteredOrders), [filteredOrders]);
 
-      const { ordersTimelineRef, topProductsRef, platformPieRef } = useCharts(analytics);
+      const { ordersTimelineRef, topProductsRef, platformPieRef, returnsChartRef } = useCharts(analytics);
 
       const filteredProducts = useMemo(() => {
         if (!searchTerm) return analytics.allProducts;
@@ -915,11 +1087,54 @@
         );
       }, [analytics.allProducts, searchTerm]);
 
+      const handleResetFilters = () => {
+        setFilters(initialFilters);
+        setAppliedFilters(initialFilters);
+        setSearchTerm('');
+      };
+
+      const exportCsv = () => {
+        const headers = ['OrderID', 'Retailer', 'Platform', 'ShippedAt', 'ShippingCost', 'Returned', 'ReturnReason', 'Items'];
+        const rows = filteredOrders.map((order) => {
+          const items = parseItems(order.Items, order.OrderID)
+            .map((item) => `${item.SKU || ''}:${item.Quantity || ''}`)
+            .join('; ');
+          return [
+            order.OrderID,
+            order.Retailer || '',
+            order.Platform || '',
+            order.ShippedAt || '',
+            order.ShippingCost || '',
+            order.Returned ? 'Yes' : 'No',
+            order.ReturnReason || '',
+            items
+          ];
+        });
+
+        const csv = [headers, ...rows]
+          .map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+          .join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'analytics-orders.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+      };
+
       return (
         <div className="main-content">
           <div className="header">
             <h1>Business Analytics</h1>
             <div className="subtitle">Product statistics and insights from order history</div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              <span className="badge">Orders: {filteredOrders.length.toLocaleString()}</span>
+              <span className="badge">Products: {analytics.totals.uniqueProducts.toLocaleString()}</span>
+              <span className="badge">Retailers: {analytics.totals.activeRetailers.toLocaleString()}</span>
+              <button className="btn" onClick={exportCsv}>Export CSV</button>
+            </div>
           </div>
 
           <Filters
@@ -927,6 +1142,7 @@
             retailers={retailers}
             onChange={setFilters}
             onApply={() => setAppliedFilters(filters)}
+            onReset={handleResetFilters}
           />
 
           {loading ? (
@@ -936,27 +1152,45 @@
             </div>
           ) : (
             <div id="analyticsContent">
-              <StatsGrid stats={analytics.totals} />
+              {error && <EmptyState message={`Supabase error: ${error}`} />}
 
-              <ChartCanvas title="Orders Over Time" canvasRef={ordersTimelineRef} style={{ maxHeight: '300px' }} />
-
-              <div className="two-column">
-                <ChartCanvas title="Top 10 Products" canvasRef={topProductsRef} style={{ maxHeight: '350px' }} />
-                <ChartCanvas title="Platform Distribution" canvasRef={platformPieRef} style={{ maxHeight: '350px' }} />
-              </div>
-
-              <div className="two-column">
-                <TopProductsTable products={analytics.topProducts} />
-                <PlatformStatsTable stats={analytics.platformTable} />
-              </div>
-
-              <RetailerStatsTable stats={analytics.retailerTable} />
-
-              <ProductsTable
-                products={filteredProducts}
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
+              <FilterSummary
+                totalOrders={allOrders.length}
+                filteredOrders={filteredOrders.length}
+                filters={appliedFilters}
               />
+
+              {filteredOrders.length === 0 ? (
+                <EmptyState message="No orders match the current filters." />
+              ) : (
+                <>
+                  <StatsGrid stats={analytics.totals} />
+
+                  <ChartCanvas title="Orders Over Time" canvasRef={ordersTimelineRef} style={{ maxHeight: '300px' }} />
+
+                  <div className="two-column">
+                    <ChartCanvas title="Top 10 Products" canvasRef={topProductsRef} style={{ maxHeight: '350px' }} />
+                    <ChartCanvas title="Platform Distribution" canvasRef={platformPieRef} style={{ maxHeight: '350px' }} />
+                  </div>
+
+                  {analytics.returnChart.length > 0 && (
+                    <ChartCanvas title="Returns by Reason" canvasRef={returnsChartRef} style={{ maxHeight: '320px' }} />
+                  )}
+
+                  <div className="two-column">
+                    <TopProductsTable products={analytics.topProducts} />
+                    <PlatformStatsTable stats={analytics.platformTable} />
+                  </div>
+
+                  <RetailerStatsTable stats={analytics.retailerTable} />
+
+                  <ProductsTable
+                    products={filteredProducts}
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                  />
+                </>
+              )}
             </div>
           )}
         </div>
