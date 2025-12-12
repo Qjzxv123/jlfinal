@@ -2,79 +2,6 @@
 // Creates and purchases labels for a batch of orders, moves them to Order History,
 // decrements box inventory, fulfills Faire orders, and returns label URLs for printing.
 
-// ---------------- Minimal security wrapper (JWT + role + CORS) ----------------
-const { createClient } = require('@supabase/supabase-js');
-
-// Allowed roles for purchasing labels
-const ALLOW_ROLES = new Set(['employee', 'admin']);
-
-// CORS helpers (kept simple)
-function corsHeaders(origin) {
-  return {
-    'Access-Control-Allow-Origin': origin || '*',
-    'Access-Control-Allow-Methods': 'POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization,Content-Type',
-    'Vary': 'Origin',
-  };
-}
-function preflight(event) {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: corsHeaders(event.headers?.origin || ''), body: '' };
-  }
-  return null;
-}
-
-// Supabase JWT gate using ANON key; internal work still uses SERVICE key.
-async function requireUser(event) {
-  const origin = event.headers?.origin || '';
-  const headers = corsHeaders(origin);
-
-  const pf = preflight(event);
-  if (pf) return { ok: false, res: pf, headers };
-
-  if (event.httpMethod !== 'POST') {
-    return { ok: false, res: { statusCode: 405, headers, body: 'Method Not Allowed' }, headers };
-  }
-
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.error('[shippo-batch-label] Missing Supabase anon config');
-    return { ok: false, res: { statusCode: 500, headers, body: 'Server not configured' }, headers };
-  }
-
-  const auth = event.headers?.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  if (!token) {
-    return { ok: false, res: { statusCode: 401, headers, body: 'Missing bearer token' }, headers };
-  }
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-    auth: { persistSession: false },
-  });
-
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user) {
-    return { ok: false, res: { statusCode: 401, headers, body: 'Invalid token' }, headers };
-  }
-
-  const user = data.user;
-  const role = (user.app_metadata?.role || user.user_metadata?.role || '').toString().toLowerCase();
-  if (!ALLOW_ROLES.has(role)) {
-    return { ok: false, res: { statusCode: 403, headers, body: 'Forbidden' }, headers };
-  }
-
-  return { ok: true, headers, user };
-}
-
-// JSON response with CORS headers
-function jsonResponse(statusCode, body, headers) {
-  return { statusCode, headers, body: JSON.stringify(body) };
-}
-// ------------------------------------------------------------------------------
-
-
 // Cache fetch module at cold start
 let fetchModule;
 const getFetch = async () => {
@@ -83,6 +10,8 @@ const getFetch = async () => {
 	}
 	return fetchModule.default;
 };
+
+const { createClient } = require('@supabase/supabase-js');
 
 let getTokenRow = null;
 try {
@@ -99,37 +28,33 @@ const FAIRE_CLIENT_SECRET = process.env.FAIRE_CLIENT_SECRET || '';
 
 exports.handler = async (event) => {
 	try {
-		// ---- minimal gate ----
-		const gate = await requireUser(event);
-		if (!gate.ok) return gate.res;
-		const H = gate.headers;
-
-		if (!SHIPPO_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-			console.error('[shippo-batch-label] Missing configuration:', {
-				hasShippoKey: !!SHIPPO_API_KEY,
-				hasSupabaseUrl: !!SUPABASE_URL,
-				hasSupabaseKey: !!SUPABASE_SERVICE_KEY
-			});
-			return jsonResponse(500, { error: 'Missing required server configuration.' }, H);
+		if (event.httpMethod !== 'POST') {
+			console.error('[shippo-batch-label] Invalid HTTP method:', event.httpMethod);
+			return jsonResponse(405, { error: 'Method Not Allowed' });
 		}
-
+		if (!SHIPPO_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+			console.error('[shippo-batch-label] Missing configuration:', { 
+				hasShippoKey: !!SHIPPO_API_KEY, 
+				hasSupabaseUrl: !!SUPABASE_URL, 
+				hasSupabaseKey: !!SUPABASE_SERVICE_KEY 
+			});
+			return jsonResponse(500, { error: 'Missing required server configuration.' });
+		}
 		let payload;
 		try {
 			payload = JSON.parse(event.body || '{}');
 		} catch (err) {
 			console.error('[shippo-batch-label] JSON parse error:', err);
-			return jsonResponse(400, { error: 'Invalid JSON body.' }, H);
+			return jsonResponse(400, { error: 'Invalid JSON body.' });
 		}
-
 		const orders = Array.isArray(payload.orders) ? payload.orders : [];
 		if (!orders.length) {
 			console.error('[shippo-batch-label] No orders in payload');
-			return jsonResponse(400, { error: 'No orders supplied.' }, H);
+			return jsonResponse(400, { error: 'No orders supplied.' });
 		}
 
-		// Internal work continues to use service key (no RLS changes).
 		const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
+		
 		// Process all orders in parallel
 		const results = await Promise.all(
 			orders.map(async (entry) => {
@@ -216,14 +141,19 @@ exports.handler = async (event) => {
 			})
 		);
 
-		return jsonResponse(200, { results }, H);
+		return jsonResponse(200, { results });
 	} catch (err) {
 		console.error('[shippo-batch-label] Unexpected error:', err);
-		// Best-effort CORS on fatal errors:
-		const H = corsHeaders(event.headers?.origin || '');
-		return jsonResponse(500, { error: err?.message || 'Unexpected server error' }, H);
+		return jsonResponse(500, { error: err?.message || 'Unexpected server error' });
 	}
 };
+
+function jsonResponse(statusCode, body) {
+	return {
+		statusCode,
+		body: JSON.stringify(body)
+	};
+}
 
 async function purchaseLabel({ rateId, orderData, rateMeta }) {
 	const fetch = await getFetch();
@@ -236,8 +166,8 @@ async function purchaseLabel({ rateId, orderData, rateMeta }) {
 	const shippoOrderId = orderData?.ShippoOrderID || orderData?.shippo_order_id || orderData?.shippoOrderId;
 	if (shippoOrderId && platform !== 'faire') {
 		transactionBody.order = shippoOrderId;
-	} else {
-		metadata = "Faire";
+	}else{
+		metadata="Faire";
 	}
 
 	const transactionResp = await fetch('https://api.goshippo.com/transactions/', {
@@ -533,3 +463,4 @@ function normalizeUserIds(value) {
 	}
 	return [value];
 }
+

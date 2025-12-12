@@ -81,7 +81,7 @@ exports.handler = async (event) => {
 	};
 
 	const address_from = {
-		name: 'J&L Naturals',
+		name: order?.retailer|| order?.Retailer || 'Some Retailer',
 		street1: '125 N Commercial Dr #103',
 		city: 'Mooresville',
 		state: 'NC',
@@ -154,7 +154,7 @@ exports.handler = async (event) => {
 		
 		const customsPayload = {
 			certify: true,
-			certify_signer: 'J&L Naturals',
+			certify_signer: '3PL',
 			contents_type: 'MERCHANDISE',
 			eel_pfc: 'NOEEI_30_37_a',
 			non_delivery_option: 'RETURN',
