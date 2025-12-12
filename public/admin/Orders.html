@@ -351,6 +351,7 @@
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
     <script src="/Assets/CheckAccess.js"></script>
+    <script src="/Assets/item-selector-modal.js"></script>
     <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
 </head>
 <body>
@@ -1075,23 +1076,12 @@
             try {
                 itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items);
             } catch { itemsArr = []; }
-            const itemsTable = document.getElementById('editItemsTableBody');
-            itemsTable.innerHTML = '';
-            itemsArr.forEach((item, idx) => {
-                itemsTable.innerHTML += `
-                    <tr>
-                        <td>${item.SKU || ''}</td>
-                        <td>${item.Name || ''}</td>
-                        <td>${item.Quantity || 0}</td>
-                        <td><button type="button" onclick="removeEditItemRow(${idx})" style="color:#e74c3c; background:none; border:none; font-size:18px; cursor:pointer;">&times;</button></td>
-                    </tr>
-                `;
-            });
-            if (itemsArr.length === 0) {
-                itemsTable.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;">No items</td></tr>';
-            }
-            // Store items in window for editing
-            window._editItemsArr = itemsArr;
+            editModalItems = itemsArr.map(item => ({
+                value: item.SKU || '',
+                label: item.Name || '',
+                quantity: item.Quantity || 0
+            }));
+            renderEditItemsTable(editModalItems);
 
             // Populate Customer fields
             let customerObj = {};
@@ -1115,19 +1105,11 @@
             const platform = document.getElementById('editPlatform').value;
             const notes = document.getElementById('editNotes').value;
             const customerMessages = document.getElementById('editCustomerMessages').value;
-            // Gather items from table as plain text
-            const items = [];
-            const rows = document.querySelectorAll('#editItemsTableBody tr');
-            for (let i = 0; i < rows.length; i++) {
-                const tds = rows[i].querySelectorAll('td');
-                if (tds.length >= 3) {
-                    items.push({
-                        SKU: tds[0].textContent.trim(),
-                        Name: tds[1].textContent.trim(),
-                        Quantity: Number(tds[2].textContent.trim()) || 0
-                    });
-                }
-            }
+            const items = (editModalItems || []).filter(item => item.value).map(item => ({
+                SKU: item.value,
+                Name: item.label,
+                Quantity: Number(item.quantity) || 0
+            }));
             // Gather customer fields
             const customer = {
                 name: document.getElementById('editCustomerName').value,
@@ -2706,23 +2688,6 @@
     </div>
 </div>
 
-<!-- Add Item Modal -->
-<div id="addItemModal" style="display:none; position:fixed; z-index:3000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.35);">
-  <div style="background:white; max-width:400px; margin:80px auto; border-radius:14px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:32px 28px 22px 28px; position:relative; overflow:hidden;">
-    <span onclick="closeAddItemModal()" style="position:absolute; top:14px; right:18px; font-size:28px; color:#888; cursor:pointer; transition:color 0.2s;">&times;</span>
-    <h3 style="margin-top:0; color:#4DBA93; font-size:1.25rem; margin-bottom:18px; font-weight:600; letter-spacing:0.5px;">Add Item</h3>
-    <label style="font-weight:600; color:#2c3e50; margin-bottom:4px; display:block;">Product</label>
-    <input id="addItemProductSearch" type="text" placeholder="Search product..." style="width:100%;margin-bottom:8px;padding:10px 12px;border-radius:7px;border:1.5px solid #e1e5e9;font-size:15px;outline:none;transition:border 0.2s;" oninput="filterProductOptions()" autocomplete="off" />
-    <div id="addItemProductOptions" style="max-height:140px;overflow-y:auto;margin-bottom:12px;border-radius:6px;background:#f8f9fa;"></div>
-    <label style="font-weight:600; color:#2c3e50; margin-bottom:4px; display:block;">Quantity</label>
-    <input id="addItemQuantity" type="number" min="1" value="1" style="width:100%;margin-bottom:18px;padding:10px 12px;border-radius:7px;border:1.5px solid #e1e5e9;font-size:15px;outline:none;transition:border 0.2s;" />
-    <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;">
-      <span id="addItemStatus" style="font-size:13px;color:#4DBA93;"></span>
-      <button class="btn" style="padding:9px 26px;font-size:15px;border-radius:7px;background:#4DBA93;box-shadow:none;" onclick="confirmAddItem()">Add</button>
-    </div>
-  </div>
-</div>
-
 <!-- Inventory Removal Results Modal -->
 <div id="invRemovalResultsModal" style="display:none; position:fixed; z-index:3500; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.35);">
     <div style="background:white; max-width:860px; margin:60px auto; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:22px 22px 16px 22px; position:relative; max-height:80vh; overflow:auto;">
@@ -2736,73 +2701,58 @@
   
 </div>
 <script>
-    let productsList = [];
-    async function openAddItemModal() {
-      document.getElementById('addItemProductSearch').value = '';
-      document.getElementById('addItemQuantity').value = 1;
-      document.getElementById('addItemStatus').textContent = '';
-      document.getElementById('addItemProductOptions').innerHTML = '<div style="color:#aaa;padding:6px;">Loading...</div>';
-      document.getElementById('addItemModal').style.display = 'block';
-      // Fetch products if not already loaded
-      if (productsList.length === 0) {
-        try {
-          const { data, error } = await supabase.from('Products').select('ProductSKU, Name');
-          if (!error && data) productsList = data;
-        } catch {}
-      }
-      filterProductOptions();
-    }
-    function closeAddItemModal() {
-      document.getElementById('addItemModal').style.display = 'none';
-    }
-    function filterProductOptions() {
-      const search = document.getElementById('addItemProductSearch').value.trim().toLowerCase();
-      const optionsDiv = document.getElementById('addItemProductOptions');
-      let filtered = productsList;
-      if (search) {
-        filtered = productsList.filter(p => (p.ProductSKU && p.ProductSKU.toLowerCase().includes(search)) || (p.Name && p.Name.toLowerCase().includes(search)));
-      }
-      if (filtered.length === 0) {
-        optionsDiv.innerHTML = '<div style="color:#aaa;padding:6px;">No products found</div>';
-        return;
-      }
-      optionsDiv.innerHTML = filtered.map(p => `<div class='add-item-option' style='padding:8px 10px;cursor:pointer;border-radius:5px;margin-bottom:3px;background:#fff;transition:background 0.15s;' onmouseover='this.style.background="#eaf6f3"' onmouseout='this.style.background="#fff"' onclick='selectAddItemProduct("${p.ProductSKU.replace(/"/g,'&quot;')}", "${(p.Name||'').replace(/"/g,'&quot;')}")'><strong>${p.ProductSKU}</strong> - ${p.Name || ''}</div>`).join('');
-    }
-    let selectedAddItemProduct = null;
-    function selectAddItemProduct(sku, name) {
-      selectedAddItemProduct = { SKU: sku, Name: name };
-      document.getElementById('addItemProductSearch').value = sku + (name ? ' - ' + name : '');
-      document.getElementById('addItemProductOptions').innerHTML = '';
-    }
-    function confirmAddItem() {
-      const qty = Number(document.getElementById('addItemQuantity').value);
-      if (!selectedAddItemProduct || !selectedAddItemProduct.SKU) {
-        document.getElementById('addItemStatus').textContent = 'Select a product.';
-        return;
-      }
-      if (!qty || qty < 1) {
-        document.getElementById('addItemStatus').textContent = 'Enter a valid quantity.';
-        return;
-      }
-      // Add the new item row to the items table as plain text (not editable)
+    let editModalItems = [];
+    function renderEditItemsTable(items) {
       const itemsTable = document.getElementById('editItemsTableBody');
-      const idx = itemsTable.querySelectorAll('tr').length;
-      itemsTable.innerHTML += `
-    <tr>
-      <td>${selectedAddItemProduct.SKU}</td>
-      <td>${selectedAddItemProduct.Name || ''}</td>
-      <td>${qty}</td>
-      <td><button type="button" onclick="removeEditItemRow(${idx})" style="color:#e74c3c; background:none; border:none; font-size:18px; cursor:pointer;">&times;</button></td>
-    </tr>
-  `;
-  closeAddItemModal();
-  selectedAddItemProduct = null;
+      if (!itemsTable) return;
+      if (!items.length) {
+        itemsTable.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;">No items</td></tr>';
+        return;
+      }
+      itemsTable.innerHTML = '';
+      items.forEach((item, idx) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.value}</td>
+          <td>${item.label || ''}</td>
+          <td>${item.quantity}</td>
+          <td><button type="button" onclick="removeEditItemRow(${idx})" style="color:#e74c3c; background:none; border:none; font-size:18px; cursor:pointer;">&times;</button></td>
+        `;
+        itemsTable.appendChild(row);
+      });
     }
+
+    function openAddItemModal() {
+      // Seed modal with current items so users can adjust quantities in one place
+      const currentRows = Array.from(document.querySelectorAll('#editItemsTableBody tr')).map(row => ({
+        value: (row.children[0]?.textContent || '').trim(),
+        label: (row.children[1]?.textContent || '').trim(),
+        quantity: parseInt(row.children[2]?.textContent, 10) || 1
+      }));
+      editModalItems = currentRows.length ? currentRows : [{ value: '', label: '', quantity: 1 }];
+
+      openItemSelectorModal({
+        headerText: 'Add Items',
+        descriptionText: 'Search your product catalog, set quantities, and apply them to this order.',
+        tableName: 'Products',
+        columnName: 'ProductSKU',
+        labelName: 'Name',
+        initialItems: editModalItems,
+        onConfirm: (items) => {
+          editModalItems = items;
+          renderEditItemsTable(editModalItems);
+        }
+      });
+    }
+
     function removeEditItemRow(idx) {
-      const itemsTable = document.getElementById('editItemsTableBody');
-      const rows = Array.from(itemsTable.querySelectorAll('tr'));
-      if (rows[idx]) rows[idx].remove();
+      editModalItems.splice(idx, 1);
+      if (!editModalItems.length) {
+        editModalItems.push({ value: '', label: '', quantity: 1 });
+      }
+      renderEditItemsTable(editModalItems);
     }
+
     window.removeEditItemRow = removeEditItemRow;
 </script>
 </body>

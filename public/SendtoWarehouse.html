@@ -256,6 +256,7 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
+  <script src="/Assets/item-selector-modal.js"></script>
   <link rel="icon" type="image/x-icon" href="Assets/favicon.ico">
 </head>
 <body>
@@ -272,17 +273,10 @@
         </label>
         <div class="items-container">
           <div class="items-header">Order Items</div>
-          <div id="itemsContainer">
-            <div class="item-row">
-              <div class="sku-search-container">
-                <input type="text" class="sku-search-input" placeholder="Search SKU or name..." required />
-                <div class="sku-suggestions"></div>
-              </div>
-              <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
-              <button type="button" class="btn remove-item" onclick="removeItemRow(this)" style="display: none;">Remove</button>
-            </div>
+          <div id="itemsPreview" style="background:#f8f9fa;border:1.5px solid #e1e5e9;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;">
+            <div style="color:#7a7a7a;">No items selected yet.</div>
           </div>
-          <button type="button" class="btn add-item" onclick="addItemRow()">Add Another Item</button>
+          <button type="button" class="btn add-item" onclick="openCustomerItemsModal()">Add Another Item</button>
         </div>
         <button type="submit" class="btn">Submit Shipment</button>
       </form>
@@ -311,151 +305,60 @@
     const form = document.getElementById('orderForm');
     const statusMsg = document.getElementById('statusMsg');
     const shipmentsTableBody = document.querySelector('#shipmentsTable tbody');
-    let allProducts = [];
-    let allIngredients = [];
-    let allBoxes = [];
-    let allSKUs = [];
+    let selectedItems = [];
 
-    // Fetch all products, ingredients, and boxes for dropdown
-    async function fetchAllProducts() {
-      try {
-        // Load Products
-        const { data: products, error: prodError } = await supabase
-          .from('Products')
-          .select('ProductSKU, Name, "Product Weight(oz)"')
-          .order('ProductSKU');
-
-        // Load Ingredients
-        const { data: ingredients, error: ingError } = await supabase
-          .from('Ingredients')
-          .select('IngredientSKU, Name')
-          .order('IngredientSKU');
-
-        // Load Boxes
-        const { data: boxes, error: boxError } = await supabase
-          .from('Boxes')
-          .select('SKU, Dimensions')
-          .order('SKU');
-
-        if (prodError) {
-          console.error('Error fetching products:', prodError);
-          return;
-        }
-        if (ingError) {
-          console.error('Error fetching ingredients:', ingError);
-          return;
-        }
-        if (boxError) {
-          console.error('Error fetching boxes:', boxError);
-          return;
-        }
-
-        allProducts = products || [];
-        allIngredients = ingredients || [];
-        allBoxes = boxes || [];
-
-        // Combine all SKUs for dropdown
-        allSKUs = [];
-        
-        // Add products
-        allProducts.forEach(product => {
-          allSKUs.push({
-            sku: product.ProductSKU,
-            name: product.Name || 'No Name',
-            weight: product['Product Weight(oz)'],
-            type: 'Product'
-          });
-        });
-
-        // Add ingredients
-        allIngredients.forEach(ingredient => {
-          allSKUs.push({
-            sku: ingredient.IngredientSKU,
-            name: ingredient.Name || 'No Name',
-            type: 'Ingredient'
-          });
-        });
-
-        // Add boxes
-        allBoxes.forEach(box => {
-          allSKUs.push({
-            sku: box.SKU,
-            name: box.Dimensions || 'No Dimensions',
-            type: 'Box'
-          });
-        });
-
-        console.log(`Loaded ${allProducts.length} products, ${allIngredients.length} ingredients, ${allBoxes.length} boxes`);
-        setupSKUSearchForAllInputs();
-      } catch (error) {
-        console.error('Error fetching SKUs:', error);
-      }
-    }
-
-    function showSKUSuggestions(inputElement, searchTerm) {
-      const suggestionsDiv = inputElement.parentElement.querySelector('.sku-suggestions');
-      
-      if (!searchTerm || searchTerm.length < 1) {
-        suggestionsDiv.style.display = 'none';
+    function renderCustomerItems() {
+      const container = document.getElementById('itemsPreview');
+      if (!container) return;
+      container.innerHTML = '';
+      if (!selectedItems.length) {
+        container.innerHTML = '<div style="color:#7a7a7a;">No items selected yet.</div>';
         return;
       }
-      
-      const filtered = allSKUs.filter(item => 
-        item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-      
-      if (filtered.length === 0) {
-        suggestionsDiv.innerHTML = '<div class="sku-suggestion-item" style="color:#999;cursor:default;"><em>No SKUs found</em></div>';
-        suggestionsDiv.style.display = 'block';
-        return;
+
+      selectedItems.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;background:#fff;padding:10px 12px;border:1px solid #e1e5e9;border-radius:9px;';
+        row.innerHTML = `
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;color:#34495e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.display || item.value}</div>
+            ${item.label ? `<div style=\"color:#7a7a7a;font-size:0.92rem;\">${item.label}</div>` : ''}
+          </div>
+          <input type="number" value="${item.quantity}" min="1" style="width:90px;padding:8px 10px;border:1.5px solid #e1e5e9;border-radius:7px;" onchange="updateCustomerQuantity(${idx}, this.value)" />
+          <button type="button" class="btn" onclick="removeCustomerItem(${idx})" style="background:#e74c3c;padding:8px 12px;">✕</button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function updateCustomerQuantity(idx, qty) {
+      const parsed = parseInt(qty, 10);
+      if (selectedItems[idx]) {
+        selectedItems[idx].quantity = parsed > 0 ? parsed : 1;
       }
-      
-      let html = '';
-      filtered.slice(0, 10).forEach(item => { // Limit to 10 suggestions
-        html += `<div class="sku-suggestion-item" 
-          onclick="selectSKU('${item.sku}', '${(item.name || '').replace(/'/g, "&#39;")}', this)"
-        >
-          <strong>${item.sku}</strong>
-          <span class="sku-type">${item.type}</span>
-          ${item.name ? `<div class="sku-name">${item.name}${item.weight ? ` (${item.weight}oz)` : ''}</div>` : ''}
-        </div>`;
-      });
-      
-      suggestionsDiv.innerHTML = html;
-      suggestionsDiv.style.display = 'block';
     }
 
-    function selectSKU(sku, name, element) {
-      const suggestionsDiv = element.parentElement;
-      const inputElement = suggestionsDiv.parentElement.querySelector('.sku-search-input');
-      
-      inputElement.value = sku;
-      inputElement.dataset.selectedSku = sku;
-      suggestionsDiv.style.display = 'none';
+    function removeCustomerItem(idx) {
+      selectedItems.splice(idx, 1);
+      renderCustomerItems();
     }
 
-    function setupSKUSearch(container) {
-      const input = container.querySelector('.sku-search-input');
-      const suggestions = container.querySelector('.sku-suggestions');
-      
-      input.addEventListener('input', function() {
-        delete this.dataset.selectedSku; // Reset selection when typing
-        showSKUSuggestions(this, this.value);
-      });
-      
-      // Hide suggestions when clicking outside
-      document.addEventListener('click', function(e) {
-        if (!container.contains(e.target)) {
-          suggestions.style.display = 'none';
+    function openCustomerItemsModal() {
+      openItemSelectorModal({
+        headerText: 'Items to Ship',
+        descriptionText: 'Search SKUs from your catalog and set the quantities you are sending.',
+        tableName: [
+          { table: 'Products', column: 'ProductSKU', label: 'Name' },
+          { table: 'Ingredients', column: 'IngredientSKU', label: 'Name' },
+          { table: 'Boxes', column: 'SKU', label: 'Dimensions' }
+        ],
+        columnName: 'ProductSKU',
+        labelName: 'Name',
+        initialItems: selectedItems.length ? selectedItems : [{ value: '', label: '', quantity: 1 }],
+        onConfirm: (items) => {
+          selectedItems = items;
+          renderCustomerItems();
         }
-      });
-    }
-
-    function setupSKUSearchForAllInputs() {
-      const containers = document.querySelectorAll('.sku-search-container');
-      containers.forEach(container => {
-        setupSKUSearch(container);
       });
     }
 
@@ -529,58 +432,9 @@
       }
     }
 
-    // Add new item row
-    function addItemRow() {
-      const container = document.getElementById('itemsContainer');
-      const newRow = document.createElement('div');
-      newRow.className = 'item-row';
-      newRow.innerHTML = `
-        <div class="sku-search-container">
-          <input type="text" class="sku-search-input" placeholder="Search SKU or name..." required />
-          <div class="sku-suggestions"></div>
-        </div>
-        <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
-        <button type="button" class="btn remove-item" onclick="removeItemRow(this)">Remove</button>
-      `;
-      container.appendChild(newRow);
-      
-      // Setup SKU search for the new row
-      setupSKUSearch(newRow.querySelector('.sku-search-container'));
-
-      // Show remove buttons for all rows if more than one
-      updateRemoveButtons();
-    }
-
-    // Remove item row
-    function removeItemRow(button) {
-      const container = document.getElementById('itemsContainer');
-      const rows = container.querySelectorAll('.item-row');
-      
-      if (rows.length > 1) {
-        button.closest('.item-row').remove();
-        updateRemoveButtons();
-      }
-    }
-
-    // Update visibility of remove buttons
-    function updateRemoveButtons() {
-      const container = document.getElementById('itemsContainer');
-      const rows = container.querySelectorAll('.item-row');
-      const removeButtons = container.querySelectorAll('.remove-item');
-      
-      removeButtons.forEach(button => {
-        button.style.display = rows.length > 1 ? 'inline-block' : 'none';
-      });
-    }
-
-    // Make functions globally available
-    window.addItemRow = addItemRow;
-    window.removeItemRow = removeItemRow;
-    window.selectSKU = selectSKU;
-
     // Initialize the page
     window.addEventListener('DOMContentLoaded', async () => {
-      await fetchAllProducts();
+      renderCustomerItems();
       await fetchRecentShipments();
     });
 
@@ -606,29 +460,9 @@
         // Get Tracking Link (optional)
         const trackingLink = document.getElementById('TrackingLink').value.trim() || null;
 
-        // Collect items data
-        const itemRows = document.querySelectorAll('.item-row');
-        const items = [];
-        for (let row of itemRows) {
-          const skuInput = row.querySelector('.sku-search-input');
-          const sku = skuInput.dataset.selectedSku || skuInput.value.trim();
-          const quantityInput = row.querySelector('.quantity-input');
-          
-          if (sku && quantityInput.value) {
-            // Validate that the SKU exists in our loaded data
-            const skuExists = allSKUs.some(item => item.sku === sku);
-            if (skuExists) {
-              items.push({
-                sku: sku,
-                quantity: parseInt(quantityInput.value)
-              });
-            } else {
-              statusMsg.textContent = `Invalid SKU: ${sku}. Please select a valid SKU from the suggestions.`;
-              statusMsg.className = 'status error';
-              return;
-            }
-          }
-        }
+        const items = (selectedItems || [])
+          .filter(item => item.value && item.quantity)
+          .map(item => ({ sku: item.value, quantity: parseInt(item.quantity, 10) || 0 }));
         if (items.length === 0) {
           statusMsg.textContent = 'Please add at least one item to the order.';
           statusMsg.className = 'status error';
