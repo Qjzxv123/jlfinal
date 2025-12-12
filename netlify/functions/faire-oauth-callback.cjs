@@ -100,7 +100,7 @@ exports.handler = async (event) => {
   }
 
   // Redirect user back to the main app after successful connection
-  const redirectAfterOAuth = '/public/ecommerce-oauth.html';
+  const redirectAfterOAuth = '/ecommerce-oauth.html';
   return {
     statusCode: 302,
     headers: {
