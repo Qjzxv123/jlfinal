@@ -2330,6 +2330,15 @@
             btn.style.opacity = disabled ? '0.65' : '1';
             btn.textContent = disabled ? 'Purchasing...' : 'Confirm Rates';
         }
+
+        async function buildAuthHeaders(extra = {}) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                alert('Session expired. Please log in again.');
+                throw new Error('Missing auth session');
+            }
+            return { Authorization: `Bearer ${session.access_token}`, ...extra };
+        }
         
         async function finalizeRateSelections() {
             if (isPurchasingLabels) return;
@@ -2384,9 +2393,10 @@
             showRatesLoadingOverlay('Purchasing labels and updating orders...');
             let results = [];
             try {
+                const headers = await buildAuthHeaders({ 'Content-Type': 'application/json' });
                 const response = await fetch('/.netlify/functions/shippo-batch-label', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     body: JSON.stringify({ orders: payloadOrders })
                 });
                 const text = await response.text();
