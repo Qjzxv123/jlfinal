@@ -416,10 +416,11 @@ function getIngredientUsage(product, order) {
 				let html = '';
 				filtered.slice(0, 10).forEach(prod => { // Limit to 10 suggestions
 					html += `<div class="suggestion-item" 
-						onclick="selectProduct('${prod.ProductSKU}', '${(prod.Name || '').replace(/'/g, "&#39;")}', '${(prod.Retailer || '').replace(/'/g, "&#39;")}')"
-					>
-						<strong>${prod.ProductSKU}</strong>
-						${prod.Name ? `<div class="product-name">${prod.Name}</div>` : ''}
+						data-sku="${escapeHtml(prod.ProductSKU)}" 
+						data-name="${escapeHtml(prod.Name || '')}" 
+						data-retailer="${escapeHtml(prod.Retailer || '')}">
+						<strong>${escapeHtml(prod.ProductSKU)}</strong>
+						${prod.Name ? `<div class="product-name">${escapeHtml(prod.Name)}</div>` : ''}
 					</div>`;
 				});
 				
@@ -435,6 +436,16 @@ function getIngredientUsage(product, order) {
 				productSuggestions.style.display = 'none';
 			};
 			
+			// Click handler for suggestions (event delegation to avoid inline JS quoting issues)
+			productSuggestions.addEventListener('click', function(e) {
+				const item = e.target.closest('.suggestion-item');
+				if (!item) return;
+				const sku = item.dataset.sku || '';
+				const name = item.dataset.name || '';
+				const retailer = item.dataset.retailer || '';
+				selectProduct(sku, name, retailer);
+			});
+
 			// Add input event listener for search
 			productInput.addEventListener('input', function() {
 				selectedProductSKU = null; // Reset selection when typing
@@ -712,7 +723,7 @@ function getIngredientUsage(product, order) {
 							</span>
 							</h2>
 							${showWarning ? `<span class=\"warning-badge\" style=\"position:static;\"><i class=\"cil-warning\"></i> ${warningText}</span>` : ''}
-							${showIngredientWarning && !order.IngredientsRemoved ? `<button onclick="showInsufficientIngredientsModal(${JSON.stringify(ingredientWarningText).replace(/"/g, '&quot;')})" class="warning-badge" style="position:static;background:#e74c3c;"><i class="cil-warning"></i>Insufficient Ingredients</button>` : ''}
+							${showIngredientWarning && !order.IngredientsRemoved ? `<button onclick='showInsufficientIngredientsModal(${JSON.stringify(ingredientWarningText).replace(/'/g, "\\'")})' class="warning-badge" style="position:static;background:#e74c3c;"><i class="cil-warning"></i>Insufficient Ingredients</button>` : ''}
 							${order.IngredientsRemoved ? `<button id=\"restore\" onclick="restoreIngredients(${order.OrderNumber})" style=\"background:#4DBA93;color:#fff;border-radius:8px;padding:4px 10px;font-size:0.98em;margin-left:10px;display:inline-block;vertical-align:middle;\"><i class="cil-history"></i> Add Back Ingredients</button>` : ''}
 									</h2>
 						</div>
