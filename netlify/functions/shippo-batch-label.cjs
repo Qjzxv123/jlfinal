@@ -293,6 +293,7 @@ async function upsertOrderHistory({ supabase, orderData, packages, labelInfo, ra
 		Link: orderData?.Link || orderData?.link || null,
 		BoxSkus: boxSkus.length ? boxSkus : null,
 		ShippingCost: shippingCost !== null && !Number.isNaN(shippingCost) ? shippingCost : null,
+		Price: (typeof orderData?.Price === 'number' ? orderData.Price : (orderData?.Price ? parseFloat(orderData.Price) : null)),
 		Notes: orderData?.Notes || null,
 		UserID: userIds,
 		CustomerMessages: orderData?.CustomerMessages || null,
