@@ -232,6 +232,7 @@ exports.handler = async (event) => {
         CustomerMessages: existingOrder?.CustomerMessages || null,
         InventoryRemoved: existingOrder?.InventoryRemoved || null,
         ShippoOrderID: order.object_id || null,
+        Price: order.subtotal_price || null,
       }, { onConflict: 'OrderID' });
       
       processedCount++;
