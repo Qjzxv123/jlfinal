@@ -190,7 +190,6 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
   <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
 </head>
@@ -208,17 +207,6 @@
         <div class="kpi-card"><div class="kpi-label">Inventory Removed</div><div class="kpi-value" id="kpi-inv-removed">—</div><div class="kpi-sub">Ready to ship</div></div>
         <div class="kpi-card"><div class="kpi-label">Low Products</div><div class="kpi-value" id="kpi-low-products">—</div><div class="kpi-sub">Qty &lt; 20</div></div>
       </div>
-
-      <!-- Orders trend chart -->
-      <div class="section-card">
-        <div class="section-header" style="cursor:default;">
-          <span><span class="section-title">Orders Shipped (Last 14 Days)</span></span>
-        </div>
-        <div class="chart-wrap">
-          <canvas id="ordersTrendChart"></canvas>
-        </div>
-      </div>
-
       <!-- Quick actions -->
       <div class="section-card">
         <div class="section-header" style="cursor:default;">
@@ -251,8 +239,7 @@
     document.addEventListener('DOMContentLoaded', async function() {
       await Promise.all([
         loadOrdersCount(),
-        loadKpis(),
-        renderOrdersTrend()
+        loadKpis()
       ]);
       for (const section of sections) {
         await renderCollapsableTable(section);
@@ -361,42 +348,7 @@
       }
     }
 
-    // Chart: Orders shipped in last 14 days (Order History)
-    async function renderOrdersTrend() {
-      try {
-        const since = new Date(Date.now() - 14*24*60*60*1000).toISOString();
-        const { data, error } = await supabase
-          .from('Order History')
-          .select('ShippedAt')
-          .gte('ShippedAt', since)
-          .order('ShippedAt', { ascending: true });
-        if (error) throw error;
-        // Build date buckets
-        const days = [];
-        const map = new Map();
-        const today = new Date();
-        for (let i = 13; i >= 0; i--) {
-          const d = new Date(today);
-          d.setDate(today.getDate() - i);
-          const key = d.toISOString().substring(0,10);
-          days.push(key);
-          map.set(key, 0);
-        }
-        (data||[]).forEach(r => {
-          const key = (r.ShippedAt || '').substring(0,10);
-          if (map.has(key)) map.set(key, (map.get(key)||0)+1);
-        });
-        const labels = days.map(d => d.substring(5));
-        const values = days.map(d => map.get(d));
-        const ctx = document.getElementById('ordersTrendChart');
-        if (!ctx) return;
-        new Chart(ctx, {
-          type: 'line',
-          data: { labels, datasets: [{ label: 'Shipped', data: values, borderColor: '#4dba93', backgroundColor: 'rgba(77,186,147,0.2)', tension: .3, fill: true, pointRadius: 3 }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display:false } }, y: { beginAtZero:true, ticks: { precision:0 } } } }
-        });
-      } catch (e) { /* ignore */ }
-    }
+    // Chart removed: orders trend now linked to Analytics page
     async function renderLowInventorySection() {
       const container = document.getElementById('adminSections');
       // Products low inventory
