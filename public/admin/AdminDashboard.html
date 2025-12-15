@@ -97,9 +97,12 @@
     /* KPI cards */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 14px;
       margin-bottom: 20px;
+      max-width: 720px;
+      margin-left: auto;
+      margin-right: auto;
     }
     .kpi-card {
       background: white;
@@ -107,6 +110,7 @@
       padding: 16px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.06);
       border: 1px solid #eef2f7;
+      text-align: center;
     }
     .kpi-label { color: #718096; font-weight: 600; font-size: 0.9rem; }
     .kpi-value { color: #2d3748; font-size: 1.8rem; font-weight: 800; margin-top: 6px; }
@@ -202,9 +206,7 @@
       <div class="kpi-grid" id="kpiGrid">
         <div class="kpi-card"><div class="kpi-label">Active Orders</div><div class="kpi-value" id="kpi-active-orders">—</div><div class="kpi-sub" id="kpi-active-sub">Loading…</div></div>
         <div class="kpi-card"><div class="kpi-label">Inventory Removed</div><div class="kpi-value" id="kpi-inv-removed">—</div><div class="kpi-sub">Ready to ship</div></div>
-        <div class="kpi-card"><div class="kpi-label">Returned Orders</div><div class="kpi-value" id="kpi-returned">—</div><div class="kpi-sub">Past 90 days</div></div>
         <div class="kpi-card"><div class="kpi-label">Low Products</div><div class="kpi-value" id="kpi-low-products">—</div><div class="kpi-sub">Qty &lt; 20</div></div>
-        <div class="kpi-card"><div class="kpi-label">Low Ingredients</div><div class="kpi-value" id="kpi-low-ingredients">—</div><div class="kpi-sub">Below threshold</div></div>
       </div>
 
       <!-- Orders trend chart -->
@@ -345,18 +347,14 @@
     // KPIs
     async function loadKpis() {
       try {
-        const [activeOrders, invRemoved, returned, lowProducts, ingredients] = await Promise.all([
+        const [activeOrders, invRemoved, lowProducts] = await Promise.all([
           supabase.from('Orders').select('OrderID', { count: 'exact', head: true }),
           supabase.from('Orders').select('OrderID', { count: 'exact', head: true }).eq('InventoryRemoved', true),
-          supabase.from('Order History').select('id', { count: 'exact', head: true }).gte('ShippedAt', new Date(Date.now() - 90*24*60*60*1000).toISOString()),
           supabase.from('Products').select('ProductSKU', { count: 'exact', head: true }).lt('Quantity', 20),
-          supabase.from('Ingredients').select('IngredientSKU', { count: 'exact', head: true }).lt('Quantity(Lbs/Units)', 'LowInvThreshold')
         ]);
         document.getElementById('kpi-active-orders').textContent = activeOrders.count ?? 0;
         document.getElementById('kpi-inv-removed').textContent = invRemoved.count ?? 0;
-        document.getElementById('kpi-returned').textContent = returned.count ?? 0;
         document.getElementById('kpi-low-products').textContent = lowProducts.count ?? 0;
-        document.getElementById('kpi-low-ingredients').textContent = ingredients.count ?? 0;
         document.getElementById('kpi-active-sub').textContent = 'Across all platforms';
       } catch (e) {
         // Best-effort: leave defaults
