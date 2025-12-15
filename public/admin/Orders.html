@@ -2371,9 +2371,14 @@
             showRatesLoadingOverlay('Purchasing labels and updating orders...');
             let results = [];
             try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token || null;
                 const response = await fetch('/.netlify/functions/shippo-batch-label', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: Object.assign(
+                        { 'Content-Type': 'application/json' },
+                        token ? { Authorization: `Bearer ${token}` } : {}
+                    ),
                     body: JSON.stringify({ orders: payloadOrders })
                 });
                 const text = await response.text();
