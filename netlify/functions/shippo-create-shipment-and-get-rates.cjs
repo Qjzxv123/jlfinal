@@ -68,6 +68,11 @@ exports.handler = async (event) => {
 		try { customer = JSON.parse(customer); } catch { customer = {}; }
 	}
 
+	// Ensure phone is present and sanitized for UPS label requirements
+	const rawPhone = customer.phone || customer.Phone || order?.CustomerPhone || order?.phone || '';
+	const sanitizedPhone = String(rawPhone).replace(/[^0-9]/g, '');
+	const fallbackPhone = '7045550000'; // valid-looking 10-digit fallback
+
 	const address_to = {
 		name: customer.name || customer.Name || '',
 		street1: customer.address1 || customer.Address1 || customer.address || '',
@@ -76,7 +81,7 @@ exports.handler = async (event) => {
 		state: customer.state || customer.State || '',
 		zip: customer.zipCode || customer.zip || customer.postal_code || '',
 		country: customer.country || customer.Country || 'US',
-		phone: customer.phone || '',
+		phone: (sanitizedPhone && sanitizedPhone.length >= 10) ? sanitizedPhone.substring(0, 15) : fallbackPhone,
 		email: (customer.email || '').substring(0, 50)
 	};
 
@@ -125,7 +130,8 @@ exports.handler = async (event) => {
 			const weightOz = Number(it.WeightOz ?? it.weight_oz ?? it.weightOz ?? 0);
 			const netWeightLb = weightOz ? (weightOz / 16) : 0;
 			const valueEach = Number(it.Value ?? it.value ?? it.Price ?? it.price ?? 5) || 5;
-			const desc = String(it.Name ?? it.name ?? it.description ?? 'Merchandise').slice(0, 45) || 'Merchandise';
+			// UPS customs item description must be <= 30 chars
+			const desc = (String(it.Name ?? it.name ?? it.description ?? 'Merchandise').substring(0, 30)) || 'Merchandise';
 			
 			customsItems.push({
 				description: desc,
