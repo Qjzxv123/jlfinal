@@ -1024,7 +1024,12 @@ function getIngredientUsage(product, order) {
 		<div style="background:#fff;padding:32px 24px;border-radius:12px;max-width:480px;width:90vw;box-shadow:0 4px 24px rgba(0,0,0,0.18);position:relative;">
 			<h2 style="margin-top:0;color:#e74c3c;text-align:center;font-size:1.3em;">Insufficient Ingredients</h2>
 			<div id="ingredientModalContent" style="margin-top:18px;"></div>
-			<button id="closeIngredientModal" style="margin-top:24px;width:100%;background:#4DBA93;color:#fff;border:none;padding:10px 0;border-radius:8px;font-size:1em;cursor:pointer;">Close</button>
+			<div style="margin-top:18px;text-align:center;">
+				<label style="display:block;margin-bottom:8px;font-weight:600;color:#333;">Expected By:</label>
+				<input type="date" id="expectedByDate" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:1em;width:100%;max-width:200px;" />
+			</div>
+			<button id="orderIngredientsBtn" style="margin-top:16px;width:100%;background:#BA4D74;color:#fff;border:none;padding:10px 0;border-radius:8px;font-size:1em;cursor:pointer;font-weight:600;">Order Ingredients</button>
+			<button id="closeIngredientModal" style="margin-top:12px;width:100%;background:#4DBA93;color:#fff;border:none;padding:10px 0;border-radius:8px;font-size:1em;cursor:pointer;">Close</button>
 		</div>
 	</div>
 	<script>
@@ -1032,25 +1037,85 @@ function getIngredientUsage(product, order) {
   document.getElementById('ingredientModal').style.display = 'none';
 };
 
+// Store current insufficient ingredients data globally for order button
+let currentInsufficientData = [];
+
 // Function to show modal with ingredient info
 async function showInsufficientIngredientsModal(insufficientSKUs) {
   if (!Array.isArray(insufficientSKUs) || insufficientSKUs.length === 0) return;
   const { data: ingredients, error } = await supabase
     .from('Ingredients')
-    .select('IngredientSKU, Name, Link')
+    .select('IngredientSKU, Name, Link, "Quantity(Lbs/Units)"')
     .in('IngredientSKU', insufficientSKUs);
+  
+  currentInsufficientData = ingredients || [];
+  
   let html = '<table style="width:100%;border-collapse:collapse;">';
-  html += '<thead><tr><th>Name</th><th>SKU</th><th>Link</th></tr></thead><tbody>';
+  html += '<thead><tr><th>Name</th><th>SKU</th><th>Current Qty</th><th>Link</th></tr></thead><tbody>';
   (ingredients || []).forEach(ing => {
     html += `<tr>
       <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.Name || ''}</td>
       <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.IngredientSKU}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing['Quantity(Lbs/Units)'] ?? 0}</td>
       <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.Link ? `<a href="${ing.Link}" target="_blank">Link</a>` : ''}</td>
     </tr>`;
   });
   html += '</tbody></table>';
   document.getElementById('ingredientModalContent').innerHTML = html;
+  
+  // Set default date to 7 days from now
+  const defaultDate = new Date();
+  defaultDate.setDate(defaultDate.getDate() + 7);
+  document.getElementById('expectedByDate').value = defaultDate.toISOString().split('T')[0];
+  
   document.getElementById('ingredientModal').style.display = 'flex';
+}
+
+// Handler for Order Ingredients button
+document.getElementById('orderIngredientsBtn').onclick = async function() {
+  const expectedBy = document.getElementById('expectedByDate').value;
+  if (!expectedBy) {
+    alert('Please select an expected delivery date.');
+    return;
+  }
+  
+  if (!currentInsufficientData || currentInsufficientData.length === 0) {
+    alert('No ingredients to order.');
+    return;
+  }
+  
+  // Prompt for quantity for each ingredient
+  const orders = [];
+  for (const ingredient of currentInsufficientData) {
+    const qty = prompt(`Enter quantity to order for ${ingredient.Name} (${ingredient.IngredientSKU}):`, '0');
+    if (qty === null) continue; // user cancelled
+    const qtyNum = parseFloat(qty);
+    if (isNaN(qtyNum) || qtyNum <= 0) continue;
+    
+    orders.push({
+      ExpectedBy: expectedBy,
+      IngredientSKU: ingredient.IngredientSKU,
+      'Quantity(Lbs/Units)': qtyNum
+    });
+  }
+  
+  if (orders.length === 0) {
+    alert('No valid orders entered.');
+    return;
+  }
+  
+  // Insert all orders
+  const { error } = await supabase
+    .from('IngredientOrders')
+    .insert(orders);
+  
+  if (error) {
+    alert('Error creating ingredient orders: ' + error.message);
+    return;
+  }
+  
+  alert(`Successfully created ${orders.length} ingredient order(s)!`);
+  document.getElementById('ingredientModal').style.display = 'none';
 }
 
 // Inline quantity edit logic

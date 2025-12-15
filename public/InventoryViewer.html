@@ -130,6 +130,44 @@
             color: #92400e;
             font-weight: bold;
         }
+        
+        /* Tabs styling */
+        .tabs-container {
+            display: flex;
+            gap: 0;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            width: 100%;
+        }
+        .tab {
+            flex: 1;
+            padding: 12px 20px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            color: #666;
+            background: #f8fafc;
+            border: none;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        .tab:hover {
+            background: #e2e8f0;
+            color: #333;
+        }
+        .tab.active {
+            background: white;
+            color: #228B22;
+            border-bottom: 3px solid #228B22;
+        }
+        .tab-content {
+            display: none;
+            width: 100%;
+        }
+        .tab-content.active {
+            display: block;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/Assets/CheckAccess.js"></script>
@@ -146,10 +184,37 @@
                 <div style="margin-bottom: 1em; color: #666; font-style: italic;">
                     Inventory syncs with platforms automatically every 15 minutes.
                 </div>
-                <div style="margin-bottom: 1.5em; width:100%; display:flex; justify-content:center;">
-                    <input id="searchBar" type="text" placeholder="Search SKU or Name..." style="padding:0.6rem 1rem; border-radius:6px; border:1.5px solid #e1e5e9; font-size:1rem; min-width:260px; width:100%; max-width:400px;" />
+                
+                <!-- Tabs -->
+                <div class="tabs-container">
+                    <div class="tab active" onclick="switchTab('products')">Products</div>
+                    <div class="tab" onclick="switchTab('boxes')">Boxes</div>
+                    <div class="tab" onclick="switchTab('ingredients')">Ingredients</div>
                 </div>
-                <div id="data-viewer" style="display:none; margin-top:2rem;"></div>
+                
+                <!-- Products Tab -->
+                <div id="products-tab" class="tab-content active">
+                    <div style="margin-bottom: 1.5em; width:100%; display:flex; justify-content:center;">
+                        <input id="searchBarProducts" type="text" placeholder="Search SKU or Name..." style="padding:0.6rem 1rem; border-radius:6px; border:1.5px solid #e1e5e9; font-size:1rem; min-width:260px; width:100%; max-width:400px;" />
+                    </div>
+                    <div id="data-viewer" style="display:none; margin-top:2rem;"></div>
+                </div>
+                
+                <!-- Boxes Tab -->
+                <div id="boxes-tab" class="tab-content">
+                    <div style="margin-bottom: 1.5em; width:100%; display:flex; justify-content:center;">
+                        <input id="searchBarBoxes" type="text" placeholder="Search SKU..." style="padding:0.6rem 1rem; border-radius:6px; border:1.5px solid #e1e5e9; font-size:1rem; min-width:260px; width:100%; max-width:400px;" />
+                    </div>
+                    <div id="boxes-viewer" style="display:none; margin-top:2rem;"></div>
+                </div>
+                
+                <!-- Ingredients Tab -->
+                <div id="ingredients-tab" class="tab-content">
+                    <div style="margin-bottom: 1.5em; width:100%; display:flex; justify-content:center;">
+                        <input id="searchBarIngredients" type="text" placeholder="Search name..." style="padding:0.6rem 1rem; border-radius:6px; border:1.5px solid #e1e5e9; font-size:1rem; min-width:260px; width:100%; max-width:400px;" />
+                    </div>
+                    <div id="ingredients-viewer" style="display:none; margin-top:2rem;"></div>
+                </div>
     </div>
     <script>
         // Use shared access control and inactivity timeout
@@ -371,31 +436,58 @@
                 }
             }
         }
+        // Tab switching function
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            // Show selected tab content
+            const selectedContent = document.getElementById(tabName + '-tab');
+            if (selectedContent) selectedContent.classList.add('active');
+            // Add active class to selected tab
+            event.target.classList.add('active');
+        }
+        
         // On load, fetch and display data after access check
         window.addEventListener('DOMContentLoaded', async () => {
             fetchAndDisplayData();
             fetchAndDisplayBoxes();
-            // Add search bar event
-            const searchBar = document.getElementById('searchBar');
-            if (searchBar) {
-                searchBar.addEventListener('input', function() {
-                    fetchAndDisplayData(null, searchBar.value);
+            fetchAndDisplayIngredients();
+            
+            // Add search bar events
+            const searchBarProducts = document.getElementById('searchBarProducts');
+            if (searchBarProducts) {
+                searchBarProducts.addEventListener('input', function() {
+                    fetchAndDisplayData(null, searchBarProducts.value);
+                });
+            }
+            
+            const searchBarBoxes = document.getElementById('searchBarBoxes');
+            if (searchBarBoxes) {
+                searchBarBoxes.addEventListener('input', function() {
+                    fetchAndDisplayBoxes(searchBarBoxes.value);
+                });
+            }
+            
+            const searchBarIngredients = document.getElementById('searchBarIngredients');
+            if (searchBarIngredients) {
+                searchBarIngredients.addEventListener('input', function() {
+                    fetchAndDisplayIngredients(searchBarIngredients.value);
                 });
             }
         });
 
         // Fetch and display Boxes table
-        async function fetchAndDisplayBoxes() {
-            const mainContainer = document.getElementById('main-container');
-            let boxSection = document.getElementById('boxes-section');
-            if (!boxSection) {
-                boxSection = document.createElement('div');
-                boxSection.id = 'boxes-section';
-                boxSection.style = 'margin-top:2.5rem;width:100%;';
-                mainContainer.appendChild(boxSection);
-            }
-            boxSection.innerHTML = '<h3>Boxes</h3><div id="boxes-table-viewer"><b>Loading boxes...</b></div>';
-            const tableViewer = boxSection.querySelector('#boxes-table-viewer');
+        async function fetchAndDisplayBoxes(searchTerm = '') {
+            const tableViewer = document.getElementById('boxes-viewer');
+            if (!tableViewer) return;
+            tableViewer.style.display = 'block';
+            tableViewer.innerHTML = '<b>Loading boxes...</b>';
             try {
                 const { data, error } = await supabase
                     .from('Boxes')
@@ -408,9 +500,19 @@
                     tableViewer.innerHTML = '<div>No boxes found.</div>';
                     return;
                 }
+                
+                // Filter by search term
+                let filtered = data;
+                if (searchTerm && searchTerm.trim() !== '') {
+                    const lower = searchTerm.toLowerCase();
+                    filtered = data.filter(row => 
+                        (row.SKU && row.SKU.toLowerCase().includes(lower))
+                    );
+                }
+                
                 let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
                 html += '<tr>' + ['SKU','Weight(Lbs)','Cost','Dimensions','Link','Price','Quantity'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
-                for (const row of data) {
+                for (const row of filtered) {
                     html += '<tr>';
                     html += `<td style='padding:4px;'>${row.SKU ?? ''}</td>`;
                     html += `<td style='padding:4px;'>${row["Weight(Lbs)"] ?? ''}</td>`;
@@ -425,6 +527,73 @@
                 tableViewer.innerHTML = html;
             } catch (e) {
                 tableViewer.innerHTML = `<div class='error'>Error loading boxes: ${e.message}</div>`;
+            }
+        }
+        
+        // Fetch and display Ingredients table
+        async function fetchAndDisplayIngredients(searchTerm = '') {
+            const tableViewer = document.getElementById('ingredients-viewer');
+            if (!tableViewer) return;
+            tableViewer.style.display = 'block';
+            tableViewer.innerHTML = '<b>Loading ingredients...</b>';
+            
+            try {
+                const { data, error } = await supabase
+                    .from('Ingredients')
+                    .select('Name, "Quantity(Lbs/Units)", Link, UserID');
+                    
+                if (error) {
+                    tableViewer.innerHTML = `<div class='error'>Error loading ingredients: ${error.message}</div>`;
+                    return;
+                }
+                
+                if (!data || data.length === 0) {
+                    tableViewer.innerHTML = '<div>No ingredients found.</div>';
+                    return;
+                }
+                
+                // Filter by search term
+                let filtered = data;
+                if (searchTerm && searchTerm.trim() !== '') {
+                    const lower = searchTerm.toLowerCase();
+                    filtered = data.filter(row => 
+                        (row.Name && row.Name.toLowerCase().includes(lower))
+                    );
+                }
+                
+                // Sort by name
+                filtered.sort((a, b) => {
+                    const nameA = (a.Name || '').toLowerCase();
+                    const nameB = (b.Name || '').toLowerCase();
+                    if (nameA < nameB) return -1;
+                    if (nameA > nameB) return 1;
+                    return 0;
+                });
+                
+                let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+                html += '<tr>' + ['Name','Quantity(Lbs/Units)','Link'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
+                
+                for (const row of filtered) {
+                    const quantityStr = row["Quantity(Lbs/Units)"] ?? '';
+                    const quantity = parseFloat(quantityStr) || 0;
+                    let quantityClass = '';
+                    if (quantity <= 0) {
+                        quantityClass = 'quantity-critical';
+                    } else if (quantity < 10) {
+                        quantityClass = 'quantity-low';
+                    }
+                    
+                    html += '<tr>';
+                    html += `<td style='padding:4px;'>${row.Name ?? ''}</td>`;
+                    html += `<td style='padding:4px;' class='${quantityClass}'>${quantityStr}</td>`;
+                    html += `<td style='padding:4px;'>${row.Link ? `<a href='${row.Link}' target='_blank' style='color:#3498db;text-decoration:underline;'>Link</a>` : ''}</td>`;
+                    html += '</tr>';
+                }
+                
+                html += '</table>';
+                tableViewer.innerHTML = html;
+            } catch (e) {
+                tableViewer.innerHTML = `<div class='error'>Error loading ingredients: ${e.message}</div>`;
             }
         }
     </script>
