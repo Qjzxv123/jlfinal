@@ -311,6 +311,16 @@
           <div class="value" id="avgShippingCost">$0</div>
           <div class="subtext">Per order</div>
         </div>
+        <div class="stat-card">
+          <div class="label">Total Revenue</div>
+          <div class="value" id="totalRevenue">$0</div>
+          <div class="subtext">Sum of order subtotal (Price)</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Avg Order Value</div>
+          <div class="value" id="avgOrderValue">$0</div>
+          <div class="subtext">Average of Price per order</div>
+        </div>
       </div>
 
       <div class="chart-container">
@@ -353,6 +363,7 @@
                 <th>Platform</th>
                 <th style="text-align:right;">Orders</th>
                 <th style="text-align:right;">Shipping Cost</th>
+                <th style="text-align:right;">Revenue</th>
                 <th style="text-align:right;">Units</th>
               </tr>
             </thead>
@@ -369,6 +380,7 @@
               <th>Retailer</th>
               <th style="text-align:right;">Orders</th>
               <th style="text-align:right;">Shipping Cost</th>
+              <th style="text-align:right;">Revenue</th>
               <th style="text-align:right;">Units Sold</th>
               <th style="text-align:right;">Avg Order Size</th>
               <th style="text-align:right;">Top Product</th>
@@ -525,6 +537,7 @@
       // Calculate overall stats
       const totalOrders = filteredOrders.length;
       const totalShippingCost = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.ShippingCost) || 0), 0);
+      const totalRevenue = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.Price) || 0), 0);
       
       // Count all products
       let totalProductCount = 0;
@@ -550,20 +563,23 @@
         const platform = order.Platform || 'Unknown';
         const retailer = order.Retailer || 'Unknown';
         const shippingCost = parseFloat(order.ShippingCost) || 0;
+        const revenue = parseFloat(order.Price) || 0;
 
         // Platform stats
         if (!platformStats[platform]) {
-          platformStats[platform] = { orders: 0, shippingCost: 0, units: 0 };
+          platformStats[platform] = { orders: 0, shippingCost: 0, revenue: 0, units: 0 };
         }
         platformStats[platform].orders++;
         platformStats[platform].shippingCost += shippingCost;
+        platformStats[platform].revenue += revenue;
 
         // Retailer stats
         if (!retailerStats[retailer]) {
-          retailerStats[retailer] = { orders: 0, shippingCost: 0, units: 0, products: {} };
+          retailerStats[retailer] = { orders: 0, shippingCost: 0, revenue: 0, units: 0, products: {} };
         }
         retailerStats[retailer].orders++;
         retailerStats[retailer].shippingCost += shippingCost;
+        retailerStats[retailer].revenue += revenue;
 
         // Product stats
         items.forEach(item => {
@@ -596,12 +612,15 @@
       });
 
       const avgShippingCost = totalOrders > 0 ? totalShippingCost / totalOrders : 0;
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
       // Display overall stats
       document.getElementById('totalOrders').textContent = totalOrders.toLocaleString();
       document.getElementById('totalShippingCost').textContent = '$' + totalShippingCost.toFixed(2);
       document.getElementById('totalProducts').textContent = totalProductCount.toLocaleString();
       document.getElementById('avgShippingCost').textContent = '$' + avgShippingCost.toFixed(2);
+      document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toFixed(2);
+      document.getElementById('avgOrderValue').textContent = '$' + avgOrderValue.toFixed(2);
 
       // Render charts
       renderOrdersTimelineChart();
@@ -655,6 +674,7 @@
             <td><span class="platform-badge ${badgeClass}">${escapeHtml(platform)}</span></td>
             <td style="text-align:right;">${stats.orders.toLocaleString()}</td>
             <td style="text-align:right;">$${stats.shippingCost.toFixed(2)}</td>
+            <td style="text-align:right;">$${stats.revenue.toFixed(2)}</td>
             <td style="text-align:right;">${stats.units.toLocaleString()}</td>
           </tr>
         `;
@@ -679,6 +699,7 @@
             <td><strong>${escapeHtml(retailer)}</strong></td>
             <td style="text-align:right;">${stats.orders.toLocaleString()}</td>
             <td style="text-align:right;">$${stats.shippingCost.toFixed(2)}</td>
+            <td style="text-align:right;">$${stats.revenue.toFixed(2)}</td>
             <td style="text-align:right;">${stats.units.toLocaleString()}</td>
             <td style="text-align:right;">${avgOrderSize}</td>
             <td style="text-align:right; font-size:0.85rem;">${escapeHtml(topProductText)}</td>
