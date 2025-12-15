@@ -1200,7 +1200,39 @@ async function submitReceiveShipment(event) {
               QuantityChanged: item.quantity
             });
         } else {
-          throw new Error(`SKU ${item.sku} does not exist in Products or Boxes tables.`);
+          // Try to update Ingredients table
+          const { data: ing, error: ingErr } = await supabase
+            .from('Ingredients')
+            .select('"Quantity(Lbs/Units)"')
+            .eq('IngredientSKU', item.sku)
+            .maybeSingle();
+
+          if (ingErr) throw ingErr;
+
+          if (ing) {
+            const currentQty = ing['Quantity(Lbs/Units)'] || 0;
+            const newQty = currentQty + item.quantity;
+
+            const updateObj = { ['Quantity(Lbs/Units)']: newQty };
+            const { error: upIngErr } = await supabase
+              .from('Ingredients')
+              .update(updateObj)
+              .eq('IngredientSKU', item.sku);
+            if (upIngErr) throw upIngErr;
+
+            // Log the inventory update
+            const logMsg = `Received ${item.quantity} Ingredient SKU ${item.sku}`;
+            await supabase
+              .from('inventoryupdatelogs')
+              .insert({
+                log: logMsg,
+                updated_by: displayName || shipment.Retailer || null,
+                SKU: item.sku,
+                QuantityChanged: item.quantity
+              });
+          } else {
+            throw new Error(`SKU ${item.sku} does not exist in Products, Boxes, or Ingredients tables.`);
+          }
         }
       }
     }
