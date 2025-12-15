@@ -7,6 +7,54 @@
   <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
   <link rel="stylesheet" href="/Assets/sidebar.css">
   <style>
+    /* Notification banners */
+    #banner-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .alert-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #f1e4b8;
+      background: #fffbef;
+      color: #5c4b19;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+      font-weight: 600;
+    }
+    .alert-banner.info {
+      border-color: #cce4ff;
+      background: #f5f9ff;
+      color: #1f4473;
+    }
+    .alert-banner.success {
+      border-color: #b8e4c6;
+      background: #f3fff7;
+      color: #1f6b3a;
+    }
+    .alert-banner .icon {
+      font-size: 1.2em;
+      line-height: 1;
+      margin-top: 2px;
+    }
+    .alert-banner .text {
+      flex: 1;
+      font-size: 0.98em;
+      line-height: 1.4;
+    }
+    .alert-banner .close-btn {
+      background: none;
+      border: none;
+      color: inherit;
+      font-size: 1.2em;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
@@ -46,6 +94,32 @@
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       overflow-y: auto;
     }
+    /* KPI cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .kpi-card {
+      background: white;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+      border: 1px solid #eef2f7;
+    }
+    .kpi-label { color: #718096; font-weight: 600; font-size: 0.9rem; }
+    .kpi-value { color: #2d3748; font-size: 1.8rem; font-weight: 800; margin-top: 6px; }
+    .kpi-sub { color: #4dba93; font-size: 0.85rem; font-weight: 600; margin-top: 4px; }
+
+    /* Quick actions */
+    .quick-actions { display: grid; grid-template-columns: repeat(6, minmax(140px, 1fr)); gap: 12px; }
+    .qa-card { background:white; border:1px solid #eef2f7; border-radius:12px; padding:14px; text-align:center; cursor:pointer; transition: transform .12s ease, box-shadow .12s ease; }
+    .qa-card:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
+    .qa-card .qa-title { margin-top:8px; font-weight:700; color:#2d3748; font-size:0.95rem; }
+
+    /* Chart container */
+    .chart-wrap { position: relative; height: 260px; }
     .section-header {
       display: flex;
       justify-content: space-between;
@@ -112,6 +186,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
   <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
 </head>
@@ -123,6 +198,40 @@
       <div class="dashboard-header">
         <h1>Admin Dashboard</h1>
       </div>
+      <!-- KPI Cards -->
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card"><div class="kpi-label">Active Orders</div><div class="kpi-value" id="kpi-active-orders">—</div><div class="kpi-sub" id="kpi-active-sub">Loading…</div></div>
+        <div class="kpi-card"><div class="kpi-label">Inventory Removed</div><div class="kpi-value" id="kpi-inv-removed">—</div><div class="kpi-sub">Ready to ship</div></div>
+        <div class="kpi-card"><div class="kpi-label">Returned Orders</div><div class="kpi-value" id="kpi-returned">—</div><div class="kpi-sub">Past 90 days</div></div>
+        <div class="kpi-card"><div class="kpi-label">Low Products</div><div class="kpi-value" id="kpi-low-products">—</div><div class="kpi-sub">Qty &lt; 20</div></div>
+        <div class="kpi-card"><div class="kpi-label">Low Ingredients</div><div class="kpi-value" id="kpi-low-ingredients">—</div><div class="kpi-sub">Below threshold</div></div>
+      </div>
+
+      <!-- Orders trend chart -->
+      <div class="section-card">
+        <div class="section-header" style="cursor:default;">
+          <span><span class="section-title">Orders Shipped (Last 14 Days)</span></span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="ordersTrendChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="section-card">
+        <div class="section-header" style="cursor:default;">
+          <span><span class="section-title">Quick Actions</span></span>
+        </div>
+        <div class="quick-actions">
+          <div class="qa-card" onclick="location.href='/admin/Orders.html'"><i class="cil-truck" style="font-size:20px;color:#4dba93;"></i><div class="qa-title">Orders</div></div>
+          <div class="qa-card" onclick="location.href='/admin/Manufacturing.html'"><i class="cil-factory" style="font-size:20px;color:#4d6dba;"></i><div class="qa-title">Manufacturing</div></div>
+          <div class="qa-card" onclick="location.href='/admin/UserManagement.html'"><i class="cil-user" style="font-size:20px;color:#ba4d74;"></i><div class="qa-title">Users</div></div>
+          <div class="qa-card" onclick="location.href='/admin/DatabaseViewer.html'"><i class="cil-storage" style="font-size:20px;color:#8a5cf6;"></i><div class="qa-title">Inventory</div></div>
+          <div class="qa-card" onclick="location.href='/admin/AmazonShipments.html'"><i class="cil-send" style="font-size:20px;color:#f5a623;"></i><div class="qa-title">Amazon Shipments</div></div>
+          <div class="qa-card" onclick="location.href='/admin/Calendar.html'"><i class="cil-calendar" style="font-size:20px;color:#228B22;"></i><div class="qa-title">Calendar</div></div>
+        </div>
+      </div>
+
       <div id="ordersCount" style="font-size:1.2rem;font-weight:600;margin-top:10px;"></div>
       <div id="adminSections"></div>
     </div>
@@ -138,7 +247,11 @@
   { key: 'ManufacturingTasks', label: 'Manufacturing Tasks', columns: ['OrderNumber','ProductSKU','Quantity','PlannedManufactureDate','Progress'], filter: row => row.Progress !== 'completed' }
     ];
     document.addEventListener('DOMContentLoaded', async function() {
-      await loadOrdersCount();
+      await Promise.all([
+        loadOrdersCount(),
+        loadKpis(),
+        renderOrdersTrend()
+      ]);
       for (const section of sections) {
         await renderCollapsableTable(section);
       }
@@ -228,6 +341,63 @@
       } catch (e) {
         tableContainer.innerHTML = '<div class="empty-state">Unable to load data</div>';
       }
+    }
+    // KPIs
+    async function loadKpis() {
+      try {
+        const [activeOrders, invRemoved, returned, lowProducts, ingredients] = await Promise.all([
+          supabase.from('Orders').select('OrderID', { count: 'exact', head: true }),
+          supabase.from('Orders').select('OrderID', { count: 'exact', head: true }).eq('InventoryRemoved', true),
+          supabase.from('Order History').select('id', { count: 'exact', head: true }).gte('ShippedAt', new Date(Date.now() - 90*24*60*60*1000).toISOString()),
+          supabase.from('Products').select('ProductSKU', { count: 'exact', head: true }).lt('Quantity', 20),
+          supabase.from('Ingredients').select('IngredientSKU', { count: 'exact', head: true }).lt('Quantity(Lbs/Units)', 'LowInvThreshold')
+        ]);
+        document.getElementById('kpi-active-orders').textContent = activeOrders.count ?? 0;
+        document.getElementById('kpi-inv-removed').textContent = invRemoved.count ?? 0;
+        document.getElementById('kpi-returned').textContent = returned.count ?? 0;
+        document.getElementById('kpi-low-products').textContent = lowProducts.count ?? 0;
+        document.getElementById('kpi-low-ingredients').textContent = ingredients.count ?? 0;
+        document.getElementById('kpi-active-sub').textContent = 'Across all platforms';
+      } catch (e) {
+        // Best-effort: leave defaults
+      }
+    }
+
+    // Chart: Orders shipped in last 14 days (Order History)
+    async function renderOrdersTrend() {
+      try {
+        const since = new Date(Date.now() - 14*24*60*60*1000).toISOString();
+        const { data, error } = await supabase
+          .from('Order History')
+          .select('ShippedAt')
+          .gte('ShippedAt', since)
+          .order('ShippedAt', { ascending: true });
+        if (error) throw error;
+        // Build date buckets
+        const days = [];
+        const map = new Map();
+        const today = new Date();
+        for (let i = 13; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const key = d.toISOString().substring(0,10);
+          days.push(key);
+          map.set(key, 0);
+        }
+        (data||[]).forEach(r => {
+          const key = (r.ShippedAt || '').substring(0,10);
+          if (map.has(key)) map.set(key, (map.get(key)||0)+1);
+        });
+        const labels = days.map(d => d.substring(5));
+        const values = days.map(d => map.get(d));
+        const ctx = document.getElementById('ordersTrendChart');
+        if (!ctx) return;
+        new Chart(ctx, {
+          type: 'line',
+          data: { labels, datasets: [{ label: 'Shipped', data: values, borderColor: '#4dba93', backgroundColor: 'rgba(77,186,147,0.2)', tension: .3, fill: true, pointRadius: 3 }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display:false } }, y: { beginAtZero:true, ticks: { precision:0 } } } }
+        });
+      } catch (e) { /* ignore */ }
     }
     async function renderLowInventorySection() {
       const container = document.getElementById('adminSections');
@@ -327,36 +497,52 @@
         ingTableContainer.innerHTML = '<div class="empty-state">Unable to load data</div>';
       }
     }
-    // Notification banner for tasks to review
-function createBanner(text) {
-  let bannerContainer = document.getElementById('banner-container');
-  if (!bannerContainer) {
-    bannerContainer = document.createElement('div');
-    bannerContainer.id = 'banner-container';
-    // Insert at top of dashboard-container
-    const dash = document.querySelector('.dashboard-container');
-    if (dash) {
-      dash.prepend(bannerContainer);
-    } else {
-      document.body.prepend(bannerContainer);
+    // Notification banners
+    function ensureBannerContainer() {
+      let bannerContainer = document.getElementById('banner-container');
+      if (!bannerContainer) {
+        bannerContainer = document.createElement('div');
+        bannerContainer.id = 'banner-container';
+        const dash = document.querySelector('.dashboard-container');
+        if (dash) {
+          dash.prepend(bannerContainer);
+        } else {
+          document.body.prepend(bannerContainer);
+        }
+      }
+      return bannerContainer;
     }
-  }
-  const banner = document.createElement('div');
-  banner.style.cssText = `background: #fff3cd;color: #856404;border: 1px solid #ffeeba;padding: 1em; margin: 1em 0;border-radius: 8px;font-weight: 600;text-align: center;font-size: 1.1em;`;
-  banner.textContent = text;
-  bannerContainer.appendChild(banner);
-  return banner;
-}
 
-function showTasksToReviewBanner(count) {
-  let banner = document.getElementById('tasksToReviewBanner');
-  if (!banner) {
-    banner = createBanner(`You have ${count} task(s) awaiting your confirmation in the checklist.`);
-    banner.id = 'tasksToReviewBanner';
-  } else {
-    banner.textContent = `You have ${count} task(s) awaiting your confirmation in the checklist.`;
-  }
-}
+    function createBanner(text, tone = 'warning', id = '') {
+      const bannerContainer = ensureBannerContainer();
+      let banner = id ? document.getElementById(id) : null;
+      if (!banner) {
+        banner = document.createElement('div');
+        if (id) banner.id = id;
+        banner.className = `alert-banner ${tone}`;
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'icon';
+        iconSpan.innerHTML = tone === 'info' ? '&#9432;' : tone === 'success' ? '&#10003;' : '&#9888;';
+        const textSpan = document.createElement('span');
+        textSpan.className = 'text';
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'close-btn';
+        closeBtn.type = 'button';
+        closeBtn.innerHTML = '&times;';
+        closeBtn.onclick = () => banner.remove();
+        banner.appendChild(iconSpan);
+        banner.appendChild(textSpan);
+        banner.appendChild(closeBtn);
+        bannerContainer.appendChild(banner);
+      }
+      const textSpan = banner.querySelector('.text');
+      if (textSpan) textSpan.textContent = text;
+      return banner;
+    }
+
+    function showTasksToReviewBanner(count) {
+      createBanner(`You have ${count} task(s) awaiting your confirmation in the checklist.`, 'warning', 'tasksToReviewBanner');
+    }
     async function warnIfTasksToReview() {
       const currentUserDisplayName = window.CurrentUserDisplayName || '';
       const { data, error } = await supabase
@@ -382,24 +568,19 @@ function showTasksToReviewBanner(count) {
           for (let idx = 0; idx < alertsArr.length; idx++) {
             const alertText = alertsArr[idx];
             if (alertText && typeof alertText === 'string') {
-              const alertBanner = createBanner(alertText);
-              alertBanner.classList.add('user-alert-banner');
-              // Add close button
-              const closeBtn = document.createElement('button');
-              closeBtn.textContent = '×';
-              closeBtn.style.cssText = 'margin-left:16px;background:none;border:none;color:#856404;font-size:1.3em;cursor:pointer;float:right;';
-              closeBtn.title = 'Dismiss';
-              closeBtn.onclick = async function() {
-                alertBanner.remove();
-                // Remove from alertsArr and update in Supabase
-                alertsArr.splice(idx, 1);
-                // Update Alerts in Supabase for this user
-                await supabase
-                  .from('Users')
-                  .update({ Alerts: alertsArr })
-                  .eq('display_name', currentUserDisplayName);
-              };
-              alertBanner.appendChild(closeBtn);
+              const alertBanner = createBanner(alertText, 'info');
+              // Override close handler to persist dismissal
+              const closeBtn = alertBanner.querySelector('.close-btn');
+              if (closeBtn) {
+                closeBtn.onclick = async function() {
+                  alertBanner.remove();
+                  alertsArr.splice(idx, 1);
+                  await supabase
+                    .from('Users')
+                    .update({ Alerts: alertsArr })
+                    .eq('display_name', currentUserDisplayName);
+                };
+              }
             }
           }
         }
