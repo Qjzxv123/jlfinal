@@ -12,6 +12,7 @@ const getFetch = async () => {
 };
 
 const { createClient } = require('@supabase/supabase-js');
+const { verifyAuth } = require('./lib/supabase-auth.cjs');
 
 let getTokenRow = null;
 try {
@@ -25,12 +26,21 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const FAIRE_CLIENT_ID = process.env.FAIRE_CLIENT_ID || '';
 const FAIRE_CLIENT_SECRET = process.env.FAIRE_CLIENT_SECRET || '';
+const ALLOWED_ROLES = ['service_role', 'employee'];
 
 exports.handler = async (event) => {
 	try {
 		if (event.httpMethod !== 'POST') {
 			console.error('[shippo-batch-label] Invalid HTTP method:', event.httpMethod);
 			return jsonResponse(405, { error: 'Method Not Allowed' });
+		}
+
+		const authResult = await verifyAuth(event);
+		if (authResult.error) return authResult.error;
+		const role = authResult.claims?.role || authResult.user?.role || authResult.claims?.user_metadata?.role || authResult.user?.user_metadata?.role;
+		if (!ALLOWED_ROLES.includes(role)) {
+			console.error('[shippo-batch-label] Forbidden role:', role);
+			return jsonResponse(403, { error: 'Forbidden: insufficient role' });
 		}
 		if (!SHIPPO_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 			console.error('[shippo-batch-label] Missing configuration:', { 

@@ -1,14 +1,27 @@
 // Netlify serverless function for admin user management (role changes and deletions)
 const { createClient } = require('@supabase/supabase-js');
+const { verifyAuth } = require('./lib/supabase-auth.cjs');
 
 // Environment variables for security
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ypvyrophqkfqwpefuigi.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const ALLOWED_ROLES = ['service_role'];
+const PROTECTED_USER_ID = 'a4df0386-d361-4f54-a936-c9a2ea01e914';
 exports.handler = async function(event, context) {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
       body: JSON.stringify({ error: 'Method Not Allowed' })
+    };
+  }
+
+  const authResult = await verifyAuth(event);
+  if (authResult.error) return authResult.error;
+  const role = authResult.claims?.role || authResult.user?.role || authResult.claims?.user_metadata?.role || authResult.user?.user_metadata?.role;
+  if (!ALLOWED_ROLES.includes(role)) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({ error: 'Forbidden: insufficient role' })
     };
   }
 
@@ -27,6 +40,13 @@ exports.handler = async function(event, context) {
     return {
       statusCode: 400,
       body: JSON.stringify({ error: 'Missing required fields' })
+    };
+  }
+
+  if (userId === PROTECTED_USER_ID) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({ error: 'Forbidden: target user is protected' })
     };
   }
 
