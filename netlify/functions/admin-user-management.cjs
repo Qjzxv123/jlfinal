@@ -17,7 +17,8 @@ exports.handler = async function(event, context) {
 
   const authResult = await verifyAuth(event);
   if (authResult.error) return authResult.error;
-  const role = authResult.claims?.role || authResult.user?.role || authResult.claims?.user_metadata?.role || authResult.user?.user_metadata?.role;
+  const role = authResult.claims?.role || authResult.claims?.user_metadata?.role || authResult.user?.role || authResult.user?.user_metadata?.role;
+  console.log('[admin-user-management] requester role:', role, 'user id:', authResult.user?.id || authResult.claims?.sub);
   if (!ALLOWED_ROLES.includes(role)) {
     return {
       statusCode: 403,

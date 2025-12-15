@@ -218,9 +218,14 @@
       const statusDiv = document.getElementById('status');
       statusDiv.textContent = 'Updating role...';
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token || null;
         const resp = await fetch('/.netlify/functions/admin-user-management', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: Object.assign(
+            { 'Content-Type': 'application/json' },
+            token ? { Authorization: `Bearer ${token}` } : {}
+          ),
           body: JSON.stringify({ action: 'changeRole', userId, newRole })
         });
         const result = await resp.json();
@@ -241,9 +246,14 @@
       const statusDiv = document.getElementById('status');
       statusDiv.textContent = 'Deleting user...';
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token || null;
         const resp = await fetch('/.netlify/functions/admin-user-management', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: Object.assign(
+            { 'Content-Type': 'application/json' },
+            token ? { Authorization: `Bearer ${token}` } : {}
+          ),
           body: JSON.stringify({ action: 'deleteUser', userId })
         });
         const result = await resp.json();
@@ -342,9 +352,14 @@ async function saveAllEmployeeAccess(employees) {
     const allowed = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.getAttribute('data-page'));
     const btn = null; // No per-employee button
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || null;
       const resp = await fetch('/.netlify/functions/admin-user-management', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign(
+          { 'Content-Type': 'application/json' },
+          token ? { Authorization: `Bearer ${token}` } : {}
+        ),
         body: JSON.stringify({ action: 'updateAllowedPages', userId: emp.id, allowedPages: allowed })
       });
       const result = await resp.json();

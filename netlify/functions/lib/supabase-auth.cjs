@@ -56,7 +56,8 @@ async function verifyAuth(event) {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Verify the JWT token by getting claims
-    const { data: claims, error } = await supabase.auth.getClaims(token);
+    const { data: rawClaims, error } = await supabase.auth.getClaims(token);
+    const claims = rawClaims?.claims || rawClaims;
 
     if (error || !claims) {
       console.error('Token verification failed:', error?.message || 'No claims found');
