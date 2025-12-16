@@ -577,10 +577,6 @@
         let filteredOrders = [];
         let historyOrders = []; // Store order history separately
         let returnedOrders = []; // Store returned orders separately
-        let historyTotalCount = 0; // Total rows in Order History table
-        let historyLoaded = false;
-        let historyLoading = false;
-        let returnedLoading = false;
         
         async function loadOrders() {
             const container = document.getElementById('ordersTableContainer');
@@ -608,9 +604,10 @@
                     });
                 }
                 
-                await loadReturnedOrders();
+                // Also load Order History
+                await loadOrderHistory();
+                
                 updateTabBadges();
-                loadOrderHistoryCount();
                 filterOrders(); // This will apply tab filtering and set filteredOrders
                 populateRetailerFilter();
                 renderOrders();
@@ -620,23 +617,7 @@
             }
         }
         
-        async function loadOrderHistoryCount() {
-            try {
-                const { count, error } = await supabase
-                    .from('Order History')
-                    .select('*', { count: 'exact', head: true });
-                if (!error && typeof count === 'number') {
-                    historyTotalCount = count;
-                    updateTabBadges();
-                }
-            } catch (err) {
-                console.error('Error counting order history:', err);
-            }
-        }
-
         async function loadOrderHistory() {
-            if (historyLoading) return;
-            historyLoading = true;
             try {
                 let allHistory = [];
                 let from = 0;
@@ -672,58 +653,12 @@
                 // Separate returned orders from history orders
                 returnedOrders = allHistory.filter(o => o.Returned === true);
                 historyOrders = allHistory.filter(o => o.Returned !== true);
-                historyTotalCount = allHistory.length;
-                historyLoaded = true;
                 updateTabBadges();
             } catch (err) {
                 console.error('Error loading order history:', err);
                 historyOrders = [];
                 returnedOrders = [];
-                historyTotalCount = 0;
-                historyLoaded = false;
             }
-            historyLoading = false;
-        }
-
-        async function loadReturnedOrders() {
-            if (returnedLoading) return;
-            returnedLoading = true;
-            try {
-                let allReturned = [];
-                let from = 0;
-                const pageSize = 500;
-                let hasMore = true;
-
-                while (hasMore) {
-                    const { data: returnedRaw, error } = await supabase
-                        .from('Order History')
-                        .select('*')
-                        .eq('Returned', true)
-                        .order('ShippedAt', { ascending: false })
-                        .range(from, from + pageSize - 1);
-
-                    if (error) {
-                        console.error('Error loading returned orders:', error);
-                        returnedOrders = allReturned;
-                        return;
-                    }
-
-                    if (returnedRaw && returnedRaw.length > 0) {
-                        allReturned = allReturned.concat(returnedRaw);
-                        from += pageSize;
-                        if (returnedRaw.length < pageSize) hasMore = false;
-                    } else {
-                        hasMore = false;
-                    }
-                }
-
-                returnedOrders = allReturned;
-                updateTabBadges();
-            } catch (err) {
-                console.error('Error loading returned orders:', err);
-                returnedOrders = [];
-            }
-            returnedLoading = false;
         }
 
         function populateRetailerFilter() {
@@ -846,7 +781,7 @@
     updateOrderCardSelection();
 }
 
-        async function switchTab(tab) {
+        function switchTab(tab) {
             currentTab = tab;
             
             // Update tab UI
@@ -864,15 +799,6 @@
             // Update badge counts
             updateTabBadges();
             
-            // Lazy-load history/returned data when those tabs are first opened
-            if ((tab === 'history' || tab === 'returned') && !historyLoaded) {
-                const container = document.getElementById('ordersTableContainer');
-                if (container) {
-                    container.innerHTML = '<p>Loading order history...</p>';
-                }
-                await loadOrderHistory();
-            }
-            
             // Re-filter orders based on new tab
             filterOrders();
         }
@@ -883,7 +809,7 @@
             
             document.getElementById('newBadge').textContent = newOrders.length;
             document.getElementById('inventoryRemovedBadge').textContent = inventoryRemovedOrders.length;
-            document.getElementById('historyBadge').textContent = historyTotalCount || historyOrders.length;
+            document.getElementById('historyBadge').textContent = historyOrders.length;
             document.getElementById('returnedBadge').textContent = returnedOrders.length;
         }
 
