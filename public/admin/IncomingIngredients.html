@@ -425,6 +425,7 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/Assets/CheckAccess.js"></script>
+  <script src="/Assets/IngredientUtils.js"></script>
   <script>
     // Use shared admin check and inactivity timeout
       checkPermissions(['service_role','employee']);
@@ -506,7 +507,7 @@
       try {
         const { data: ingredients, error } = await supabase
           .from('Ingredients')
-          .select('IngredientSKU, Name, Retailer, "Quantity(Lbs/Units)", ActiveLotNumbers, Location')
+          .select('IngredientSKU, Name, Retailer, Quantity, Unit, ActiveLotNumbers, Location')
           .order('Name');
 
         if (error) {
@@ -718,12 +719,16 @@
           // Get ingredient name for display
           const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
           const ingredientName = ingredient ? ingredient.Name : sku;
+          // Get ingredient unit from allIngredients
+          const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
+          const unit = ingredient ? ingredient.Unit : 'lb';
           // Insert the order into IngredientOrders table
           const { data, error } = await supabase
             .from('IngredientOrders')
             .insert({
               'IngredientSKU': sku,
-              'Quantity(Lbs/Units)': quantity,
+              'Quantity': quantity,
+              'Unit': unit,
               'ExpectedBy': expectedBy
             })
             .select();
@@ -751,7 +756,7 @@
             results.push(`❌ ${sku}: Failed to save order - ${error ? error.message : 'No ID returned'}`);
             errorCount++;
           } else {
-            results.push(`✅ ${ingredientName} (${sku}): Order for ${quantity} lbs expected by ${expectedBy}`);
+            results.push(`✅ ${ingredientName} (${sku}): Order for ${quantity} ${unit} expected by ${expectedBy}`);
             successCount++;
           }
         } catch (error) {
@@ -826,13 +831,13 @@
           <tr data-order-id="${order.id}">
             <td style="font-weight: 500;">${ingredientName}</td>
             <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">${order.IngredientSKU}</td>
-            <td style="font-weight: 500;">${order['Quantity(Lbs/Units)']} lbs</td>
+            <td style="font-weight: 500;">${order.Quantity} ${order.Unit || ''}</td>
             <td>${expectedDate}</td>
             <td>
               <input type="text" class="lot-number" placeholder="Enter lot number" style="width: 100%;" />
             </td>
             <td>
-              <input type="number" class="actual-quantity" placeholder="${order['Quantity(Lbs/Units)']}" min="0" step="0.01" style="width: 100%;" value="${order['Quantity(Lbs/Units)']}" />
+              <input type="number" class="actual-quantity" placeholder="${order.Quantity}" min="0" step="0.01" style="width: 100%;" value="${order.Quantity}" />
             </td>
             <td>
               <input type="date" class="expiry-date" style="width: 100%;" />
@@ -925,33 +930,45 @@
         // Get current ingredient data
         const { data: currentData, error: fetchError } = await supabase
           .from('Ingredients')
-          .select('IngredientSKU, Name, "Quantity(Lbs/Units)", ActiveLotNumbers')
+          .select('IngredientSKU, Name, Quantity, Unit, ActiveLotNumbers')
           .eq('IngredientSKU', order.IngredientSKU)
           .single();
         if (fetchError) {
           showReceiveStatus('Failed to fetch ingredient data: ' + fetchError.message, 'error');
           return;
         }
-        const currentQuantity = currentData['Quantity(Lbs/Units)'] || 0;
-        const newQuantity = currentQuantity + quantity;
         // Parse existing lot numbers or initialize empty array
         let activeLotNumbers = [];
         if (currentData.ActiveLotNumbers && Array.isArray(currentData.ActiveLotNumbers)) {
           activeLotNumbers = [...currentData.ActiveLotNumbers];
         }
         // Add new lot number with quantity and expiry date
-        const newLotEntry = `${lot}, ${quantity}, ${expiry}`;
+        const receivedUnit = order.Unit || currentData.Unit || 'lb';
+        const newLotEntry = `${lot}, ${quantity}, ${receivedUnit}, ${expiry}`;
         activeLotNumbers.push(newLotEntry);
-        // Update the ingredient
-        const { error: updateError } = await supabase
+        // Use IngredientAdd for unit-aware inventory update
+        if (typeof IngredientAdd === 'function') {
+          await IngredientAdd(order.IngredientSKU, quantity, receivedUnit);
+        } else {
+          // Fallback if IngredientAdd not available
+          const currentQuantity = currentData.Quantity || 0;
+          const newQuantity = currentQuantity + quantity;
+          const { error: updateError } = await supabase
+            .from('Ingredients')
+            .update({ Quantity: newQuantity })
+            .eq('IngredientSKU', order.IngredientSKU);
+          if (updateError) {
+            showReceiveStatus('Failed to update inventory: ' + updateError.message, 'error');
+            return;
+          }
+        }
+        // Update lot numbers separately
+        const { error: lotUpdateError } = await supabase
           .from('Ingredients')
-          .update({ 
-            'Quantity(Lbs/Units)': newQuantity,
-            'ActiveLotNumbers': activeLotNumbers
-          })
+          .update({ ActiveLotNumbers: activeLotNumbers })
           .eq('IngredientSKU', order.IngredientSKU);
-        if (updateError) {
-          showReceiveStatus('Failed to update inventory: ' + updateError.message, 'error');
+        if (lotUpdateError) {
+          showReceiveStatus('Inventory updated but failed to save lot: ' + lotUpdateError.message, 'error');
           return;
         }
         // Log the ingredient change in IngredientLog
@@ -982,7 +999,7 @@
         if (deleteError) {
           showReceiveStatus('Inventory updated but failed to remove order: ' + deleteError.message, 'error');
         }
-        showReceiveStatus(`Processed: ${currentData.Name} (${order.IngredientSKU}) +${quantity} lbs, Lot: ${lot}`, 'success');
+        showReceiveStatus(`Processed: ${currentData.Name} (${order.IngredientSKU}) +${quantity} ${receivedUnit}, Lot: ${lot}`, 'success');
         // Add to recent additions
         recentAdditions.unshift({
           name: currentData.Name,
@@ -1021,19 +1038,25 @@
         ingredients.forEach(ingredient => {
           if (ingredient.ActiveLotNumbers && Array.isArray(ingredient.ActiveLotNumbers)) {
             ingredient.ActiveLotNumbers.forEach(lotEntry => {
-              // Parse lot entry format: "LotNumber, Quantity, YYYY-MM-DD" or legacy "LotNumber, YYYY-MM-DD"
+              // Parse lot entry format: "LotNumber, Quantity, Unit, YYYY-MM-DD" or legacy formats
               const parts = lotEntry.split(', ');
               let lotNumber, lotQuantity, expiryDateStr;
               
-              if (parts.length >= 3) {
-                // New format: "LotNumber, Quantity, YYYY-MM-DD"
+              if (parts.length >= 4) {
+                // New format: "LotNumber, Quantity, Unit, YYYY-MM-DD"
+                lotNumber = parts[0];
+                lotQuantity = parseFloat(parts[1]) || 0;
+                // parts[2] is unit, skip for now
+                expiryDateStr = parts[3];
+              } else if (parts.length >= 3) {
+                // Old format: "LotNumber, Quantity, YYYY-MM-DD"
                 lotNumber = parts[0];
                 lotQuantity = parseFloat(parts[1]) || 0;
                 expiryDateStr = parts[2];
               } else if (parts.length >= 2) {
                 // Legacy format: "LotNumber, YYYY-MM-DD"
                 lotNumber = parts[0];
-                lotQuantity = 0; // Default to 0 for legacy entries
+                lotQuantity = 0;
                 expiryDateStr = parts[1];
               } else {
                 return; // Skip invalid entries
@@ -1272,16 +1295,23 @@
 
       const lotNumbers = ingredient.ActiveLotNumbers;
       const lotsHtml = lotNumbers.map(lot => {
-        // Parse lot entry format: "LotNumber, Quantity, YYYY-MM-DD" or legacy "LotNumber, YYYY-MM-DD"
+        // Parse lot entry format: "LotNumber, Quantity, Unit, YYYY-MM-DD" or legacy formats
         const parts = lot.split(', ');
         let displayText = lot;
         
-        if (parts.length >= 3) {
-          // New format: "LotNumber, Quantity, YYYY-MM-DD"
+        if (parts.length >= 4) {
+          // New format: "LotNumber, Quantity, Unit, YYYY-MM-DD"
+          const lotNumber = parts[0];
+          const lotQuantity = parseFloat(parts[1]) || 0;
+          const lotUnit = parts[2];
+          const expiryDate = parts[3];
+          displayText = `${lotNumber} (${lotQuantity} ${lotUnit}) - Exp: ${expiryDate}`;
+        } else if (parts.length >= 3) {
+          // Old format: "LotNumber, Quantity, YYYY-MM-DD"
           const lotNumber = parts[0];
           const lotQuantity = parseFloat(parts[1]) || 0;
           const expiryDate = parts[2];
-          displayText = `${lotNumber} (${lotQuantity} lbs) - Exp: ${expiryDate}`;
+          displayText = `${lotNumber} (${lotQuantity}) - Exp: ${expiryDate}`;
         } else if (parts.length >= 2) {
           // Legacy format: "LotNumber, YYYY-MM-DD"
           const lotNumber = parts[0];
@@ -1307,15 +1337,22 @@
     function selectLotForRemoval(lotNumber) {
       const lotInput = document.getElementById('exhaustedLotNumber');
       if (lotInput) {
-        // Parse lot entry format: "LotNumber, Quantity, YYYY-MM-DD" or legacy "LotNumber, YYYY-MM-DD"
+        // Parse lot entry format: "LotNumber, Quantity, Unit, YYYY-MM-DD" or legacy formats
         const parts = lotNumber.split(', ');
         
-        if (parts.length >= 3) {
-          // New format: "LotNumber, Quantity, YYYY-MM-DD"
+        if (parts.length >= 4) {
+          // New format: "LotNumber, Quantity, Unit, YYYY-MM-DD"
+          const lotNum = parts[0];
+          const lotQuantity = parseFloat(parts[1]) || 0;
+          const lotUnit = parts[2];
+          const expiryDate = parts[3];
+          lotInput.value = `${lotNum} (${lotQuantity} ${lotUnit}) - Exp: ${expiryDate}`;
+        } else if (parts.length >= 3) {
+          // Old format: "LotNumber, Quantity, YYYY-MM-DD"
           const lotNum = parts[0];
           const lotQuantity = parseFloat(parts[1]) || 0;
           const expiryDate = parts[2];
-          lotInput.value = `${lotNum} (${lotQuantity} lbs) - Exp: ${expiryDate}`;
+          lotInput.value = `${lotNum} (${lotQuantity}) - Exp: ${expiryDate}`;
         } else if (parts.length >= 2) {
           // Legacy format: "LotNumber, YYYY-MM-DD"
           const lotNum = parts[0];
@@ -1608,8 +1645,20 @@
         lots.forEach(lot => {
           const parts = lot.split(', ');
           let lotNumber = parts[0] || '';
-          let lotQuantity = parts.length >= 2 ? parts[1] : '';
-          let expiry = parts.length >= 3 ? parts[2] : '';
+          let lotQuantity = '';
+          let expiry = '';
+          if (parts.length >= 4) {
+            // New format: "LotNumber, Quantity, Unit, YYYY-MM-DD"
+            lotQuantity = `${parts[1]} ${parts[2]}`;
+            expiry = parts[3];
+          } else if (parts.length >= 3) {
+            // Old format: "LotNumber, Quantity, YYYY-MM-DD"
+            lotQuantity = parts[1];
+            expiry = parts[2];
+          } else if (parts.length >= 2) {
+            // Legacy format: "LotNumber, YYYY-MM-DD"
+            expiry = parts[1];
+          }
           rows += `<tr>
             <td>${ingredient.Name}</td>
             <td style='font-family: "Courier New", monospace;'>${ingredient.IngredientSKU}</td>
