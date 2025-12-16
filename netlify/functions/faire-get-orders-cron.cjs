@@ -164,6 +164,12 @@ async function fetchOrdersForUser(userKey, skuMappingMap) {
       .eq('OrderID', orderID)
       .single();
     
+    // Extract price from payout_costs
+    const subtotalCents = order?.payout_costs?.subtotal_after_brand_discounts?.amount_minor;
+    const price = (subtotalCents != null && Number.isFinite(subtotalCents)) 
+      ? Number((subtotalCents / 100).toFixed(2)) 
+      : null;
+    
     const orderData = {
       OrderID: orderID,
       Retailer: existingOrder?.Retailer || userKey,
@@ -182,7 +188,8 @@ async function fetchOrdersForUser(userKey, skuMappingMap) {
       Notes: existingOrder?.Notes || null,
       CustomerMessages: existingOrder?.CustomerMessages || null,
       InventoryRemoved: existingOrder?.InventoryRemoved || null,
-      UserID: tokenRow.UserID ? [tokenRow.UserID] : null
+      UserID: tokenRow.UserID ? [tokenRow.UserID] : null,
+      Price: price
     };
     orders.push(orderData);
   }
