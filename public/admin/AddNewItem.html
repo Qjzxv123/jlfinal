@@ -810,7 +810,11 @@
             <button type="button" class="remove-btn" onclick="removePhaseRow(${phaseIdx})">Remove Phase</button>
           </div>
           <div style="margin-bottom:1rem;">
-            <textarea rows="4" style="width:100%;padding:0.7rem 0.9rem;border-radius:4px;border:1px solid #cbd5e1;resize:vertical;" placeholder="Instructions" onchange="updatePhaseField(${phaseIdx},'instructions',this.value)">${phase.instructions || ''}</textarea>
+            <label style="margin:0;font-weight:600;color:#34495e;display:block;margin-bottom:0.5rem;">Instructions</label>
+            <div style="position:relative;display:flex;flex-direction:column;">
+              <textarea rows="4" style="width:100%;padding:0.7rem 0.9rem;border-radius:4px;border:1px solid #cbd5e1;resize:vertical;padding-bottom:45px;" placeholder="Instructions" onchange="updatePhaseField(${phaseIdx},'instructions',this.value)">${phase.instructions || ''}</textarea>
+              <button type="button" class="add-btn" onclick="generateInstructionsWithAI(${phaseIdx})" style="position:absolute;bottom:8px;right:8px;padding:6px 12px;font-size:1rem;margin:0;background:none;border:none;color:#666;cursor:pointer;">✨ AI</button>
+            </div>
           </div>
           <table style="width:100%;margin-top:1rem;border-collapse:collapse;">
             <thead>
@@ -1001,6 +1005,71 @@
 
     function updateIngredientField(phaseIdx, ingIdx, field, val) {
       processTableData[phaseIdx].ingredients[ingIdx][field] = val;
+    }
+
+    async function generateInstructionsWithAI(phaseIdx) {
+      const phase = processTableData[phaseIdx];
+      
+      if (!phase.name) {
+        alert('Please enter a phase title first');
+        return;
+      }
+
+      if (phase.ingredients.length === 0) {
+        alert('Please add at least one ingredient to the phase');
+        return;
+      }
+
+      try {
+        // Show loading state - capture button before async operations
+        const button = event?.target;
+        let originalText = '';
+        
+        if (button) {
+          originalText = button.textContent;
+          button.textContent = '⏳ Generating...';
+          button.disabled = true;
+        }
+
+        // Call the Netlify function
+        const response = await fetch('/.netlify/functions/generate-instructions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            phaseTitle: phase.name,
+            ingredients: phase.ingredients,
+            existingInstructions: phase.instructions
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || data.error || 'Failed to generate instructions');
+        }
+
+        // Update the phase instructions
+        phase.instructions = data.instructions;
+        
+        // Re-render to show the new instructions
+        renderProcessTableEditor();
+        
+        // Show success message
+        showStatus('productStatusMsg', 'Instructions generated successfully!', 'success');
+
+      } catch (error) {
+        console.error('Error generating instructions:', error);
+        showStatus('productStatusMsg', `Error generating instructions: ${error.message}`, 'error');
+      } finally {
+        // Restore button state - use captured reference from event
+        const button = event?.target;
+        if (button) {
+          button.textContent = button.getAttribute('data-original-text') || '✨ AI';
+          button.disabled = false;
+        }
+      }
     }
 
     function getProcessFromTableEditor() {
