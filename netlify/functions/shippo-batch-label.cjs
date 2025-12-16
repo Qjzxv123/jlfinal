@@ -270,19 +270,7 @@ async function upsertOrderHistory({ supabase, orderData, packages, labelInfo, ra
 		.filter(Boolean);
 	const shippingCost = Number.isFinite(labelInfo.shippingCost) ? labelInfo.shippingCost : (parseFloat(rateMeta?.amount) || parseFloat(rateMeta?.amount_local) || null);
 
-	let finalOrderID = orderData?.OrderID ?? orderData?.OrderNumber ?? orderData?.orderId ?? orderData?.orderID;
-	
-	// Check if OrderID already exists in Order History
-	const { data: existingOrders, error: checkError } = await supabase
-		.from('Order History')
-		.select('OrderID')
-		.eq('OrderID', finalOrderID);
-	
-	if (!checkError && existingOrders && existingOrders.length > 0) {
-		// OrderID exists, append retailer suffix
-		const retailer = orderData?.Retailer || orderData?.shop || 'Unknown';
-		finalOrderID = `${finalOrderID}-${retailer}`;
-	}
+	const finalOrderID = orderData?.OrderID ?? orderData?.OrderNumber ?? orderData?.orderId ?? orderData?.orderID;
 
 	const historyPayload = {
 		OrderID: finalOrderID,

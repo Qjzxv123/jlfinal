@@ -919,14 +919,25 @@
             const reason = prompt(`Please enter a reason for returning order #${orderId}:`);
             if (reason === null) return; // User cancelled
             
+            // Find the order to get its retailer for precise matching
+            const orderToReturn = historyOrders.find(o => o.OrderID === orderId) || 
+                                 returnedOrders.find(o => o.OrderID === orderId);
+            
             try {
-                const { error } = await supabase
+                let query = supabase
                     .from('Order History')
                     .update({ 
                         Returned: true,
                         ReturnReason: reason
                     })
                     .eq('OrderID', orderId);
+                
+                // Add Retailer filter if available for more precise matching
+                if (orderToReturn?.Retailer) {
+                    query = query.eq('Retailer', orderToReturn.Retailer);
+                }
+                
+                const { error } = await query;
                 
                 if (error) {
                     alert('Error marking order as returned: ' + error.message);
@@ -1440,22 +1451,9 @@
                 const selectedOrderObjects = orders.filter(o => selectedOrders.has(String(o.OrderID)));
                 
                 // First, add orders to Order History table
-                const orderHistoryRecords = await Promise.all(selectedOrderObjects.map(async order => {
-                    let finalOrderID = order.OrderID;
-                    
-                    // Check if OrderID already exists in Order History
-                    const { data: existingOrders, error: checkError } = await supabase
-                        .from('Order History')
-                        .select('OrderID')
-                        .eq('OrderID', order.OrderID);
-                    
-                    if (!checkError && existingOrders && existingOrders.length > 0) {
-                        // OrderID exists, append retailer suffix
-                        finalOrderID = `${order.OrderID}-${order.Retailer || 'Unknown'}`;
-                    }
-                    
+                const orderHistoryRecords = selectedOrderObjects.map(order => {
                     return {
-                        OrderID: finalOrderID,
+                        OrderID: order.OrderID,
                         ShippedAt: new Date().toISOString(), // Current timestamp as shipped date
                         Retailer: order.Retailer,
                         Items: order.Items, // Already JSON

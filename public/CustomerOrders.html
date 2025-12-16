@@ -1093,10 +1093,13 @@
 
             // If not found in Orders, try Order History
             if (error) {
+                // For Order History, since OrderID may not be unique, get the first match
+                // or ideally we should pass both OrderID and Retailer for precise matching
                 const { data: historyData, error: historyError } = await supabase
                     .from('Order History')
                     .select('OrderID, Retailer, Platform, Items, Customer, Notes, Link')
                     .eq('OrderID', orderId)
+                    .limit(1)
                     .single();
                 
                 if (historyError) {
