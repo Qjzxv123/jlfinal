@@ -1465,7 +1465,7 @@
                         TrackingNumber: trackingNumber || null,
                         BoxSkus: boxSkus.length > 0 ? boxSkus : null
                     };
-                }));
+                });
                 
                 // Insert into Order History table
                 const { error: historyError } = await supabase
