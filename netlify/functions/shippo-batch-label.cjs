@@ -288,6 +288,7 @@ async function upsertOrderHistory({ supabase, orderData, packages, labelInfo, ra
 		TrackingNumber: labelInfo.trackingNumber || null,
 		ShippedAt: new Date().toISOString(),
 		PlacedAt: orderData?.PlacedAt || null,
+		ShippoOrderID: orderData?.ShippoOrderID
 	};
 
 	const { error } = await supabase
