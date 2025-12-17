@@ -351,8 +351,8 @@
         let selectString = '*';
         let orderCol = '';
         if (tableName === 'Products') {
-            columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'FinalWeight', 'Pack Size', 'Quantity', 'QuantityPerBin'];
-            selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)",FinalWeight,"Pack Size",Quantity,QuantityPerBin';
+            columns = ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'FinalWeight', 'Pack Size', 'Quantity'];
+            selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)",FinalWeight,"Pack Size",Quantity';
             orderCol = 'ProductSKU';
         } else if (tableName === 'Ingredients') {
             columns = ['IngredientSKU', 'Name', 'Quantity', 'Unit', 'Retailer', 'LowInvThreshold'];
@@ -508,7 +508,7 @@
                             // Convert empty string to null for numeric columns
                             let valToSave = newVal;
                             const numericCols = [
-                                'Quantity', 'QuantityPerBin', 'Product Weight(oz)', 'FinalWeight', 'Pack Size',
+                                'Quantity', 'Product Weight(oz)', 'FinalWeight', 'Pack Size',
                                 'LowInvThreshold'
                             ];
                             if (numericCols.includes(col) && newVal === '') {
