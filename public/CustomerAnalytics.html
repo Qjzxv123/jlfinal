@@ -294,30 +294,40 @@
           <div class="subtext">Shipped orders</div>
         </div>
         <div class="stat-card">
+          <div class="label">Total Shipping Cost</div>
+          <div class="value" id="totalShippingCost">$0</div>
+          <div class="subtext">What you paid to ship</div>
+        </div>
+        <div class="stat-card">
           <div class="label">Total Products Ordered</div>
           <div class="value" id="totalProducts">0</div>
           <div class="subtext">Individual units</div>
         </div>
         <div class="stat-card">
-          <div class="label">Unique Products</div>
-          <div class="value" id="uniqueProducts">0</div>
-          <div class="subtext">Different SKUs</div>
+          <div class="label">Avg Shipping Cost</div>
+          <div class="value" id="avgShippingCost">$0</div>
+          <div class="subtext">Per order</div>
         </div>
         <div class="stat-card">
-          <div class="label">Avg Order Size</div>
-          <div class="value" id="avgOrderSize">0</div>
-          <div class="subtext">Units per order</div>
+          <div class="label">Total Revenue</div>
+          <div class="value" id="totalRevenue">$0</div>
+          <div class="subtext">Sum of your order subtotals</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Avg Order Value</div>
+          <div class="value" id="avgOrderValue">$0</div>
+          <div class="subtext">Average of Price per order</div>
         </div>
       </div>
 
       <div class="chart-container">
-        <h2>My Orders Over Time</h2>
+        <h2>Orders Over Time</h2>
         <canvas id="ordersTimelineChart" style="max-height: 300px;"></canvas>
       </div>
 
       <div class="two-column">
         <div class="chart-container">
-          <h2>My Top 10 Products</h2>
+          <h2>Top 10 Products</h2>
           <canvas id="topProductsChart" style="max-height: 350px;"></canvas>
         </div>
         <div class="chart-container">
@@ -349,6 +359,8 @@
               <tr>
                 <th>Platform</th>
                 <th style="text-align:right;">Orders</th>
+                <th style="text-align:right;">Shipping Cost</th>
+                <th style="text-align:right;">Revenue</th>
                 <th style="text-align:right;">Units</th>
               </tr>
             </thead>
@@ -491,6 +503,8 @@
     function calculateAndDisplayAnalytics() {
       // Calculate overall stats
       const totalOrders = filteredOrders.length;
+      const totalShippingCost = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.ShippingCost) || 0), 0);
+      const totalRevenue = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.Price) || 0), 0);
       
       // Count all products
       let totalProductCount = 0;
@@ -513,12 +527,16 @@
         }
         
         const platform = order.Platform || 'Unknown';
+        const shippingCost = parseFloat(order.ShippingCost) || 0;
+        const revenue = parseFloat(order.Price) || 0;
 
         // Platform stats
         if (!platformStats[platform]) {
-          platformStats[platform] = { orders: 0, units: 0 };
+          platformStats[platform] = { orders: 0, shippingCost: 0, revenue: 0, units: 0 };
         }
         platformStats[platform].orders++;
+        platformStats[platform].shippingCost += shippingCost;
+        platformStats[platform].revenue += revenue;
 
         // Product stats
         items.forEach(item => {
@@ -543,14 +561,16 @@
         });
       });
 
-      const uniqueProductCount = Object.keys(productStats).length;
-      const avgOrderSize = totalOrders > 0 ? (totalProductCount / totalOrders).toFixed(1) : '0';
+      const avgShippingCost = totalOrders > 0 ? totalShippingCost / totalOrders : 0;
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
       // Display overall stats
       document.getElementById('totalOrders').textContent = totalOrders.toLocaleString();
+      document.getElementById('totalShippingCost').textContent = '$' + totalShippingCost.toFixed(2);
       document.getElementById('totalProducts').textContent = totalProductCount.toLocaleString();
-      document.getElementById('uniqueProducts').textContent = uniqueProductCount.toLocaleString();
-      document.getElementById('avgOrderSize').textContent = avgOrderSize;
+      document.getElementById('avgShippingCost').textContent = '$' + avgShippingCost.toFixed(2);
+      document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toFixed(2);
+      document.getElementById('avgOrderValue').textContent = '$' + avgOrderValue.toFixed(2);
 
       // Render charts
       renderOrdersTimelineChart();
@@ -600,6 +620,8 @@
           <tr>
             <td><span class="platform-badge ${badgeClass}">${escapeHtml(platform)}</span></td>
             <td style="text-align:right;">${stats.orders.toLocaleString()}</td>
+            <td style="text-align:right;">$${stats.shippingCost.toFixed(2)}</td>
+            <td style="text-align:right;">$${stats.revenue.toFixed(2)}</td>
             <td style="text-align:right;">${stats.units.toLocaleString()}</td>
           </tr>
         `;
