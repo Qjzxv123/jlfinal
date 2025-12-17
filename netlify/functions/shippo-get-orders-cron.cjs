@@ -140,6 +140,16 @@ exports.handler = async (event) => {
         }
       }
       let parsedItems = Object.values(itemMap);
+      // Append original SKU to Name before applying SKU mappings
+      parsedItems = parsedItems.map(pi => {
+        const skuTag = pi.SKU ? ` [${pi.SKU}]` : '';
+        // Avoid double-append if already present
+        const hasTag = skuTag && (pi.Name || '').includes(skuTag.trim());
+        return {
+          ...pi,
+          Name: hasTag ? pi.Name : `${pi.Name || ''}${skuTag}`.trim()
+        };
+      });
       
       // Apply SKU Mapping transformations BEFORE determining retailer
       let transformedItems = [];
