@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Info</title>
+  <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
+  <link rel="stylesheet" href="https://unpkg.com/@coreui/icons/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c1de9f 0%, #4dba93 100%);
+      min-height: 100vh;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .order-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      padding: 32px 24px;
+      max-width: 900px;
+      width: 100%;
+      text-align: left;
+    }
+    .order-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #4DBA93;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .order-id {
+      font-size: 1.1rem;
+      color: #888;
+      margin-bottom: 18px;
+      text-align: center;
+    }
+    .section-header {
+      margin-top: 2em;
+      margin-bottom: 0.5em;
+      font-weight: 600;
+      color: #4DBA93;
+    }
+    .kv-table {
+      width: 100%;
+      margin: auto;
+      text-align: left;
+      font-size: 1rem;
+      border-collapse: collapse;
+    }
+    .kv-table td {
+      padding: 6px 10px;
+      vertical-align: top;
+    }
+    .kv-table td.key {
+      font-weight: 600;
+      width: 220px;
+    }
+    .error { color: #e74c3c; font-weight: 600; margin-top: 20px; }
+    .items-table, .history-table {
+      width: 100%;
+      font-size: 0.97em;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-collapse: collapse;
+      overflow: hidden;
+    }
+    .items-table th, .items-table td, .history-table th, .history-table td {
+      padding: 8px 10px;
+      text-align: left;
+    }
+    .items-table thead tr, .history-table thead tr { background: #eef2f7; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="/Assets/CheckAccess.js"></script>
+</head>
+<body>
+  <div class="order-container" id="orderContainer">
+    <div class="order-title">Order Info</div>
+    <div class="order-id" id="orderIdDisplay"></div>
+    <div id="orderDetails">Loading...</div>
+  </div>
+  <script>
+    // Access control: admin and employees
+    checkPermissions(['service_role', 'employee']);
+
+    // Get identifiers from URL
+    // Supports: ?hid=<history id> OR ?order=<OrderID> (fallback: ?id=<OrderID>)
+    function getQueryIdsFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      const historyId = params.get('hid');
+      const orderId = params.get('order') || params.get('id');
+      return { historyId, orderId };
+    }
+
+    function formatCurrency(val) {
+      const num = Number(val);
+      if (!isFinite(num)) return val ?? '';
+      return '$' + num.toFixed(2);
+    }
+
+    async function loadOrderInfo({ historyId, orderId }) {
+      const idEl = document.getElementById('orderIdDisplay');
+      const detailsEl = document.getElementById('orderDetails');
+      idEl.textContent = '';
+      detailsEl.textContent = 'Loading...';
+      try {
+        let data = null;
+        if (historyId) {
+          const resp = await supabase
+            .from('Order History')
+            .select('*')
+            .eq('id', historyId)
+            .single();
+          if (resp.error) throw resp.error;
+          data = resp.data;
+        } else if (orderId) {
+          const resp = await supabase
+            .from('Order History')
+            .select('*')
+            .eq('OrderID', orderId)
+            .order('ShippedAt', { ascending: false })
+            .limit(1);
+          if (resp.error) throw resp.error;
+          data = Array.isArray(resp.data) ? resp.data[0] : resp.data;
+        }
+        if (!data) {
+          detailsEl.innerHTML = `<span class='error'>Order not found in history for ${orderId ? 'OrderID: ' + orderId : ('History ID: ' + historyId)}</span>`;
+          return;
+        }
+        // Display the business OrderID only (never the internal history id)
+        idEl.textContent = data.OrderID ? ('Order #' + data.OrderID) : '';
+
+        // Extract structured fields
+        let customerObj = {};
+        try { customerObj = typeof data.Customer === 'object' ? (data.Customer || {}) : JSON.parse(data.Customer || '{}'); } catch {}
+        let itemsArr = [];
+        try { itemsArr = Array.isArray(data.Items) ? data.Items : JSON.parse(data.Items || '[]'); } catch {}
+
+        // Header block with key details
+        const placedAtStr = data.PlacedAt ? new Date(data.PlacedAt).toLocaleString() : '';
+        const shippedAtStr = data.ShippedAt ? new Date(data.ShippedAt).toLocaleString() : '';
+        const priceStr = (data.Price || data.Price === 0) ? formatCurrency(data.Price) : '';
+        let headerHtml = `
+          <div style="margin-bottom: 18px;">
+            ${data.Link ? `<div><strong>External Link:</strong> <a href='${data.Link}' target='_blank'>View on ${data.Platform || 'Platform'}</a></div>` : ''}
+            <div><strong>Retailer:</strong> ${data.Retailer || ''}</div>
+            <div><strong>Platform:</strong> ${data.Platform || ''}</div>
+            ${shippedAtStr ? `<div><strong>Shipped At:</strong> ${shippedAtStr}</div>` : ''}
+            ${placedAtStr ? `<div><strong>Placed At:</strong> ${placedAtStr}</div>` : ''}
+            ${priceStr ? `<div><strong>Price:</strong> ${priceStr}</div>` : ''}
+            ${(data.ShippingCost || data.ShippingCost === 0) ? `<div><strong>Shipping Cost:</strong> ${formatCurrency(data.ShippingCost)}</div>` : ''}
+            ${data.TrackingNumber ? `<div><strong>Tracking #:</strong> ${data.TrackingNumber}</div>` : ''}
+            ${data.Notes ? `<div><strong>Notes:</strong> ${data.Notes}</div>` : ''}
+            ${data.CustomerMessages ? `<div><strong>Customer Message:</strong> ${data.CustomerMessages}</div>` : ''}
+          </div>
+        `;
+
+        // Items table
+        let itemsHtml = `<div class='section-header'>Items</div>`;
+        if (itemsArr && itemsArr.length) {
+          itemsHtml += `<table class='items-table'><thead><tr><th>SKU</th><th>Name</th><th>Quantity</th></tr></thead><tbody>` +
+            itemsArr.map(it => {
+              const sku = it.SKU ?? it.sku;
+              const name = it.Name ?? it.name ?? '';
+              const qty = (it.Quantity ?? it.quantity) ?? '';
+              const skuHtml = sku ? `<a href='/admin/ProductInfo.html?sku=${encodeURIComponent(sku)}' target='_blank'>${sku}</a>` : '';
+              return `<tr>
+                <td>${skuHtml}</td>
+                <td>${name}</td>
+                <td>${qty}</td>
+              </tr>`;
+            }).join('') + `</tbody></table>`;
+        } else {
+          itemsHtml += `<div style='color:#888;'>No items found for this order.</div>`;
+        }
+
+        // Customer block
+        const customerAddress = [
+          customerObj.address1,
+          customerObj.address2,
+          customerObj.city,
+          customerObj.state,
+          customerObj.zipCode,
+          customerObj.country
+        ].filter(Boolean).join(', ');
+        let customerHtml = `
+          <div class='section-header'>Customer</div>
+          <table class='kv-table'>
+            <tr><td class='key'>Name</td><td>${customerObj.name || ''}</td></tr>
+            <tr><td class='key'>Address</td><td>${customerAddress || ''}</td></tr>
+          </table>
+        `;
+
+        detailsEl.innerHTML = headerHtml + itemsHtml + customerHtml;
+      } catch (err) {
+        document.getElementById('orderDetails').innerHTML = `<span class='error'>Error loading Order info: ${err.message}</span>`;
+      }
+    }
+
+    const ids = getQueryIdsFromURL();
+    if (ids.historyId || ids.orderId) {
+      loadOrderInfo(ids);
+    } else {
+      document.getElementById('orderIdDisplay').textContent = '';
+      document.getElementById('orderDetails').innerHTML = `<span class='error'>No identifier provided. Use ?hid=<history id> or ?order=<OrderID>.</span>`;
+    }
+  </script>
+</body>
+</html>

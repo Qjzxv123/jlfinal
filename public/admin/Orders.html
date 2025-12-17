@@ -869,7 +869,7 @@
                 cardsHtml += `<div class="order-card${selectedOrders.has(String(order.OrderID)) ? ' selected' : ''}" id="order-card-${idx}" data-order-id="${order.OrderID}" style=" border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-bottom:24px; padding:24px; position:relative;">
                     ${(order.InventoryRemoved || hasInsufficient || getPlatformBadgeHtml(order.Platform)) ? `<span style=\"position:absolute; top:14px; right:18px; z-index:1; display:flex; gap:8px; align-items:center;\">${order.InventoryRemoved ? `<span class=\"inv-removed-badge\" title=\"Inventory already decremented\">Inventory Removed</span>` : ''}${hasInsufficient ? `<span class=\"insufficient-inv-badge\" title=\"One or more items have insufficient inventory\">Insufficient Inventory</span>` : ''}${getPlatformBadgeHtml(order.Platform) || ''}</span>` : ''}
                     <h2 style="margin-top:0; color:#4DBA93; font-size:1.3rem;">
-                        ${order.Link ? `<a href="${order.Link}" target="_blank" class="order-link">Order #${order.OrderID}</a>` : `Order #${order.OrderID}`}
+                        <a href="/admin/orderinfo.html?${(currentTab === 'history' || currentTab === 'returned') ? ('hid=' + encodeURIComponent(order.id)) : ('order=' + encodeURIComponent(order.OrderID))}" class="order-link">Order #${order.OrderID}</a>
                     </h2>
                     <div style="margin-bottom:10px;"><strong>Retailer:</strong> ${order.Retailer || ''}</div>
                     ${order.PlacedAt ? `<div style=\"margin-bottom:10px;\"><strong>Placed At:</strong> ${new Date(order.PlacedAt).toLocaleString()}</div>` : ''}
