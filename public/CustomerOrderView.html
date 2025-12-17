@@ -103,9 +103,8 @@
     <form id="requestOrderForm" class="styled-request-form">
       <div>
         <label for="productSKU">Product SKU</label>
-        <select id="productSKU" required class="styled-input">
-          <option value="">Loading...</option>
-        </select>
+        <input list="productSKUList" id="productSKU" required class="styled-input" placeholder="Search by name or SKU">
+        <datalist id="productSKUList"></datalist>
       </div>
       <div>
         <label for="quantity">Quantity</label>
@@ -159,15 +158,17 @@
     }
 
     async function populateProductDropdown() {
-      const select = document.getElementById('productSKU');
-      if (!select) return;
-      select.innerHTML = '<option value="">Select Product</option>';
+      const list = document.getElementById('productSKUList');
+      const input = document.getElementById('productSKU');
+      if (!list || !input) return;
+      list.innerHTML = '';
+      input.placeholder = 'Search by name or SKU';
       const products = await fetchProductSKUs();
       products.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.ProductSKU;
-        opt.textContent = p.Name ? `${p.Name} (${p.ProductSKU})` : p.ProductSKU;
-        select.appendChild(opt);
+        opt.label = p.Name ? `${p.Name} (${p.ProductSKU})` : p.ProductSKU;
+        list.appendChild(opt);
       });
     }
 
