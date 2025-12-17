@@ -147,6 +147,38 @@
       flex: 1;
       margin: 0;
     }
+    .autocomplete-wrapper {
+      flex: 2;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .autocomplete-wrapper input.product-input {
+      width: 100%;
+    }
+    .suggestions {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid #e1e5e9;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+    }
+    .suggestion-item {
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    .suggestion-item:hover,
+    .suggestion-item.active {
+      background: #f0f9ff;
+    }
     .items-container {
       border: 1px solid #e1e5e9;
       border-radius: 8px;
@@ -190,9 +222,10 @@
           <div class="items-header">Order Items</div>
           <div id="itemsContainer">
             <div class="item-row">
-              <select class="product-select" required>
-                <option value="">Select a product...</option>
-              </select>
+              <div class="autocomplete-wrapper">
+                <input type="text" class="product-input" placeholder="Search SKU or name..." required>
+                <div class="suggestions"></div>
+              </div>
               <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
               <button type="button" class="btn remove-item" onclick="removeItemRow(this)" style="display: none;">Remove</button>
             </div>
@@ -306,20 +339,96 @@
       }
     }
 
-    // Populate all product dropdowns
-    function populateProductDropdowns() {
-      const selects = document.querySelectorAll('.product-select');
-      selects.forEach(select => {
-        // Clear existing options except the first
-        select.innerHTML = '<option value="">Select a product...</option>';
-        
-        // Add products
-        allProducts.forEach(product => {
-          const option = document.createElement('option');
-          option.value = product.ProductSKU;
-          option.textContent = `${product.ProductSKU} - ${product.Name || 'No Name'}${product['Product Weight(oz)'] ? ` (${product['Product Weight(oz)']}oz)` : ''}`;
-          select.appendChild(option);
+    // Helpers for product search/label
+    function productLabel(product) {
+      return `${product.ProductSKU} - ${product.Name || 'No Name'}${product['Product Weight(oz)'] ? ` (${product['Product Weight(oz)']}oz)` : ''}`;
+    }
+
+    function filterProducts(query) {
+      const q = query.trim().toLowerCase();
+      if (!q) return allProducts.slice(0, 10);
+      const res = allProducts.filter(p =>
+        (p.ProductSKU && String(p.ProductSKU).toLowerCase().includes(q)) ||
+        (p.Name && p.Name.toLowerCase().includes(q))
+      );
+      return res.slice(0, 20);
+    }
+
+    function attachAutocomplete(input) {
+      const wrapper = input.closest('.autocomplete-wrapper');
+      const list = wrapper.querySelector('.suggestions');
+      let activeIndex = -1;
+
+      function renderSuggestions(items) {
+        list.innerHTML = '';
+        items.forEach((p, idx) => {
+          const div = document.createElement('div');
+          div.className = 'suggestion-item';
+          div.textContent = productLabel(p);
+          div.dataset.sku = p.ProductSKU;
+          div.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            choose(p);
+          });
+          list.appendChild(div);
         });
+        list.style.display = items.length ? 'block' : 'none';
+        activeIndex = -1;
+      }
+
+      function choose(product) {
+        input.value = productLabel(product);
+        input.dataset.sku = product.ProductSKU;
+        list.style.display = 'none';
+      }
+
+      input.addEventListener('input', () => {
+        input.dataset.sku = '';
+        const matches = filterProducts(input.value);
+        renderSuggestions(matches);
+      });
+
+      input.addEventListener('focus', () => {
+        const matches = filterProducts(input.value);
+        renderSuggestions(matches);
+      });
+
+      input.addEventListener('blur', () => {
+        setTimeout(() => { list.style.display = 'none'; }, 120);
+      });
+
+      input.addEventListener('keydown', (e) => {
+        const items = Array.from(list.querySelectorAll('.suggestion-item'));
+        if (!items.length) return;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          activeIndex = (activeIndex + 1) % items.length;
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          activeIndex = (activeIndex - 1 + items.length) % items.length;
+        } else if (e.key === 'Enter') {
+          if (activeIndex >= 0) {
+            e.preventDefault();
+            const sku = items[activeIndex].dataset.sku;
+            const product = allProducts.find(p => String(p.ProductSKU) === String(sku));
+            if (product) choose(product);
+          }
+        }
+        items.forEach((el, idx) => el.classList.toggle('active', idx === activeIndex));
+      });
+    }
+
+    // Initialize or reset product search inputs
+    function populateProductDropdowns() {
+      const inputs = document.querySelectorAll('.product-input');
+      inputs.forEach(input => {
+        input.value = '';
+        input.dataset.sku = '';
+        // Attach autocomplete once
+        if (!input.dataset.autocompleteAttached) {
+          attachAutocomplete(input);
+          input.dataset.autocompleteAttached = '1';
+        }
       });
     }
 
@@ -329,22 +438,18 @@
       const newRow = document.createElement('div');
       newRow.className = 'item-row';
       newRow.innerHTML = `
-        <select class="product-select" required>
-          <option value="">Select a product...</option>
-        </select>
-        <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
-        <button type="button" class="btn remove-item" onclick="removeItemRow(this)">Remove</button>
+        <div class=\"autocomplete-wrapper\"> 
+          <input type=\"text\" class=\"product-input\" placeholder=\"Search SKU or name...\" required>
+          <div class=\"suggestions\"></div>
+        </div>
+        <input type=\"number\" class=\"quantity-input\" min=\"1\" value=\"1\" placeholder=\"Qty\" required>
+        <button type=\"button\" class=\"btn remove-item\" onclick=\"removeItemRow(this)\">Remove</button>
       `;
       container.appendChild(newRow);
-      
-      // Populate the new dropdown
-      const newSelect = newRow.querySelector('.product-select');
-      allProducts.forEach(product => {
-        const option = document.createElement('option');
-        option.value = product.ProductSKU;
-        option.textContent = `${product.ProductSKU} - ${product.Name || 'No Name'}${product['Product Weight(oz)'] ? ` (${product['Product Weight(oz)']}oz)` : ''}`;
-        newSelect.appendChild(option);
-      });
+
+      // Initialize autocomplete for the new input
+      const newInput = newRow.querySelector('.product-input');
+      attachAutocomplete(newInput);
 
       // Show remove buttons for all rows if more than one
       updateRemoveButtons();
@@ -406,12 +511,13 @@
         const items = [];
         
         for (let row of itemRows) {
-          const select = row.querySelector('.product-select');
+          const select = row.querySelector('.product-input');
           const quantityInput = row.querySelector('.quantity-input');
           
-          if (select.value && quantityInput.value) {
+          const sku = select?.dataset?.sku || '';
+          if (sku && quantityInput.value) {
             items.push({
-              sku: select.value,
+              sku: sku,
               quantity: parseInt(quantityInput.value)
             });
           }
@@ -457,12 +563,13 @@
           // Reset items container to single row
           const container = document.getElementById('itemsContainer');
           container.innerHTML = `
-            <div class="item-row">
-              <select class="product-select" required>
-                <option value="">Select a product...</option>
-              </select>
-              <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
-              <button type="button" class="btn remove-item" onclick="removeItemRow(this)" style="display: none;">Remove</button>
+            <div class=\"item-row\"> 
+              <div class=\"autocomplete-wrapper\">
+                <input type=\"text\" class=\"product-input\" placeholder=\"Search SKU or name...\" required>
+                <div class=\"suggestions\"></div>
+              </div>
+              <input type=\"number\" class=\"quantity-input\" min=\"1\" value=\"1\" placeholder=\"Qty\" required>
+              <button type=\"button\" class=\"btn remove-item\" onclick=\"removeItemRow(this)\" style=\"display: none;\">Remove</button>
             </div>
           `;
           populateProductDropdowns();
