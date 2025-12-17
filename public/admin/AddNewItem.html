@@ -858,6 +858,7 @@
                 <option value="L" ${ing.unit === 'L' ? 'selected' : ''}>L</option>
                 <option value="fl oz" ${ing.unit === 'fl oz' ? 'selected' : ''}>fl oz</option>
                 <option value="cups" ${ing.unit === 'cups' ? 'selected' : ''}>cups</option>
+                <option value="%" ${ing.unit === '%' ? 'selected' : ''}>% (of Product Weight)</option>
               </select>
             </td>
             <td style="padding:0.5rem;border:1px solid #cbd5e1;">
@@ -1078,6 +1079,8 @@
 
     function getProcessFromTableEditor() {
       const steps = [];
+      const productWeight = parseFloat(document.getElementById('ProductWeight').value) || 0;
+      
       processTableData.forEach(phase => {
         if (phase.name) {
           const validIngredients = phase.ingredients.filter(ing => ing.sku && ing.quantity);
@@ -1086,10 +1089,20 @@
             "Step Instructions": phase.instructions || '',
             "Step Duration (Minutes)": phase.duration ? parseInt(phase.duration) : 0,
             "Step Ingredients": validIngredients.map(ing => {
+              // Convert percentage to actual quantity
+              let quantity = parseFloat(ing.quantity) || 0;
+              let unit = ing.unit || 'lb';
+              
+              if (unit === '%') {
+                // Formula: quantity = (Product Weight(oz) * percentage) / 100
+                quantity = (productWeight * quantity) / 100;
+                unit = 'lb'; // Always save as lb
+              }
+              
               return {
                 SKU: ing.sku,
-                Quantity: parseFloat(ing.quantity) || 0,
-                Unit: ing.unit || 'lb',
+                Quantity: quantity,
+                Unit: unit,
                 Scope: ing.scope || 'PerPiece'
               };
             })
@@ -1103,6 +1116,15 @@
     document.getElementById('productForm').onsubmit = async function(e) {
       e.preventDefault();
       
+      // Validate that Product Weight is set if using percentage units
+      const hasPercentageUnit = processTableData.some(phase =>
+        phase.ingredients.some(ing => ing.unit === '%')
+      );
+      
+      if (hasPercentageUnit && !document.getElementById('ProductWeight').value) {
+        showStatus('productStatusMsg', 'Product Weight (oz) is required when using percentage units', 'error');
+        return;
+      }
       
       const data = {
         ProductSKU: document.getElementById('ProductSKU').value.trim(),
