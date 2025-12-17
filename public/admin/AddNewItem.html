@@ -389,6 +389,7 @@
           <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
           <label>Pack Size<input type="number" id="PackSize" min="0" step="1"></label>
           <label>Quantity<input type="number" id="Quantity" step="1"></label>
+          <label>Final Weight<input type="number" id="FinalWeight" min="0" step="any" placeholder="e.g., 1.5 (lbs)"></label>
           <label>MSRP<input type="number" id="MSRP" min="0" step="any"></label>
           <label>Client Price ($)<input type="number" id="ClientPrice" step="0.01" min="0" placeholder="e.g., 9.99"></label>
           <label>ASIN<input type="text" id="ASIN" placeholder="Amazon Standard Identification Number"></label>
@@ -636,6 +637,7 @@
         document.getElementById('FNSKU').value = product.FNSKU || '';
     document.getElementById('ClientPrice').value = product.ClientPrice || '';
     document.getElementById('UPC').value = product.UPC || '';
+        document.getElementById('FinalWeight').value = product.FinalWeight || '';
 
         // Only load process data from Process
         if (product.Process && typeof product.Process === 'object' && Array.isArray(product.Process.Steps)) {
@@ -1111,6 +1113,7 @@
         'Pack Size': document.getElementById('PackSize').value ? parseInt(document.getElementById('PackSize').value) : null,
         Quantity: document.getElementById('Quantity').value ? parseInt(document.getElementById('Quantity').value) : null,
         MSRP: document.getElementById('MSRP').value ? parseFloat(document.getElementById('MSRP').value) : null,
+        FinalWeight: document.getElementById('FinalWeight').value ? parseFloat(document.getElementById('FinalWeight').value) : null,
         ASIN: document.getElementById('ASIN').value.trim(),
         FNSKU: document.getElementById('FNSKU').value.trim(),
         Process: getProcessFromTableEditor(),
