@@ -719,9 +719,6 @@
           // Get ingredient name for display
           const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
           const ingredientName = ingredient ? ingredient.Name : sku;
-          // Get ingredient unit from allIngredients
-          const ingredient = allIngredients.find(ing => ing.IngredientSKU === sku);
-          const unit = ingredient ? ingredient.Unit : 'lb';
           // Insert the order into IngredientOrders table
           const { data, error } = await supabase
             .from('IngredientOrders')
