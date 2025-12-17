@@ -421,7 +421,19 @@
           <label>Ingredient SKU*<input type="text" id="IngredientSKU" required></label>
           <label>Name<input type="text" id="IngredientName"></label>
           <label>Retailer<input type="text" id="Retailer" placeholder="e.g., ACME Corp, Local Retailer, etc."></label>
-          <label>Quantity (Lbs/Units)<input type="number" id="IngredientQuantity" min="0" step="any" placeholder="Current quantity in stock"></label>
+          <label>Quantity<input type="number" id="IngredientQuantity" min="0" step="any" placeholder="Current quantity in stock"></label>
+          <label>Unit
+            <select id="IngredientUnit" style="width:100%;padding:8px;margin-top:4px;border-radius:6px;border:1.5px solid #cbd5e1;">
+              <option value="lb">lb</option>
+              <option value="kg">kg</option>
+              <option value="oz">oz</option>
+              <option value="g">g</option>
+              <option value="ml">ml</option>
+              <option value="L">L</option>
+              <option value="fl oz">fl oz</option>
+              <option value="cups">cups</option>
+            </select>
+          </label>
           <label>Location<input type="text" id="Location" placeholder="e.g., Warehouse A, Shelf B-3, etc."></label>
           <label>Cost ($/unit)<input type="number" id="Cost" min="0" step="any" placeholder="Cost per unit or lb"></label>
           <label>Low Inventory Threshold<input type="number" id="LowInvThreshold" min="0" step="any" placeholder="Alert when quantity falls below this level"></label>
@@ -714,6 +726,7 @@
         document.getElementById('IngredientName').value = ingredient.Name || '';
         document.getElementById('Retailer').value = ingredient.Retailer || '';
         document.getElementById('IngredientQuantity').value = ingredient['Quantity'] || '';
+        document.getElementById('IngredientUnit').value = ingredient['Unit'] || 'lb';
         document.getElementById('Location').value = ingredient.Location || '';
         document.getElementById('LowInvThreshold').value = ingredient.LowInvThreshold || '';
         document.getElementById('Link').value = ingredient.Link || '';
@@ -1170,6 +1183,7 @@
         Name: document.getElementById('IngredientName').value.trim(),
         Retailer: document.getElementById('Retailer').value.trim(),
         'Quantity': document.getElementById('IngredientQuantity').value ? parseFloat(document.getElementById('IngredientQuantity').value) : null,
+        'Unit': document.getElementById('IngredientUnit').value || 'lb',
         Location: document.getElementById('Location').value.trim(),
         LowInvThreshold: document.getElementById('LowInvThreshold').value ? parseFloat(document.getElementById('LowInvThreshold').value) : null,
         Link: document.getElementById('Link').value.trim()
