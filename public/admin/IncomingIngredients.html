@@ -262,6 +262,7 @@
           <tr>
             <th style="min-width: 250px;">Ingredient</th>
             <th style="min-width: 150px;">Quantity Ordered</th>
+            <th style="min-width: 120px;">Unit</th>
             <th style="min-width: 150px;">Expected Arrival Date</th>
             <th style="min-width: 120px;">Cost</th>
             <th style="min-width: 100px;">Actions</th>
@@ -630,6 +631,19 @@
           <input type="number" class="order-quantity" placeholder="0" min="0" step="0.01" style="width: 100%;" />
         </td>
         <td>
+          <select class="order-unit" style="width: 100%;">
+            <option value="lb">lb</option>
+            <option value="kg">kg</option>
+            <option value="oz">oz</option>
+            <option value="g">g</option>
+            <option value="ml">ml</option>
+            <option value="L">L</option>
+            <option value="fl oz">fl oz</option>
+            <option value="cups">cups</option>
+            <option value="pcs">pcs</option>
+          </select>
+        </td>
+        <td>
           <input type="date" class="expected-date" style="width: 100%;" />
         </td>
         <td>
@@ -694,10 +708,12 @@
       for (const row of rows) {
         const dropdown = row.querySelector('.selected-sku');
         const orderQuantity = row.querySelector('.order-quantity');
+        const unitField = row.querySelector('.order-unit');
         const expectedDate = row.querySelector('.expected-date');
         const costField = row.querySelector('.order-cost');
         const sku = dropdown ? dropdown.value : '';
         const quantity = parseFloat(orderQuantity.value) || 0;
+        const unit = unitField ? (unitField.value || 'lb') : 'lb';
         const expectedBy = expectedDate.value;
         const cost = costField ? parseFloat(costField.value) : null;
         if (!sku) {
@@ -977,7 +993,7 @@
         } catch (e) {
           updatedBy = null;
         }
-        const logMessage = `Received ${quantity} lbs, Lot: ${lot}, Expiry: ${expiry}`;
+        const logMessage = `Received ${quantity} ${receivedUnit}, Lot: ${lot}, Expiry: ${expiry}`;
         await supabase
           .from('IngredientLog')
           .insert({
@@ -1037,23 +1053,25 @@
             ingredient.ActiveLotNumbers.forEach(lotEntry => {
               // Parse lot entry format: "LotNumber, Quantity, Unit, YYYY-MM-DD" or legacy formats
               const parts = lotEntry.split(', ');
-              let lotNumber, lotQuantity, expiryDateStr;
+              let lotNumber, lotQuantity, lotUnit, expiryDateStr;
               
               if (parts.length >= 4) {
                 // New format: "LotNumber, Quantity, Unit, YYYY-MM-DD"
                 lotNumber = parts[0];
                 lotQuantity = parseFloat(parts[1]) || 0;
-                // parts[2] is unit, skip for now
+                lotUnit = parts[2] || '';
                 expiryDateStr = parts[3];
               } else if (parts.length >= 3) {
                 // Old format: "LotNumber, Quantity, YYYY-MM-DD"
                 lotNumber = parts[0];
                 lotQuantity = parseFloat(parts[1]) || 0;
+                lotUnit = '';
                 expiryDateStr = parts[2];
               } else if (parts.length >= 2) {
                 // Legacy format: "LotNumber, YYYY-MM-DD"
                 lotNumber = parts[0];
                 lotQuantity = 0;
+                lotUnit = '';
                 expiryDateStr = parts[1];
               } else {
                 return; // Skip invalid entries
@@ -1094,7 +1112,8 @@
                     daysUntilExpiry: daysDiff,
                     status: status,
                     statusColor: statusColor,
-                    rowColor: rowColor
+                    rowColor: rowColor,
+                    lotUnit: lotUnit
                   });
                 }
               }
@@ -1135,7 +1154,7 @@
           <td style="font-weight: 500;">${item.name}</td>
           <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">${item.sku}</td>
           <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">${item.lotNumber}</td>
-          <td style="font-weight: 500;">${item.lotQuantity} lbs</td>
+          <td style="font-weight: 500;">${item.lotQuantity} ${item.lotUnit || ''}</td>
           <td>${item.expiryDate}</td>
           <td style="font-weight: 600; color: ${item.statusColor};">
             ${item.daysUntilExpiry < 0 ? Math.abs(item.daysUntilExpiry) + ' days ago' : item.daysUntilExpiry + ' days'}
