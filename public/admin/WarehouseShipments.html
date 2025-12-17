@@ -506,6 +506,7 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
+  <script src="/Assets/IngredientUtils.js"></script>
   <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
 </head>
 <body>
@@ -1244,39 +1245,23 @@ async function submitReceiveShipment(event) {
               QuantityChanged: item.quantity
             });
         } else {
-          // Try to update Ingredients table
-          const { data: ing, error: ingErr } = await supabase
-            .from('Ingredients')
-            .select('"Quantity(Lbs/Units)"')
-            .eq('IngredientSKU', item.sku)
-            .maybeSingle();
-
-          if (ingErr) throw ingErr;
-
-          if (ing) {
-            const currentQty = ing['Quantity(Lbs/Units)'] || 0;
-            const newQty = currentQty + item.quantity;
-
-            const updateObj = { ['Quantity(Lbs/Units)']: newQty };
-            const { error: upIngErr } = await supabase
-              .from('Ingredients')
-              .update(updateObj)
-              .eq('IngredientSKU', item.sku);
-            if (upIngErr) throw upIngErr;
-
-            // Log the inventory update
-            const logMsg = `Received ${item.quantity} Ingredient SKU ${item.sku}`;
-            await supabase
-              .from('inventoryupdatelogs')
-              .insert({
-                log: logMsg,
-                updated_by: displayName || shipment.Retailer || null,
-                SKU: item.sku,
-                QuantityChanged: item.quantity
-              });
-          } else {
-            throw new Error(`SKU ${item.sku} does not exist in Products, Boxes, or Ingredients tables.`);
+          // Try to update Ingredients table using IngredientUtils
+          const result = await IngredientAdd(item.sku, item.quantity, item.unit || 'lb');
+          
+          if (!result.success) {
+            throw new Error(result.message);
           }
+
+          // Log the inventory update
+          const logMsg = `Received ${item.quantity} ${item.unit || 'lb'} Ingredient SKU ${item.sku}`;
+          await supabase
+            .from('inventoryupdatelogs')
+            .insert({
+              log: logMsg,
+              updated_by: displayName || shipment.Retailer || null,
+              SKU: item.sku,
+              QuantityChanged: item.quantity
+            });
         }
       }
     }
