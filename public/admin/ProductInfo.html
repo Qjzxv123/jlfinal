@@ -218,7 +218,7 @@
         let html = '';
         html += '<table style="width:100%;margin:auto;text-align:left;font-size:1rem;">';
         const hiddenFields = [
-          'UserID', 'ManufacturingSteps'
+          'UserID', 'Process'
         ];
         for (const key in data) {
           if (hiddenFields.includes(key)) continue;
@@ -237,7 +237,7 @@
         html += '</table>';
 
         // Add Manufacturing Steps section if it exists
-        if (data.ManufacturingSteps) {
+        if (data.Process) {
           html += `<div style='margin-top:2em;'>`;
           html += `<div class='collapsible-header' onclick='toggleCollapsible(this)'>`;
           html += `<span style='font-weight:600;color:#4DBA93;'>Manufacturing Steps</span>`;
@@ -247,7 +247,7 @@
           
           let steps = null;
           try {
-            steps = typeof data.ManufacturingSteps === 'string' ? JSON.parse(data.ManufacturingSteps) : data.ManufacturingSteps;
+            steps = typeof data.Process === 'string' ? JSON.parse(data.Process) : data.Process;
           } catch (e) {
             html += `<div style='color:#e74c3c;padding:10px;'>Error parsing manufacturing steps</div>`;
           }
@@ -270,7 +270,9 @@
                 html += `<div style='margin-top:8px;'><strong>Ingredients:</strong></div>`;
                 html += `<ul style='margin:4px 0 0 20px;'>`;
                 step['Step Ingredients'].forEach(ing => {
-                  html += `<li style='margin:2px 0;'>${ing.IngredientSKU}: ${ing.IngredientQuantity}</li>`;
+                  const unitStr = ing.Unit ? ` ${ing.Unit}` : '';
+                  const scopeStr = ing.Scope ? ` (${ing.Scope})` : '';
+                  html += `<li style='margin:2px 0;'>${ing.SKU}: ${ing.Quantity}${unitStr}${scopeStr}</li>`;
                 });
                 html += `</ul>`;
               }

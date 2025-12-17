@@ -180,37 +180,30 @@
           logsHtml += `<div class='error'>Error loading inventory update logs.</div>`;
         }
 
-        // Fetch products that use this ingredient
+        // Fetch products that use this ingredient (Process -> Steps -> Step Ingredients)
         let productsHtml = '';
         try {
           const { data: products, error: prodError } = await supabase
             .from('Products')
-            .select('Name,ProductSKU,ManufacturingSteps')
+            .select('Name,ProductSKU,Process')
             .order('Name');
           let usingProducts = [];
           if (products && Array.isArray(products)) {
             for (const prod of products) {
-              if (!prod.ManufacturingSteps) continue;
-              let stepsObj = null;
-              try {
-                stepsObj = typeof prod.ManufacturingSteps === 'string' ? JSON.parse(prod.ManufacturingSteps) : prod.ManufacturingSteps;
-              } catch (e) {
-                continue;
-              }
-              // Check all steps for this ingredient
-              if (stepsObj && Array.isArray(stepsObj.Steps)) {
-                for (const step of stepsObj.Steps) {
-                  if (step && Array.isArray(step['Step Ingredients'])) {
-                    for (const ing of step['Step Ingredients']) {
-                      if (ing.IngredientSKU === sku) {
-                        usingProducts.push({
-                          name: prod.Name,
-                          sku: prod.ProductSKU,
-                          quantity: ing.IngredientQuantity,
-                          stepTitle: step['Step Title']
-                        });
-                      }
-                    }
+              if (!prod.Process || !Array.isArray(prod.Process?.Steps)) continue;
+              const steps = prod.Process.Steps;
+              for (const step of steps) {
+                const stepIngs = Array.isArray(step['Step Ingredients']) ? step['Step Ingredients'] : (Array.isArray(step.StepIngredients) ? step.StepIngredients : []);
+                for (const ing of stepIngs) {
+                  if (ing.SKU === sku) {
+                    usingProducts.push({
+                      name: prod.Name,
+                      sku: prod.ProductSKU,
+                      quantity: ing.Quantity,
+                      unit: ing.Unit || '',
+                      scope: ing.Scope || 'PerBatch',
+                      stepTitle: step['Step Title'] || step.StepTitle || ''
+                    });
                   }
                 }
               }
@@ -218,9 +211,9 @@
           }
           productsHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Products Using This Ingredient</div>`;
           if (usingProducts.length) {
-            productsHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Name</th><th style='padding:6px 10px;text-align:left;'>SKU</th><th style='padding:6px 10px;text-align:left;'>Quantity</th><th style='padding:6px 10px;text-align:left;'>Step</th></tr></thead><tbody>`;
+            productsHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Name</th><th style='padding:6px 10px;text-align:left;'>SKU</th><th style='padding:6px 10px;text-align:left;'>Quantity</th><th style='padding:6px 10px;text-align:left;'>Unit</th><th style='padding:6px 10px;text-align:left;'>Scope</th><th style='padding:6px 10px;text-align:left;'>Step</th></tr></thead><tbody>`;
             for (const prod of usingProducts) {
-              productsHtml += `<tr><td style='padding:6px 10px;'>${prod.name}</td><td style='padding:6px 10px;'>${prod.sku}</td><td style='padding:6px 10px;'>${prod.quantity}</td><td style='padding:6px 10px;'>${prod.stepTitle || 'N/A'}</td></tr>`;
+              productsHtml += `<tr><td style='padding:6px 10px;'>${prod.name}</td><td style='padding:6px 10px;'>${prod.sku}</td><td style='padding:6px 10px;'>${prod.quantity ?? ''}</td><td style='padding:6px 10px;'>${prod.unit}</td><td style='padding:6px 10px;'>${prod.scope}</td><td style='padding:6px 10px;'>${prod.stepTitle || 'N/A'}</td></tr>`;
             }
             productsHtml += '</tbody></table>';
           } else {

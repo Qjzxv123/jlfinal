@@ -506,6 +506,7 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
+  <script src="/Assets/IngredientUtils.js"></script>
   <link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
 </head>
 <body>
@@ -798,7 +799,7 @@
       let html = '';
       filtered.slice(0, 10).forEach(item => { // Limit to 10 suggestions
         html += `<div class="sku-suggestion-item" 
-          onclick="selectSKU('${item.sku}', '${(item.name || '').replace(/'/g, "&#39;")}', this)"
+          onclick="selectSKU('${item.sku}', '${(item.name || '').replace(/'/g, "&#39;")}', '${item.type}', this)"
         >
           <strong>${item.sku}</strong>
           <span class="sku-type">${item.type}</span>
@@ -810,13 +811,20 @@
       suggestionsDiv.style.display = 'block';
     }
 
-    function selectSKU(sku, name, element) {
+    function selectSKU(sku, name, type, element) {
       const suggestionsDiv = element.parentElement;
       const inputElement = suggestionsDiv.parentElement.querySelector('.sku-search-input');
+      const itemRow = inputElement.closest('.item-row');
+      const unitInput = itemRow.querySelector('.unit-input');
       
       inputElement.value = sku;
       inputElement.dataset.selectedSku = sku;
       suggestionsDiv.style.display = 'none';
+      
+      // Show unit dropdown only if ingredient is selected
+      if (unitInput) {
+        unitInput.style.display = type === 'Ingredient' ? 'block' : 'none';
+      }
     }
 
     function setupSKUSearch(container) {
@@ -858,6 +866,17 @@
             <div class="sku-suggestions"></div>
           </div>
           <input type="number" class="item-quantity" placeholder="Qty" min="1" style="flex: 1; padding: 8px; border: 1.5px solid #e1e5e9; border-radius: 7px;" required />
+          <select class="unit-input" style="display:none;flex:0.8;padding:8px;border:1.5px solid #e1e5e9;border-radius:7px;">
+            <option value="lb">lb</option>
+            <option value="kg">kg</option>
+            <option value="oz">oz</option>
+            <option value="g">g</option>
+            <option value="ml">ml</option>
+            <option value="L">L</option>
+            <option value="fl oz">fl oz</option>
+            <option value="cups">cups</option>
+            <option value="pcs">pcs</option>
+          </select>
           <button type="button" class="btn" onclick="removeItemRow(this)" style="background: #e74c3c; padding: 8px 12px; font-size: 14px;">✕</button>
         </div>
       `;
@@ -883,6 +902,17 @@
           <div class="sku-suggestions"></div>
         </div>
         <input type="number" class="item-quantity" placeholder="Qty" min="1" style="flex: 1; padding: 8px; border: 1.5px solid #e1e5e9; border-radius: 7px;" required />
+        <select class="unit-input" style="display:none;flex:0.8;padding:8px;border:1.5px solid #e1e5e9;border-radius:7px;">
+          <option value="lb">lb</option>
+          <option value="kg">kg</option>
+          <option value="oz">oz</option>
+          <option value="g">g</option>
+          <option value="ml">ml</option>
+          <option value="L">L</option>
+          <option value="fl oz">fl oz</option>
+          <option value="cups">cups</option>
+          <option value="pcs">pcs</option>
+        </select>
         <button type="button" class="btn" onclick="removeItemRow(this)" style="background: #e74c3c; padding: 8px 12px; font-size: 14px;">✕</button>
       `;
       container.appendChild(newRow);
@@ -922,12 +952,18 @@
           const skuInput = row.querySelector('.sku-search-input');
           const sku = skuInput.dataset.selectedSku || skuInput.value.trim();
           const quantity = parseInt(row.querySelector('.item-quantity').value);
+          const unitInput = row.querySelector('.unit-input');
           
           if (sku && quantity > 0) {
             // Validate that the SKU exists in our loaded data
-            const skuExists = allSKUs.some(item => item.sku === sku);
-            if (skuExists) {
-              items.push({ sku, quantity });
+            const skuInfo = allSKUs.find(item => item.sku === sku);
+            if (skuInfo) {
+              const newItem = { sku, quantity };
+              // Only add unit field for ingredients
+              if (skuInfo.type === 'Ingredient' && unitInput && unitInput.style.display !== 'none') {
+                newItem.unit = unitInput.value;
+              }
+              items.push(newItem);
             } else {
               throw new Error(`Invalid SKU: ${sku}. Please select a valid SKU from the suggestions.`);
             }
@@ -1066,7 +1102,16 @@ async function submitReceiveShipment(event) {
         const qtyInput = document.getElementById(`actual-qty-${item.sku}`);
         let qty = parseInt(qtyInput.value, 10);
         if (isNaN(qty) || qty < 0) qty = 0;
-        items.push({ sku: item.sku, quantity: qty });
+        
+        // Check if this SKU is an ingredient to preserve unit
+        const skuInfo = allSKUs.find(s => s.sku === item.sku);
+        const isIngredient = skuInfo && skuInfo.type === 'Ingredient';
+        
+        const newItem = { sku: item.sku, quantity: qty };
+        if (isIngredient && item.unit) {
+          newItem.unit = item.unit;
+        }
+        items.push(newItem);
       }
     }
     
@@ -1200,39 +1245,23 @@ async function submitReceiveShipment(event) {
               QuantityChanged: item.quantity
             });
         } else {
-          // Try to update Ingredients table
-          const { data: ing, error: ingErr } = await supabase
-            .from('Ingredients')
-            .select('"Quantity(Lbs/Units)"')
-            .eq('IngredientSKU', item.sku)
-            .maybeSingle();
-
-          if (ingErr) throw ingErr;
-
-          if (ing) {
-            const currentQty = ing['Quantity(Lbs/Units)'] || 0;
-            const newQty = currentQty + item.quantity;
-
-            const updateObj = { ['Quantity(Lbs/Units)']: newQty };
-            const { error: upIngErr } = await supabase
-              .from('Ingredients')
-              .update(updateObj)
-              .eq('IngredientSKU', item.sku);
-            if (upIngErr) throw upIngErr;
-
-            // Log the inventory update
-            const logMsg = `Received ${item.quantity} Ingredient SKU ${item.sku}`;
-            await supabase
-              .from('inventoryupdatelogs')
-              .insert({
-                log: logMsg,
-                updated_by: displayName || shipment.Retailer || null,
-                SKU: item.sku,
-                QuantityChanged: item.quantity
-              });
-          } else {
-            throw new Error(`SKU ${item.sku} does not exist in Products, Boxes, or Ingredients tables.`);
+          // Try to update Ingredients table using IngredientUtils
+          const result = await IngredientAdd(item.sku, item.quantity, item.unit || 'lb');
+          
+          if (!result.success) {
+            throw new Error(result.message);
           }
+
+          // Log the inventory update
+          const logMsg = `Received ${item.quantity} ${item.unit || 'lb'} Ingredient SKU ${item.sku}`;
+          await supabase
+            .from('inventoryupdatelogs')
+            .insert({
+              log: logMsg,
+              updated_by: displayName || shipment.Retailer || null,
+              SKU: item.sku,
+              QuantityChanged: item.quantity
+            });
         }
       }
     }
@@ -1436,10 +1465,10 @@ async function submitReceiveShipment(event) {
                   <td colspan="7">
                     <table style="width:100%;border-collapse:collapse;">
                       <thead>
-                        <tr><th>SKU</th><th>Quantity</th></tr>
+                        <tr><th>SKU</th><th>Quantity</th>${shipment.items.some(item => item.unit) ? '<th>Unit</th>' : ''}</tr>
                       </thead>
                       <tbody>
-                        ${shipment.items.map(item => `<tr><td>${item.sku}</td><td>${item.quantity}</td></tr>`).join('')}
+                        ${shipment.items.map(item => `<tr><td>${item.sku}</td><td>${item.quantity}</td>${item.unit ? `<td>${item.unit}</td>` : ''}</tr>`).join('')}
                       </tbody>
                     </table>
                   </td>
@@ -1541,10 +1570,10 @@ async function submitReceiveShipment(event) {
                     <td colspan="6">
                       <table style="width:100%;border-collapse:collapse;">
                         <thead>
-                          <tr><th>SKU</th><th>Quantity</th></tr>
+                          <tr><th>SKU</th><th>Quantity</th>${(shipment.ActualContents && shipment.ActualContents.items && shipment.ActualContents.items.some(item => item.unit)) ? '<th>Unit</th>' : ''}</tr>
                         </thead>
                         <tbody>
-                          ${(shipment.ActualContents && shipment.ActualContents.items ? shipment.ActualContents.items : []).map(item => `<tr><td>${item.sku}</td><td>${item.quantity}</td></tr>`).join('')}
+                          ${(shipment.ActualContents && shipment.ActualContents.items ? shipment.ActualContents.items : []).map(item => `<tr><td>${item.sku}</td><td>${item.quantity}</td>${item.unit ? `<td>${item.unit}</td>` : ''}</tr>`).join('')}
                         </tbody>
                       </table>
                     </td>

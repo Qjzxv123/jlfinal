@@ -285,6 +285,7 @@
 	</style>
 	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 	<script src="/Assets/CheckAccess.js"></script>
+	<script src="/Assets/IngredientUtils.js"></script>
 	<link rel="icon" type="image/x-icon" href="/Assets/favicon.ico">
 </head>
 <body>
@@ -348,25 +349,51 @@ function escapeHtml(str) {
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#39;');
 }
-function getIngredientUsage(product, order) {
+
+// Collect needed ingredients for an order based on Process
+// Returns an array of { SKU, Quantity, Unit }
+function collectNeededIngredients(product, order) {
+	const out = [];
 	let steps = [];
-	if (Array.isArray(product.ManufacturingSteps)) {
-		steps = product.ManufacturingSteps;
-	} else if (product.ManufacturingSteps && Array.isArray(product.ManufacturingSteps.Steps)) {
-		steps = product.ManufacturingSteps.Steps;
+	if (product && product.Process && Array.isArray(product.Process.Steps)) {
+		steps = product.Process.Steps;
 	}
-	let QuantityBeingMade = order.Quantity || 1;
-	let usage = {};
+	const quantityBeingMade = order.Quantity || 1;
 	for (let i = 0; i < steps.length; i++) {
 		const step = steps[i];
-		let stepIngredients = Array.isArray(step["Step Ingredients"]) ? step["Step Ingredients"] : [];
+		const stepIngredients = Array.isArray(step["Step Ingredients"]) ? step["Step Ingredients"] : (Array.isArray(step.StepIngredients) ? step.StepIngredients : []);
 		for (let j = 0; j < stepIngredients.length; j++) {
 			const ing = stepIngredients[j];
-			if (ing.IngredientSKU && ing.IngredientQuantity !== undefined) {
-				let neededQty = ing.IngredientQuantity * QuantityBeingMade;
-				if (!usage[ing.IngredientSKU]) usage[ing.IngredientSKU] = 0;
-				usage[ing.IngredientSKU] += neededQty;
-			}
+			const sku = ing.SKU;
+			if (!sku) continue;
+			const baseQty = (ing.Quantity !== undefined ? ing.Quantity : 0) || 0;
+			const scope = ing.Scope;
+			const neededQty = baseQty * (scope === 'PerPiece' ? quantityBeingMade : 1);
+			const unit = ing.Unit || null;
+			out.push({ SKU: sku, Quantity: neededQty, Unit: unit });
+		}
+	}
+	return out;
+}
+function getIngredientUsage(product, order) {
+	let steps = [];
+	if (product && product.Process && Array.isArray(product.Process.Steps)) {
+		steps = product.Process.Steps;
+	}
+	const quantityBeingMade = order.Quantity || 1;
+	const usage = {};
+	for (let i = 0; i < steps.length; i++) {
+		const step = steps[i];
+		const stepIngredients = Array.isArray(step["Step Ingredients"]) ? step["Step Ingredients"] : (Array.isArray(step.StepIngredients) ? step.StepIngredients : []);
+		for (let j = 0; j < stepIngredients.length; j++) {
+			const ing = stepIngredients[j];
+			const sku = ing.SKU;
+			if (!sku) continue;
+			const baseQty = (ing.Quantity !== undefined ? ing.Quantity : 0) || 0;
+			const scope = ing.Scope;
+			const neededQty = baseQty * (scope === 'PerPiece' ? quantityBeingMade : 1);
+			if (!usage[sku]) usage[sku] = 0;
+			usage[sku] += neededQty;
 		}
 	}
 	return usage;
@@ -583,7 +610,7 @@ function getIngredientUsage(product, order) {
 				if (productSKUs.length > 0) {
 					const { data: productsData, error: prodError } = await supabase
 						.from('Products')
-						.select('ProductSKU, ManufacturingSteps, "Product Weight(oz)"')
+						.select('ProductSKU, Process, "Product Weight(oz)"')
 						.in('ProductSKU', productSKUs);
 					if (!prodError && productsData) {
 						productsData.forEach(prod => {
@@ -596,40 +623,33 @@ function getIngredientUsage(product, order) {
 				let allIngredientSKUs = new Set();
 				filteredOrders.forEach(order => {
 					let product = productsMap[order.ProductSKU];
-					if (product && product.ManufacturingSteps) {
-						let steps = [];
-						if (Array.isArray(product.ManufacturingSteps)) {
-							steps = product.ManufacturingSteps;
-						} else if (product.ManufacturingSteps.Steps && Array.isArray(product.ManufacturingSteps.Steps)) {
-							steps = product.ManufacturingSteps.Steps;
-						}
-						// Defensive: flatten steps if prototype chain is weird
-						if (steps && typeof steps.length === 'number' && steps.length > 0) {
-							for (let i = 0; i < steps.length; i++) {
-								const step = steps[i];
-								let stepIngredients = step.StepIngredients || step["Step Ingredients"];
-								if (step && stepIngredients && Array.isArray(stepIngredients)) {
-									stepIngredients.forEach(ing => {
-										if (ing.IngredientSKU) allIngredientSKUs.add(ing.IngredientSKU);
-									});
-								}
+					if (product && product.Process && Array.isArray(product.Process.Steps)) {
+						const steps = product.Process.Steps;
+						for (let i = 0; i < steps.length; i++) {
+							const step = steps[i];
+							const stepIngredients = step["Step Ingredients"] || step.StepIngredients;
+							if (step && stepIngredients && Array.isArray(stepIngredients)) {
+								stepIngredients.forEach(ing => {
+									const sku = ing.SKU;
+									if (sku) allIngredientSKUs.add(sku);
+								});
 							}
 						}
 					}
 				});
 
-				// Fetch ingredient quantities
+				// Fetch ingredient quantities and units
 				let ingredientsMap = {};
 				let ingredientFetchEmpty = false;
 				if (allIngredientSKUs.size > 0) {
 					const { data: ingredientsData, error: ingError } = await supabase
 						.from('Ingredients')
-						.select('IngredientSKU, "Quantity(Lbs/Units)"')
+						.select('IngredientSKU, Quantity, Unit')
 						.in('IngredientSKU', Array.from(allIngredientSKUs));
 					if (!ingError && ingredientsData) {
 						if (ingredientsData.length === 0) ingredientFetchEmpty = true;
 						ingredientsData.forEach(ing => {
-							ingredientsMap[ing.IngredientSKU] = ing["Quantity(Lbs/Units)"] || 0;
+							ingredientsMap[ing.IngredientSKU] = { qty: (ing["Quantity"] || 0), unit: ing.Unit };
 						});
 					}
 				}
@@ -668,17 +688,30 @@ function getIngredientUsage(product, order) {
 										let product = productsMap[order.ProductSKU];
 										// DRY: Use shared function for ingredient check
 										   function getInsufficientIngredients(product, order, ingredientsMap) {
-											   if (!product || !product.ManufacturingSteps) {
-												   return { error: 'No manufacturing steps', insufficient: [] };
+											   const hasSteps = !!(product && product.Process && Array.isArray(product.Process.Steps));
+											   if (!hasSteps) {
+												   return { error: 'No process steps', insufficient: [] };
 											   }
 											   try {
-												   let usage = getIngredientUsage(product, order);
 												   let insufficientIngredients = [];
-												   for (let sku in usage) {
-													   const dbQty = ingredientsMap[sku] || 0;
-													   if (dbQty < usage[sku]) {
-														   insufficientIngredients.push(sku);
+												   const neededList = collectNeededIngredients(product, order);
+												   const requiredBySku = {};
+												   for (const item of neededList) {
+													   const info = ingredientsMap[item.SKU];
+													   if (!info) continue;
+													   let converted = null;
+													   if (typeof convertUnits === 'function' && item.Unit && info.unit) {
+														   converted = convertUnits(item.Quantity, item.Unit, info.unit);
 													   }
+													   if (converted === null || converted === undefined) {
+														   converted = item.Quantity;
+													   }
+													   if (!requiredBySku[item.SKU]) requiredBySku[item.SKU] = 0;
+													   requiredBySku[item.SKU] += converted;
+												   }
+												   for (const sku in requiredBySku) {
+													   const dbQty = (ingredientsMap[sku]?.qty) || 0;
+													   if (dbQty < requiredBySku[sku]) insufficientIngredients.push(sku);
 												   }
 												   return { error: null, insufficient: insufficientIngredients };
 											   } catch (e) {
@@ -696,12 +729,8 @@ function getIngredientUsage(product, order) {
 
 					// Get step titles for this product
 					let stepTitles = [];
-					if (product && product.ManufacturingSteps) {
-						let steps = Array.isArray(product.ManufacturingSteps)
-							? product.ManufacturingSteps
-							: (product.ManufacturingSteps.Steps && Array.isArray(product.ManufacturingSteps.Steps)
-								? product.ManufacturingSteps.Steps
-								: []);
+					if (product && product.Process && Array.isArray(product.Process.Steps)) {
+						let steps = product.Process.Steps;
 						if (steps && steps.length > 0) {
 							stepTitles = steps.map(s => s["Step Title"] || s.StepTitle).filter(Boolean);
 						}
@@ -855,47 +884,16 @@ function getIngredientUsage(product, order) {
 					updateObj.Vessel = vessels.length > 0 ? vessels : null;
 				}
 				// Do not subtract ingredients if IngredientsRemoved is already true
-				if (!order.IngredientsRemoved && confirmed && product && product.ManufacturingSteps) {
-					let ingredientUsage = getIngredientUsage(product, order);
-					// Fetch current quantities for all used ingredients
-					const usedSKUs = Object.keys(ingredientUsage);
-					if (usedSKUs.length > 0) {
-						const { data: currentIngredients, error: fetchError } = await supabase
-							.from('Ingredients')
-							.select('IngredientSKU, "Quantity(Lbs/Units)"')
-							.in('IngredientSKU', usedSKUs);
-						if (!fetchError && currentIngredients) {
-							// Prepare updates
-							let updates = [];
-							currentIngredients.forEach(ing => {
-								let newQty = (ing["Quantity(Lbs/Units)"] || 0) - (ingredientUsage[ing.IngredientSKU] || 0);
-								if (newQty < 0) newQty = 0;
-								updates.push({ IngredientSKU: ing.IngredientSKU, "Quantity(Lbs/Units)": newQty });
-							});
-							// Update all in parallel
-							for (let upd of updates) {
-								// Update ingredient quantity
-								await supabase
-									.from('Ingredients')
-									.update({ "Quantity(Lbs/Units)": upd["Quantity(Lbs/Units)"] })
-									.eq('IngredientSKU', upd.IngredientSKU);
-								// Log the removal
-								await supabase
-									.from('IngredientLog')
-									.insert([
-										{
-											ChangeTime: new Date().toISOString(),
-											IngredientSKU: upd.IngredientSKU,
-											QuantityChanged: -ingredientUsage[upd.IngredientSKU],
-											Updated_By: window.CurrentUserDisplayName,
-											Log: `Scheduled order #${order.OrderNumber} for product ${order.ProductSKU}`
-										}
-									]);
-							}
-						}
+				if (!order.IngredientsRemoved && confirmed && product && product.Process && Array.isArray(product.Process.Steps)) {
+					const neededList = collectNeededIngredients(product, order);
+					for (const item of neededList) {
+						const fallbackUnit = (ingredientsMap[item.SKU] && ingredientsMap[item.SKU].unit) || item.Unit || null;
+						await IngredientRemove(item.SKU, item.Quantity, fallbackUnit || '');
 					}
-					// Set IngredientsRemoved if ingredients were subtracted
 					updateObj.IngredientsRemoved = true;
+				} else if (!order.IngredientsRemoved) {
+					alert('Cannot schedule: Product is missing Process.Steps.');
+					return;
 				}
 			}
 			const { error } = await supabase
@@ -970,55 +968,30 @@ function getIngredientUsage(product, order) {
 						alert('Could not find order.');
 						return;
 					}
-					// Fetch product steps
+					// Fetch product process/steps
 					const { data: product, error: prodError } = await supabase
 						.from('Products')
-						.select('ManufacturingSteps')
+						.select('Process')
 						.eq('ProductSKU', order.ProductSKU)
 						.single();
-					if (!product || prodError || !product.ManufacturingSteps) {
+					if (!product || prodError || (!product.Process || !Array.isArray(product.Process?.Steps))) {
 						alert('Could not find product steps.');
 						return;
 					}
-					let ingredientUsage = getIngredientUsage(product, order);
-					// Fetch current ingredient quantities
-					const usedSKUs = Object.keys(ingredientUsage);
-					if (usedSKUs.length === 0) {
-						alert('No ingredients to restore.');
-						return;
-					}
-					const { data: currentIngredients, error: fetchError } = await supabase
-						.from('Ingredients')
-						.select('IngredientSKU, "Quantity(Lbs/Units)"')
-						.in('IngredientSKU', usedSKUs);
-					if (fetchError || !currentIngredients) {
-						alert('Could not fetch ingredient data.');
-						return;
-					}
-					// Prepare updates
-					let updates = [];
-					currentIngredients.forEach(ing => {
-						let newQty = (ing["Quantity(Lbs/Units)"] || 0) + (ingredientUsage[ing.IngredientSKU] || 0);
-						updates.push({ IngredientSKU: ing.IngredientSKU, "Quantity(Lbs/Units)": newQty });
-					});
-					// Update all in parallel
-					for (let upd of updates) {
-						await supabase
-							.from('Ingredients')
-							.update({ "Quantity(Lbs/Units)": upd["Quantity(Lbs/Units)"] })
-							.eq('IngredientSKU', upd.IngredientSKU);
-						// Log the restoration
-						await supabase
-							.from('IngredientLog')
-							.insert([
-								{
-									ChangeTime: new Date().toISOString(),
-									IngredientSKU: upd.IngredientSKU,
-									QuantityChanged: ingredientUsage[upd.IngredientSKU],
-									Updated_By: window.CurrentUserDisplayName,
-									Log: `Restored for order #${orderNumber} (undo removal)`
-								}
-							]);
+					const neededList = collectNeededIngredients(product, { Quantity: order.Quantity });
+					for (const item of neededList) {
+						// Prefer step unit; fallback to storage unit if needed
+						let stepUnit = item.Unit || null;
+						let useUnit = stepUnit;
+						if (!useUnit) {
+							const { data: ingRow } = await supabase
+								.from('Ingredients')
+								.select('Unit')
+								.eq('IngredientSKU', item.SKU)
+								.single();
+							useUnit = (ingRow && ingRow.Unit) || null;
+						}
+						await IngredientAdd(item.SKU, item.Quantity, useUnit || '');
 					}
 					// Set IngredientsRemoved to false
 					await supabase
@@ -1054,21 +1027,31 @@ let currentInsufficientData = [];
 // Function to show modal with ingredient info
 async function showInsufficientIngredientsModal(insufficientSKUs) {
   if (!Array.isArray(insufficientSKUs) || insufficientSKUs.length === 0) return;
-  const { data: ingredients, error } = await supabase
-    .from('Ingredients')
-    .select('IngredientSKU, Name, Link, "Quantity(Lbs/Units)"')
-    .in('IngredientSKU', insufficientSKUs);
+	const { data: ingredients, error } = await supabase
+		.from('Ingredients')
+		.select('IngredientSKU, Name, Link, Quantity, Unit')
+		.in('IngredientSKU', insufficientSKUs);
   
   currentInsufficientData = ingredients || [];
   
   let html = '<table style="width:100%;border-collapse:collapse;">';
-  html += '<thead><tr><th>Name</th><th>SKU</th><th>Current Qty</th><th>Link</th></tr></thead><tbody>';
+	html += '<thead><tr><th>Name</th><th>SKU</th><th>Current Qty</th><th>Current Unit</th><th>Order Qty</th><th>Order Unit</th><th>Link</th></tr></thead><tbody>';
+	const UNIT_OPTIONS = ['g','lb','kg','oz','ml','L','fl oz','cups'];
   (ingredients || []).forEach(ing => {
-    html += `<tr>
+		const selectedUnit = UNIT_OPTIONS.includes(ing.Unit) ? ing.Unit : (ing.Unit || '');
+		const unitOptionsHtml = UNIT_OPTIONS.map(u => `<option value="${u}" ${u === selectedUnit ? 'selected' : ''}>${u}</option>`).join('');
+		html += `<tr data-sku="${ing.IngredientSKU}">
       <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.Name || ''}</td>
       <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.IngredientSKU}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing['Quantity(Lbs/Units)'] ?? 0}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.Link ? `<a href="${ing.Link}" target="_blank">Link</a>` : ''}</td>
+			<td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing['Quantity'] ?? 0}</td>
+			<td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.Unit || ''}</td>
+			<td style="padding:6px 8px;border-bottom:1px solid #eee;"><input type="number" min="0" step="any" class="order-qty" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;" placeholder="0" /></td>
+			<td style="padding:6px 8px;border-bottom:1px solid #eee;">
+				<select class="order-unit" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;">
+					${unitOptionsHtml}
+				</select>
+			</td>
+			<td style="padding:6px 8px;border-bottom:1px solid #eee;">${ing.Link ? `<a href="${ing.Link}" target="_blank">Link</a>` : ''}</td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -1095,20 +1078,23 @@ document.getElementById('orderIngredientsBtn').onclick = async function() {
     return;
   }
   
-  // Prompt for quantity for each ingredient
-  const orders = [];
-  for (const ingredient of currentInsufficientData) {
-    const qty = prompt(`Enter quantity to order for ${ingredient.Name} (${ingredient.IngredientSKU}):`, '0');
-    if (qty === null) continue; // user cancelled
-    const qtyNum = parseFloat(qty);
-    if (isNaN(qtyNum) || qtyNum <= 0) continue;
-    
-    orders.push({
-      ExpectedBy: expectedBy,
-      IngredientSKU: ingredient.IngredientSKU,
-      'Quantity(Lbs/Units)': qtyNum
-    });
-  }
+	// Read per-row quantity and unit selections
+	const orders = [];
+	const rows = document.querySelectorAll('#ingredientModalContent tr[data-sku]');
+	rows.forEach(row => {
+		const sku = row.getAttribute('data-sku');
+		const qtyInput = row.querySelector('.order-qty');
+		const unitSelect = row.querySelector('.order-unit');
+		const qtyNum = parseFloat(qtyInput && qtyInput.value);
+		if (!isNaN(qtyNum) && qtyNum > 0) {
+			orders.push({
+				ExpectedBy: expectedBy,
+				IngredientSKU: sku,
+				Unit: unitSelect ? unitSelect.value : null,
+				Quantity: qtyNum
+			});
+		}
+	});
   
   if (orders.length === 0) {
     alert('No valid orders entered.');
@@ -1116,7 +1102,7 @@ document.getElementById('orderIngredientsBtn').onclick = async function() {
   }
   
   // Insert all orders
-  const { error } = await supabase
+	const { error } = await supabase
     .from('IngredientOrders')
     .insert(orders);
   

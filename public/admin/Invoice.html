@@ -491,15 +491,31 @@
                 const shelves = parseInt(document.getElementById('shelvesInput').value) || 0;
                 const pallets = parseInt(document.getElementById('palletsInput').value) || 0;
 
-                // Query orders from Order History for the specific retailer and month
-                const { data: orders, error } = await supabase
-                    .from('Order History')
-                    .select('OrderID, Retailer, ShippingCost, BoxSkus, Items, CustomerMessages, ShippedAt')
-                    .eq('Retailer', retailer)
-                    .gte('ShippedAt', startDateStr)
-                    .lte('ShippedAt', endDateStr + 'T23:59:59');
+                // Query orders from Order History with pagination
+                let orders = [];
+                let from = 0;
+                const pageSize = 1000;
+                let hasMore = true;
 
-                if (error) throw error;
+                while (hasMore) {
+                    const { data: pageOrders, error } = await supabase
+                        .from('Order History')
+                        .select('OrderID, Retailer, ShippingCost, BoxSkus, Items, CustomerMessages, ShippedAt')
+                        .eq('Retailer', retailer)
+                        .gte('ShippedAt', startDateStr)
+                        .lte('ShippedAt', endDateStr + 'T23:59:59')
+                        .range(from, from + pageSize - 1);
+
+                    if (error) throw error;
+
+                    if (pageOrders && pageOrders.length > 0) {
+                        orders = orders.concat(pageOrders);
+                        from += pageSize;
+                        hasMore = pageOrders.length === pageSize;
+                    } else {
+                        hasMore = false;
+                    }
+                }
 
                 if (!orders || orders.length === 0) {
                     // Check if inserts are enabled for empty case too

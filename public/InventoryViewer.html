@@ -540,7 +540,7 @@
             try {
                 const { data, error } = await supabase
                     .from('Ingredients')
-                    .select('Name, "Quantity(Lbs/Units)", Link, UserID');
+                    .select('Name, Quantity, Unit, Link, UserID');
                     
                 if (error) {
                     tableViewer.innerHTML = `<div class='error'>Error loading ingredients: ${error.message}</div>`;
@@ -571,11 +571,12 @@
                 });
                 
                 let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-                html += '<tr>' + ['Name','Quantity(Lbs/Units)','Link'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
+                html += '<tr>' + ['Name','Quantity','Unit','Link'].map(k => `<th style='border-bottom:1px solid #ccc;text-align:left;padding:4px;'>${k}</th>`).join('') + '</tr>';
                 
                 for (const row of filtered) {
-                    const quantityStr = row["Quantity(Lbs/Units)"] ?? '';
+                    const quantityStr = row.Quantity ?? '';
                     const quantity = parseFloat(quantityStr) || 0;
+                    const unit = row.Unit || 'lb';
                     let quantityClass = '';
                     if (quantity <= 0) {
                         quantityClass = 'quantity-critical';
@@ -586,6 +587,7 @@
                     html += '<tr>';
                     html += `<td style='padding:4px;'>${row.Name ?? ''}</td>`;
                     html += `<td style='padding:4px;' class='${quantityClass}'>${quantityStr}</td>`;
+                    html += `<td style='padding:4px;'>${unit}</td>`;
                     html += `<td style='padding:4px;'>${row.Link ? `<a href='${row.Link}' target='_blank' style='color:#3498db;text-decoration:underline;'>Link</a>` : ''}</td>`;
                     html += '</tr>';
                 }

@@ -5,14 +5,30 @@
 // Supabase client initialization (edit these values as needed for your project)
 const SUPABASE_URL = 'https://ypvyrophqkfqwpefuigi.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_XtDxMgVJe2Eotlem8MDL4Q_kxP4pbFc';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    session: { maxAge: 600 }
+// Create a single global Supabase client without redeclaring identifiers
+// If the UMD library is loaded, it exposes window.supabase with createClient.
+// We replace window.supabase with the client instance (only once) to avoid multiple globals.
+(function initSupabaseClient() {
+  try {
+    if (!window.supabase) {
+      console.error('Supabase library not loaded before CheckAccess.js');
+      return;
+    }
+    // If supabase.auth exists, we already have a client. Otherwise create one.
+    if (!window.supabase.auth) {
+      window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+          session: { maxAge: 600 }
+        }
+      });
+    }
+  } catch (e) {
+    console.error('Failed to initialize Supabase client:', e);
   }
-});
+})();
 
 // Global variables for current user info
 var CurrentUserID = '';

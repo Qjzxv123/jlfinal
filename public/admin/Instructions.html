@@ -44,75 +44,19 @@
           <h3>Record Actual Quantity Made</h3>
           <button class="close-btn" onclick="closeQuantityModal()">&times;</button>
         </div>
-        <p style="margin-bottom: 20px; color: #666; font-size: 14px; line-height: 1.5;">
-          Enter the actual quantities produced for each SKU. When you submit, the system will:
-          <br>• Update inventory for all entered SKUs
-          <br>• Mark this manufacturing order as completed
-          <br>• Log all inventory changes
-          <br>• Create a new task if total quantity is less than ordered with the remaining quantity
-        </p>
         <div id="skuRowsContainer">
           <!-- SKU rows will be added dynamically -->
         </div>
-        <button class="add-row-btn" onclick="addSkuRow()">+ Add Another SKU</button>
+          <button class="add-row-btn" onclick="addSkuRow()">+ Add Another SKU</button>
+        <div style="margin:12px 0; display:flex; align-items:center; gap:10px;">
+          <label for="createRemainingToggle" style="font-weight:600;">Create new task for remaining quantity</label>
+          <input type="checkbox" id="createRemainingToggle" style="width:20px; height:20px; cursor:pointer;">
+          <span style="font-size:12px; color:#666;">If unchecked, the current task will be deleted after submission.</span>
+        </div>
         <button class="submit-btn" onclick="submitQuantities()">Submit</button>
       </div>
     </div>
-    
-    <!-- Unit Conversion Calculator Button -->
-    <button id="openCalculatorBtn" style="position:fixed; bottom:20px; right:20px; background:#4DBA93; color:white; border:none; border-radius:50%; width:60px; height:60px; font-size:24px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:1000;" title="Unit Conversion Calculator">
-      <i class="cil-calculator"></i>
-    </button>
-    
-    <!-- Unit Conversion Calculator Modal -->
-    <div id="calculatorModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center;">
-      <div style="background:white; padding:2rem; border-radius:12px; max-width:500px; width:90%; max-height:80vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-          <h3 style="margin:0; color:#4DBA93;">Unit Conversion Calculator</h3>
-          <button id="closeCalculatorBtn" style="background:none; border:none; font-size:24px; color:#666; cursor:pointer;">&times;</button>
-        </div>
-        
-        <div style="margin-bottom:1.5rem;">
-          <label style="display:block; font-weight:600; margin-bottom:0.5rem;">Conversion Type:</label>
-          <select id="conversionType" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px;">
-            <option value="weight">Weight (lb ↔ kg ↔ oz ↔ g)</option>
-            <option value="volume">Volume (fl oz ↔ ml ↔ cups ↔ L)</option>
-            <option value="length">Length (in ↔ cm ↔ ft ↔ m)</option>
-            <option value="temperature">Temperature (°F ↔ °C)</option>
-          </select>
-        </div>
-        
-        <div style="display:grid; grid-template-columns:1fr auto 1fr; gap:1rem; align-items:end; margin-bottom:1.5rem;">
-          <div>
-            <label style="display:block; font-weight:600; margin-bottom:0.5rem;">From:</label>
-            <input type="number" id="fromValue" placeholder="Enter value" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; margin-bottom:0.5rem;">
-            <select id="fromUnit" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px;">
-              <!-- Options will be populated based on conversion type -->
-            </select>
-          </div>
-          
-          <div style="text-align:center; padding-top:1rem;">
-            <i class="cil-arrow-right" style="font-size:20px; color:#4DBA93;"></i>
-          </div>
-          
-          <div>
-            <label style="display:block; font-weight:600; margin-bottom:0.5rem;">To:</label>
-            <input type="number" id="toValue" readonly style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; margin-bottom:0.5rem; background:#f8f9fa;">
-            <select id="toUnit" style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px;">
-              <!-- Options will be populated based on conversion type -->
-            </select>
-          </div>
-        </div>
-        
-        <button id="convertBtn" style="width:100%; background:#4DBA93; color:white; border:none; padding:0.75rem; border-radius:6px; font-size:16px; font-weight:600; cursor:pointer;">
-          Convert
-        </button>
-        
-        <div id="conversionResult" style="margin-top:1rem; padding:1rem; background:#f0fdf4; border-radius:6px; display:none;">
-          <strong id="resultText"></strong>
-        </div>
-      </div>
-    </div>
+
   </div>
   <script>
     checkPermissions(['service_role', 'employee']);
@@ -138,17 +82,17 @@
         
         // Override quantity if URL parameter is provided
         const effectiveQuantity = quantityOverride ? parseInt(quantityOverride) : orderData.Quantity;
-        // Fetch Product with ManufacturingSteps
+        // Fetch Product with Process
         const { data: productData, error: prodError } = await supabase
           .from('Products')
-          .select('Name, ManufacturingSteps, Quantity')
+          .select('Name, Process, Quantity')
           .eq('ProductSKU', orderData.ProductSKU)
           .single();
         if (prodError || !productData) {
           instructionsDiv.innerHTML = '<p style="color:red;">Product not found.</p>';
           return;
         }
-        const steps = productData.ManufacturingSteps?.Steps || productData.ManufacturingSteps || [];
+        const steps = productData.Process?.Steps || [];
         if (!Array.isArray(steps) || steps.length === 0) {
           instructionsDiv.innerHTML = '<p>No manufacturing steps found for this product.</p>';
           return;
@@ -202,7 +146,7 @@
           html += `<div style='margin-bottom:10px;'><strong>Ingredients:</strong></div>`;
           if (Array.isArray(step["Step Ingredients"])) {
             // Fetch ingredient names and locations from Supabase
-            const ingredientSKUs = step["Step Ingredients"].map(ing => ing.IngredientSKU);
+            const ingredientSKUs = step["Step Ingredients"].map(ing => ing.SKU);
             let nameMap = {};
             let locationMap = {};
             if (ingredientSKUs.length > 0) {
@@ -219,28 +163,35 @@
             }
             html += `<div style='overflow-x:auto;'><table style='width:100%; border-collapse:collapse; margin-top:0.3em; font-size:1em;'>`;
             html += `<colgroup>
-                <col style='width:28%;'>
-                <col style='width:15%;'>
-                <col style='width:15%;'>
-                <col style='width:17%;'>
+                <col style='width:22%;'>
+                <col style='width:13%;'>
+                <col style='width:12%;'>
+                <col style='width:12%;'>
+                <col style='width:12%;'>
                 <col style='width:15%;'>
             </colgroup>`;
             html += `<thead><tr>
                 <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Ingredient</th>
                 <th style='padding:4px 8px; border:1px solid #b2d8a6;'>SKU</th>
-                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Amount(Lbs/Units)</th>
+                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Quantity</th>
+                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Unit</th>
+                <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Scope</th>
                 <th style='padding:4px 8px; border:1px solid #b2d8a6;'>Location</th>
             </tr></thead><tbody>`;
             step["Step Ingredients"].forEach(ing => {
-              const batchQty = effectiveQuantity || 1;
-              const totalQty = (ing.IngredientQuantity !== undefined && ing.IngredientQuantity !== null)
-                ? Math.round(ing.IngredientQuantity * batchQty * 1000) / 1000
-                : '';
+              const scope = ing.Scope || 'PerPiece';
+              let displayQty = ing.Quantity || '';
+              if (scope === 'PerPiece' && displayQty) {
+                displayQty = Math.round(displayQty * effectiveQuantity * 1000) / 1000;
+              }
+              const unit = ing.Unit || 'lb';
               html += `<tr>` +
-                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${nameMap[ing.IngredientSKU] || ''}</td>` +
-                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${ing.IngredientSKU}</td>` +
-                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${totalQty}</td>` +
-                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${locationMap[ing.IngredientSKU] || ''}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${nameMap[ing.SKU] || ''}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${ing.SKU}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${displayQty}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${unit}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${scope}</td>` +
+                `<td style='padding:4px 8px; border:1px solid #b2d8a6;'>${locationMap[ing.SKU] || ''}</td>` +
               `</tr>`;
             });
             html += `</tbody></table></div>`;
@@ -254,9 +205,13 @@
               const n = parseInt(p1, 10);
               const ing = step["Step Ingredients"][n];
               if (ing) {
-                const batchQty = effectiveQuantity || 1;
-                let qty = ing.IngredientQuantity !== undefined ? Math.round(ing.IngredientQuantity * batchQty * 1000) / 1000 : '';
-                return `${ing.IngredientSKU} (${qty})`;
+                const scope = ing.Scope || 'PerPiece';
+                let qty = ing.Quantity || '';
+                if (scope === 'PerPiece' && qty) {
+                  qty = Math.round(qty * effectiveQuantity * 1000) / 1000;
+                }
+                const unit = ing.Unit || '';
+                return `${ing.SKU} (${qty} ${unit})`;
               }
               return match;
             });
@@ -527,46 +482,27 @@
 
       closeQuantityModal();
 
-      // Check if total quantity is less than ordered quantity
-      if (totalQuantity < modalEffectiveQuantity) {
-        if (confirm(`Total quantity made (${totalQuantity}) is less than the ordered quantity (${modalEffectiveQuantity}). If you will be making the remaining product for this order again press "OK"`)) {
-          // Create a new manufacturing task for the remaining quantity
-          await supabase
-            .from('ManufacturingTasks')
-            .insert({ 
-              ProductSKU: modalOrderData.ProductSKU, 
-              Customer: modalOrderData.Customer, 
-              UserID: modalOrderData.UserID, 
-              Quantity: modalEffectiveQuantity - totalQuantity, 
-              Progress: 'requested' 
-            });
-        }
-      }
+      // Handle follow-up action based on toggle
+      const createRemaining = document.getElementById('createRemainingToggle')?.checked;
+      const remaining = Math.max(0, (modalEffectiveQuantity || 0) - totalQuantity);
 
-      // Check for quantity discrepancy
-      if (totalQuantity !== modalEffectiveQuantity) {
-        const { data: userRow, error } = await supabase
-          .from('Users')
-          .select('Alerts')
-          .eq('id', "bc4441d2-38e8-4e77-afb4-2609ec6f56f6")
-          .maybeSingle();
-        
-        let alertsArr = [];
-        if (!error && userRow && Array.isArray(userRow.Alerts)) {
-          alertsArr = userRow.Alerts;
-        }
-        alertsArr.push(`${new Date().toLocaleString()}: Quantity discrepancy detected. Manufactured ${totalQuantity} for order ${modalOrderNumber}, which differs from the ordered quantity of ${modalEffectiveQuantity}. SKUs made: ${skuQuantities.map(sq => `${sq.sku}(${sq.quantity})`).join(', ')}`);
-        
+      if (createRemaining && remaining > 0) {
         await supabase
-          .from('Users')
-          .update({ Alerts: alertsArr })
-          .eq('id', "bc4441d2-38e8-4e77-afb4-2609ec6f56f6");
+          .from('ManufacturingTasks')
+          .insert({
+            ProductSKU: modalOrderData.ProductSKU,
+            Customer: modalOrderData.Customer,
+            UserID: modalOrderData.UserID,
+            Quantity: remaining,
+            Progress: 'requested',
+            IngredientsRemoved: true
+          });
       }
 
-      // Mark the original manufacturing task as completed
+      // Delete the original manufacturing task
       await supabase
         .from('ManufacturingTasks')
-        .update({ Progress: 'Completed', CompletionDate: modalCompletionDate })
+        .delete()
         .eq('OrderNumber', modalOrderNumber);
 
       // Update inventory for each SKU
@@ -605,113 +541,6 @@
       console.log('Manufacturing completed for order', modalOrderNumber);
       window.location.href = 'Manufacturing.html';
     }
-
-    // Unit Conversion Calculator
-    const conversions = {
-      weight: {
-        units: { 'lb': 'Pounds', 'kg': 'Kilograms', 'oz': 'Ounces', 'g': 'Grams' },
-        toGrams: { 'lb': 453.592, 'kg': 1000, 'oz': 28.3495, 'g': 1 }
-      },
-      volume: {
-        units: { 'fl oz': 'Fluid Ounces', 'ml': 'Milliliters', 'cups': 'Cups', 'L': 'Liters' },
-        toMl: { 'fl oz': 29.5735, 'ml': 1, 'cups': 236.588, 'L': 1000 }
-      },
-      length: {
-        units: { 'in': 'Inches', 'cm': 'Centimeters', 'ft': 'Feet', 'm': 'Meters' },
-        toCm: { 'in': 2.54, 'cm': 1, 'ft': 30.48, 'm': 100 }
-      },
-      temperature: {
-        units: { 'F': 'Fahrenheit', 'C': 'Celsius' }
-      }
-    };
-
-    function populateUnits() {
-      const conversionType = document.getElementById('conversionType').value;
-      const fromUnit = document.getElementById('fromUnit');
-      const toUnit = document.getElementById('toUnit');
-      
-      fromUnit.innerHTML = '';
-      toUnit.innerHTML = '';
-      
-      const units = conversions[conversionType].units;
-      Object.keys(units).forEach(unit => {
-        const option1 = document.createElement('option');
-        option1.value = unit;
-        option1.textContent = `${unit} (${units[unit]})`;
-        fromUnit.appendChild(option1);
-        
-        const option2 = document.createElement('option');
-        option2.value = unit;
-        option2.textContent = `${unit} (${units[unit]})`;
-        toUnit.appendChild(option2);
-      });
-      
-      // Set different default selections
-      if (toUnit.children.length > 1) {
-        toUnit.selectedIndex = 1;
-      }
-    }
-
-    function convertUnits() {
-      const conversionType = document.getElementById('conversionType').value;
-      const fromValue = parseFloat(document.getElementById('fromValue').value);
-      const fromUnit = document.getElementById('fromUnit').value;
-      const toUnit = document.getElementById('toUnit').value;
-      
-      if (isNaN(fromValue)) {
-        alert('Please enter a valid number');
-        return;
-      }
-      
-      let result;
-      
-      if (conversionType === 'temperature') {
-        if (fromUnit === 'F' && toUnit === 'C') {
-          result = (fromValue - 32) * 5/9;
-        } else if (fromUnit === 'C' && toUnit === 'F') {
-          result = (fromValue * 9/5) + 32;
-        } else {
-          result = fromValue; // Same unit
-        }
-      } else {
-        const conversionData = conversions[conversionType];
-        const baseUnitKey = Object.keys(conversionData)[1]; // toGrams, toMl, toCm
-        const baseUnit = conversionData[baseUnitKey];
-        
-        // Convert to base unit first, then to target unit
-        const baseValue = fromValue * baseUnit[fromUnit];
-        result = baseValue / baseUnit[toUnit];
-      }
-      
-      document.getElementById('toValue').value = result.toFixed(4);
-      
-      const resultDiv = document.getElementById('conversionResult');
-      const resultText = document.getElementById('resultText');
-      resultText.textContent = `${fromValue} ${fromUnit} = ${result.toFixed(4)} ${toUnit}`;
-      resultDiv.style.display = 'block';
-    }
-
-    // Calculator Modal Event Listeners
-    document.getElementById('openCalculatorBtn').addEventListener('click', () => {
-      document.getElementById('calculatorModal').style.display = 'flex';
-      populateUnits();
-    });
-
-    document.getElementById('closeCalculatorBtn').addEventListener('click', () => {
-      document.getElementById('calculatorModal').style.display = 'none';
-    });
-
-    document.getElementById('calculatorModal').addEventListener('click', (e) => {
-      if (e.target === document.getElementById('calculatorModal')) {
-        document.getElementById('calculatorModal').style.display = 'none';
-      }
-    });
-
-    document.getElementById('conversionType').addEventListener('change', populateUnits);
-    document.getElementById('fromUnit').addEventListener('change', convertUnits);
-    document.getElementById('toUnit').addEventListener('change', convertUnits);
-    document.getElementById('fromValue').addEventListener('input', convertUnits);
-    document.getElementById('convertBtn').addEventListener('click', convertUnits);
   </script>
 </body>
 </html>

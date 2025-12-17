@@ -379,7 +379,6 @@
         <form id="productForm">
           <label>Product SKU*<input type="text" id="ProductSKU" required></label>
           <label>Name<input type="text" id="Name"></label>
-          <label>Product Weight(oz)<input type="text" id="ProductSize" placeholder="e.g., 4, 8, 16, etc."></label>
           <label>Archived <input type="checkbox" id="Archived"></label>
           <label>Retailer
             <select id="Customer" style="width:100%;padding:8px;margin-top:4px;border-radius:6px;border:1.5px solid #cbd5e1;">
@@ -390,7 +389,8 @@
           <label>Shelf Life (months)<input type="number" id="ShelfLife" min="0" step="any"></label>
           <label>Pack Size<input type="number" id="PackSize" min="0" step="1"></label>
           <label>Quantity<input type="number" id="Quantity" step="1"></label>
-          <label>Quantity Per Bin<input type="number" id="QuantityPerBin" step="1" min="0" placeholder="e.g., 12"></label>
+          <label>Final Weight<input type="number" id="FinalWeight" min="0" step="any" placeholder="e.g., 1.5 (lbs)"></label>
+          <label>Product Weight (oz)<input type="number" id="ProductWeight" min="0" step="any" placeholder="e.g., 16 (oz)"></label>
           <label>MSRP<input type="number" id="MSRP" min="0" step="any"></label>
           <label>Client Price ($)<input type="number" id="ClientPrice" step="0.01" min="0" placeholder="e.g., 9.99"></label>
           <label>ASIN<input type="text" id="ASIN" placeholder="Amazon Standard Identification Number"></label>
@@ -421,7 +421,20 @@
           <label>Ingredient SKU*<input type="text" id="IngredientSKU" required></label>
           <label>Name<input type="text" id="IngredientName"></label>
           <label>Retailer<input type="text" id="Retailer" placeholder="e.g., ACME Corp, Local Retailer, etc."></label>
-          <label>Quantity (Lbs/Units)<input type="number" id="IngredientQuantity" min="0" step="any" placeholder="Current quantity in stock"></label>
+          <label>Quantity<input type="number" id="IngredientQuantity" min="0" step="any" placeholder="Current quantity in stock"></label>
+          <label>Unit
+            <select id="IngredientUnit" style="width:100%;padding:8px;margin-top:4px;border-radius:6px;border:1.5px solid #cbd5e1;">
+              <option value="lb">lb</option>
+              <option value="kg">kg</option>
+              <option value="oz">oz</option>
+              <option value="g">g</option>
+              <option value="ml">ml</option>
+              <option value="L">L</option>
+              <option value="fl oz">fl oz</option>
+              <option value="cups">cups</option>
+              <option value="pcs">pcs</option>
+            </select>
+          </label>
           <label>Location<input type="text" id="Location" placeholder="e.g., Warehouse A, Shelf B-3, etc."></label>
           <label>Cost ($/unit)<input type="number" id="Cost" min="0" step="any" placeholder="Cost per unit or lb"></label>
           <label>Low Inventory Threshold<input type="number" id="LowInvThreshold" min="0" step="any" placeholder="Alert when quantity falls below this level"></label>
@@ -602,7 +615,6 @@
         // Populate form fields
         document.getElementById('ProductSKU').value = product.ProductSKU || '';
         document.getElementById('Name').value = product.Name || '';
-        document.getElementById('ProductSize').value = product['Product Weight(oz)'] || '';
         document.getElementById('Archived').checked = product.Archived || false;
         
         // Set retailer dropdown value - use the Retailer field directly
@@ -634,45 +646,30 @@
         document.getElementById('ShelfLife').value = product.ShelfLife || '';
         document.getElementById('PackSize').value = product['Pack Size'] || '';
         document.getElementById('Quantity').value = product.Quantity || '';
-        document.getElementById('QuantityPerBin').value = product.QuantityPerBin || '';
         document.getElementById('MSRP').value = product.MSRP || '';
         document.getElementById('ASIN').value = product.ASIN || '';
         document.getElementById('FNSKU').value = product.FNSKU || '';
     document.getElementById('ClientPrice').value = product.ClientPrice || '';
     document.getElementById('UPC').value = product.UPC || '';
+        document.getElementById('FinalWeight').value = product.FinalWeight || '';
+        document.getElementById('ProductWeight').value = product['Product Weight(oz)'] || '';
 
-        // Only load process data from ManufacturingSteps
-        if (product.ManufacturingSteps && typeof product.ManufacturingSteps === 'object' && Array.isArray(product.ManufacturingSteps.Steps)) {
-          const weightOz = parseFloat(product['Product Weight(oz)']) || 0;
-          processTableData = product.ManufacturingSteps.Steps.map(step => {
+        // Only load process data from Process
+        if (product.Process && typeof product.Process === 'object' && Array.isArray(product.Process.Steps)) {
+          processTableData = product.Process.Steps.map(step => {
             return {
               name: step["Step Title"] || '',
               instructions: step["Step Instructions"] || '',
               duration: step["Step Duration (Minutes)"] || '',
               ingredients: Array.isArray(step["Step Ingredients"]) ? step["Step Ingredients"].map(ing => {
-                const ingredientData = allIngredients.find(ai => ai.IngredientSKU === ing.IngredientSKU);
-                let name = ingredientData ? ingredientData.Name : ing.IngredientSKU;
-                let IngredientQuantity = ing.IngredientQuantity !== undefined ? ing.IngredientQuantity : '';
-                // Default to percent when loading; convert units -> percent if possible
-                let amount = '';
-                let unitType = 'percent';
-                const qtyNum = parseFloat(IngredientQuantity);
-                if (!isNaN(qtyNum) && weightOz > 0) {
-                  const computedPercent =((qtyNum / (1.1 * (weightOz/16))) * 100);
-                  if (computedPercent > 100) {
-                    // If percent would be > 100, default to units using original quantity
-                    amount = qtyNum;
-                    unitType = 'units';
-                  } else {
-                    amount = computedPercent;
-                    unitType = 'percent';
-                  }
-                }
+                const ingredientData = allIngredients.find(ai => ai.IngredientSKU === ing.SKU);
+                let name = ingredientData ? ingredientData.Name : ing.SKU;
                 return {
                   name,
-                  sku: ing.IngredientSKU,
-                  amount,
-                  unitType
+                  sku: ing.SKU || '',
+                  quantity: ing.Quantity || '',
+                  unit: ing.Unit || 'lb',
+                  scope: ing.Scope || 'PerPiece'
                 };
               }) : []
             };
@@ -729,7 +726,8 @@
         document.getElementById('IngredientSKU').value = ingredient.IngredientSKU || '';
         document.getElementById('IngredientName').value = ingredient.Name || '';
         document.getElementById('Retailer').value = ingredient.Retailer || '';
-        document.getElementById('IngredientQuantity').value = ingredient['Quantity(Lbs/Units)'] || '';
+        document.getElementById('IngredientQuantity').value = ingredient['Quantity'] || '';
+        document.getElementById('IngredientUnit').value = ingredient['Unit'] || 'lb';
         document.getElementById('Location').value = ingredient.Location || '';
         document.getElementById('LowInvThreshold').value = ingredient.LowInvThreshold || '';
         document.getElementById('Link').value = ingredient.Link || '';
@@ -830,13 +828,19 @@
             <button type="button" class="remove-btn" onclick="removePhaseRow(${phaseIdx})">Remove Phase</button>
           </div>
           <div style="margin-bottom:1rem;">
-            <textarea rows="4" style="width:100%;padding:0.7rem 0.9rem;border-radius:4px;border:1px solid #cbd5e1;resize:vertical;" placeholder="Instructions" onchange="updatePhaseField(${phaseIdx},'instructions',this.value)">${phase.instructions || ''}</textarea>
+            <label style="margin:0;font-weight:600;color:#34495e;display:block;margin-bottom:0.5rem;">Instructions</label>
+            <div style="position:relative;display:flex;flex-direction:column;">
+              <textarea rows="4" style="width:100%;padding:0.7rem 0.9rem;border-radius:4px;border:1px solid #cbd5e1;resize:vertical;padding-bottom:45px;" placeholder="Instructions" onchange="updatePhaseField(${phaseIdx},'instructions',this.value)">${phase.instructions || ''}</textarea>
+              <button type="button" class="add-btn" onclick="generateInstructionsWithAI(${phaseIdx})" style="position:absolute;bottom:8px;right:8px;padding:6px 12px;font-size:1rem;margin:0;background:none;border:none;color:#666;cursor:pointer;">✨ AI</button>
+            </div>
           </div>
           <table style="width:100%;margin-top:1rem;border-collapse:collapse;">
             <thead>
               <tr style="background:#e2e8f0;">
                 <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;">Ingredient SKU</th>
-                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Amount</th>
+                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Quantity</th>
+                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Unit</th>
+                <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:120px;">Scope</th>
                 <th style="padding:0.5rem;text-align:left;border:1px solid #cbd5e1;width:100px;">Actions</th>
               </tr>
             </thead>
@@ -847,18 +851,35 @@
         container.appendChild(phaseDiv);
         const tbody = phaseDiv.querySelector(`#phase-ingredients-${phaseIdx}`);
         phase.ingredients.forEach((ing, ingIdx) => {
-          // Default to percent if not set
-          if (!('unitType' in ing)) ing.unitType = 'percent';
+          // Set defaults if not present
+          if (!('unit' in ing)) ing.unit = 'lb';
+          if (!('scope' in ing)) ing.scope = 'PerPiece';
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td style="padding:0.5rem;border:1px solid #cbd5e1;">
               <div id="ingredient-dropdown-${phaseIdx}-${ingIdx}"></div>
             </td>
-            <td style="padding:0.5rem;border:1px solid #cbd5e1;display:flex;gap:4px;align-items:center;">
-              <input type="number" value="${ing.amount || ''}" min="0" step="any" placeholder="Amount" style="width:100px;min-width:100px;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'amount',this.value);">
-              <select style="width:60px;min-width:60px;padding:0.3rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'unitType',this.value)">
-                <option value="percent" ${ing.unitType === 'percent' ? 'selected' : ''}>%</option>
-                <option value="units" ${ing.unitType === 'units' ? 'selected' : ''}>units</option>
+            <td style="padding:0.5rem;border:1px solid #cbd5e1;">
+              <input type="number" value="${ing.quantity || ''}" min="0" step="any" placeholder="Quantity" style="width:100%;padding:0.3rem;border:1px solid #cbd5e1;border-radius:4px;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'quantity',this.value);">
+            </td>
+            <td style="padding:0.5rem;border:1px solid #cbd5e1;">
+              <select style="width:100%;padding:0.3rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'unit',this.value)">
+                <option value="lb" ${ing.unit === 'lb' ? 'selected' : ''}>lb</option>
+                <option value="kg" ${ing.unit === 'kg' ? 'selected' : ''}>kg</option>
+                <option value="oz" ${ing.unit === 'oz' ? 'selected' : ''}>oz</option>
+                <option value="g" ${ing.unit === 'g' ? 'selected' : ''}>g</option>
+                <option value="ml" ${ing.unit === 'ml' ? 'selected' : ''}>ml</option>
+                <option value="L" ${ing.unit === 'L' ? 'selected' : ''}>L</option>
+                <option value="fl oz" ${ing.unit === 'fl oz' ? 'selected' : ''}>fl oz</option>
+                <option value="cups" ${ing.unit === 'cups' ? 'selected' : ''}>cups</option>
+                <option value="pcs" ${ing.unit === 'pcs' ? 'selected' : ''}>pcs</option>
+                <option value="%" ${ing.unit === '%' ? 'selected' : ''}>% (of Product Weight)</option>
+              </select>
+            </td>
+            <td style="padding:0.5rem;border:1px solid #cbd5e1;">
+              <select style="width:100%;padding:0.3rem;border-radius:4px;border:1px solid #cbd5e1;" onchange="updateIngredientField(${phaseIdx},${ingIdx},'scope',this.value)">
+                <option value="PerPiece" ${ing.scope === 'PerPiece' ? 'selected' : ''}>Per Piece</option>
+                <option value="PerBatch" ${ing.scope === 'PerBatch' ? 'selected' : ''}>Per Batch</option>
               </select>
             </td>
             <td style="padding:0.5rem;border:1px solid #cbd5e1;">
@@ -985,7 +1006,7 @@
     }
 
     function addIngredientRow(phaseIdx) {
-      processTableData[phaseIdx].ingredients.push({ sku: '', amount: '', unitType: 'percent' });
+      processTableData[phaseIdx].ingredients.push({ sku: '', quantity: '', unit: 'lb', scope: 'PerPiece' });
       renderProcessTableEditor();
     }
 
@@ -1003,48 +1024,101 @@
     }
 
     function updateIngredientField(phaseIdx, ingIdx, field, val) {
-      // If switching unitType and there is a value, convert it
-      if (field === 'unitType') {
-        const ing = processTableData[phaseIdx].ingredients[ingIdx];
-        const prevType = ing.unitType;
-        const prevAmount = parseFloat(ing.amount);
-        const productWeightOz = document.getElementById('ProductSize').value ? parseFloat(document.getElementById('ProductSize').value) : 0;
-        if (!isNaN(prevAmount) && prevType && val && prevType !== val && productWeightOz > 0) {
-          if (prevType === 'percent' && val === 'units') {
-            // Convert percent to units
-            ing.amount = 1.1 * (prevAmount / 100) * productWeightOz/16;
-          } else if (prevType === 'units' && val === 'percent') {
-            // Convert units to percent
-            ing.amount = (prevAmount / (1.1 * productWeightOz/16)) * 100;
-          }
-        }
-        ing.unitType = val;
-        renderProcessTableEditor();
+      processTableData[phaseIdx].ingredients[ingIdx][field] = val;
+    }
+
+    async function generateInstructionsWithAI(phaseIdx) {
+      const phase = processTableData[phaseIdx];
+      
+      if (!phase.name) {
+        alert('Please enter a phase title first');
         return;
       }
-      processTableData[phaseIdx].ingredients[ingIdx][field] = val;
+
+      if (phase.ingredients.length === 0) {
+        alert('Please add at least one ingredient to the phase');
+        return;
+      }
+
+      try {
+        // Show loading state - capture button before async operations
+        const button = event?.target;
+        let originalText = '';
+        
+        if (button) {
+          originalText = button.textContent;
+          button.textContent = '⏳ Generating...';
+          button.disabled = true;
+        }
+
+        // Call the Netlify function
+        const response = await fetch('/.netlify/functions/generate-instructions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            phaseTitle: phase.name,
+            ingredients: phase.ingredients,
+            existingInstructions: phase.instructions
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || data.error || 'Failed to generate instructions');
+        }
+
+        // Update the phase instructions
+        phase.instructions = data.instructions;
+        
+        // Re-render to show the new instructions
+        renderProcessTableEditor();
+        
+        // Show success message
+        showStatus('productStatusMsg', 'Instructions generated successfully!', 'success');
+
+      } catch (error) {
+        console.error('Error generating instructions:', error);
+        showStatus('productStatusMsg', `Error generating instructions: ${error.message}`, 'error');
+      } finally {
+        // Restore button state - use captured reference from event
+        const button = event?.target;
+        if (button) {
+          button.textContent = button.getAttribute('data-original-text') || '✨ AI';
+          button.disabled = false;
+        }
+      }
     }
 
     function getProcessFromTableEditor() {
       const steps = [];
-      const productWeightOz = document.getElementById('ProductSize').value ? parseFloat(document.getElementById('ProductSize').value) : 0;
+      const productWeight = parseFloat(document.getElementById('ProductWeight').value) || 0;
+      
       processTableData.forEach(phase => {
         if (phase.name) {
-          const validIngredients = phase.ingredients.filter(ing => ing.sku && ing.amount);
+          const validIngredients = phase.ingredients.filter(ing => ing.sku && ing.quantity);
           steps.push({
             "Step Title": phase.name,
             "Step Instructions": phase.instructions || '',
             "Step Duration (Minutes)": phase.duration ? parseInt(phase.duration) : 0,
             "Step Ingredients": validIngredients.map(ing => {
-              let qty = 0;
-              if (ing.unitType === 'percent' && productWeightOz > 0) {
-                qty = 1.1 * (parseFloat(ing.amount) / 100) * productWeightOz/16;
-              } else {
-                qty = parseFloat(ing.amount);
+              // Convert percentage to actual quantity
+              let quantity = parseFloat(ing.quantity) || 0;
+              let unit = ing.unit || 'lb';
+              
+              if (unit === '%') {
+                // Formula: quantity = (Product Weight(oz) * percentage) / 100
+                quantity = (productWeight * quantity) / 100;
+                unit = 'lb'; // Always save as lb
               }
+              
               return {
-                IngredientSKU: ing.sku,
-                IngredientQuantity: qty
+                SKU: ing.sku,
+                Quantity: quantity,
+                Unit: unit,
+                Scope: ing.scope || 'PerPiece'
               };
             })
           });
@@ -1057,23 +1131,32 @@
     document.getElementById('productForm').onsubmit = async function(e) {
       e.preventDefault();
       
+      // Validate that Product Weight is set if using percentage units
+      const hasPercentageUnit = processTableData.some(phase =>
+        phase.ingredients.some(ing => ing.unit === '%')
+      );
+      
+      if (hasPercentageUnit && !document.getElementById('ProductWeight').value) {
+        showStatus('productStatusMsg', 'Product Weight (oz) is required when using percentage units', 'error');
+        return;
+      }
       
       const data = {
         ProductSKU: document.getElementById('ProductSKU').value.trim(),
         Name: document.getElementById('Name').value.trim(),
         ClientPrice: document.getElementById('ClientPrice').value ? parseFloat(document.getElementById('ClientPrice').value) : null,
         UPC: document.getElementById('UPC').value.trim(),
-        'Product Weight(oz)': document.getElementById('ProductSize').value.trim(),
         Archived: document.getElementById('Archived').checked,
         Retailer: document.getElementById('Customer').options[document.getElementById('Customer').selectedIndex].text,
         ShelfLife: document.getElementById('ShelfLife').value ? parseFloat(document.getElementById('ShelfLife').value) : null,
         'Pack Size': document.getElementById('PackSize').value ? parseInt(document.getElementById('PackSize').value) : null,
         Quantity: document.getElementById('Quantity').value ? parseInt(document.getElementById('Quantity').value) : null,
-        QuantityPerBin: document.getElementById('QuantityPerBin').value ? parseInt(document.getElementById('QuantityPerBin').value) : null,
         MSRP: document.getElementById('MSRP').value ? parseFloat(document.getElementById('MSRP').value) : null,
+        FinalWeight: document.getElementById('FinalWeight').value ? parseFloat(document.getElementById('FinalWeight').value) : null,
+        'Product Weight(oz)': document.getElementById('ProductWeight').value ? parseFloat(document.getElementById('ProductWeight').value) : null,
         ASIN: document.getElementById('ASIN').value.trim(),
         FNSKU: document.getElementById('FNSKU').value.trim(),
-        ManufacturingSteps: getProcessFromTableEditor(),
+        Process: getProcessFromTableEditor(),
         UserID: [CurrentUserID,document.getElementById('Customer').value]
       };
       // Remove empty string values
@@ -1101,7 +1184,8 @@
         IngredientSKU: document.getElementById('IngredientSKU').value.trim(),
         Name: document.getElementById('IngredientName').value.trim(),
         Retailer: document.getElementById('Retailer').value.trim(),
-        'Quantity(Lbs/Units)': document.getElementById('IngredientQuantity').value ? parseFloat(document.getElementById('IngredientQuantity').value) : null,
+        'Quantity': document.getElementById('IngredientQuantity').value ? parseFloat(document.getElementById('IngredientQuantity').value) : null,
+        'Unit': document.getElementById('IngredientUnit').value || 'lb',
         Location: document.getElementById('Location').value.trim(),
         LowInvThreshold: document.getElementById('LowInvThreshold').value ? parseFloat(document.getElementById('LowInvThreshold').value) : null,
         Link: document.getElementById('Link').value.trim()
