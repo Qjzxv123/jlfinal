@@ -250,8 +250,8 @@
       padding: 8px;
       text-align: left;
     }
-    #shipmentsTable th {
-      background-color: #f2f2f2;
+    .unit-input {
+      display: none;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
@@ -279,6 +279,16 @@
                 <div class="sku-suggestions"></div>
               </div>
               <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
+              <select class="unit-input" style="flex:0.8;padding:8px;border:1.5px solid #e1e5e9;border-radius:7px;">
+                <option value="lb">lb</option>
+                <option value="kg">kg</option>
+                <option value="oz">oz</option>
+                <option value="g">g</option>
+                <option value="ml">ml</option>
+                <option value="L">L</option>
+                <option value="fl oz">fl oz</option>
+                <option value="cups">cups</option>
+              </select>
               <button type="button" class="btn remove-item" onclick="removeItemRow(this)" style="display: none;">Remove</button>
             </div>
           </div>
@@ -414,7 +424,7 @@
       let html = '';
       filtered.slice(0, 10).forEach(item => { // Limit to 10 suggestions
         html += `<div class="sku-suggestion-item" 
-          onclick="selectSKU('${item.sku}', '${(item.name || '').replace(/'/g, "&#39;")}', this)"
+          onclick="selectSKU('${item.sku}', '${(item.name || '').replace(/'/g, "&#39;")}', '${item.type}', this)"
         >
           <strong>${item.sku}</strong>
           <span class="sku-type">${item.type}</span>
@@ -426,13 +436,20 @@
       suggestionsDiv.style.display = 'block';
     }
 
-    function selectSKU(sku, name, element) {
+    function selectSKU(sku, name, type, element) {
       const suggestionsDiv = element.parentElement;
       const inputElement = suggestionsDiv.parentElement.querySelector('.sku-search-input');
+      const itemRow = inputElement.closest('.item-row');
+      const unitInput = itemRow.querySelector('.unit-input');
       
       inputElement.value = sku;
       inputElement.dataset.selectedSku = sku;
       suggestionsDiv.style.display = 'none';
+      
+      // Show unit dropdown only if ingredient is selected
+      if (unitInput) {
+        unitInput.style.display = type === 'Ingredient' ? 'block' : 'none';
+      }
     }
 
     function setupSKUSearch(container) {
@@ -497,10 +514,10 @@
                 <td colspan="3">
                   <table style="width:100%;border-collapse:collapse;">
                     <thead>
-                      <tr><th>SKU</th><th>Quantity</th></tr>
+                      <tr><th>SKU</th><th>Quantity</th>${log.AllegedContents.items.some(item => item.unit) ? '<th>Unit</th>' : ''}</tr>
                     </thead>
                     <tbody>
-                      ${log.AllegedContents.items.map(item => `<tr><td>${item.sku}</td><td>${item.quantity}</td></tr>`).join('')}
+                      ${log.AllegedContents.items.map(item => `<tr><td>${item.sku}</td><td>${item.quantity}</td>${item.unit ? `<td>${item.unit}</td>` : ''}</tr>`).join('')}
                     </tbody>
                   </table>
                 </td>
@@ -540,6 +557,16 @@
           <div class="sku-suggestions"></div>
         </div>
         <input type="number" class="quantity-input" min="1" value="1" placeholder="Qty" required>
+        <select class="unit-input" style="flex:0.8;padding:8px;border:1.5px solid #e1e5e9;border-radius:7px;">
+          <option value="lb">lb</option>
+          <option value="kg">kg</option>
+          <option value="oz">oz</option>
+          <option value="g">g</option>
+          <option value="ml">ml</option>
+          <option value="L">L</option>
+          <option value="fl oz">fl oz</option>
+          <option value="cups">cups</option>
+        </select>
         <button type="button" class="btn remove-item" onclick="removeItemRow(this)">Remove</button>
       `;
       container.appendChild(newRow);
@@ -580,6 +607,11 @@
 
     // Initialize the page
     window.addEventListener('DOMContentLoaded', async () => {
+      // Hide all unit inputs by default
+      document.querySelectorAll('.unit-input').forEach(input => {
+        input.style.display = 'none';
+      });
+      
       await fetchAllProducts();
       await fetchRecentShipments();
     });
@@ -613,15 +645,21 @@
           const skuInput = row.querySelector('.sku-search-input');
           const sku = skuInput.dataset.selectedSku || skuInput.value.trim();
           const quantityInput = row.querySelector('.quantity-input');
+          const unitInput = row.querySelector('.unit-input');
           
           if (sku && quantityInput.value) {
             // Validate that the SKU exists in our loaded data
-            const skuExists = allSKUs.some(item => item.sku === sku);
-            if (skuExists) {
-              items.push({
+            const skuInfo = allSKUs.find(item => item.sku === sku);
+            if (skuInfo) {
+              const newItem = {
                 sku: sku,
                 quantity: parseInt(quantityInput.value)
-              });
+              };
+              // Only add unit field for ingredients
+              if (skuInfo.type === 'Ingredient' && unitInput && unitInput.style.display !== 'none') {
+                newItem.unit = unitInput.value;
+              }
+              items.push(newItem);
             } else {
               statusMsg.textContent = `Invalid SKU: ${sku}. Please select a valid SKU from the suggestions.`;
               statusMsg.className = 'status error';
