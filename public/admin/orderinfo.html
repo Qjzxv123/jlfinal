@@ -143,7 +143,6 @@
         let itemsArr = [];
         try { itemsArr = Array.isArray(data.Items) ? data.Items : JSON.parse(data.Items || '[]'); } catch {}
         const trackingNumber = data.TrackingNumber || data.tracking_number || null;
-        const shippoOrderId = data.ShippoOrderID || data.shippoorderid || data.ShippoOrderID || null;
 
         // Header block with key details
         const placedAtStr = data.PlacedAt ? new Date(data.PlacedAt).toLocaleString() : '';
@@ -202,12 +201,17 @@
 
         detailsEl.innerHTML = headerHtml + itemsHtml + customerHtml;
 
-        // Tracking is only available for Order History (requires history id)
-        if (historyId) {
-          loadTrackingStatus(trackingNumber, shippoOrderId);
-        } else {
-          const container = document.getElementById('trackingStatus');
-          if (container) {
+        // Tracking is only available for Order History (requires history id). Link to ParcelsApp.
+        const container = document.getElementById('trackingStatus');
+        if (container) {
+          if (historyId) {
+            if (trackingNumber) {
+              const url = `https://parcelsapp.com/en/tracking/${encodeURIComponent(trackingNumber)}`;
+              container.innerHTML = `<a href='${url}' target='_blank' class='btn' style='display:inline-block;padding:10px 16px;border-radius:8px;background:#4DBA93;color:#fff;text-decoration:none;font-weight:600;'>Track Package</a>`;
+            } else {
+              container.innerHTML = '<div style="color:#888;">No tracking number available.</div>';
+            }
+          } else {
             container.innerHTML = '<div style="color:#888;">Tracking available for order history entries only.</div>';
           }
         }
@@ -216,56 +220,7 @@
       }
     }
 
-    async function loadTrackingStatus(trackingNumber, shippoOrderId) {
-      const container = document.getElementById('trackingStatus');
-      if (!container) return;
-      if (!trackingNumber) {
-        container.innerHTML = '<div style="color:#888;">No tracking number available.</div>';
-        return;
-      }
-      container.innerHTML = '<div style="color:#555;">Loading package status...</div>';
-      try {
-        const resp = await fetch('/.netlify/functions/shippo-get-tracking', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trackingNumber, shippoOrderId })
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || 'Tracking lookup failed');
-        renderTracking(data);
-      } catch (err) {
-        container.innerHTML = `<div style="color:#e74c3c;">Could not load tracking: ${err.message}</div>`;
-      }
-    }
-
-    function renderTracking(status) {
-      const container = document.getElementById('trackingStatus');
-      if (!container) return;
-      const statusText = status.status || 'Unknown';
-      const details = status.statusDetails || '';
-      const date = status.statusDate ? new Date(status.statusDate).toLocaleString() : '';
-      const eta = status.eta ? new Date(status.eta).toLocaleDateString() : '';
-      const loc = status.location ? [status.location.city, status.location.state, status.location.zip, status.location.country].filter(Boolean).join(', ') : '';
-      const history = Array.isArray(status.history) ? status.history : [];
-      let html = `<div style="margin-top:10px;padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#f8f9fa;">
-        <div style="font-weight:700;color:#2c3e50;">Package Status</div>
-        <div><strong>Status:</strong> ${statusText}</div>
-        ${details ? `<div><strong>Details:</strong> ${details}</div>` : ''}
-        ${date ? `<div><strong>Updated:</strong> ${date}</div>` : ''}
-        ${eta ? `<div><strong>ETA:</strong> ${eta}</div>` : ''}
-        ${loc ? `<div><strong>Location:</strong> ${loc}</div>` : ''}
-      `;
-      if (history.length) {
-        html += `<div style="margin-top:8px;"><strong>History:</strong></div><ul style="margin:6px 0 0 18px;">` +
-          history.map(ev => {
-            const evDate = ev.status_date ? new Date(ev.status_date).toLocaleString() : '';
-            const evLoc = ev.location ? [ev.location.city, ev.location.state, ev.location.zip, ev.location.country].filter(Boolean).join(', ') : '';
-            return `<li style="margin-bottom:4px;">${evDate ? evDate + ' - ' : ''}${ev.status || ''}${ev.status_details ? ' (' + ev.status_details + ')' : ''}${evLoc ? ' @ ' + evLoc : ''}</li>`;
-          }).join('') + `</ul>`;
-      }
-      html += '</div>';
-      container.innerHTML = html;
-    }
+    
 
     const ids = getQueryIdsFromURL();
     if (ids.historyId || ids.orderId) {
