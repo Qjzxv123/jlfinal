@@ -355,8 +355,8 @@
             selectString = 'ProductSKU,Name,Retailer,"Product Weight(oz)",FinalWeight,"Pack Size",Quantity,QuantityPerBin';
             orderCol = 'ProductSKU';
         } else if (tableName === 'Ingredients') {
-            columns = ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Retailer', 'LowInvThreshold'];
-            selectString = 'IngredientSKU,Name,"Quantity(Lbs/Units)",Retailer,LowInvThreshold';
+            columns = ['IngredientSKU', 'Name', 'Quantity', 'Unit', 'Retailer', 'LowInvThreshold'];
+            selectString = 'IngredientSKU,Name,Quantity,Unit,Retailer,LowInvThreshold';
             orderCol = 'IngredientSKU';
         } else if (tableName === 'Boxes') {
             columns = ['SKU', 'Weight(Lbs)', 'Cost', 'Dimensions', 'Link', 'Price', 'Quantity']; // Removed UserID
@@ -396,9 +396,9 @@
                 );
             }
             // If filtering for low inventory ingredients
-            if (ingredientLowInvOnly && columns.includes('Quantity(Lbs/Units)') && columns.includes('LowInvThreshold')) {
+            if (ingredientLowInvOnly && columns.includes('Quantity') && columns.includes('LowInvThreshold')) {
                 filtered = filtered.filter(row => {
-                    const qty = parseFloat(row['Quantity(Lbs/Units)']);
+                    const qty = parseFloat(row['Quantity']);
                     const threshold = parseFloat(row['LowInvThreshold']);
                     return !isNaN(qty) && !isNaN(threshold) && qty < threshold;
                 });
@@ -509,7 +509,7 @@
                             let valToSave = newVal;
                             const numericCols = [
                                 'Quantity', 'QuantityPerBin', 'Product Weight(oz)', 'FinalWeight', 'Pack Size',
-                                'Quantity(Lbs/Units)', 'LowInvThreshold'
+                                'LowInvThreshold'
                             ];
                             if (numericCols.includes(col) && newVal === '') {
                                 valToSave = null;
@@ -865,7 +865,7 @@
                 renderTable(allProductsData, ['ProductSKU', 'Name', 'Retailer', 'Product Weight(oz)', 'FinalWeight', 'Pack Size', 'Quantity'], productsTable, term);
                 renderTable(
                     allIngredientsData,
-                    ['IngredientSKU', 'Name', 'Quantity(Lbs/Units)', 'Retailer', 'LowInvThreshold'],
+                    ['IngredientSKU', 'Name', 'Quantity', 'Unit', 'Retailer', 'LowInvThreshold'],
                     ingredientsTable,
                     term,
                     lowInv

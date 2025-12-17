@@ -430,7 +430,7 @@
                 // Fetch Ingredient Orders
                 const { data: ingredientOrders, error: ingredientError } = await supabase
                     .from('IngredientOrders')
-                    .select('id, ExpectedBy, IngredientSKU, "Quantity(Lbs/Units)"');
+                    .select('id, ExpectedBy, IngredientSKU, Quantity, Unit');
 
                 // Fetch Manufacturing Tasks (exclude completed ones)
                 const { data: manufacturingTasks, error: manufacturingError } = await supabase
@@ -497,7 +497,7 @@
                             title: `${order.IngredientSKU || 'Ingredient'} Delivery`,
                             type: 'ingredient',
                             date: order.ExpectedBy,
-                            description: `Expected: ${order['Quantity(Lbs/Units)'] || 'Unknown'} units of ${order.IngredientSKU || 'ingredient'}`
+                            description: `Expected: ${order.Quantity || 'Unknown'} ${order.Unit || 'lb'} of ${order.IngredientSKU || 'ingredient'}`
                         });
                     });
                 }

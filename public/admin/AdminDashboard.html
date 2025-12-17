@@ -231,7 +231,7 @@
     
     const sections = [
   { key: 'AmazonShipments', label: 'Amazon Shipments', columns: ['Items','Notes','display_name'], filter: row => row.Status !=="Completed" },
-  { key: 'IngredientOrders', label: 'Ingredient Orders', columns: ['ExpectedBy','IngredientSKU','Quantity(Lbs/Units)'] },
+  { key: 'IngredientOrders', label: 'Ingredient Orders', columns: ['ExpectedBy','IngredientSKU','Quantity','Unit'] },
   { key: 'ReceivingLog', label: 'Receiving Log', columns: ['TrackingLink','Retailer','RecievedAt','Status'] },
   { key: 'Checklist', label: 'Checklist', columns: ['Priority','Task','Status','AssignedTo','AssignedBy','Deadline'], filter: row => row.Status !== 'completed' },
   { key: 'ManufacturingTasks', label: 'Manufacturing Tasks', columns: ['OrderNumber','ProductSKU','Quantity','PlannedManufactureDate','Progress'], filter: row => row.Progress !== 'completed' }
@@ -431,15 +431,15 @@
           .select('*');
         if (error) throw error;
         // Filter for Quantity < LowInvThreshold
-        const lowInv = (data || []).filter(row => row["Quantity(Lbs/Units)"] < row.LowInvThreshold);
+        const lowInv = (data || []).filter(row => row.Quantity < row.LowInvThreshold);
         document.getElementById('count-IngredientsLow').textContent = `(${lowInv.length})`;
         if (!lowInv.length) {
           ingTableContainer.innerHTML = '<div class="empty-state">No low inventory ingredients</div>';
           return;
         }
-        let table = `<table class="table-list"><thead><tr><th>IngredientSKU</th><th>Name</th><th>Quantity</th><th>Threshold</th></tr></thead><tbody>`;
+        let table = `<table class="table-list"><thead><tr><th>IngredientSKU</th><th>Name</th><th>Quantity</th><th>Unit</th><th>Threshold</th></tr></thead><tbody>`;
         for (const row of lowInv) {
-          table += `<tr><td>${row.IngredientSKU}</td><td>${row.Name}</td><td>${row["Quantity(Lbs/Units)"]}</td><td>${row.LowInvThreshold}</td></tr>`;
+          table += `<tr><td>${row.IngredientSKU}</td><td>${row.Name}</td><td>${row.Quantity}</td><td>${row.Unit || 'lb'}</td><td>${row.LowInvThreshold}</td></tr>`;
         }
         table += '</tbody></table>';
         ingTableContainer.innerHTML = table;
