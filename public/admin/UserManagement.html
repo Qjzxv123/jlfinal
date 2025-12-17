@@ -316,7 +316,7 @@ async function fetchEmployees() {
       html += '<h3>Employee Page Access</h3>';
       html += '<table border="1" style="border-collapse:collapse;min-width:400px;">';
       html += '<tr><th>Page</th>';
-      for (const emp of employees) html += `<th>${emp.display_name}</th>`;
+      for (const emp of employees) html += `<th>${emp.display_name}<br><button class="check-all" data-uid="${emp.id}" style="margin-top:4px;padding:2px 6px;font-size:0.85rem;">Check All</button></th>`;
       html += '<th>Save</th></tr>';
       for (const page of EMPLOYEE_PAGES) {
         html += `<tr><td>${page}</td>`;
@@ -379,6 +379,10 @@ async function saveAllEmployeeAccess(employees) {
       document.body.addEventListener('click', async (e) => {
         if (e.target.classList.contains('save-access-all')) {
           await saveAllEmployeeAccess(employees);
+        } else if (e.target.classList.contains('check-all')) {
+          const uid = e.target.getAttribute('data-uid');
+          const boxes = document.querySelectorAll(`input.page-access[data-uid='${uid}']`);
+          boxes.forEach(cb => { cb.checked = true; });
         }
       });
     }
