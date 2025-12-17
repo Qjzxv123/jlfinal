@@ -432,6 +432,7 @@
               <option value="L">L</option>
               <option value="fl oz">fl oz</option>
               <option value="cups">cups</option>
+              <option value="pcs">pcs</option>
             </select>
           </label>
           <label>Location<input type="text" id="Location" placeholder="e.g., Warehouse A, Shelf B-3, etc."></label>
@@ -871,6 +872,7 @@
                 <option value="L" ${ing.unit === 'L' ? 'selected' : ''}>L</option>
                 <option value="fl oz" ${ing.unit === 'fl oz' ? 'selected' : ''}>fl oz</option>
                 <option value="cups" ${ing.unit === 'cups' ? 'selected' : ''}>cups</option>
+                <option value="pcs" ${ing.unit === 'pcs' ? 'selected' : ''}>pcs</option>
                 <option value="%" ${ing.unit === '%' ? 'selected' : ''}>% (of Product Weight)</option>
               </select>
             </td>

@@ -6,7 +6,7 @@
  * Adds quantity to an ingredient in the Ingredients table
  * @param {string} SKU - The IngredientSKU to update
  * @param {number} Quantity - The quantity to add (in the provided unit)
- * @param {string} Unit - The unit of the provided quantity (e.g., 'lb', 'kg', 'oz', 'g')
+ * @param {string} Unit - The unit of the provided quantity (e.g., 'lb', 'kg', 'oz', 'g', 'ml', 'L', 'fl oz', 'cups', 'pcs')
  * @returns {Promise<object>} - Returns { success: boolean, newQuantity: number, message: string }
  */
 async function IngredientAdd(SKU, Quantity, Unit) {
@@ -17,7 +17,7 @@ async function IngredientAdd(SKU, Quantity, Unit) {
  * Removes/subtracts quantity from an ingredient in the Ingredients table
  * @param {string} SKU - The IngredientSKU to update
  * @param {number} Quantity - The quantity to subtract (in the provided unit)
- * @param {string} Unit - The unit of the provided quantity (e.g., 'lb', 'kg', 'oz', 'g')
+ * @param {string} Unit - The unit of the provided quantity (e.g., 'lb', 'kg', 'oz', 'g', 'ml', 'L', 'fl oz', 'cups', 'pcs')
  * @returns {Promise<object>} - Returns { success: boolean, newQuantity: number, message: string }
  */
 async function IngredientRemove(SKU, Quantity, Unit) {
@@ -69,7 +69,7 @@ async function IngredientUpdate(SKU, Quantity, Unit, operation) {
       return {
         success: false,
         newQuantity: currentQuantity,
-        message: `Cannot convert from ${Unit} to ${storageUnit}. Supported units: lb, kg, oz, g, ml, L, fl oz, cups`
+        message: `Cannot convert from ${Unit} to ${storageUnit}. Supported units: lb, kg, oz, g, ml, L, fl oz, cups, pcs`
       };
     }
 
@@ -142,6 +142,11 @@ function convertUnits(quantity, fromUnit, toUnit) {
   // If units are the same, no conversion needed
   if (fromUnitLower === toUnitLower) {
     return quantity;
+  }
+  
+  // Handle 'pcs' (pieces) - no conversion between pcs and other units
+  if (fromUnitLower === 'pcs' || toUnitLower === 'pcs') {
+    return null; // Cannot convert between pieces and other units
   }
   
   // Weight conversion factors to grams
