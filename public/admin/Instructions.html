@@ -499,10 +499,10 @@
           });
       }
 
-      // Delete the original manufacturing task
+      // Mark the original manufacturing task as completed
       await supabase
         .from('ManufacturingTasks')
-        .delete()
+        .update({ Progress: 'Completed' })
         .eq('OrderNumber', modalOrderNumber);
 
       // Update inventory for each SKU
