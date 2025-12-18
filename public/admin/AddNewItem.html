@@ -653,6 +653,8 @@
     document.getElementById('UPC').value = product.UPC || '';
         document.getElementById('FinalWeight').value = product.FinalWeight || '';
         document.getElementById('ProductWeight').value = product['Product Weight(oz)'] || '';
+        const productWeightValue = parseFloat(product['Product Weight(oz)']);
+        const hasProductWeight = !isNaN(productWeightValue) && productWeightValue > 0;
 
         // Only load process data from Process
         if (product.Process && typeof product.Process === 'object' && Array.isArray(product.Process.Steps)) {
@@ -664,12 +666,26 @@
               ingredients: Array.isArray(step["Step Ingredients"]) ? step["Step Ingredients"].map(ing => {
                 const ingredientData = allIngredients.find(ai => ai.IngredientSKU === ing.SKU);
                 let name = ingredientData ? ingredientData.Name : ing.SKU;
+                const scope = ing.Scope || 'PerPiece';
+                const numericQuantity = typeof ing.Quantity === 'number' ? ing.Quantity : parseFloat(ing.Quantity);
+                let displayQuantity = !isNaN(numericQuantity) ? numericQuantity : (ing.Quantity || '');
+                const originalUnit = ing.Unit || 'lb';
+                let displayUnit = originalUnit;
+
+                if (scope === 'PerPiece' && hasProductWeight && originalUnit !== 'pcs' && typeof displayQuantity === 'number' && Number.isFinite(displayQuantity)) {
+                  const percent = (displayQuantity / productWeightValue) * 100;
+                  if (Number.isFinite(percent)) {
+                    displayQuantity = parseFloat(percent.toFixed(2));
+                    displayUnit = '%';
+                  }
+                }
+
                 return {
                   name,
                   sku: ing.SKU || '',
-                  quantity: ing.Quantity || '',
-                  unit: ing.Unit || 'lb',
-                  scope: ing.Scope || 'PerPiece'
+                  quantity: displayQuantity,
+                  unit: displayUnit,
+                  scope
                 };
               }) : []
             };
