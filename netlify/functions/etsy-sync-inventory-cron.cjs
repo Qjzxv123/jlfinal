@@ -58,10 +58,6 @@ exports.handler = async function(event) {
         params.append('client_secret', ETSY_CLIENT_SECRET);
       }
       const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-      if (ETSY_CLIENT_SECRET) {
-        const auth = Buffer.from(`${ETSY_CLIENT_ID}:${ETSY_CLIENT_SECRET}`).toString('base64');
-        headers.Authorization = `Basic ${auth}`;
-      }
       const resp = await fetch(refreshUrl, {
         method: 'POST',
         headers,
