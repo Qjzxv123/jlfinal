@@ -33,6 +33,19 @@ function sanitizePostalCode(value) {
 	return trimmed.substring(0, 11);
 }
 
+function sanitizeAddressLine(value, maxLength = 50) {
+	const str = String(value || '').trim();
+	if (!str) return '';
+	if (str.length <= maxLength) return str;
+	return str.substring(0, maxLength);
+}
+
+function sanitizeCustomsDescription(value, maxLength = 30) {
+	const str = String(value || '').trim() || 'Merchandise';
+	if (str.length <= maxLength) return str;
+	return str.substring(0, maxLength);
+}
+
 function normalizeMilitaryAddress(address) {
 	const city = (address.city || '').trim();
 	const state = (address.state || '').trim();
@@ -117,8 +130,8 @@ exports.handler = async (event) => {
 
 	let address_to = {
 		name: customer.name || customer.Name || '',
-		street1: customer.address1 || customer.Address1 || customer.address || '',
-		street2: customer.address2 || customer.Address2 || '',
+		street1: sanitizeAddressLine(customer.address1 || customer.Address1 || customer.address || ''),
+		street2: sanitizeAddressLine(customer.address2 || customer.Address2 || '', 50),
 		city: customer.city || customer.City || '',
 		state: customer.state || customer.State || '',
 		zip: customer.zipCode || customer.zip || customer.postal_code || '',
@@ -179,7 +192,7 @@ exports.handler = async (event) => {
 			const netWeightLb = weightOz ? (weightOz / 16) : 0;
 			const valueEach = Number(it.Value ?? it.value ?? it.Price ?? it.price ?? 5) || 5;
 			// UPS customs item description must be <= 30 chars
-			const desc = (String(it.Name ?? it.name ?? it.description ?? 'Merchandise').substring(0, 30)) || 'Merchandise';
+			const desc = sanitizeCustomsDescription(it.Name ?? it.name ?? it.description ?? 'Merchandise');
 			
 			customsItems.push({
 				description: desc,
