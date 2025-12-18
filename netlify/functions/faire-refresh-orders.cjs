@@ -1,5 +1,6 @@
-// netlify/functions/faire-get-orders-cron.cjs
-// Scheduled function: Fetches orders for all userKeys every hour
+// netlify/functions/faire-refresh-orders.cjs
+// Manual refresh function: Fetches Faire orders and saves them to Supabase (can be invoked directly or via cron)
+
 const { createClient } = require('@supabase/supabase-js');
 let fetchFn;
 if (typeof fetch !== 'undefined') {
@@ -17,8 +18,8 @@ async function fetchOrdersForUser(userKey, skuMappingMap) {
     tokenRow = await getTokenRow(userKey);
     apiToken = tokenRow.access_token;
   } catch (tokenErr) {
-    console.error(`[CRON] Token error for userKey ${userKey}:`, tokenErr.message);
-    return;
+    console.error(`[Faire Refresh] Token error for userKey ${userKey}:`, tokenErr.message);
+    return 0;
   }
   const credentials = Buffer.from(`${process.env.FAIRE_CLIENT_ID}:${process.env.FAIRE_CLIENT_SECRET}`).toString('base64');
   const url = 'https://www.faire.com/external-api/v2/orders?limit=50&excluded_states=DELIVERED,BACKORDERED,CANCELED,NEW,PRE_TRANSIT,IN_TRANSIT';
@@ -32,21 +33,20 @@ async function fetchOrdersForUser(userKey, skuMappingMap) {
       }
     });
   } catch (fetchErr) {
-    console.error(`[CRON] Fetch to Faire API failed for userKey ${userKey}:`, fetchErr);
-    return;
+    console.error(`[Faire Refresh] Fetch to Faire API failed for userKey ${userKey}:`, fetchErr);
+    return 0;
   }
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`[CRON] Faire API error for userKey ${userKey}:`, response.status, errorText);
-    return;
+    console.error(`[Faire Refresh] Faire API error for userKey ${userKey}:`, response.status, errorText);
+    return 0;
   }
   let data;
   try {
     data = await response.json();
-    // Log raw Faire API output for debugging
   } catch (jsonErr) {
-    console.error(`[CRON] Failed to parse Faire API response as JSON for userKey ${userKey}:`, jsonErr);
-    return;
+    console.error(`[Faire Refresh] Failed to parse Faire API response as JSON for userKey ${userKey}:`, jsonErr);
+    return 0;
   }
   let orders = [];
   for (const order of (data.orders || [])) {
@@ -193,20 +193,22 @@ async function fetchOrdersForUser(userKey, skuMappingMap) {
     };
     orders.push(orderData);
   }
-    // Save orders to Supabase Orders table
+  // Save orders to Supabase Orders table
   if (orders.length > 0) {
     const { error: insertError } = await supabase
       .from('Orders')
       .upsert(orders, { onConflict: ['OrderID'] });
     if (insertError) {
-      console.error(`[CRON] Failed to insert orders for userKey ${userKey}:`, insertError);
-    } else {
-      console.log(`[CRON] Inserted/updated ${orders.length} orders for userKey ${userKey}`);
+      console.error(`[Faire Refresh] Failed to insert orders for userKey ${userKey}:`, insertError);
+      return 0;
     }
+    console.log(`[Faire Refresh] Inserted/updated ${orders.length} orders for userKey ${userKey}`);
+    return orders.length;
   }
+  return 0;
 }
 
-exports.handler = async function(event) {
+async function refreshFaireOrders(event) {
   // Clear Orders table before inserting new ones
   await supabase.from('Orders').delete().eq('Platform', 'Faire').eq("Notes", null).eq("CustomerMessages", null).eq("InventoryRemoved", null);
   
@@ -216,7 +218,7 @@ exports.handler = async function(event) {
     .select('SKU, Output');
   
   if (mappingError) {
-    console.warn('[CRON] Error fetching SKU Mappings:', mappingError.message);
+    console.warn('[Faire Refresh] Error fetching SKU Mappings:', mappingError.message);
   }
   
   // Create a map for quick lookup: SKU -> Output object
@@ -234,15 +236,19 @@ exports.handler = async function(event) {
     .neq('user_key', null)
     .eq('platform', 'faire');
   if (error) {
-    console.error('[CRON] Failed to fetch userKeys:', error);
+    console.error('[Faire Refresh] Failed to fetch userKeys:', error);
     return { statusCode: 500, body: 'Failed to fetch userKeys' };
   }
   const userKeys = (data || []).map(row => row.user_key);
+  let totalOrders = 0;
   for (const userKey of userKeys) {
-    await fetchOrdersForUser(userKey, skuMappingMap);
+    totalOrders += await fetchOrdersForUser(userKey, skuMappingMap);
   }
   return {
     statusCode: 200,
-    body: JSON.stringify({ message: `Processed ${userKeys.length} userKeys` })
+    body: JSON.stringify({ message: `Processed ${userKeys.length} userKeys`, orders: totalOrders })
   };
-};
+}
+
+exports.handler = refreshFaireOrders;
+exports.refreshFaireOrders = refreshFaireOrders;

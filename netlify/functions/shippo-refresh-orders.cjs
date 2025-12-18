@@ -2,7 +2,21 @@
 // Manual refresh function: Fetch Shippo orders and save to Supabase (callable via HTTP)
 
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-exports.handler = async (event) => {
+
+function resolveStartDate(event) {
+  if (event?.skipStartDate) {
+    return null;
+  }
+  if (event?.startDate) {
+    return event.startDate;
+  }
+  if (event?.queryStringParameters?.start_date) {
+    return event.queryStringParameters.start_date;
+  }
+  return process.env.SHIPPO_REFRESH_START_DATE || '2025-08-01T00:00:00Z';
+}
+
+async function refreshShippoOrders(event) {
   // Clear Orders table before inserting new ones
   const { createClient } = require('@supabase/supabase-js');
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -15,14 +29,17 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: 'Missing Shippo API token.' };
   }
 
-  // Fetch Shippo orders (transactions) after 8/01/2025, handle pagination
+  const startDate = resolveStartDate(event);
+  // Fetch Shippo orders (transactions), handle pagination
   let orders = [];
   try {
-    const createdAfter = '2025-08-01T00:00:00Z';
     let page = 1;
     let keepGoing = true;
     while (keepGoing) {
-      const url = `https://api.goshippo.com/orders?order_status[]=PAID&results=100&page=${page}&start_date=${encodeURIComponent(createdAfter)}`;
+      let url = `https://api.goshippo.com/orders?order_status[]=PAID&results=100&page=${page}`;
+      if (startDate) {
+        url += `&start_date=${encodeURIComponent(startDate)}`;
+      }
       const resp = await fetch(url, {
         headers: { Authorization: `ShippoToken ${SHIPPO_API_KEY}` }
       });
@@ -39,7 +56,7 @@ exports.handler = async (event) => {
   } catch (err) {
     return { statusCode: 500, body: 'Error fetching Shippo orders: ' + err.message };
   }
-  console.log(`[Refresh] Fetched ${orders.length} Shippo orders`);
+  console.log(`[Shippo Refresh] Fetched ${orders.length} Shippo orders${startDate ? ` (start_date=${startDate})` : ''}`);
   // Save orders to Supabase
   let processedCount = 0;
   let skippedCount = 0;
@@ -141,6 +158,15 @@ exports.handler = async (event) => {
         }
       }
       let parsedItems = Object.values(itemMap);
+      // Append original SKU to Name before applying SKU mappings for traceability
+      parsedItems = parsedItems.map(pi => {
+        const skuTag = pi.SKU ? ` [${pi.SKU}]` : '';
+        const hasTag = skuTag && (pi.Name || '').includes(skuTag.trim());
+        return {
+          ...pi,
+          Name: hasTag ? pi.Name : `${pi.Name || ''}${skuTag}`.trim()
+        };
+      });
       
       // Apply SKU Mapping transformations BEFORE determining retailer
       let transformedItems = [];
@@ -185,6 +211,12 @@ exports.handler = async (event) => {
           }
         }
       }
+      if (retailerValue === "Unknown") {
+        const orderText = JSON.stringify(order).toLowerCase();
+        if (orderText.includes('hotana') || orderText.includes('batana')) {
+          retailerValue = "Hotana";
+        }
+      }
       // Skip if order already exists in Order History with same OrderID AND Retailer
       const orderKey = `${orderID}|${retailerValue}`;
       if (historyOrderKeys.has(orderKey)) {
@@ -224,6 +256,7 @@ exports.handler = async (event) => {
         InventoryRemoved: existingOrder?.InventoryRemoved || null,
         ShippoOrderID: order.object_id || null,
         Price: order.subtotal_price || null,
+        PlacedAt: order.placed_at || null
       }, { onConflict: 'OrderID' });
       
       processedCount++;
@@ -235,7 +268,10 @@ exports.handler = async (event) => {
   }
 
   return { statusCode: 200, body: `Fetched ${orders.length} Shippo orders, processed ${processedCount || orders.length}, skipped ${skippedCount || 0} (already in history).` };
-};
+}
+
+exports.handler = refreshShippoOrders;
+exports.refreshShippoOrders = refreshShippoOrders;
 
 function getPlatformOrderUrl(platform, orderNumber, retailerValue) {
   switch(platform?.toLowerCase()) {

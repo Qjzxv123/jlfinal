@@ -6,13 +6,7 @@
   node_bundler = "esbuild"
   directory = "netlify/functions"
 
-[functions."faire-get-orders-cron"]
-  schedule = "*/15 * * * *" # every 15 minutes
-
-[functions."shippo-get-orders-cron"]
-  schedule = "*/15 * * * *" # every 15 minutes
-
-[functions."shippo-remove-fulfilled-orders"]
+[functions."refresh-orders-cron"]
   schedule = "*/15 * * * *" # every 15 minutes
 
 [functions."faire-sync-inventory-cron"]
