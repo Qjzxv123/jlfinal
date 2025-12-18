@@ -9,6 +9,22 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const ETSY_CLIENT_ID = process.env.ETSY_CLIENT_ID;
 const ETSY_CLIENT_SECRET = process.env.ETSY_CLIENT_SECRET;
 
+async function invalidateEtsyToken(userKey, supabase) {
+  try {
+    await supabase
+      .from('oauth_tokens')
+      .update({
+        access_token: null,
+        refresh_token: null,
+        expires_at: null
+      })
+      .eq('user_key', userKey)
+      .eq('platform', 'etsy');
+  } catch (err) {
+    console.error('[Etsy Inventory] Failed to invalidate revoked token for', userKey, err);
+  }
+}
+
 exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -68,6 +84,14 @@ exports.handler = async function(event) {
     if (!resp.ok) {
       const errText = await resp.text();
       console.error('[Etsy Inventory] Failed to refresh token:', resp.status, errText);
+      let errJson = null;
+      try {
+        errJson = JSON.parse(errText);
+      } catch (_) {}
+      if (resp.status === 400 && errJson?.error === 'invalid_grant') {
+        console.error('[Etsy Inventory] Refresh token revoked for user_key:', tokenRow.user_key);
+        await invalidateEtsyToken(tokenRow.user_key, supabase);
+      }
       return null;
     }
     const json = await resp.json();
@@ -103,7 +127,14 @@ exports.handler = async function(event) {
     if (!newToken) {
       const errText = await meResp.text();
       console.error('[Etsy Inventory] Token refresh failed, still 401:', errText);
-      return { statusCode: 401, body: 'Etsy access token expired and refresh failed' };
+      return {
+        statusCode: 401,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: 'etsy_token_invalid',
+          message: `Etsy authentication for ${userKey} has expired or been revoked. Please reconnect Etsy for this retailer.`
+        })
+      };
     }
     accessToken = newToken;
     meResp = await fetch('https://openapi.etsy.com/v3/application/users/me', {

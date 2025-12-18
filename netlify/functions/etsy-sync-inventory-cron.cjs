@@ -10,6 +10,22 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const ETSY_CLIENT_ID = process.env.ETSY_CLIENT_ID;
 const ETSY_CLIENT_SECRET = process.env.ETSY_CLIENT_SECRET;
 
+async function invalidateEtsyToken(userKey, supabase) {
+  try {
+    await supabase
+      .from('oauth_tokens')
+      .update({
+        access_token: null,
+        refresh_token: null,
+        expires_at: null
+      })
+      .eq('user_key', userKey)
+      .eq('platform', 'etsy');
+  } catch (err) {
+    console.error('[Etsy Sync Cron] Failed to invalidate token for', userKey, err);
+  }
+}
+
 exports.handler = async function(event) {
   console.log('[Etsy Sync Cron] Starting scheduled inventory sync');
   
@@ -66,6 +82,17 @@ exports.handler = async function(event) {
       if (!resp.ok) {
         const errText = await resp.text();
         console.error('[Etsy Sync Cron] Failed to refresh token:', resp.status, errText);
+        let errJson = null;
+        try {
+          errJson = JSON.parse(errText);
+        } catch (_) {}
+        if (resp.status === 400 && errJson?.error === 'invalid_grant') {
+          console.error('[Etsy Sync Cron] Refresh token revoked for retailer', retailer);
+          await invalidateEtsyToken(row.user_key, supabase);
+          row.access_token = null;
+          row.refresh_token = null;
+          row.expires_at = null;
+        }
         return null;
       }
       const json = await resp.json();
