@@ -23,7 +23,7 @@
       border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.12);
       padding: 32px 24px;
-      max-width: 500px;
+      max-width: 900px;
       width: 100%;
       text-align: center;
     }
@@ -80,6 +80,18 @@
     .collapsible-content.open {
       max-height: 2000px;
       transition: max-height 0.5s ease-in;
+    }
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+    }
+    .table-wrapper table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .table-wrapper th,
+    .table-wrapper td {
+      word-break: break-word;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
@@ -142,7 +154,7 @@
         } catch (imgErr) {
           // If error, do not display image
         }
-        html += '<table style="width:100%;margin:auto;text-align:left;font-size:1rem;">';
+        html += '<div class="table-wrapper"><table style="width:100%;margin:auto;text-align:left;font-size:1rem;">';
         const hiddenFields = [
           'UserID', 'ActiveLotNumbers'
         ];
@@ -158,13 +170,13 @@
           }
           html += `<tr><td style='font-weight:600;padding:6px 10px;'>${key}</td><td style='padding:6px 10px;'>${value}</td></tr>`;
         }
-        html += '</table>';
+        html += '</table></div>';
 
         // Active Lot Numbers Table
         let lotNumbersHtml = '';
         if (data.ActiveLotNumbers && Array.isArray(data.ActiveLotNumbers) && data.ActiveLotNumbers.length) {
           lotNumbersHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Active Lot Numbers</div>`;
-          lotNumbersHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Lot Number</th><th style='padding:6px 10px;text-align:left;'>Quantity</th><th style='padding:6px 10px;text-align:left;'>Expiry Date</th><th style='padding:6px 10px;text-align:left;'>Actions</th></tr></thead><tbody>`;
+          lotNumbersHtml += `<div class='table-wrapper'><table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Lot Number</th><th style='padding:6px 10px;text-align:left;'>Quantity</th><th style='padding:6px 10px;text-align:left;'>Expiry Date</th><th style='padding:6px 10px;text-align:left;'>Actions</th></tr></thead><tbody>`;
           for (const lot of data.ActiveLotNumbers) {
             const parts = lot.split(', ');
             let lotNumber = parts[0] || '';
@@ -172,7 +184,7 @@
             let expiry = parts.length >= 3 ? parts[2] : '';
             lotNumbersHtml += `<tr><td style='padding:6px 10px;'>${lotNumber}</td><td style='padding:6px 10px;'>${lotQuantity}</td><td style='padding:6px 10px;'>${expiry}</td><td style='padding:6px 10px;'><button class='btn btn-danger' style='padding:0.3rem 0.8rem;font-size:0.9em;background:#dc2626;color:#fff;border:none;' onclick=\"removeLotFromIngredient('${sku}','${lot.replace(/'/g, "&#39;")}', this)\"><i class='cil-trash'></i></button></td></tr>`;
           }
-          lotNumbersHtml += '</tbody></table>';
+          lotNumbersHtml += '</tbody></table></div>';
         } else {
           lotNumbersHtml += `<div style='margin-top:2em;color:#888;'>No active lot numbers for this ingredient.</div>`;
         }
@@ -239,11 +251,11 @@
             logsHtml += `<span class='collapsible-icon'>V</span>`;
             logsHtml += `</div>`;
             logsHtml += `<div class='collapsible-content'>`;
-            logsHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Time</th><th style='padding:6px 10px;text-align:left;'>User</th><th style='padding:6px 10px;text-align:left;'>Message</th><th style='padding:6px 10px;text-align:left;'>Qty</th></tr></thead><tbody>`;
+            logsHtml += `<div class='table-wrapper'><table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Time</th><th style='padding:6px 10px;text-align:left;'>User</th><th style='padding:6px 10px;text-align:left;'>Message</th><th style='padding:6px 10px;text-align:left;'>Qty</th></tr></thead><tbody>`;
             for (const log of logs) {
               logsHtml += `<tr><td style='padding:6px 10px;'>${new Date(log.ChangeTime).toLocaleString()}</td><td style='padding:6px 10px;'>${log.Updated_By || ''}</td><td style='padding:6px 10px;'>${log.Log}</td><td style='padding:6px 10px;'>${log.QuantityChanged ?? ''}</td></tr>`;
             }
-            logsHtml += '</tbody></table>';
+            logsHtml += '</tbody></table></div>';
             logsHtml += `</div>`;
             logsHtml += `</div>`;
           } else {
@@ -284,11 +296,11 @@
           }
           productsHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Products Using This Ingredient</div>`;
           if (usingProducts.length) {
-            productsHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Name</th><th style='padding:6px 10px;text-align:left;'>SKU</th><th style='padding:6px 10px;text-align:left;'>Quantity</th><th style='padding:6px 10px;text-align:left;'>Unit</th><th style='padding:6px 10px;text-align:left;'>Scope</th><th style='padding:6px 10px;text-align:left;'>Step</th></tr></thead><tbody>`;
+            productsHtml += `<div class='table-wrapper'><table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Name</th><th style='padding:6px 10px;text-align:left;'>SKU</th><th style='padding:6px 10px;text-align:left;'>Quantity</th><th style='padding:6px 10px;text-align:left;'>Unit</th><th style='padding:6px 10px;text-align:left;'>Scope</th><th style='padding:6px 10px;text-align:left;'>Step</th></tr></thead><tbody>`;
             for (const prod of usingProducts) {
               productsHtml += `<tr><td style='padding:6px 10px;'>${prod.name}</td><td style='padding:6px 10px;'>${prod.sku}</td><td style='padding:6px 10px;'>${prod.quantity ?? ''}</td><td style='padding:6px 10px;'>${prod.unit}</td><td style='padding:6px 10px;'>${prod.scope}</td><td style='padding:6px 10px;'>${prod.stepTitle || 'N/A'}</td></tr>`;
             }
-            productsHtml += '</tbody></table>';
+            productsHtml += '</tbody></table></div>';
           } else {
             productsHtml += `<div style='margin-top:2em;color:#888;'>No products found using this ingredient.</div>`;
           }
