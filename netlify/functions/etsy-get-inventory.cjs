@@ -6,6 +6,8 @@ const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const ETSY_CLIENT_ID = process.env.ETSY_CLIENT_ID;
+const ETSY_CLIENT_SECRET = process.env.ETSY_CLIENT_SECRET;
 
 exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') {
@@ -39,17 +41,32 @@ exports.handler = async function(event) {
   // Use access token from tokenRow, refresh if expired (inline refresh logic)
   let accessToken = tokenRow.access_token;
   let shopId;
-  const ETSY_CLIENT_ID = process.env.ETSY_CLIENT_ID;
   async function refreshEtsyToken(tokenRow, supabase) {
     // Etsy uses OAuth2 refresh_token grant
+    if (!tokenRow.refresh_token) {
+      console.error('[Etsy Inventory] Missing refresh_token for user_key:', tokenRow.user_key);
+      return null;
+    }
+    if (!ETSY_CLIENT_ID) {
+      console.error('[Etsy Inventory] Missing ETSY_CLIENT_ID env var, cannot refresh token');
+      return null;
+    }
     const refreshUrl = 'https://api.etsy.com/v3/public/oauth/token';
     const params = new URLSearchParams();
     params.append('grant_type', 'refresh_token');
     params.append('client_id', ETSY_CLIENT_ID);
     params.append('refresh_token', tokenRow.refresh_token);
+    if (ETSY_CLIENT_SECRET) {
+      params.append('client_secret', ETSY_CLIENT_SECRET);
+    }
+    const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    if (ETSY_CLIENT_SECRET) {
+      const auth = Buffer.from(`${ETSY_CLIENT_ID}:${ETSY_CLIENT_SECRET}`).toString('base64');
+      headers.Authorization = `Basic ${auth}`;
+    }
     const resp = await fetch(refreshUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers,
       body: params
     });
     if (!resp.ok) {
@@ -59,12 +76,22 @@ exports.handler = async function(event) {
     }
     const json = await resp.json();
     // Update token in DB
+    const newAccessToken = json.access_token;
+    const newRefreshToken = json.refresh_token || tokenRow.refresh_token;
+    const newExpiry = Math.floor(Date.now() / 1000) + (json.expires_in || 3600);
+
     await supabase.from('oauth_tokens').update({
-      access_token: json.access_token,
-      refresh_token: json.refresh_token || tokenRow.refresh_token,
-      expires_at: Math.floor(Date.now() / 1000) + (json.expires_in || 3600)
+      access_token: newAccessToken,
+      refresh_token: newRefreshToken,
+      expires_at: newExpiry
     }).eq('user_key', tokenRow.user_key).eq('platform', 'etsy');
-    return json.access_token;
+
+    // keep local copy in sync so the next refresh uses the most recent token
+    tokenRow.access_token = newAccessToken;
+    tokenRow.refresh_token = newRefreshToken;
+    tokenRow.expires_at = newExpiry;
+
+    return newAccessToken;
   }
 
   // Try to fetch shop_id, refresh token if 401
