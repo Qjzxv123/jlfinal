@@ -48,6 +48,39 @@
       font-weight: 600;
       margin-top: 20px;
     }
+    .collapsible-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-top: 2em;
+      margin-bottom: 0.5em;
+      font-weight: 600;
+      color: #4DBA93;
+      transition: background 0.2s;
+    }
+    .collapsible-header:hover {
+      background: #e9ecef;
+    }
+    .collapsible-icon {
+      transition: transform 0.3s;
+      font-size: 1.2rem;
+    }
+    .collapsible-icon.open {
+      transform: rotate(180deg);
+    }
+    .collapsible-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    .collapsible-content.open {
+      max-height: 2000px;
+      transition: max-height 0.5s ease-in;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
   <!-- Chart.js for cost graph -->
@@ -85,6 +118,9 @@
           detailsDiv.innerHTML = `<span class='error'>Ingredient not found for SKU: ${sku}</span>`;
           return;
         }
+        const parsedQuantity = typeof data.Quantity === 'number' ? data.Quantity : parseFloat(data.Quantity);
+        const currentIngredientQuantity = Number.isFinite(parsedQuantity) ? parsedQuantity : null;
+        const ingredientQuantityAxisLabel = data.Unit ? `Quantity (${data.Unit})` : 'Quantity';
         // Display all Ingredient info fields
         let html = '';
         // Search for the SKU in the Ingredientimages bucket and display the first matching image
@@ -160,6 +196,8 @@
 
         // Fetch ingredient logs for this SKU
         let logsHtml = '';
+        let inventoryChartConfig = null;
+        let showInventoryChartWarning = false;
         try {
           const { data: logs, error: logsError } = await supabase
             .from('IngredientLog')
@@ -167,12 +205,47 @@
             .eq('IngredientSKU', sku)
             .order('ChangeTime', { ascending: false });
           if (logs && logs.length) {
-            logsHtml += `<div style='margin-top:2em;margin-bottom:0.5em;font-weight:600;color:#4DBA93;'>Recent Inventory Updates</div>`;
+            if (currentIngredientQuantity !== null) {
+              const chartLogs = logs.slice(0, 20).reverse();
+              let qtyCursor = currentIngredientQuantity;
+              const chartDataPoints = [qtyCursor];
+              for (let i = chartLogs.length - 1; i >= 0; i--) {
+                const deltaRaw = chartLogs[i].QuantityChanged;
+                const delta = typeof deltaRaw === 'number' ? deltaRaw : parseFloat(deltaRaw) || 0;
+                qtyCursor -= delta;
+                chartDataPoints.unshift(qtyCursor);
+              }
+              if (chartDataPoints.length > chartLogs.length) {
+                chartDataPoints.pop();
+              }
+              const chartLabels = chartLogs.map(log => log.ChangeTime ? new Date(log.ChangeTime).toLocaleString() : '');
+              if (chartLabels.length && chartDataPoints.length) {
+                inventoryChartConfig = {
+                  labels: chartLabels,
+                  data: chartDataPoints
+                };
+              }
+            } else {
+              showInventoryChartWarning = true;
+            }
+            logsHtml += `<div style='margin-top:2em;'>`;
+            if (inventoryChartConfig) {
+              logsHtml += `<div style='max-width:600px;margin:0 auto 18px auto;'><canvas id='ingredientInventoryChart' height='120'></canvas></div>`;
+            } else if (showInventoryChartWarning) {
+              logsHtml += `<div style='margin-top:1em;color:#888;text-align:center;'>Unable to determine current quantity for this ingredient. Chart unavailable.</div>`;
+            }
+            logsHtml += `<div class='collapsible-header' onclick='toggleCollapsible(this)'>`;
+            logsHtml += `<span style='font-weight:600;color:#4DBA93;'>Recent Inventory Updates</span>`;
+            logsHtml += `<span class='collapsible-icon'>V</span>`;
+            logsHtml += `</div>`;
+            logsHtml += `<div class='collapsible-content'>`;
             logsHtml += `<table style='width:100%;font-size:0.97em;background:#f8f9fa;border-radius:8px;'><thead><tr><th style='padding:6px 10px;text-align:left;'>Time</th><th style='padding:6px 10px;text-align:left;'>User</th><th style='padding:6px 10px;text-align:left;'>Message</th><th style='padding:6px 10px;text-align:left;'>Qty</th></tr></thead><tbody>`;
             for (const log of logs) {
               logsHtml += `<tr><td style='padding:6px 10px;'>${new Date(log.ChangeTime).toLocaleString()}</td><td style='padding:6px 10px;'>${log.Updated_By || ''}</td><td style='padding:6px 10px;'>${log.Log}</td><td style='padding:6px 10px;'>${log.QuantityChanged ?? ''}</td></tr>`;
             }
             logsHtml += '</tbody></table>';
+            logsHtml += `</div>`;
+            logsHtml += `</div>`;
           } else {
             logsHtml += `<div style='margin-top:2em;color:#888;'>No inventory update logs found for this SKU.</div>`;
           }
@@ -265,6 +338,42 @@
             graphDiv.outerHTML = `<div style='margin-top:1em;color:#888;'>No cost data found for this SKU.</div>`;
           }
         }
+        if (inventoryChartConfig) {
+          setTimeout(() => {
+            const ctx = document.getElementById('ingredientInventoryChart');
+            if (ctx && window.Chart) {
+              new Chart(ctx, {
+                type: 'line',
+                data: {
+                  labels: inventoryChartConfig.labels,
+                  datasets: [{
+                    label: 'Ingredient Quantity',
+                    data: inventoryChartConfig.data,
+                    borderColor: '#4DBA93',
+                    backgroundColor: 'rgba(77,186,147,0.15)',
+                    fill: true,
+                    tension: 0.2,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#4DBA93',
+                    pointBorderColor: '#fff',
+                    pointHoverRadius: 5
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'Recent Inventory Changes', color: '#4DBA93', font: { size: 18 } }
+                  },
+                  scales: {
+                    x: { title: { display: true, text: 'Time', color: '#333' }, ticks: { color: '#333', maxRotation: 45, minRotation: 0 } },
+                    y: { title: { display: true, text: ingredientQuantityAxisLabel, color: '#333' }, ticks: { color: '#333' }, beginAtZero: true }
+                  }
+                }
+              });
+            }
+          }, 100);
+        }
       } catch (err) {
         detailsDiv.innerHTML = `<span class='error'>Error loading Ingredient info: ${err.message}</span>`;
       }
@@ -307,6 +416,17 @@
       } catch (err) {
         alert('Error removing lot: ' + err.message);
         btn.disabled = false;
+      }
+    }
+
+    function toggleCollapsible(headerElement) {
+      const icon = headerElement.querySelector('.collapsible-icon');
+      const content = headerElement.nextElementSibling;
+      if (content && content.classList.contains('collapsible-content')) {
+        if (icon) {
+          icon.classList.toggle('open');
+        }
+        content.classList.toggle('open');
       }
     }
   </script>
