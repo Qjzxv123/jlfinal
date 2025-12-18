@@ -907,6 +907,7 @@
                     </h2>
                     <div style="margin-bottom:10px;"><strong>Retailer:</strong> ${order.Retailer || ''}</div>
                     ${order.PlacedAt ? `<div style=\"margin-bottom:10px;\"><strong>Placed At:</strong> ${new Date(order.PlacedAt).toLocaleString()}</div>` : ''}
+                    ${(currentTab === 'bookmarked') && order.TrackingNumber ? `<div style=\"margin-bottom:10px;\"><strong>Tracking Number:</strong> ${order.TrackingNumber}</div>` : ''}
                     <div style="margin-bottom:10px;">${customerHtml}</div>
                     <div style="margin-bottom:10px;">${itemsHtml}</div>
                     <div style="margin-bottom:10px;"><strong>Notes:</strong> <span class="notes">${order.Notes || ''}</span></div>
