@@ -10,7 +10,13 @@ if (typeof fetch !== 'undefined') {
 }
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-async function fetchOrdersForUser(userKey, skuMappingMap) {
+function makeHistoryKey(orderId, retailer) {
+  const normalizedId = (orderId ?? '').toString().trim();
+  const normalizedRetailer = (retailer ?? '').toString().trim();
+  return `${normalizedId}|${normalizedRetailer}`;
+}
+
+async function fetchOrdersForUser(userKey, skuMappingMap, historyOrderKeys) {
   // Fetch the token row to get UserID
   let apiToken, tokenRow;
   try {
@@ -164,6 +170,13 @@ async function fetchOrdersForUser(userKey, skuMappingMap) {
       .eq('OrderID', orderID)
       .single();
     
+    const retailerValue = existingOrder?.Retailer || userKey || '';
+    const historyKey = makeHistoryKey(orderID, retailerValue);
+    if (historyOrderKeys?.has(historyKey)) {
+      console.log(`[Faire Refresh] Skipping order ${orderID} for retailer "${retailerValue}" (already in history)`);
+      continue;
+    }
+    
     // Extract price from payout_costs
     const subtotalCents = order?.payout_costs?.subtotal_after_brand_discounts?.amount_minor;
     const price = (subtotalCents != null && Number.isFinite(subtotalCents)) 
@@ -172,7 +185,7 @@ async function fetchOrdersForUser(userKey, skuMappingMap) {
     
     const orderData = {
       OrderID: orderID,
-      Retailer: existingOrder?.Retailer || userKey,
+      Retailer: retailerValue,
       Items: JSON.stringify(transformedItems),
       Customer: JSON.stringify({
         name: shippingDetails.name || '',
@@ -229,6 +242,16 @@ async function refreshFaireOrders(event) {
     }
   }
   
+  // Fetch fulfilled orders so we can skip re-importing
+  const { data: historyOrders, error: historyError } = await supabase
+    .from('Order History')
+    .select('OrderID, Retailer');
+  if (historyError) {
+    console.warn('[Faire Refresh] Error fetching Order History:', historyError.message);
+  }
+  const historyOrderKeys = new Set((historyOrders || []).map(h => makeHistoryKey(h.OrderID, h.Retailer)));
+  console.log(`[Faire Refresh] Found ${historyOrderKeys.size} order+retailer combinations in history to skip`);
+  
   // Fetch all userKeys from the oauth token table in Supabase
   const { data, error } = await supabase
     .from('oauth_tokens')
@@ -242,7 +265,7 @@ async function refreshFaireOrders(event) {
   const userKeys = (data || []).map(row => row.user_key);
   let totalOrders = 0;
   for (const userKey of userKeys) {
-    totalOrders += await fetchOrdersForUser(userKey, skuMappingMap);
+    totalOrders += await fetchOrdersForUser(userKey, skuMappingMap, historyOrderKeys);
   }
   return {
     statusCode: 200,

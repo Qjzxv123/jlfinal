@@ -16,6 +16,12 @@ function resolveStartDate(event) {
   return process.env.SHIPPO_REFRESH_START_DATE || '2025-08-01T00:00:00Z';
 }
 
+function makeHistoryKey(orderId, retailer) {
+  const normalizedId = (orderId ?? '').toString().trim();
+  const normalizedRetailer = (retailer ?? '').toString().trim();
+  return `${normalizedId}|${normalizedRetailer}`;
+}
+
 async function refreshShippoOrders(event) {
   // Clear Orders table before inserting new ones
   const { createClient } = require('@supabase/supabase-js');
@@ -92,7 +98,7 @@ async function refreshShippoOrders(event) {
     }
     
     // Create a Set of "OrderID|Retailer" combinations for efficient lookup
-    const historyOrderKeys = new Set((historyOrders || []).map(h => `${h.OrderID}|${h.Retailer}`));
+    const historyOrderKeys = new Set((historyOrders || []).map(h => makeHistoryKey(h.OrderID, h.Retailer)));
     console.log(`[Shippo Refresh] Found ${historyOrderKeys.size} order+retailer combinations in history to skip`);
     
     for (const order of orders) {
@@ -218,7 +224,7 @@ async function refreshShippoOrders(event) {
         }
       }
       // Skip if order already exists in Order History with same OrderID AND Retailer
-      const orderKey = `${orderID}|${retailerValue}`;
+      const orderKey = makeHistoryKey(orderID, retailerValue);
       if (historyOrderKeys.has(orderKey)) {
         skippedCount++;
         continue;
