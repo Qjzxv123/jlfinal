@@ -221,6 +221,34 @@
       gap: 24px;
       margin-bottom: 24px;
     }
+    .ai-insights-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .ai-insights-header p {
+      margin: 4px 0 0 0;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+    .ai-output {
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 16px;
+      border: 1px dashed #cbd5f5;
+      color: #1f2937;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      white-space: pre-line;
+      min-height: 60px;
+    }
+    .ai-output.loading {
+      color: #64748b;
+      font-style: italic;
+    }
     @media (max-width: 768px) {
       .two-column {
         grid-template-columns: 1fr;
@@ -290,6 +318,17 @@
     </div>
 
     <div id="analyticsContent" style="display:none;">
+      <div class="chart-container">
+        <div class="ai-insights-header">
+          <div>
+            <h2 style="margin-bottom:4px;">Gemini Insights</h2>
+            <p>Use Google Gemini to interpret the statistics shown on this page.</p>
+          </div>
+          <button class="btn" id="generateInsightsBtn" disabled>Ask Gemini</button>
+        </div>
+        <div id="insightsOutput" class="ai-output">Load analytics to unlock AI insights.</div>
+      </div>
+
       <div class="stats-grid">
         <div class="stat-card">
           <div class="label">Total Orders</div>
@@ -419,6 +458,7 @@
     let filteredOrders = [];
     let charts = {}; // Store chart instances for cleanup
     let allProductsData = []; // Store full product stats for searching
+    let currentAnalyticsSummary = null;
 
     // Initialize
     document.addEventListener('DOMContentLoaded', async () => {
@@ -433,6 +473,10 @@
         document.getElementById('customStartGroup').style.display = isCustom ? '' : 'none';
         document.getElementById('customEndGroup').style.display = isCustom ? '' : 'none';
       });
+      const insightsBtn = document.getElementById('generateInsightsBtn');
+      if (insightsBtn) {
+        insightsBtn.addEventListener('click', () => requestGeminiInsights('internal'));
+      }
     }
 
     async function loadRetailers() {
@@ -454,6 +498,7 @@
     }
 
     async function loadOrderHistory() {
+      resetInsightsUI('Load analytics to unlock AI insights.');
       document.getElementById('loadingIndicator').style.display = 'block';
       document.getElementById('analyticsContent').style.display = 'none';
 
@@ -637,6 +682,28 @@
       // Display all products
       displayAllProducts(productStats);
 
+      const overviewSummary = {
+        totalOrders,
+        totalProducts: totalProductCount,
+        totalRevenue: Number(totalRevenue.toFixed(2)),
+        totalShippingCost: Number(totalShippingCost.toFixed(2)),
+        avgShippingCost: Number(avgShippingCost.toFixed(2)),
+        avgOrderValue: Number(avgOrderValue.toFixed(2))
+      };
+      const filters = {
+        dateRange: getSelectedOptionText('dateRangeFilter'),
+        platform: document.getElementById('platformFilter').value,
+        retailer: document.getElementById('retailerFilter').value
+      };
+      currentAnalyticsSummary = createAnalyticsSummary({
+        overview: overviewSummary,
+        productStats,
+        platformStats,
+        retailerStats,
+        filters
+      });
+      markInsightsReady();
+
       document.getElementById('loadingIndicator').style.display = 'none';
       document.getElementById('analyticsContent').style.display = 'block';
     }
@@ -763,6 +830,146 @@
       });
 
       renderProductsTable(filtered);
+    }
+
+    function createAnalyticsSummary({ overview, productStats, platformStats, retailerStats, filters }) {
+      const topProducts = Object.entries(productStats || {})
+        .sort((a, b) => b[1].totalQty - a[1].totalQty)
+        .slice(0, 5)
+        .map(([sku, stats]) => {
+          const topPlatformEntry = Object.entries(stats.platforms || {})
+            .sort((a, b) => b[1] - a[1])[0];
+          return {
+            sku,
+            name: stats.name,
+            totalQty: stats.totalQty,
+            orderCount: stats.orderCount,
+            topPlatform: topPlatformEntry ? topPlatformEntry[0] : null
+          };
+        });
+
+      const platformArray = Object.entries(platformStats || {})
+        .sort((a, b) => b[1].orders - a[1].orders)
+        .slice(0, 5)
+        .map(([platform, stats]) => ({
+          platform,
+          orders: stats.orders,
+          revenue: Number(stats.revenue.toFixed(2)),
+          shippingCost: Number(stats.shippingCost.toFixed(2)),
+          units: stats.units
+        }));
+
+      const retailerArray = Object.entries(retailerStats || {})
+        .sort((a, b) => b[1].orders - a[1].orders)
+        .slice(0, 5)
+        .map(([retailer, stats]) => {
+          const topProductEntry = Object.entries(stats.products || {})
+            .sort((a, b) => b[1] - a[1])[0];
+          return {
+            retailer,
+            orders: stats.orders,
+            revenue: Number(stats.revenue.toFixed(2)),
+            shippingCost: Number(stats.shippingCost.toFixed(2)),
+            units: stats.units,
+            avgOrderSize: stats.orders > 0 ? Number((stats.units / stats.orders).toFixed(1)) : 0,
+            topProduct: topProductEntry ? `${topProductEntry[0]} (${topProductEntry[1]})` : null
+          };
+        });
+
+      return {
+        overview,
+        filters,
+        topProducts,
+        platformStats: platformArray,
+        retailerStats: retailerArray
+      };
+    }
+
+    function getSelectedOptionText(selectId) {
+      const select = document.getElementById(selectId);
+      if (select && select.options && select.selectedIndex >= 0) {
+        return select.options[select.selectedIndex].textContent;
+      }
+      return '';
+    }
+
+    function resetInsightsUI(message) {
+      currentAnalyticsSummary = null;
+      const output = document.getElementById('insightsOutput');
+      if (output) {
+        output.textContent = message;
+        output.classList.remove('loading');
+      }
+      const btn = document.getElementById('generateInsightsBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = btn.dataset.defaultLabel || 'Ask Gemini';
+      }
+    }
+
+    function markInsightsReady() {
+      const output = document.getElementById('insightsOutput');
+      if (output && currentAnalyticsSummary) {
+        output.textContent = 'Click "Ask Gemini" to interpret this filtered view.';
+        output.classList.remove('loading');
+      }
+      const btn = document.getElementById('generateInsightsBtn');
+      if (btn) {
+        btn.dataset.defaultLabel = btn.dataset.defaultLabel || btn.textContent || 'Ask Gemini';
+        btn.textContent = btn.dataset.defaultLabel;
+        btn.disabled = !currentAnalyticsSummary;
+      }
+    }
+
+    async function requestGeminiInsights(audience) {
+      if (!currentAnalyticsSummary) return;
+
+      const output = document.getElementById('insightsOutput');
+      const btn = document.getElementById('generateInsightsBtn');
+
+      if (output) {
+        output.textContent = 'Requesting insights from Gemini...';
+        output.classList.add('loading');
+      }
+      if (btn) {
+        btn.dataset.defaultLabel = btn.dataset.defaultLabel || btn.textContent || 'Ask Gemini';
+        btn.textContent = 'Generating...';
+        btn.disabled = true;
+      }
+
+      try {
+        const response = await fetch('/.netlify/functions/analytics-insights', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            audience,
+            summary: currentAnalyticsSummary
+          })
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || data.error || 'Failed to generate insights');
+        }
+
+        if (output) {
+          output.textContent = data.insights;
+          output.classList.remove('loading');
+        }
+      } catch (error) {
+        console.error('Error generating Gemini insights:', error);
+        if (output) {
+          output.textContent = 'Unable to generate insights right now. Please try again.';
+          output.classList.remove('loading');
+        }
+      } finally {
+        if (btn) {
+          btn.textContent = btn.dataset.defaultLabel || 'Ask Gemini';
+          btn.disabled = false;
+        }
+      }
     }
 
     function escapeHtml(str) {
