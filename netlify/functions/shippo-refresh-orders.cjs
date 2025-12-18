@@ -185,15 +185,6 @@ exports.handler = async (event) => {
           }
         }
       }
-      
-      // If retailer is still unknown, check if "Hotana" appears anywhere in the order
-      if (retailerValue === "Unknown") {
-        const orderText = JSON.stringify(order).toLowerCase();
-        if (orderText.includes('hotana')||orderText.includes('batana')) {
-          retailerValue = "Hotana";
-        }
-      }
-      
       // Skip if order already exists in Order History with same OrderID AND Retailer
       const orderKey = `${orderID}|${retailerValue}`;
       if (historyOrderKeys.has(orderKey)) {
