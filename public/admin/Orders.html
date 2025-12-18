@@ -348,6 +348,15 @@
             letter-spacing: .2px;
             user-select: none;
         }
+        /* Bookmark button styles */
+        .bookmark-btn {
+            opacity: 0.7;
+            transition: all 0.2s ease;
+        }
+        .bookmark-btn:hover {
+            opacity: 1;
+            transform: scale(1.2);
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
     <script src="/Assets/CheckAccess.js"></script>
@@ -373,6 +382,9 @@
                 </div>
                 <div class="tab" onclick="switchTab('returned')" id="returnedTab">
                     Returned Orders<span class="tab-badge" id="returnedBadge">0</span>
+                </div>
+                <div class="tab" onclick="switchTab('bookmarked')" id="bookmarkedTab">
+                    Bookmarked<span class="tab-badge" id="bookmarkedBadge">0</span>
                 </div>
             </div>
             
@@ -577,6 +589,7 @@
         let filteredOrders = [];
         let historyOrders = []; // Store order history separately
         let returnedOrders = []; // Store returned orders separately
+        let allBookmarkedOrderIds = new Set(); // Track bookmarked order IDs across all tabs
         
         async function loadOrders() {
             const container = document.getElementById('ordersTableContainer');
@@ -693,7 +706,18 @@
     const itemQuantityFilter = parseInt(document.getElementById('itemQuantityFilter').value) || 0;
     
     // Use different data source based on current tab
-    const sourceOrders = currentTab === 'history' ? historyOrders : (currentTab === 'returned' ? returnedOrders : orders);
+    let sourceOrders = [];
+    if (currentTab === 'bookmarked') {
+        // Combine all orders from all sources and filter by bookmarked
+        const allOrders = [...orders, ...historyOrders, ...returnedOrders];
+        sourceOrders = allOrders.filter(o => o.Bookmarked === true);
+    } else if (currentTab === 'history') {
+        sourceOrders = historyOrders;
+    } else if (currentTab === 'returned') {
+        sourceOrders = returnedOrders;
+    } else {
+        sourceOrders = orders;
+    }
     
     filteredOrders = sourceOrders.filter(o => {
         let match = true;
@@ -704,7 +728,7 @@
         } else if (currentTab === 'inventoryRemoved') {
             if (o.InventoryRemoved !== true) return false;
         }
-        // For history and returned tabs, show all history orders (no InventoryRemoved field check needed)
+        // For history, returned, and bookmarked tabs, show filtered results
         
         // Filter by notes only
         if (notesOnly) {
@@ -794,6 +818,8 @@
                 document.getElementById('historyTab').classList.add('active');
             } else if (tab === 'returned') {
                 document.getElementById('returnedTab').classList.add('active');
+            } else if (tab === 'bookmarked') {
+                document.getElementById('bookmarkedTab').classList.add('active');
             }
             
             // Update badge counts
@@ -806,11 +832,16 @@
         function updateTabBadges() {
             const newOrders = orders.filter(o => o.InventoryRemoved !== true);
             const inventoryRemovedOrders = orders.filter(o => o.InventoryRemoved === true);
+            const bookmarkedInNew = newOrders.filter(o => o.Bookmarked === true).length;
+            const bookmarkedInHistory = historyOrders.filter(o => o.Bookmarked === true).length;
+            const bookmarkedInReturned = returnedOrders.filter(o => o.Bookmarked === true).length;
+            const totalBookmarked = bookmarkedInNew + bookmarkedInHistory + bookmarkedInReturned;
             
             document.getElementById('newBadge').textContent = newOrders.length;
             document.getElementById('inventoryRemovedBadge').textContent = inventoryRemovedOrders.length;
             document.getElementById('historyBadge').textContent = historyOrders.length;
             document.getElementById('returnedBadge').textContent = returnedOrders.length;
+            document.getElementById('bookmarkedBadge').textContent = totalBookmarked;
         }
 
         function clearFilters() {
@@ -868,8 +899,9 @@
                 const hasInsufficient = currentTab === 'new' && !order.InventoryRemoved && hasInsufficientInventory(order);
                 cardsHtml += `<div class="order-card${selectedOrders.has(String(order.OrderID)) ? ' selected' : ''}" id="order-card-${idx}" data-order-id="${order.OrderID}" style=" border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-bottom:24px; padding:24px; position:relative;">
                     ${(order.InventoryRemoved || hasInsufficient || getPlatformBadgeHtml(order.Platform)) ? `<span style=\"position:absolute; top:14px; right:18px; z-index:1; display:flex; gap:8px; align-items:center;\">${order.InventoryRemoved ? `<span class=\"inv-removed-badge\" title=\"Inventory already decremented\">Inventory Removed</span>` : ''}${hasInsufficient ? `<span class=\"insufficient-inv-badge\" title=\"One or more items have insufficient inventory\">Insufficient Inventory</span>` : ''}${getPlatformBadgeHtml(order.Platform) || ''}</span>` : ''}
-                    <h2 style="margin-top:0; color:#4DBA93; font-size:1.3rem;">
+                    <h2 style="margin-top:0; color:#4DBA93; font-size:1.3rem; display:flex; align-items:center; gap:8px;">
                         <a href="/admin/orderinfo.html?${(currentTab === 'history' || currentTab === 'returned') ? ('hid=' + encodeURIComponent(order.id)) : ('order=' + encodeURIComponent(order.OrderID))}" class="order-link">Order #${order.OrderID}</a>
+                        <button class="bookmark-btn" onclick="toggleBookmark('${order.OrderID}', event)" style="background:none; border:none; cursor:pointer; font-size:20px; padding:0; z-index:2; transition:opacity 0.2s; line-height:1;" title="${order.Bookmarked ? 'Remove bookmark' : 'Add bookmark'}">${order.Bookmarked ? '⭐' : '☆'}</button>
                     </h2>
                     <div style="margin-bottom:10px;"><strong>Retailer:</strong> ${order.Retailer || ''}</div>
                     ${order.PlacedAt ? `<div style=\"margin-bottom:10px;\"><strong>Placed At:</strong> ${new Date(order.PlacedAt).toLocaleString()}</div>` : ''}
@@ -913,6 +945,74 @@
             if (arrow) {
                 const open = block.classList.contains('show');
                 arrow.textContent = open ? '▲' : '▼';
+            }
+        }
+        
+        async function toggleBookmark(orderId, event) {
+            event.stopPropagation(); // Prevent card selection
+            try {
+                // Find the order in either Orders, historyOrders, or returnedOrders
+                let order = orders.find(o => String(o.OrderID) === String(orderId)) ||
+                           historyOrders.find(o => String(o.OrderID) === String(orderId) || String(o.id) === String(orderId)) ||
+                           returnedOrders.find(o => String(o.OrderID) === String(orderId) || String(o.id) === String(orderId));
+                
+                if (!order) return;
+                
+                // Determine which table to update and the correct ID field
+                let table = '';
+                let updateKey = 'OrderID';
+                let idValue = order.OrderID;
+                
+                if (orders.includes(order)) {
+                    table = 'Orders';
+                    updateKey = 'OrderID';
+                    idValue = order.OrderID;
+                } else {
+                    table = 'Order History';
+                    updateKey = order.id ? 'id' : 'OrderID';
+                    idValue = order.id || order.OrderID;
+                }
+                
+                const newBookmarkValue = !(order.Bookmarked === true);
+                
+                // Update database
+                const { error } = await supabase
+                    .from(table)
+                    .update({ Bookmarked: newBookmarkValue })
+                    .eq(updateKey, idValue);
+                
+                if (error) {
+                    console.error('Error updating bookmark:', error);
+                    return;
+                }
+                
+                // Update local data
+                order.Bookmarked = newBookmarkValue;
+                
+                // Efficiently update UI without full re-render
+                // Find the button in the DOM and update the icon
+                const bookmarkBtn = event.target.closest('.bookmark-btn');
+                if (bookmarkBtn) {
+                    bookmarkBtn.textContent = newBookmarkValue ? '⭐' : '☆';
+                    bookmarkBtn.title = newBookmarkValue ? 'Remove bookmark' : 'Add bookmark';
+                }
+                
+                // Update badge count without re-filtering
+                updateBookmarkedBadgeOnly();
+            } catch (err) {
+                console.error('Error toggling bookmark:', err);
+            }
+        }
+        
+        function updateBookmarkedBadgeOnly() {
+            const bookmarkedInNew = orders.filter(o => o.Bookmarked === true).length;
+            const bookmarkedInHistory = historyOrders.filter(o => o.Bookmarked === true).length;
+            const bookmarkedInReturned = returnedOrders.filter(o => o.Bookmarked === true).length;
+            const totalBookmarked = bookmarkedInNew + bookmarkedInHistory + bookmarkedInReturned;
+            
+            const badge = document.getElementById('bookmarkedBadge');
+            if (badge) {
+                badge.textContent = totalBookmarked;
             }
         }
         
@@ -1082,6 +1182,7 @@
             document.getElementById('editPlatform').value = order.Platform || '';
             document.getElementById('editNotes').value = order.Notes || '';
             document.getElementById('editCustomerMessages').value = order.CustomerMessages || '';
+            document.getElementById('editBookmarked').checked = order.Bookmarked === true;
             // Populate Items table
             let itemsArr = [];
             try {
@@ -1127,6 +1228,7 @@
             const platform = document.getElementById('editPlatform').value;
             const notes = document.getElementById('editNotes').value;
             const customerMessages = document.getElementById('editCustomerMessages').value;
+            const bookmarked = document.getElementById('editBookmarked').checked;
             // Gather items from table as plain text
             const items = [];
             const rows = document.querySelectorAll('#editItemsTableBody tr');
@@ -1160,7 +1262,8 @@
                         Notes: notes,
                         CustomerMessages: customerMessages,
                         Items: items,
-                        Customer: customer
+                        Customer: customer,
+                        Bookmarked: bookmarked
                     })
                     .eq('OrderID', orderId);
                 if (error) throw error;
@@ -1173,6 +1276,7 @@
                 currentEditOrder.CustomerMessages = customerMessages;
                 currentEditOrder.Items = items;
                 currentEditOrder.Customer = customer;
+                currentEditOrder.Bookmarked = bookmarked;
                 renderOrders();
                 closeEditOrderModal();
             } catch (err) {
@@ -2705,6 +2809,10 @@
     <textarea id="editNotes" style="width:100%; min-height:40px; margin-bottom:12px; padding:8px; border-radius:6px; border:1px solid #e1e5e9;"></textarea>
     <label style="font-weight:600; color:#2c3e50;">Customer Message</label>
     <textarea id="editCustomerMessages" style="width:100%; min-height:40px; margin-bottom:18px; padding:8px; border-radius:6px; border:1px solid #e1e5e9;"></textarea>
+    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:18px;">
+        <input id="editBookmarked" type="checkbox" style="cursor:pointer; transform:scale(1.2);" />
+        <span style="font-weight:600; color:#2c3e50;">Bookmarked</span>
+    </label>
         <div style="display:flex; align-items:center; justify-content:flex-end; gap:10px;">
             <span id="editOrderSaveStatus" style="font-size:13px; color:#4DBA93;"></span>
             <button class="btn" style="padding:8px 22px; font-size:15px; border-radius:6px; background:#4DBA93;" onclick="saveEditOrder()">Save</button>
