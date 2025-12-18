@@ -5,6 +5,50 @@
 
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
+const FALLBACK_PHONE = '7045550000';
+const SHIPPER_PHONE = '7045550000';
+
+function sanitizePhoneNumber(rawValue, fallbackValue = FALLBACK_PHONE, minLength = 10) {
+	const digits = String(rawValue || '').replace(/\D/g, '');
+	if (digits.length >= minLength) {
+		return digits.substring(0, 15);
+	}
+	const fallbackDigits = String(fallbackValue || '').replace(/\D/g, '');
+	if (fallbackDigits.length >= minLength) {
+		return fallbackDigits.substring(0, 15);
+	}
+	// Last resort: trimmed fallback phone constant
+	return String(FALLBACK_PHONE).replace(/\D/g, '').substring(0, 15) || '7045550000';
+}
+
+function sanitizePostalCode(value) {
+	if (value === undefined || value === null) return '';
+	let trimmed = String(value).trim();
+	if (!trimmed) return '';
+	if (trimmed.length <= 11) return trimmed;
+	const compact = trimmed.replace(/[^A-Za-z0-9]/g, '');
+	if (compact.length > 0) {
+		return compact.substring(0, Math.min(11, compact.length)).toUpperCase();
+	}
+	return trimmed.substring(0, 11);
+}
+
+function normalizeMilitaryAddress(address) {
+	const city = (address.city || '').trim();
+	const state = (address.state || '').trim();
+	const normalizedCity = city.toUpperCase();
+	const normalizedState = state.toUpperCase();
+	if (['APO', 'FPO', 'DPO'].includes(normalizedCity) || ['AA', 'AE', 'AP'].includes(normalizedState)) {
+		return {
+			...address,
+			city: normalizedCity || 'APO',
+			state: normalizedState || 'AE',
+			country: 'US'
+		};
+	}
+	return address;
+}
+
 // Cache fetch module at cold start
 let fetchModule;
 const getFetch = async () => {
@@ -70,10 +114,8 @@ exports.handler = async (event) => {
 
 	// Ensure phone is present and sanitized for UPS label requirements
 	const rawPhone = customer.phone || customer.Phone || order?.CustomerPhone || order?.phone || '';
-	const sanitizedPhone = String(rawPhone).replace(/[^0-9]/g, '');
-	const fallbackPhone = '7045550000'; // valid-looking 10-digit fallback
 
-	const address_to = {
+	let address_to = {
 		name: customer.name || customer.Name || '',
 		street1: customer.address1 || customer.Address1 || customer.address || '',
 		street2: customer.address2 || customer.Address2 || '',
@@ -81,9 +123,10 @@ exports.handler = async (event) => {
 		state: customer.state || customer.State || '',
 		zip: customer.zipCode || customer.zip || customer.postal_code || '',
 		country: customer.country || customer.Country || 'US',
-		phone: (sanitizedPhone && sanitizedPhone.length >= 10) ? sanitizedPhone.substring(0, 15) : fallbackPhone,
+		phone: null,
 		email: (customer.email || '').substring(0, 50)
 	};
+	address_to = normalizeMilitaryAddress(address_to);
 
 	const address_from = {
 		name: order?.retailer|| order?.Retailer || 'Some Retailer',
@@ -92,11 +135,16 @@ exports.handler = async (event) => {
 		state: 'NC',
 		zip: '28115',
 		country: 'US',
-		email: 'jenn@jnlnaturals.com'
+		email: 'jenn@jnlnaturals.com',
+		phone: sanitizePhoneNumber(SHIPPER_PHONE, FALLBACK_PHONE, 10)
 	};
 
-	const country = String(address_to.country || 'US').toUpperCase();
-	const isInternational = country !== 'US' && country !== 'UNITED STATES';
+	const rawCountry = String(address_to.country || 'US').toUpperCase();
+	const normalizedCountry = rawCountry === 'UNITED STATES' ? 'US' : rawCountry;
+	address_to.country = normalizedCountry;
+	const isInternational = normalizedCountry !== 'US';
+	address_to.zip = sanitizePostalCode(address_to.zip);
+	address_to.phone = sanitizePhoneNumber(rawPhone, FALLBACK_PHONE, isInternational ? 6 : 10);
 
 	const shipmentPayload = {
 		address_from,
