@@ -181,6 +181,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="/Assets/CheckAccess.js"></script>
 </head>
 <body>
@@ -336,11 +337,38 @@
           try {
             const { data: logs, error: logsError } = await supabase
               .from('inventoryupdatelogs')
-              .select('created_at,log,updated_by')
+              .select('created_at,log,updated_by,QuantityChanged')
               .eq('SKU', sku)
-              .order('created_at', { ascending: false })
-            if (logs && logs.length) {
+              .order('created_at', { ascending: false });
+            // Get current product quantity
+            let currentQty = null;
+            try {
+              const { data: prodData, error: prodError } = await supabase
+                .from('Products')
+                .select('Quantity')
+                .eq('ProductSKU', sku)
+                .single();
+              if (prodData && typeof prodData.Quantity === 'number') {
+                currentQty = prodData.Quantity;
+              }
+            } catch {}
+            if (logs && logs.length && currentQty !== null) {
+              // Work backwards from current quantity using QuantityChanged deltas
+              const chartLogs = logs.slice(0, 20).reverse();
+              let qty = currentQty;
+              const chartData = [qty];
+              for (let i = chartLogs.length - 1; i >= 0; i--) {
+                const delta = typeof chartLogs[i].QuantityChanged === 'number' ? chartLogs[i].QuantityChanged : 0;
+                qty -= delta;
+                chartData.unshift(qty);
+              }
+              // Remove the oldest value if we have one extra
+              if (chartData.length > chartLogs.length) chartData.pop();
+              const chartLabels = chartLogs.map(l => new Date(l.created_at).toLocaleString());
               logsHtml += `<div style='margin-top:2em;'>`;
+              logsHtml += `<div style='max-width:600px;margin:0 auto 18px auto;'>
+                <canvas id='inventoryUpdatesChart' height='120'></canvas>
+              </div>`;
               logsHtml += `<div class='collapsible-header' onclick='toggleCollapsible(this)'>`;
               logsHtml += `<span style='font-weight:600;color:#4DBA93;'>Recent Inventory Updates</span>`;
               logsHtml += `<span class='collapsible-icon'>▼</span>`;
@@ -353,6 +381,44 @@
               logsHtml += '</tbody></table>';
               logsHtml += `</div>`; // close collapsible-content
               logsHtml += `</div>`; // close container
+
+              // Render chart after HTML is inserted
+              setTimeout(() => {
+                const ctx = document.getElementById('inventoryUpdatesChart');
+                if (ctx && window.Chart) {
+                  new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                      labels: chartLabels,
+                      datasets: [{
+                        label: 'Inventory Quantity',
+                        data: chartData,
+                        borderColor: '#4DBA93',
+                        backgroundColor: 'rgba(77,186,147,0.15)',
+                        fill: true,
+                        tension: 0.2,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#4DBA93',
+                        pointBorderColor: '#fff',
+                        pointHoverRadius: 5
+                      }]
+                    },
+                    options: {
+                      responsive: true,
+                      plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: 'Recent Inventory Changes', color: '#4DBA93', font: { size: 18 } }
+                      },
+                      scales: {
+                        x: { title: { display: true, text: 'Time', color: '#333' }, ticks: { color: '#333', maxRotation: 45, minRotation: 0 } },
+                        y: { title: { display: true, text: 'Quantity', color: '#333' }, ticks: { color: '#333' }, beginAtZero: true }
+                      }
+                    }
+                  });
+                }
+              }, 100);
+            } else if (logs && logs.length) {
+              logsHtml += `<div style='margin-top:2em;color:#888;'>Unable to determine current quantity for this SKU. Chart unavailable.</div>`;
             } else {
               logsHtml += `<div style='margin-top:2em;color:#888;'>No inventory update logs found for this SKU.</div>`;
             }
