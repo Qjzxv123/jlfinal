@@ -318,10 +318,10 @@
       <div class="chart-container">
         <div class="ai-insights-header">
           <div>
-            <h2 style="margin-bottom:4px;">Gemini Insights</h2>
-            <p>Let Google Gemini explain what your current stats mean.</p>
+            <h2 style="margin-bottom:4px;">AI Insights</h2>
+            <p>Let AI explain what your current stats mean.</p>
           </div>
-          <button class="btn" id="generateInsightsBtn" disabled>Ask Gemini</button>
+          <button class="btn" id="generateInsightsBtn" disabled>Ask AI</button>
         </div>
         <div id="insightsOutput" class="ai-output">Load analytics to unlock AI insights.</div>
       </div>
@@ -467,7 +467,7 @@
       });
       const insightsBtn = document.getElementById('generateInsightsBtn');
       if (insightsBtn) {
-        insightsBtn.addEventListener('click', () => requestGeminiInsights('customer'));
+        insightsBtn.addEventListener('click', () => requestAiInsights('customer'));
       }
     }
 
@@ -807,36 +807,36 @@
       const btn = document.getElementById('generateInsightsBtn');
       if (btn) {
         btn.disabled = true;
-        btn.textContent = btn.dataset.defaultLabel || 'Ask Gemini';
+        btn.textContent = btn.dataset.defaultLabel || 'Ask AI';
       }
     }
 
     function markInsightsReady() {
       const output = document.getElementById('insightsOutput');
       if (output && currentAnalyticsSummary) {
-        output.textContent = 'Click "Ask Gemini" to interpret this filtered view.';
+        output.textContent = 'Click "Ask AI" to interpret this filtered view.';
         output.classList.remove('loading');
       }
       const btn = document.getElementById('generateInsightsBtn');
       if (btn) {
-        btn.dataset.defaultLabel = btn.dataset.defaultLabel || btn.textContent || 'Ask Gemini';
+        btn.dataset.defaultLabel = btn.dataset.defaultLabel || btn.textContent || 'Ask AI';
         btn.textContent = btn.dataset.defaultLabel;
         btn.disabled = !currentAnalyticsSummary;
       }
     }
 
-    async function requestGeminiInsights(audience) {
+    async function requestAiInsights(audience) {
       if (!currentAnalyticsSummary) return;
 
       const output = document.getElementById('insightsOutput');
       const btn = document.getElementById('generateInsightsBtn');
 
       if (output) {
-        output.textContent = 'Requesting insights from Gemini...';
+        output.textContent = 'Requesting insights from AI...';
         output.classList.add('loading');
       }
       if (btn) {
-        btn.dataset.defaultLabel = btn.dataset.defaultLabel || btn.textContent || 'Ask Gemini';
+        btn.dataset.defaultLabel = btn.dataset.defaultLabel || btn.textContent || 'Ask AI';
         btn.textContent = 'Generating...';
         btn.disabled = true;
       }
@@ -863,14 +863,14 @@
           output.classList.remove('loading');
         }
       } catch (error) {
-        console.error('Error generating Gemini insights:', error);
+        console.error('Error generating AI insights:', error);
         if (output) {
           output.textContent = 'Unable to generate insights right now. Please try again.';
           output.classList.remove('loading');
         }
       } finally {
         if (btn) {
-          btn.textContent = btn.dataset.defaultLabel || 'Ask Gemini';
+          btn.textContent = btn.dataset.defaultLabel || 'Ask AI';
           btn.disabled = false;
         }
       }
