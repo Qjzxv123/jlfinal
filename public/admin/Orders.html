@@ -832,11 +832,13 @@
         function updateTabBadges() {
             const newOrders = orders.filter(o => o.InventoryRemoved !== true);
             const inventoryRemovedOrders = orders.filter(o => o.InventoryRemoved === true);
-            const bookmarkedInNew = newOrders.filter(o => o.Bookmarked === true).length;
-            const bookmarkedInHistory = historyOrders.filter(o => o.Bookmarked === true).length;
-            const bookmarkedInReturned = returnedOrders.filter(o => o.Bookmarked === true).length;
-            const totalBookmarked = bookmarkedInNew + bookmarkedInHistory + bookmarkedInReturned;
-            
+            // Bookmarked count should include all Bookmarked orders, historyOrders, and returnedOrders
+            const totalBookmarked = [
+                ...orders,
+                ...historyOrders,
+                ...returnedOrders
+            ].filter(o => o.Bookmarked === true).length;
+
             document.getElementById('newBadge').textContent = newOrders.length;
             document.getElementById('inventoryRemovedBadge').textContent = inventoryRemovedOrders.length;
             document.getElementById('historyBadge').textContent = historyOrders.length;
