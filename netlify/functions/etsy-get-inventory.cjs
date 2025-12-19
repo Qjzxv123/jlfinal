@@ -114,19 +114,18 @@ exports.handler = async function(event) {
     return newAccessToken;
   }
 
-  // Try to fetch shop_id, refresh token if 401
-  let meResp = await fetch('https://openapi.etsy.com/v3/application/users/me', {
+  const fetchUser = (token) => fetch('https://openapi.etsy.com/v3/application/users/me', {
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorization': `Bearer ${token}`,
       'x-api-key': ETSY_CLIENT_ID
     }
   });
+  let meResp = await fetchUser(accessToken);
   if (meResp.status === 401) {
-    // Try refresh
     const newToken = await refreshEtsyToken(tokenRow, supabase);
     if (!newToken) {
       const errText = await meResp.text();
-      console.error('[Etsy Inventory] Token refresh failed, still 401:', errText);
+      console.error('[Etsy Inventory] Token refresh failed (users/me), still 401:', errText);
       return {
         statusCode: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -137,28 +136,87 @@ exports.handler = async function(event) {
       };
     }
     accessToken = newToken;
-    meResp = await fetch('https://openapi.etsy.com/v3/application/users/me', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'x-api-key': ETSY_CLIENT_ID
-      }
-    });
+    meResp = await fetchUser(accessToken);
   }
   if (!meResp.ok) {
     const errText = await meResp.text();
-    console.error('[Etsy Inventory] Failed to fetch user/me:', meResp.status, errText);
-    return { statusCode: 400, body: 'Could not fetch Etsy user/me' };
+    console.error('[Etsy Inventory] Failed to fetch users/me:', meResp.status, errText);
+    return { statusCode: 400, body: 'Could not fetch Etsy user profile' };
   }
   const meJson = await meResp.json();
-  if (meJson && meJson.shop_id) {
-    shopId = meJson.shop_id;
-  } else {
-    console.error('[Etsy Inventory] No shop_id found in getMe response');
-    return { statusCode: 400, body: 'No Etsy shop_id found in getMe response' };
+  let userId = null;
+  if (meJson && typeof meJson === 'object') {
+    if (meJson.user_id) {
+      userId = meJson.user_id;
+    } else if (meJson.user && (meJson.user.user_id || meJson.user.id)) {
+      userId = meJson.user.user_id || meJson.user.id;
+    } else if (Array.isArray(meJson.results)) {
+      const userEntry = meJson.results.find(r => r && (r.user_id || r.id));
+      if (userEntry) {
+        userId = userEntry.user_id || userEntry.id;
+      }
+    }
+  }
+  const userIdInt = Number(userId);
+  if (!Number.isInteger(userIdInt)) {
+    console.error('[Etsy Inventory] Could not determine numeric user_id from users/me response:', meJson);
+    return { statusCode: 400, body: 'Could not determine Etsy user_id' };
+  }
+
+  const fetchShopLookup = (token) => fetch(`https://openapi.etsy.com/v3/application/users/${userIdInt}/shops`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'x-api-key': ETSY_CLIENT_ID
+    }
+  });
+  let shopResp = await fetchShopLookup(accessToken);
+  if (shopResp.status === 401) {
+    const newToken = await refreshEtsyToken(tokenRow, supabase);
+    if (!newToken) {
+      const errText = await shopResp.text();
+      console.error('[Etsy Inventory] Token refresh failed (users/{id}/shops), still 401:', errText);
+      return {
+        statusCode: 401,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: 'etsy_token_invalid',
+          message: `Etsy authentication for ${userKey} has expired or been revoked. Please reconnect Etsy for this retailer.`
+        })
+      };
+    }
+    accessToken = newToken;
+    shopResp = await fetchShopLookup(accessToken);
+  }
+  if (!shopResp.ok) {
+    const errText = await shopResp.text();
+    console.error('[Etsy Inventory] Failed to fetch users/{user_id}/shops:', shopResp.status, errText);
+    return { statusCode: 400, body: 'Could not fetch Etsy shop information' };
+  }
+  const shopJson = await shopResp.json();
+  if (shopJson && typeof shopJson === 'object') {
+    if (shopJson.shop_id) {
+      shopId = shopJson.shop_id;
+    } else if (Array.isArray(shopJson.results)) {
+      const firstShop = shopJson.results.find(s => s && s.shop_id);
+      if (firstShop) shopId = firstShop.shop_id;
+    } else if (Array.isArray(shopJson.data)) {
+      const firstShop = shopJson.data.find(s => s && s.shop_id);
+      if (firstShop) shopId = firstShop.shop_id;
+    } else if (Array.isArray(shopJson.shops)) {
+      const firstShop = shopJson.shops.find(s => s && s.shop_id);
+      if (firstShop) shopId = firstShop.shop_id;
+    }
+  }
+  if (!shopId) {
+    console.error('[Etsy Inventory] No shop_id found in users/{user_id}/shops response');
+    return { statusCode: 400, body: 'No Etsy shop_id found in users/{user_id}/shops response' };
   }
 
   // Fetch all active listings for the shop in one call, then map quantities by SKU
   const results = {};
+  for (const sku of skus) {
+    results[sku] = null;
+  }
   try {
     let listings = [];
     let offset = 0;
@@ -189,58 +247,67 @@ exports.handler = async function(event) {
       }
       offset += limit;
     } while (total !== null && listings.length < total);
-    // Map full listing object by SKU for requested SKUs (like Faire)
-    // Etsy listings may use 'skus' (array) or 'sku' (string/array). Flatten all SKUs for matching.
-    for (const sku of skus) {
-      let match = null;
-      for (const l of listings) {
-        // Prefer 'skus' property if present, else fallback to 'sku'
-        let allSkus = [];
-        if (Array.isArray(l.skus)) {
-          allSkus = l.skus;
-        } else if (Array.isArray(l.sku)) {
-          allSkus = l.sku;
-        } else if (typeof l.sku === 'string') {
-          allSkus = [l.sku];
-        }
-        if (allSkus.includes(sku)) {
-          match = l;
-          break;
-        }
+    const requestedSkuSet = new Set(skus.filter(s => typeof s === 'string' && s.trim() !== ''));
+    const listingMatches = [];
+    function extractListingSkus(listing) {
+      if (!listing) return [];
+      if (Array.isArray(listing.skus)) return listing.skus.filter(Boolean);
+      if (Array.isArray(listing.sku)) return listing.sku.filter(Boolean);
+      if (typeof listing.sku === 'string') return [listing.sku];
+      return [];
+    }
+    for (const listing of listings) {
+      if (!listing || !listing.listing_id) continue;
+      const listingSkus = extractListingSkus(listing);
+      if (!listingSkus.length) continue;
+      const matchedSkus = listingSkus.filter(sku => requestedSkuSet.has(sku));
+      if (matchedSkus.length) {
+        listingMatches.push({
+          listingId: listing.listing_id,
+          skus: Array.from(new Set(matchedSkus))
+        });
       }
-      if (match && match.listing_id) {
-        // Fetch inventory for this listing
-        try {
-          const invResp = await fetch(`https://openapi.etsy.com/v3/application/listings/${match.listing_id}/inventory`, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'x-api-key': ETSY_CLIENT_ID
-            }
-          });
-          if (invResp.ok) {
-            const invJson = await invResp.json();
-            let foundQty = null;
-            if (Array.isArray(invJson.products)) {
-              for (const p of invJson.products) {
-                if (p.sku === sku) {
-                  // Sum all offering quantities for this SKU
-                  if (Array.isArray(p.offerings)) {
-                    foundQty = p.offerings.reduce((sum, o) => sum + (parseInt(o.quantity) || 0), 0);
-                  }
-                  break;
-                }
-              }
-            }
-            results[sku] = foundQty;
+    }
+    const concurrencyLimit = 5;
+    const inflight = [];
+    async function fetchListingInventory(listingId, targetSkus) {
+      try {
+        const invResp = await fetch(`https://openapi.etsy.com/v3/application/listings/${listingId}/inventory`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'x-api-key': ETSY_CLIENT_ID
+          }
+        });
+        if (!invResp.ok) {
+          const errText = await invResp.text();
+          console.error(`[Etsy Inventory] Failed to GET inventory for listing ${listingId}:`, invResp.status, errText);
+          return;
+        }
+        const invJson = await invResp.json();
+        if (!Array.isArray(invJson.products)) return;
+        for (const sku of targetSkus) {
+          if (results[sku] !== null && results[sku] !== undefined) continue;
+          const product = invJson.products.find(p => p && p.sku === sku);
+          if (product && Array.isArray(product.offerings)) {
+            const qty = product.offerings.reduce((sum, offering) => sum + (parseInt(offering.quantity) || 0), 0);
+            results[sku] = qty;
           } else {
             results[sku] = null;
           }
-        } catch (e) {
-          results[sku] = null;
         }
-      } else {
-        results[sku] = null;
+      } catch (err) {
+        console.error(`[Etsy Inventory] Exception fetching inventory for listing ${listingId}:`, err);
       }
+    }
+    for (const match of listingMatches) {
+      inflight.push(fetchListingInventory(match.listingId, match.skus));
+      if (inflight.length >= concurrencyLimit) {
+        await Promise.all(inflight);
+        inflight.length = 0;
+      }
+    }
+    if (inflight.length) {
+      await Promise.all(inflight);
     }
   } catch (e) {
     console.error('[Etsy Inventory] Error fetching active listings:', e);

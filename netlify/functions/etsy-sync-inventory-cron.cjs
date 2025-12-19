@@ -116,15 +116,62 @@ exports.handler = async function(event) {
     
     // Always fetch shop_id from Etsy API using the access token, refresh if expired
     let shopId;
-    let shopResp = await fetch('https://openapi.etsy.com/v3/application/users/me', {
+    const fetchUser = (token) => fetch('https://openapi.etsy.com/v3/application/users/me', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${token}`,
         'x-api-key': ETSY_CLIENT_ID
       }
     });
+    let meResp = await fetchUser(accessToken);
+    
+    if (meResp.status === 401) {
+      console.warn(`[Etsy Sync Cron] 401 Unauthorized for retailer ${retailer} on users/me, attempting token refresh`);
+      const newToken = await refreshEtsyToken(row, supabase);
+      if (!newToken) {
+        const errText = await meResp.text();
+        console.error('[Etsy Sync Cron] Token refresh failed, still 401:', errText);
+        continue;
+      }
+      accessToken = newToken;
+      meResp = await fetchUser(accessToken);
+    }
+    
+    if (!meResp.ok) {
+      const errText = await meResp.text();
+      console.error(`[Etsy Sync Cron] Failed to fetch users/me for retailer ${retailer}:`, meResp.status, errText);
+      continue;
+    }
+    
+    const meJson = await meResp.json();
+    let userId = null;
+    if (meJson && typeof meJson === 'object') {
+      if (meJson.user_id) {
+        userId = meJson.user_id;
+      } else if (meJson.user && (meJson.user.user_id || meJson.user.id)) {
+        userId = meJson.user.user_id || meJson.user.id;
+      } else if (Array.isArray(meJson.results)) {
+        const userEntry = meJson.results.find(r => r && (r.user_id || r.id));
+        if (userEntry) {
+          userId = userEntry.user_id || userEntry.id;
+        }
+      }
+    }
+    const userIdInt = Number(userId);
+    if (!Number.isInteger(userIdInt)) {
+      console.error(`[Etsy Sync Cron] Could not determine numeric user_id for retailer ${retailer}:`, meJson);
+      continue;
+    }
+    
+    const fetchShopLookup = (token) => fetch(`https://openapi.etsy.com/v3/application/users/${userIdInt}/shops`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'x-api-key': ETSY_CLIENT_ID
+      }
+    });
+    let shopResp = await fetchShopLookup(accessToken);
     
     if (shopResp.status === 401) {
-      console.warn(`[Etsy Sync Cron] 401 Unauthorized for retailer ${retailer}, attempting token refresh`);
+      console.warn(`[Etsy Sync Cron] 401 Unauthorized fetching shops for retailer ${retailer}, attempting token refresh`);
       const newToken = await refreshEtsyToken(row, supabase);
       if (!newToken) {
         const errText = await shopResp.text();
@@ -132,25 +179,32 @@ exports.handler = async function(event) {
         continue;
       }
       accessToken = newToken;
-      shopResp = await fetch('https://openapi.etsy.com/v3/application/users/me', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'x-api-key': ETSY_CLIENT_ID
-        }
-      });
+      shopResp = await fetchShopLookup(accessToken);
     }
     
     if (!shopResp.ok) {
       const errText = await shopResp.text();
-      console.error(`[Etsy Sync Cron] Failed to fetch user/me for retailer ${retailer}:`, shopResp.status, errText);
+      console.error(`[Etsy Sync Cron] Failed to fetch users/${userIdInt}/shops for retailer ${retailer}:`, shopResp.status, errText);
       continue;
     }
     
     const shopJson = await shopResp.json();
-    if (shopJson && shopJson.shop_id) {
-      shopId = shopJson.shop_id;
-    } else {
-      console.error('[Etsy Sync Cron] No shop_id found in getMe response');
+    if (shopJson && typeof shopJson === 'object') {
+      if (shopJson.shop_id) {
+        shopId = shopJson.shop_id;
+      } else if (Array.isArray(shopJson.results)) {
+        const firstShop = shopJson.results.find(s => s && s.shop_id);
+        if (firstShop) shopId = firstShop.shop_id;
+      } else if (Array.isArray(shopJson.data)) {
+        const firstShop = shopJson.data.find(s => s && s.shop_id);
+        if (firstShop) shopId = firstShop.shop_id;
+      } else if (Array.isArray(shopJson.shops)) {
+        const firstShop = shopJson.shops.find(s => s && s.shop_id);
+        if (firstShop) shopId = firstShop.shop_id;
+      }
+    }
+    if (!shopId) {
+      console.error('[Etsy Sync Cron] No shop_id found in users/{user_id}/shops response');
       continue;
     }
     
