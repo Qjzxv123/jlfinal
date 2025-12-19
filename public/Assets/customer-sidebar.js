@@ -1,3 +1,11 @@
+// Determine if a holiday theme should be applied (with ?holidayPreview override).
+function getSidebarHolidayMode() {
+  const today = new Date();
+  const month = today.getMonth() + 1; // 1-12
+  if (month === 12) return 'christmas';
+  return null;
+}
+
 // Injects the public (customer) sidebar into the element with id 'sidebar'.
 function renderCustomerSidebar() {
   // Get user display name from correct localStorage key or fallback
@@ -39,6 +47,10 @@ function renderCustomerSidebar() {
   if (sidebar) {
     sidebar.className = 'sidebar';
     sidebar.innerHTML = sidebarHTML;
+    const holidayMode = getSidebarHolidayMode();
+    if (holidayMode === 'christmas') {
+      sidebar.classList.add('holiday-christmas');
+    }
     // Highlight current page
     let page = window.location.pathname.split('/').pop() || 'index.html';
     if (page === '' || page === '/') page = 'index.html';
