@@ -69,7 +69,7 @@
 }
 .nav-item i {
   margin-right: 0.5rem;
-  width: 20px;
+  width: 30px;
   text-align: center;
   flex-shrink: 0;
 }
@@ -84,7 +84,7 @@
   padding: 0.5rem 1.5rem;
 }
 
-/* Holiday: Christmas (snow overlay only) */
+/* Holiday: Christmas */
 .sidebar.holiday-christmas {
   background: linear-gradient(180deg, #12324d 0%, #1f4f5f 100%);
   box-shadow: 2px 0 14px rgba(0,0,0,0.25);
