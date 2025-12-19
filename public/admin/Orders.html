@@ -444,6 +444,11 @@
         let orders = [];
         let currentTab = 'new'; // Track current active tab
         let inventoryLookup = new Map(); // SKU -> quantity available
+        // Render only a slice of history at a time to avoid huge DOM work
+        const HISTORY_RENDER_CHUNK = 200;
+        let historyRenderLimit = HISTORY_RENDER_CHUNK;
+        let historyLoaded = false;
+        let historyLoadPromise = null;
         
         // Helpers to render platform badges consistently
         function platformClass(p) {
@@ -485,6 +490,31 @@
                 console.error('Error checking inventory:', e);
             }
             return false;
+        }
+        function parseCustomer(raw) {
+            if (!raw) return {};
+            if (typeof raw === 'object') return raw;
+            try { return JSON.parse(raw) || {}; } catch { return {}; }
+        }
+        function parseItems(raw) {
+            if (Array.isArray(raw)) return raw;
+            if (typeof raw === 'string' && raw.trim() !== '') {
+                try {
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch { return []; }
+            }
+            return [];
+        }
+        function getParsedCustomer(order) {
+            if (order.customerObj) return order.customerObj;
+            order.customerObj = parseCustomer(order.Customer);
+            return order.customerObj;
+        }
+        function getParsedItems(order) {
+            if (order.itemsArr) return order.itemsArr;
+            order.itemsArr = parseItems(order.Items);
+            return order.itemsArr;
         }
         function toggleOrderSelection(orderId) {
             const sid = String(orderId);
@@ -593,6 +623,11 @@
         async function loadOrders() {
             const container = document.getElementById('ordersTableContainer');
             container.innerHTML = '<p>Loading orders...</p>';
+            historyLoaded = false;
+            historyLoadPromise = null;
+            historyRenderLimit = HISTORY_RENDER_CHUNK;
+            historyOrders = [];
+            returnedOrders = [];
             try {
                 const { data: ordersRaw, error } = await supabase
                     .from('Orders')
@@ -616,8 +651,8 @@
                     });
                 }
                 
-                // Also load Order History
-                await loadOrderHistory();
+                // Also load order history up front so counts/filters include it
+                await ensureHistoryLoaded();
                 
                 updateTabBadges();
                 filterOrders(); // This will apply tab filtering and set filteredOrders
@@ -639,7 +674,7 @@
                 while (hasMore) {
                     const { data: historyRaw, error } = await supabase
                         .from('Order History')
-                        .select('*')
+                        .select('id, OrderID, Retailer, Customer, Items, ShippingCost, TrackingNumber, Notes, CustomerMessages, Returned, Bookmarked, PlacedAt, Platform, BoxSkus')
                         .order('ShippedAt', { ascending: false })
                         .range(from, from + pageSize - 1);
                     
@@ -662,15 +697,40 @@
                     }
                 }
                 
+                const normalized = allHistory.map(o => {
+                    let boxSkus = o.BoxSkus;
+                    if (typeof boxSkus === 'string') {
+                        try { boxSkus = JSON.parse(boxSkus); } catch {}
+                    }
+                    return {
+                        ...o,
+                        BoxSkus: Array.isArray(boxSkus) ? boxSkus : [],
+                        customerObj: parseCustomer(o.Customer),
+                        itemsArr: parseItems(o.Items)
+                    };
+                });
+                
                 // Separate returned orders from history orders
-                returnedOrders = allHistory.filter(o => o.Returned === true);
-                historyOrders = allHistory.filter(o => o.Returned !== true);
+                returnedOrders = normalized.filter(o => o.Returned === true);
+                historyOrders = normalized.filter(o => o.Returned !== true);
                 updateTabBadges();
             } catch (err) {
                 console.error('Error loading order history:', err);
                 historyOrders = [];
                 returnedOrders = [];
             }
+        }
+        async function ensureHistoryLoaded() {
+            if (historyLoaded) return;
+            if (historyLoadPromise) return historyLoadPromise;
+            const container = document.getElementById('ordersTableContainer');
+            if (currentTab === 'history') {
+                container.innerHTML = '<p>Loading order history...</p>';
+            }
+            historyLoadPromise = loadOrderHistory();
+            await historyLoadPromise;
+            historyLoadPromise = null;
+            historyLoaded = true;
         }
 
         function populateRetailerFilter() {
@@ -696,6 +756,9 @@
     // Reset selection whenever filters/search change
     if (selectedOrders && selectedOrders.size) {
         selectedOrders.clear();
+    }
+    if (currentTab === 'history') {
+        historyRenderLimit = HISTORY_RENDER_CHUNK;
     }
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     const platform = document.getElementById('platformFilter').value;
@@ -737,10 +800,7 @@
         
         // Filter by item SKU and/or quantity
         if (itemSkuFilter || itemQuantityFilter > 0) {
-            let itemsArr = [];
-            try { 
-                itemsArr = Array.isArray(o.Items) ? o.Items : JSON.parse(o.Items || '[]'); 
-            } catch {}
+            const itemsArr = getParsedItems(o);
             
             let foundMatchingItem = false;
             for (const item of itemsArr) {
@@ -821,11 +881,24 @@
                 document.getElementById('bookmarkedTab').classList.add('active');
             }
             
-            // Update badge counts
-            updateTabBadges();
+            const needsHistory = (tab === 'history' || tab === 'returned' || tab === 'bookmarked');
+            if (tab === 'history') {
+                historyRenderLimit = HISTORY_RENDER_CHUNK;
+            }
             
-            // Re-filter orders based on new tab
-            filterOrders();
+            if (needsHistory) {
+                const targetTab = tab;
+                ensureHistoryLoaded().then(() => {
+                    if (currentTab !== targetTab) return; // user switched before data loaded
+                    updateTabBadges();
+                    filterOrders();
+                    renderOrders();
+                });
+            } else {
+                updateTabBadges();
+                filterOrders();
+                renderOrders();
+            }
         }
         
         function updateTabBadges() {
@@ -858,13 +931,16 @@
         function renderOrders() {
             const container = document.getElementById('ordersTableContainer');
             let cardsHtml = '';
-            filteredOrders.forEach((order, idx) => {
+            const listToRender = currentTab === 'history' 
+                ? filteredOrders.slice(0, Math.min(filteredOrders.length, historyRenderLimit))
+                : filteredOrders;
+            listToRender.forEach((order, idx) => {
                 // Customer collapsible
                 let customerToggleId = `customer-toggle-${idx}`;
                 let customerBlockId = `customer-block-${idx}`;
                 let customerHtml = '';
                 try {
-                    const customerObj = typeof order.Customer === 'object' ? order.Customer : JSON.parse(order.Customer);
+                    const customerObj = getParsedCustomer(order);
                     customerHtml = `<div class='customer-toggle' id='${customerToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px; display:inline-block;' onclick=\"toggleSection('${customerBlockId}','${customerToggleId}-arrow')\">Customer<span id='${customerToggleId}-arrow' class='toggle-arrow'>▼</span></div><div id='${customerBlockId}' class='customer-block' style='display:none; margin-top:8px;'>
                         <div style=\"margin-bottom:4px;\"><strong>Name:</strong> ${customerObj.name || ''}</div>
                         <div style=\"margin-bottom:4px;\"><strong>Address 1:</strong> ${customerObj.address1 || ''}</div>
@@ -881,7 +957,7 @@
                 let itemsToggleId = `items-toggle-${idx}`;
                 let itemsListId = `items-list-${idx}`;
                 try {
-                    const itemsArr = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items);
+                    const itemsArr = getParsedItems(order);
                     if (Array.isArray(itemsArr)) {
                         itemsHtml = `<div class='items-toggle' id='${itemsToggleId}' style='cursor:pointer; color:#4DBA93; font-weight:600; margin-bottom:6px; display:inline-block;' onclick="toggleSection('${itemsListId}','${itemsToggleId}-arrow')">Items<span id='${itemsToggleId}-arrow' class='toggle-arrow'>▼</span></div><div id='${itemsListId}' class='items-list' style='display:none; margin-top:8px;'>` +
                             itemsArr.map(item => `
@@ -927,6 +1003,13 @@
                     `}
                 </div>`;
             });
+            if (currentTab === 'history' && filteredOrders.length > listToRender.length) {
+                const remaining = filteredOrders.length - listToRender.length;
+                const nextChunk = Math.min(HISTORY_RENDER_CHUNK, remaining);
+                cardsHtml += `<div style="text-align:center; margin:12px 0 4px 0;">
+                    <button class="btn" onclick="loadMoreHistory()" style="padding:10px 18px;">Load more (${nextChunk} of ${remaining} remaining)</button>
+                </div>`;
+            }
             container.innerHTML = cardsHtml;
             // Whole-card toggle selection with guards for interactive elements
             const interactiveSelector = 'a, button, .items-toggle, .customer-toggle, input, textarea, select, label';
@@ -937,6 +1020,11 @@
                     toggleOrderSelection(id);
                 });
             });
+        }
+
+        function loadMoreHistory() {
+            historyRenderLimit += HISTORY_RENDER_CHUNK;
+            renderOrders();
         }
         // Toggle a collapsible block and flip the arrow between ▼ and ▲
         function toggleSection(contentId, arrowId) {
@@ -1855,10 +1943,7 @@
             if (order && historyOrders && historyOrders.length) {
                 try {
                     // Parse current order items
-                    let currentItems = [];
-                    try { 
-                        currentItems = Array.isArray(order.Items) ? order.Items : JSON.parse(order.Items || '[]'); 
-                    } catch {}
+                    const currentItems = getParsedItems(order);
                     
                     // Create a signature of current items (SKU and quantity)
                     const currentSignature = currentItems
@@ -1869,10 +1954,7 @@
                     if (currentSignature) {
                         // Search through order history (most recent first)
                         for (const histOrder of historyOrders) {
-                            let histItems = [];
-                            try {
-                                histItems = Array.isArray(histOrder.Items) ? histOrder.Items : JSON.parse(histOrder.Items || '[]');
-                            } catch {}
+                            const histItems = getParsedItems(histOrder);
                             
                             // Create signature for history order items
                             const histSignature = histItems
