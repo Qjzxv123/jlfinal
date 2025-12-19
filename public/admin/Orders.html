@@ -556,7 +556,6 @@
             // Disable packing slip and shipping labels buttons in history tab
             if (currentTab === 'history') {
                 setBtnState(printBtn, false);
-                setBtnState(printLabelsBtn, false);
             } else {
                 setBtnState(printBtn, hasSelection);
                 // Only enable print labels if selected orders have inventory removed
