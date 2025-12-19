@@ -118,9 +118,3 @@
   100% { background-position: 0 220px, 30px 240px, 60px 220px, 0 230px, 10px 220px, 50px 250px; }
 }
 
-.sidebar.holiday-halloween .nav-item:hover,
-.sidebar.holiday-halloween .nav-item.active {
-  border-left-color: #f39c12;
-  background: rgba(243,156,18,0.12);
-  color: #fff7e6;
-}
