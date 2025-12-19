@@ -33,7 +33,7 @@
       padding: 2.5rem 2.5rem 2.5rem 2.5rem;
       margin-top: 3rem;
       width: 100%;
-      max-width: 540px;
+      max-width: 640px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -43,14 +43,16 @@
       color: #2d3748;
       margin-bottom: 1.5rem;
     }
-    button {
+    .platform-button {
       border: none;
       border-radius: 6px;
-      padding: 0.7rem 0;
-      font-size: 1.1rem;
+      padding: 0.85rem 0;
+      font-size: 1.15rem;
       font-weight: 600;
       width: 100%;
-      margin: 16px 0;
+      max-width: 560px;
+      align-self: stretch;
+      margin: 18px 0;
       transition: background 0.2s;
       cursor: pointer;
       display: flex;
@@ -95,20 +97,23 @@
       background-color: #fff;
       padding: 2rem;
       border-radius: 12px;
-      max-width: 450px;
+      max-width: 520px;
       width: 90%;
       box-shadow: 0 4px 20px rgba(0,0,0,0.2);
     }
     .modal-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       margin-bottom: 1.5rem;
     }
     .modal-header h2 {
       margin: 0;
       color: #2d3748;
-      font-size: 1.4rem;
+      font-size: 1.35rem;
+      white-space: nowrap;
+      flex: 1;
+      margin-right: 1rem;
     }
     .close-btn {
       background: none;
@@ -118,6 +123,10 @@
       cursor: pointer;
       padding: 0;
       line-height: 1;
+      margin-left: auto; 
+      margin-right: 0;
+      margin-top: -0.2rem;
+      border-radius: 6px;
     }
     .modal-body label {
       display: block;
@@ -133,43 +142,6 @@
       font-size: 0.9rem;
       color: #666;
       margin-top: 0.5rem;
-    }
-    .modal-footer {
-      margin-top: 1.5rem;
-      display: flex;
-      gap: 10px;
-    }
-    .modal-footer button {
-      flex: 1;
-      margin: 0;
-    }
-    .modal-footer .cancel-btn {
-      background: #6c757d;
-      color: white;
-    }
-    .modal-footer .cancel-btn:hover {
-      background: #5a6268;
-    }
-    .shopify-note {
-      margin-top: 1rem;
-      width: 100%;
-      padding: 1rem 1.25rem;
-      border: 1.5px dashed #96bf48;
-      border-radius: 10px;
-      background: #f5f9ef;
-      color: #2d3748;
-      line-height: 1.5;
-      font-size: 0.95rem;
-      box-sizing: border-box;
-    }
-    .shopify-note strong {
-      display: block;
-      margin-bottom: 0.4rem;
-    }
-    .shopify-note a {
-      color: #2d6a4f;
-      font-weight: 600;
-      text-decoration: underline;
     }
   </style>
   <link rel="icon" type="image/x-icon" href="Assets/favicon.ico">
@@ -193,15 +165,27 @@
       </div>
       
       <div id="platform-oauth">
-        <button id="faire-btn" style="background: #3c3c3c; color: #fff; display: flex; align-items: center; gap: 10px;">
+        <button id="faire-btn" class="platform-button" style="background: #3c3c3c; color: #fff; display: flex; align-items: center; gap: 10px;">
           <i class="cil-factory"></i><span id="faire-text">Connect Faire</span>
         </button>
-        <button id="etsy-btn" style="margin-top: 12px; background: #f56400; color: #fff; display: flex; align-items: center; gap: 10px;">
+        <button id="etsy-btn" class="platform-button" style="margin-top: 12px; background: #f56400; color: #fff; display: flex; align-items: center; gap: 10px;">
           <i class="cib-etsy"></i><span id="etsy-text">Connect Etsy</span>
         </button>
-        <div class="shopify-note">
-          <strong>Install our Shopify app directly from the Shopify App Store.</strong>
-          Once the Shopify app is installed inside your Shopify admin, you will be redirected back here to finish syncing. If you still need the listing link, open the Shopify App Store from your Shopify admin or reach out to our support team.
+        <button id="shopify-btn" class="platform-button" style="margin-top: 12px; background: #96bf48; color: #fff; display: flex; align-items: center; gap: 10px;">
+          <i class="cib-shopify"></i><span id="shopify-text">Connect Shopify</span>
+        </button>
+      </div>
+      <!-- Shopify Info Modal -->
+      <div id="shopifyInfoModal" class="modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Install via Shopify App Store</h2>
+            <button class="close-btn" onclick="closeShopifyInfoModal()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p><strong>Install our Shopify app directly from the Shopify App Store.</strong></p>
+            <p>Open the Shopify App Store from inside your Shopify admin, install the app, and Shopify will send you back here automatically to finish syncing.</p>
+          </div>
         </div>
       </div>
   </div>
@@ -313,6 +297,7 @@ async function checkConnectionStatus() {
     // Update button states
     updateButtonState('faire', connectedPlatforms.has('faire'));
     updateButtonState('etsy', connectedPlatforms.has('etsy'));
+    updateButtonState('shopify', connectedPlatforms.has('shopify'));
 
   } catch (error) {
     console.error('Error checking connection status:', error);
@@ -333,6 +318,8 @@ function updateButtonState(platform, isConnected) {
       btn.style.background = '#2c2c2c';
     } else if (platform === 'etsy') {
       btn.style.background = '#d55400';
+    } else if (platform === 'shopify') {
+      btn.style.background = '#7fa838';
     }
   } else {
     text.textContent = `Connect ${platform.charAt(0).toUpperCase() + platform.slice(1)}`;
@@ -343,6 +330,8 @@ function updateButtonState(platform, isConnected) {
       btn.style.background = '#3c3c3c';
     } else if (platform === 'etsy') {
       btn.style.background = '#f56400';
+    } else if (platform === 'shopify') {
+      btn.style.background = '#96bf48';
     }
   }
 }
@@ -375,6 +364,59 @@ async function startOAuthIfNotConnected(provider) {
 
 document.getElementById('faire-btn').onclick = () => startOAuthIfNotConnected('faire');
 document.getElementById('etsy-btn').onclick = () => startOAuthIfNotConnected('etsy');
+const shopifyInfoModal = document.getElementById('shopifyInfoModal');
+document.getElementById('shopify-btn').onclick = async () => {
+  const shopParam = urlParams.get('shop');
+  if (shopParam && !urlParams.get('shopify_oauth_complete')) {
+    startShopifyOAuth(shopParam);
+    return;
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    window.location.href = 'Login.html?returnTo=' + encodeURIComponent(window.location.pathname);
+    return;
+  }
+
+  const { data: tokens } = await supabase
+    .from('oauth_tokens')
+    .select('access_token, expires_at')
+    .eq('UserID', user.id)
+    .eq('platform', 'shopify')
+    .single();
+
+  if (tokens && tokens.access_token && 
+      (!tokens.expires_at || tokens.expires_at > Date.now() / 1000)) {
+    alert('You are already connected to Shopify!');
+    return;
+  }
+
+  openShopifyInfoModal();
+};
+
+function openShopifyInfoModal() {
+  if (shopifyInfoModal) {
+    shopifyInfoModal.style.display = 'flex';
+  }
+}
+
+function closeShopifyInfoModal() {
+  if (shopifyInfoModal) {
+    shopifyInfoModal.style.display = 'none';
+  }
+}
+
+shopifyInfoModal?.addEventListener('click', (e) => {
+  if (e.target === shopifyInfoModal) {
+    closeShopifyInfoModal();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeShopifyInfoModal();
+  }
+});
 // Initialize and check for Shopify parameters immediately
 
 // Check for shopify_oauth_complete parameter (OAuth just finished)
